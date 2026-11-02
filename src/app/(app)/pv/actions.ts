@@ -6,6 +6,7 @@ import { getDb } from '@/db/client';
 import { type PayMethod } from '@/db/schema';
 import { requireUser } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
+import '@/server/services/wht-cert';
 import {
   approvePv,
   cancelPv,

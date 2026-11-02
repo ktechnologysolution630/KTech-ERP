@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
+import '@/server/services/wht-cert';
 import { renderDocPdfWithMeta, type PdfDocKind } from '@/server/services/pdf';
 
 export async function GET(
