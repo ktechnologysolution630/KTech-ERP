@@ -1,0 +1,71 @@
+import { getDb } from '@/db/client';
+import { requireUser } from '@/server/auth/current-user';
+import { listProjects, listVendors } from '@/server/services/master';
+import { getPo } from '@/server/services/po';
+import { listOrderablePrLines } from '@/server/services/pr';
+import { PoForm } from '@/components/po-form';
+
+export default async function EditPoPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const actor = await requireUser();
+  const db = await getDb();
+  const [po, projects, vendors, orderable] = await Promise.all([
+    getPo(db, actor, id),
+    listProjects(db, actor),
+    listVendors(db),
+    listOrderablePrLines(db, actor),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl font-bold text-slate-900">แก้ไขใบสั่งซื้อ {po.number}</h1>
+      <PoForm
+        projects={projects}
+        vendors={vendors}
+        orderablePrLines={orderable.map((l) => ({
+          id: l.id,
+          prNumber: l.prNumber,
+          projectId: l.projectId,
+          projectCode: l.projectCode,
+          description: l.description,
+          unitName: l.unitName,
+          remainingQty: l.remainingQty.toFixed(3),
+          estUnitPrice: l.estUnitPrice,
+        }))}
+        existing={{
+          id: po.id,
+          projectId: po.projectId,
+          vendorId: po.vendorId,
+          paymentType: po.paymentType,
+          creditDays: po.creditDays,
+          vatMode: po.vatMode,
+          billDiscount: po.billDiscount,
+          shipping: po.shipping,
+          deliveryDate: po.deliveryDate,
+          deliveryAddress: po.deliveryAddress,
+          note: po.note,
+          isApprovedRevision: po.status === 'APPROVED' || po.status === 'ORDERED',
+          lines: po.lines.map((l) => ({
+            id: l.id,
+            prLineId: l.prLineId,
+            description: l.description,
+            unitName: l.unitName,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            discount: l.discount,
+          })),
+          installments: po.installments.map((inst) => ({
+            name: inst.name,
+            percent: inst.percent ?? '0',
+            condition: inst.condition,
+            conditionNote: inst.conditionNote,
+          })),
+        }}
+      />
+    </div>
+  );
+}
