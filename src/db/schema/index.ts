@@ -4,3 +4,4 @@ export * from './activity';
 export * from './pr';
 export * from './po';
 export * from './receipt';
+export * from './finance';

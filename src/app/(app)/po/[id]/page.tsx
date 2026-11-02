@@ -24,6 +24,10 @@ import {
   rejectPoAction,
   submitPoAction,
 } from '../actions';
+import {
+  requestInstallmentAction,
+  requestPrepaidAction,
+} from '@/app/(app)/invoices/actions';
 
 export default async function PoDetailPage({
   params,
@@ -251,8 +255,25 @@ export default async function PoDetailPage({
                   <td className="px-3 py-2 text-right font-medium">
                     ฿{formatMoneyDisplay(inst.amount)}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 flex items-center gap-2">
                     <DocStatusBadge status={inst.status} />
+                    {inst.status === 'PENDING' &&
+                      (po.status === 'APPROVED' || po.status === 'ORDERED') &&
+                      can(actor, 'payable.request') && (
+                        <form
+                          action={async () => {
+                            'use server';
+                            await requestInstallmentAction(po.id, inst.id);
+                          }}
+                        >
+                          <button
+                            type="submit"
+                            className="rounded bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 text-[11px] font-medium"
+                          >
+                            ขอเบิกงวดนี้
+                          </button>
+                        </form>
+                      )}
                   </td>
                 </tr>
               ))}
@@ -279,6 +300,34 @@ export default async function PoDetailPage({
                 ส่งขออนุมัติ PO
               </button>
             </form>
+          )}
+
+        {po.paymentType === 'PREPAID' &&
+          (po.status === 'APPROVED' || po.status === 'ORDERED') &&
+          can(actor, 'payable.request') && (
+            <form
+              action={async () => {
+                'use server';
+                await requestPrepaidAction(id);
+              }}
+            >
+              <button
+                type="submit"
+                className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-medium"
+              >
+                ขอเบิกเงินล่วงหน้า (Prepaid)
+              </button>
+            </form>
+          )}
+
+        {(po.status === 'APPROVED' || po.status === 'ORDERED') &&
+          can(actor, 'invoice.manage') && (
+            <Link
+              href={`/invoices/new?poId=${po.id}`}
+              className="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 text-xs font-medium"
+            >
+              + บันทึกใบแจ้งหนี้ / ใบกำกับภาษี
+            </Link>
           )}
 
         {po.status === 'APPROVED' && can(actor, 'po.manage') && (
