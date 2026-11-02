@@ -7,9 +7,38 @@ import {
   userRoles,
   users,
   vendors,
+  receipts,
+  receiptLines,
   type Role,
   type SessionUser,
 } from '@/db/schema';
+import { type Decimal } from '@/domain/money';
+import { bangkokDateString } from '@/domain/thai';
+
+export async function receiveDirect(
+  db: Db,
+  poId: string,
+  poLineId: string,
+  receivedBy: string,
+  qty: Decimal,
+): Promise<string> {
+  const [rec] = await db
+    .insert(receipts)
+    .values({
+      poId,
+      poRevision: 0,
+      receivedAt: bangkokDateString(),
+      receivedBy,
+      status: 'CONFIRMED',
+    })
+    .returning();
+  await db.insert(receiptLines).values({
+    receiptId: rec.id,
+    poLineId,
+    qty: qty.toDecimalPlaces(3).toFixed(3),
+  });
+  return rec.id;
+}
 
 export type SeededBasics = {
   users: Record<
