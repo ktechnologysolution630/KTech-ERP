@@ -1,6 +1,13 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { type Db } from '@/db/client';
-import { notifications, projectMembers, userRoles, users, type Role } from '@/db/schema';
+import {
+  notifications,
+  projectMembers,
+  userRoles,
+  users,
+  type Role,
+  type SessionUser,
+} from '@/db/schema';
 
 const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'PM'];
 
@@ -50,4 +57,20 @@ export async function usersWithRole(
   });
 
   return Array.from(new Set(matched.map((r) => r.userId)));
+}
+
+export async function listNotifications(db: Db, actor: SessionUser) {
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, actor.id))
+    .orderBy(desc(notifications.createdAt))
+    .limit(30);
+}
+
+export async function markAllRead(db: Db, actor: SessionUser) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(eq(notifications.userId, actor.id), isNull(notifications.readAt)));
 }
