@@ -15,6 +15,13 @@
       "when": 1793599317644,
       "tag": "0001_mean_natasha_romanoff",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793599888881,
+      "tag": "0002_warm_shen",
+      "breakpoints": true
     }
   ]
 }
