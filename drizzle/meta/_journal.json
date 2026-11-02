@@ -8,6 +8,13 @@
       "when": 1793599013624,
       "tag": "0000_condemned_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793599317644,
+      "tag": "0001_mean_natasha_romanoff",
+      "breakpoints": true
     }
   ]
 }
