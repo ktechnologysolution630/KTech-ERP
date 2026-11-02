@@ -8,6 +8,7 @@ import { can } from '@/server/policy';
 import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
 import { getPo, type SerializedPoRevisionPayload } from '@/server/services/po';
+import { listPoReceipts } from '@/server/services/receipt';
 import { getSettings } from '@/server/services/settings';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
@@ -32,12 +33,13 @@ export default async function PoDetailPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [po, settings, activities, attachments, comments] = await Promise.all([
+  const [po, settings, activities, attachments, comments, receipts] = await Promise.all([
     getPo(db, actor, id),
     getSettings(db),
     listActivity(db, 'PO', id),
     listAttachments(db, 'PO', id),
     listComments(db, 'PO', id),
+    listPoReceipts(db, actor, id),
   ]);
 
   const limitDec = D(settings.poApprovalLimit);
@@ -200,6 +202,32 @@ export default async function PoDetailPage({
           </tbody>
         </table>
       </div>
+
+      {receipts.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">ประวัติการรับของ</h3>
+          <div className="divide-y divide-slate-100 text-xs">
+            {receipts.map((r) => (
+              <div key={r.id} className="py-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-900">{r.number}</span>
+                  <span className="text-slate-600">
+                    รับเมื่อ {r.receivedDate} · โดย {r.receiverName}
+                  </span>
+                </div>
+                <ul className="list-disc pl-5 text-slate-700">
+                  {r.lines.map((rl) => (
+                    <li key={rl.id}>
+                      {rl.description}: รับ {Number(rl.qtyReceived)} {rl.unitName}
+                      {rl.remark ? ` (${rl.remark})` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {po.installments.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
