@@ -4,6 +4,7 @@ import {
   invoicePayableMatches,
   invoices,
   payables,
+  poInstallments,
   poLines,
   pos,
   pvLines,
@@ -15,9 +16,11 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { D, round2, sum, type Decimal } from '@/domain/money';
+import { summarizePo, type PoSummary } from '@/domain/po-summary';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { lockPo, registerPoHasPayablesResolver } from './po';
+import { registerPoAutoCompleteHook, triggerPoAutoComplete } from './receipt';
 
 // Register PO has non-cancelled payables resolver for cancelPo check
 registerPoHasPayablesResolver(async (tx, poId) => {
@@ -176,6 +179,8 @@ export async function createInvoice(
       },
     });
 
+    await triggerPoAutoComplete(tx, po.id);
+
     return { id: created!.id, warnings };
   });
 }
@@ -269,6 +274,8 @@ export async function matchInvoice(
       action: 'INVOICE_MATCHED',
       data: { invoiceId: inv.id, invoiceNo: inv.invoiceNo },
     });
+
+    await triggerPoAutoComplete(tx, inv.poId);
   });
 }
 
@@ -444,6 +451,67 @@ export async function poMoneyFacts(db: Db, poId: string): Promise<PoMoneyFacts> 
     receivedGross,
   };
 }
+
+export async function getPoSummary(db: Db, poId: string): Promise<PoSummary> {
+  const [po] = await db.select().from(pos).where(eq(pos.id, poId)).limit(1);
+  if (!po) throw new DomainError('NOT_FOUND', 'ไม่พบใบสั่งซื้อ', 404);
+
+  const facts = await poMoneyFacts(db, poId);
+  const lines = await db.select().from(poLines).where(eq(poLines.poId, poId));
+  const recRows = await db
+    .select({
+      poLineId: receiptLines.poLineId,
+      qty: receiptLines.qty,
+    })
+    .from(receiptLines)
+    .innerJoin(
+      receipts,
+      and(
+        eq(receipts.id, receiptLines.receiptId),
+        eq(receipts.poId, poId),
+        eq(receipts.status, 'CONFIRMED'),
+      ),
+    );
+
+  const orderedQtyTotal = sum(lines.map((l) => D(l.qty)));
+  const receivedQtyTotal = sum(recRows.map((r) => D(r.qty)));
+
+  const insts = await db
+    .select()
+    .from(poInstallments)
+    .where(eq(poInstallments.poId, poId));
+
+  const refundDue = po.closedShort && facts.paidGross.gt(facts.poGross)
+    ? round2(facts.paidGross.minus(facts.poGross))
+    : D(0);
+
+  return summarizePo({
+    ...facts,
+    orderedQtyTotal,
+    receivedQtyTotal,
+    paymentType: po.paymentType,
+    installments: insts.map((i) => ({
+      name: i.name,
+      amount: D(i.amount),
+      status: i.status,
+    })),
+    refundDue,
+  });
+}
+
+// Register auto-complete hook: when PO is APPROVED or ORDERED and receiveStatus === FULL and payStatus === PAID, transition to COMPLETED
+registerPoAutoCompleteHook(async (tx, poId) => {
+  const [po] = await tx.select().from(pos).where(eq(pos.id, poId)).limit(1);
+  if (!po || (po.status !== 'APPROVED' && po.status !== 'ORDERED')) return;
+
+  const summary = await getPoSummary(tx, poId);
+  if (summary.receiveStatus === 'FULL' && summary.payStatus === 'PAID') {
+    await tx
+      .update(pos)
+      .set({ status: 'COMPLETED', updatedAt: new Date() })
+      .where(eq(pos.id, poId));
+  }
+});
 
 export async function listInvoices(
   db: Db,

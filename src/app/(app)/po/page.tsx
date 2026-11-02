@@ -6,6 +6,7 @@ import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listProjects, listVendors } from '@/server/services/master';
 import { listPos } from '@/server/services/po';
+import { getPoSummary } from '@/server/services/invoice';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/components/money-input';
 
@@ -27,6 +28,10 @@ export default async function PoListPage({
     listProjects(db, actor),
     listVendors(db),
   ]);
+  const summaries = await Promise.all(
+    pos.map(async (po) => [po.id, await getPoSummary(db, po.id)] as const),
+  );
+  const summaryMap = new Map(summaries);
 
   return (
     <div className="space-y-6">
@@ -149,6 +154,14 @@ export default async function PoListPage({
                     {Boolean(po.pendingRevision) && (
                       <DocStatusBadge status="PENDING_APPROVAL" customLabel="รออนุมัติแก้ไข" />
                     )}
+                    {(summaryMap.get(po.id)?.labels ?? []).map((lbl) => (
+                      <span
+                        key={lbl}
+                        className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700"
+                      >
+                        {lbl}
+                      </span>
+                    ))}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {formatThaiDate(po.createdAt)}

@@ -9,6 +9,7 @@ import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
 import { getPo, type SerializedPoRevisionPayload } from '@/server/services/po';
 import { getCloseShortRequestsForPo } from '@/server/services/close-short';
+import { getPoSummary } from '@/server/services/invoice';
 import { listPoReceipts } from '@/server/services/receipt';
 import { getSettings } from '@/server/services/settings';
 import { ActivityFeed } from '@/components/activity-feed';
@@ -17,6 +18,7 @@ import { AttachmentsBox } from '@/components/attachments';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/components/money-input';
+import { PoSummaryCard } from '@/components/po-summary-card';
 import {
   addPoCommentAction,
   approveCloseShortAction,
@@ -41,7 +43,7 @@ export default async function PoDetailPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [po, settings, activities, attachments, comments, receipts, closeShortReqs] =
+  const [po, settings, activities, attachments, comments, receipts, closeShortReqs, summary] =
     await Promise.all([
       getPo(db, actor, id),
       getSettings(db),
@@ -50,6 +52,7 @@ export default async function PoDetailPage({
       listComments(db, 'PO', id),
       listPoReceipts(db, actor, id),
       getCloseShortRequestsForPo(db, id),
+      getPoSummary(db, id),
     ]);
   const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
   const hasSomeReceipt = receipts.length > 0;
@@ -178,6 +181,8 @@ export default async function PoDetailPage({
           </ul>
         </div>
       )}
+
+      <PoSummaryCard summary={summary} />
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
         <table className="w-full text-sm">
