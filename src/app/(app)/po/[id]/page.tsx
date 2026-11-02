@@ -8,6 +8,7 @@ import { can } from '@/server/policy';
 import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
 import { getPo, type SerializedPoRevisionPayload } from '@/server/services/po';
+import { getCloseShortRequestsForPo } from '@/server/services/close-short';
 import { listPoReceipts } from '@/server/services/receipt';
 import { getSettings } from '@/server/services/settings';
 import { ActivityFeed } from '@/components/activity-feed';
@@ -18,10 +19,13 @@ import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/components/money-input';
 import {
   addPoCommentAction,
+  approveCloseShortAction,
   approvePoAction,
   cancelPoAction,
   markOrderedAction,
+  rejectCloseShortAction,
   rejectPoAction,
+  requestCloseShortAction,
   submitPoAction,
 } from '../actions';
 import {
@@ -37,14 +41,19 @@ export default async function PoDetailPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [po, settings, activities, attachments, comments, receipts] = await Promise.all([
-    getPo(db, actor, id),
-    getSettings(db),
-    listActivity(db, 'PO', id),
-    listAttachments(db, 'PO', id),
-    listComments(db, 'PO', id),
-    listPoReceipts(db, actor, id),
-  ]);
+  const [po, settings, activities, attachments, comments, receipts, closeShortReqs] =
+    await Promise.all([
+      getPo(db, actor, id),
+      getSettings(db),
+      listActivity(db, 'PO', id),
+      listAttachments(db, 'PO', id),
+      listComments(db, 'PO', id),
+      listPoReceipts(db, actor, id),
+      getCloseShortRequestsForPo(db, id),
+    ]);
+  const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
+  const hasSomeReceipt = receipts.length > 0;
+  const hasRemainingQty = po.lines.some((l) => l.remainingQty.gt(0));
 
   const limitDec = D(settings.poApprovalLimit);
   const pendingPayload = po.pendingRevision as SerializedPoRevisionPayload | null;
@@ -281,6 +290,84 @@ export default async function PoDetailPage({
           </table>
         </div>
       )}
+
+      {pendingCloseShort && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3 text-xs">
+          <div>
+            <strong className="text-amber-900">
+              มีคำขอปิดยอดค้างรับ (โดย {pendingCloseShort.requesterName}):
+            </strong>{' '}
+            {pendingCloseShort.request.reason}
+          </div>
+          {can(actor, 'closeShort.approve') && (
+            <div className="flex items-center gap-2">
+              <form
+                action={async () => {
+                  'use server';
+                  await approveCloseShortAction(po.id, pendingCloseShort.request.id);
+                }}
+              >
+                <button
+                  type="submit"
+                  className="rounded-lg bg-emerald-600 text-white px-3 py-1.5 font-medium"
+                >
+                  อนุมัติปิดยอดค้างรับ
+                </button>
+              </form>
+              <form
+                action={async () => {
+                  'use server';
+                  await rejectCloseShortAction(
+                    po.id,
+                    pendingCloseShort.request.id,
+                    'ไม่อนุมัติปิดยอด ให้ตามของต่อ',
+                  );
+                }}
+              >
+                <button
+                  type="submit"
+                  className="rounded-lg border border-red-200 bg-white text-red-700 px-3 py-1.5 font-medium"
+                >
+                  ไม่อนุมัติ
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+
+      {po.status === 'ORDERED' &&
+        !po.closedShort &&
+        !pendingCloseShort &&
+        hasSomeReceipt &&
+        hasRemainingQty &&
+        can(actor, 'po.manage') && (
+          <form
+            action={async (fd: FormData) => {
+              'use server';
+              await requestCloseShortAction(
+                po.id,
+                String(fd.get('closeShortReason') ?? ''),
+              );
+            }}
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+          >
+            <span className="font-medium text-slate-700">ขอปิดยอดค้างรับ:</span>
+            <input
+              type="text"
+              name="closeShortReason"
+              required
+              placeholder="ระบุเหตุผล เช่น ร้านค้าส่งของได้ไม่ครบและขอยกเลิกส่วนที่เหลือ"
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-slate-800 text-white px-3 py-1.5 font-medium"
+            >
+              ส่งคำขอปิดยอดค้างรับ
+            </button>
+          </form>
+        )}
 
       <div className="flex flex-wrap gap-2">
         {(po.status === 'DRAFT' ||

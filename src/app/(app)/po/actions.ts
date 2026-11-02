@@ -15,6 +15,11 @@ import {
   updatePo,
   type PoInput,
 } from '@/server/services/po';
+import {
+  approveCloseShort,
+  rejectCloseShort,
+  requestCloseShort,
+} from '@/server/services/close-short';
 
 export async function createPoAction(input: PoInput & { submitNow?: boolean }) {
   const actor = await requireUser();
@@ -87,4 +92,30 @@ export async function addPoCommentAction(id: string, body: string) {
   const db = await getDb();
   await addComment(db, actor, { entityType: 'PO', entityId: id, body });
   revalidatePath(`/po/${id}`);
+}
+
+export async function requestCloseShortAction(poId: string, reason: string) {
+  const actor = await requireUser();
+  const db = await getDb();
+  await requestCloseShort(db, actor, poId, reason);
+  revalidatePath(`/po/${poId}`);
+}
+
+export async function approveCloseShortAction(poId: string, requestId: string) {
+  const actor = await requireUser();
+  const db = await getDb();
+  await approveCloseShort(db, actor, requestId);
+  revalidatePath(`/po/${poId}`);
+  revalidatePath('/po');
+}
+
+export async function rejectCloseShortAction(
+  poId: string,
+  requestId: string,
+  reason: string,
+) {
+  const actor = await requireUser();
+  const db = await getDb();
+  await rejectCloseShort(db, actor, requestId, reason);
+  revalidatePath(`/po/${poId}`);
 }
