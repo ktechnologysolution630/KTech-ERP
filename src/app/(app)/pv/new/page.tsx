@@ -14,7 +14,7 @@ export default async function NewPvPage({
   const actor = await requireUser();
   const db = await getDb();
   const [vendors, openPayables] = await Promise.all([
-    listVendors(db, actor),
+    listVendors(db),
     listOpenPayables(db, actor, {}),
   ]);
 

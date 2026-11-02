@@ -50,7 +50,7 @@ export default async function PoDetailPage({
       listActivity(db, 'PO', id),
       listAttachments(db, 'PO', id),
       listComments(db, 'PO', id),
-      listPoReceipts(db, actor, id),
+      listPoReceipts(db, id),
       getCloseShortRequestsForPo(db, id),
       getPoSummary(db, id),
     ]);
@@ -228,16 +228,17 @@ export default async function PoDetailPage({
             {receipts.map((r) => (
               <div key={r.id} className="py-2 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-900">{r.number}</span>
+                  <span className="font-semibold text-slate-900">
+                    ใบส่งของ: {r.deliveryNoteNo || '-'}
+                  </span>
                   <span className="text-slate-600">
-                    รับเมื่อ {r.receivedDate} · โดย {r.receiverName}
+                    รับเมื่อ {r.receivedAt} · โดย {r.receiverName}
                   </span>
                 </div>
                 <ul className="list-disc pl-5 text-slate-700">
                   {r.lines.map((rl) => (
                     <li key={rl.id}>
-                      {rl.description}: รับ {Number(rl.qtyReceived)} {rl.unitName}
-                      {rl.remark ? ` (${rl.remark})` : ''}
+                      {rl.description}: รับ {Number(rl.qty)} {rl.unitName}
                     </li>
                   ))}
                 </ul>

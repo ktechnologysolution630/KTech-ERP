@@ -21,8 +21,8 @@ export async function nextDocNumber(
         updatedAt: new Date(),
       },
     })
-    .returning({ last: docCounters.last });
+    .returning();
 
-  const seq = String(rows[0].last).padStart(4, '0');
+  const seq = String(rows[0]!.last).padStart(4, '0');
   return `${prefix}-${period}-${seq}`;
 }

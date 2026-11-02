@@ -2,7 +2,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { getSettings } from '@/server/services/settings';
 import { MoneyInput } from '@/components/money-input';
-import { saveSettingsAction } from './master/actions';
+import { saveSettingsAction } from '@/app/(app)/master/actions';
 
 export default async function SettingsPage() {
   await requireUser();

@@ -158,7 +158,7 @@ registerWhtPdfRenderer(async (db, actor, id) => {
     getSettings(db),
   ]);
   const buf = await renderToBuffer(
-    React.createElement(Wht50PdfDoc, { cert, settings }),
+    Wht50PdfDoc({ cert, settings }) as unknown as React.ReactElement<never>,
   );
   return { buffer: Buffer.from(buf), filename: `${cert.number}.pdf` };
 });

@@ -43,7 +43,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'pr') {
     const pr = await getPr(db, actor, id);
     const buffer = await renderToBuffer(
-      React.createElement(PrPdfDoc, { pr, settings }),
+      PrPdfDoc({ pr, settings }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pr.number}.pdf` };
   }
@@ -51,7 +51,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'po') {
     const po = await getPo(db, actor, id);
     const buffer = await renderToBuffer(
-      React.createElement(PoPdfDoc, { po, settings }),
+      PoPdfDoc({ po, settings }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${po.number}.pdf` };
   }
@@ -59,7 +59,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'pv') {
     const pv = await getPv(db, actor, id);
     const buffer = await renderToBuffer(
-      React.createElement(PvPdfDoc, { pv, settings }),
+      PvPdfDoc({ pv, settings }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pv.number}.pdf` };
   }
