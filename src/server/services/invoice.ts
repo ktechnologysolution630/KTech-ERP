@@ -505,7 +505,11 @@ registerPoAutoCompleteHook(async (tx, poId) => {
   if (!po || (po.status !== 'APPROVED' && po.status !== 'ORDERED')) return;
 
   const summary = await getPoSummary(tx, poId);
-  if (summary.receiveStatus === 'FULL' && summary.payStatus === 'PAID') {
+  if (
+    summary.receiveStatus === 'FULL' &&
+    summary.payStatus === 'PAID' &&
+    summary.refundDue.lte(0)
+  ) {
     await tx
       .update(pos)
       .set({ status: 'COMPLETED', updatedAt: new Date() })

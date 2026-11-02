@@ -58,6 +58,9 @@ export async function exportMonthly(
       'อ้างอิงการโอน',
     ]);
 
+    const allPayables = await db.select().from(payables);
+    const payableMap = new Map(allPayables.map((p) => [p.id, p]));
+
     const paidPvs = await db
       .select()
       .from(pvs)
@@ -76,8 +79,6 @@ export async function exportMonthly(
         .select()
         .from(pvLines)
         .where(eq(pvLines.pvId, pv.id));
-      const allPayables = await db.select().from(payables);
-      const payableMap = new Map(allPayables.map((p) => [p.id, p]));
 
       const poNumbers = Array.from(
         new Set(

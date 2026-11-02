@@ -113,4 +113,45 @@ describe('close-short service', () => {
     const afterReject = await getPo(db, f.users.buyer, po.id);
     expect(afterReject.closedShort).toBe(false);
   });
+
+  test('close-short prorates line discount proportionally to received quantity', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      creditDays: 30,
+      vatMode: 'NONE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [
+        {
+          description: 'ท่อ PVC',
+          unitName: 'ท่อน',
+          qty: D(100),
+          unitPrice: D(100),
+          discount: D(1000),
+        },
+      ],
+    });
+    await submitPo(db, f.users.buyer, po.id);
+    await approvePo(db, f.users.buyerHead, po.id);
+    const poDoc = await getPo(db, f.users.buyer, po.id);
+
+    // Receive only 40 units
+    await createReceipt(db, f.users.foreman, {
+      poId: po.id,
+      receivedAt: '2026-11-02',
+      lines: [{ poLineId: poDoc.lines[0]!.id, qty: D(40) }],
+    });
+
+    const req = await requestCloseShort(db, f.users.buyer, po.id, 'ร้านส่งได้แค่ 40');
+    await approveCloseShort(db, f.users.owner, req.id);
+
+    const updated = await getPo(db, f.users.buyer, po.id);
+    expect(Number(updated.lines[0]!.discount)).toBe(400);
+    expect(updated.gross).toBe('3600.00');
+  });
 });

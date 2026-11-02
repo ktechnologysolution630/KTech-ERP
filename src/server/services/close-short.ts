@@ -10,7 +10,7 @@ import {
 } from '@/db/schema';
 import { rescaleInstallments } from '@/domain/close-short';
 import { DomainError } from '@/domain/errors';
-import { computeDocTotals, D } from '@/domain/money';
+import { computeDocTotals, D, round2 } from '@/domain/money';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
@@ -145,11 +145,20 @@ export async function approveCloseShort(
 
     const newLineInputs = lines.map((l) => {
       const recQty = recMap.get(l.id) ?? D(0);
+      const origQty = D(l.qty);
+      const unitPrice = D(l.unitPrice);
+      const lineSubtotal = round2(recQty.times(unitPrice));
+      const proratedDiscount =
+        origQty.gt(0) && recQty.gt(0)
+          ? round2(D(l.discount).times(recQty).div(origQty))
+          : D(0);
+      const discount = proratedDiscount.gt(lineSubtotal) ? lineSubtotal : proratedDiscount;
+
       return {
         line: l,
         qty: recQty,
-        unitPrice: D(l.unitPrice),
-        discount: recQty.gt(0) ? D(l.discount) : D(0),
+        unitPrice,
+        discount,
       };
     });
 
