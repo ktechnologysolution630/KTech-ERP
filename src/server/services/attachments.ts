@@ -8,11 +8,16 @@ import {
   attachments,
   comments,
   users,
+  type AttachmentKind,
   type EntityType,
   type SessionUser,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
+import { can } from '@/server/policy';
 import { logActivity } from './activity';
+import { assertEntityAccess } from './entity-access';
+
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -57,8 +62,12 @@ export async function storeFile(
 export async function addAttachment(
   db: Db,
   actor: SessionUser,
-  input: { entityType: EntityType; entityId: string; file: File },
+  input: { entityType: EntityType; entityId: string; file: File; kind?: AttachmentKind; folder?: string },
 ) {
+  await assertEntityAccess(db, actor, input.entityType, input.entityId);
+  if (input.kind === 'PHOTO' && !PHOTO_TYPES.includes(input.file.type)) {
+    throw new DomainError('INVALID_FILE', 'รูปภาพต้องเป็นไฟล์ JPG, PNG, WebP หรือ GIF');
+  }
   const stored = await storeFile(input.file, actor);
   const [inserted] = await db
     .insert(attachments)
@@ -69,6 +78,8 @@ export async function addAttachment(
       name: stored.name,
       size: stored.size,
       contentType: stored.contentType,
+      kind: input.kind ?? 'FILE',
+      folder: (input.folder ?? '').trim().slice(0, 100),
       uploadedBy: actor.id,
     })
     .returning();
@@ -88,6 +99,7 @@ export async function listAttachments(
   db: Db,
   entityType: EntityType,
   entityId: string,
+  kind?: AttachmentKind,
 ) {
   return db
     .select({
@@ -96,14 +108,34 @@ export async function listAttachments(
       name: attachments.name,
       size: attachments.size,
       contentType: attachments.contentType,
+      kind: attachments.kind,
+      folder: attachments.folder,
       uploadedBy: attachments.uploadedBy,
       uploaderName: users.name,
       createdAt: attachments.createdAt,
     })
     .from(attachments)
     .innerJoin(users, eq(users.id, attachments.uploadedBy))
-    .where(and(eq(attachments.entityType, entityType), eq(attachments.entityId, entityId)))
+    .where(
+      and(
+        eq(attachments.entityType, entityType),
+        eq(attachments.entityId, entityId),
+        kind ? eq(attachments.kind, kind) : undefined,
+      ),
+    )
     .orderBy(desc(attachments.createdAt));
+}
+
+/** Uploader, or anyone who manages the document's project, may remove an attachment. */
+export async function deleteAttachment(db: Db, actor: SessionUser, attachmentId: string) {
+  const [att] = await db.select().from(attachments).where(eq(attachments.id, attachmentId)).limit(1);
+  if (!att) throw new DomainError('NOT_FOUND', 'ไม่พบไฟล์', 404);
+  const projectId = await assertEntityAccess(db, actor, att.entityType, att.entityId);
+  if (att.uploadedBy !== actor.id && !can(actor, 'project.manage', { projectId })) {
+    throw new DomainError('FORBIDDEN', 'ลบได้เฉพาะผู้อัปโหลดหรือผู้ดูแลโครงการ', 403);
+  }
+  await db.delete(attachments).where(eq(attachments.id, attachmentId));
+  await logActivity(db, { entityType: att.entityType, entityId: att.entityId, action: 'attachment.delete', userId: actor.id, note: att.name });
 }
 
 export async function addComment(
@@ -111,10 +143,11 @@ export async function addComment(
   actor: SessionUser,
   input: { entityType: EntityType; entityId: string; body: string },
 ) {
-  const cleanBody = input.body.trim();
+  const cleanBody = input.body.trim().slice(0, 5000);
   if (!cleanBody) {
     throw new DomainError('INVALID_INPUT', 'กรุณาระบุข้อความความคิดเห็น');
   }
+  await assertEntityAccess(db, actor, input.entityType, input.entityId);
   const [inserted] = await db
     .insert(comments)
     .values({

@@ -3,6 +3,7 @@ import path from 'path';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getDb } from '@/db/client';
 import { type EntityType } from '@/db/schema';
+import { DomainError } from '@/domain/errors';
 import { getCurrentUser } from '@/server/auth/current-user';
 import { addAttachment } from '@/server/services/attachments';
 
@@ -50,14 +51,18 @@ export async function POST(req: NextRequest) {
     const file = form.get('file');
     const entityType = String(form.get('entityType') || '') as EntityType;
     const entityId = String(form.get('entityId') || '');
+    const kind = form.get('kind') === 'PHOTO' ? 'PHOTO' : 'FILE';
+    const folder = String(form.get('folder') || '');
     if (!(file instanceof File) || !entityType || !entityId) {
       return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
     }
     const db = await getDb();
-    const saved = await addAttachment(db, user, { entityType, entityId, file });
+    // addAttachment checks the entity exists and that this user may see it
+    const saved = await addAttachment(db, user, { entityType, entityId, file, kind, folder });
     return NextResponse.json({ attachment: saved });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ';
-    return NextResponse.json({ error: msg }, { status: 400 });
+    if (err instanceof DomainError) return NextResponse.json({ error: err.message }, { status: err.status });
+    console.error('upload failed', err);
+    return NextResponse.json({ error: 'อัปโหลดไม่สำเร็จ' }, { status: 500 });
   }
 }

@@ -7,6 +7,7 @@ import { listCustomerOptions, listUserContactOptions } from '@/server/services/l
 import { getProjectBoqSheet } from '@/server/services/boq';
 import { listProjectTasks } from '@/server/services/tasks';
 import { listProjectVos } from '@/server/services/variation-orders';
+import { countProjectSite } from '@/server/services/project-site';
 import { computeProjectProgress } from '@/domain/schedule';
 import { bangkokDateString } from '@/domain/thai';
 import { loadProjectOr404 } from './load-project';
@@ -26,7 +27,7 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
   const db = await getDb();
 
   // Run all queries in parallel for high-speed page loading
-  const [projectPrs, projectPos, projectPrvs, allVendors, allUsers, boqSheet, taskList, voList, customers] = await Promise.all([
+  const [projectPrs, projectPos, projectPrvs, allVendors, allUsers, boqSheet, taskList, voList, customers, siteCounts] = await Promise.all([
     listPrs(db, actor, { projectId: project.id }),
     listPos(db, actor, { projectId: project.id }),
     getPrvs(db, actor, { projectId: project.id }),
@@ -36,6 +37,7 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
     listProjectTasks(db, actor, project.id),
     listProjectVos(db, actor, project.id),
     listCustomerOptions(db),
+    countProjectSite(db, project.id),
   ]);
 
   return (
@@ -46,6 +48,9 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
       initialTab={initialTab}
       voData={voList}
       customers={customers}
+      me={actor.id}
+      teamCount={siteCounts.team}
+      photoCount={siteCounts.photos}
       initialPrs={projectPrs.map((pr) => ({
         id: pr.id,
         number: pr.number,

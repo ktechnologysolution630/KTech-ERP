@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, jsonb, index } from 'drizzle-orm/pg-core';
 import { users } from './core';
 
 export type EntityType =
@@ -16,7 +16,12 @@ export type EntityType =
   | 'ADVANCE'
   | 'RECEIPT_SUBSTITUTE'
   | 'STOCK_ADJUST'
-  | 'PRV';
+  | 'PRV'
+  | 'PROJECT'
+  | 'DAILY_REPORT';
+
+/** Project workspace files: documents (folders, versions by name) or photos (albums). */
+export type AttachmentKind = 'FILE' | 'PHOTO';
 
 export const activityLogs = pgTable('activity_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -51,11 +56,14 @@ export const attachments = pgTable('attachments', {
   name: text('name').notNull(),
   size: integer('size').notNull(),
   contentType: text('content_type').notNull(),
+  kind: text('kind').$type<AttachmentKind>().default('FILE').notNull(),
+  /** Document category or photo album; empty for document attachments */
+  folder: text('folder').default('').notNull(),
   uploadedBy: uuid('uploaded_by')
     .notNull()
     .references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [index('attachments_entity_idx').on(t.entityType, t.entityId)]);
 
 export const notifications = pgTable('notifications', {
   id: uuid('id').defaultRandom().primaryKey(),
