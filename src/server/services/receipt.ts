@@ -125,7 +125,8 @@ export async function createReceipt(
       tx,
       created.id,
       actor.id,
-      po.projectId || '',
+      // Office POs (no project) are received into the central store
+      po.projectId ?? null,
       po.number,
       validEntries.map((e) => {
         const line = lineMap.get(e.poLineId)!;

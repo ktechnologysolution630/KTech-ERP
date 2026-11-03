@@ -5,6 +5,7 @@ import { createReceipt } from '@/server/services/receipt';
 import { createInvoice, matchInvoice, getPoSummary } from '@/server/services/invoice';
 import { requestPrepaid } from '@/server/services/payable';
 import { createPv, submitPv, approvePv, markPvPaid } from '@/server/services/pv';
+import { getStockPageData } from '@/server/services/stock';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 
@@ -63,6 +64,10 @@ describe('e2e flow: prepaid PO', () => {
 
     const summaryAfterReceive = await getPoSummary(db, po.id);
     expect(summaryAfterReceive.paidNotReceived).toBe(false);
+    // Office POs have no project, so the goods land in the central store
+    const stock = await getStockPageData(db, f.users.owner);
+    const received = stock.items.find((i) => i.name === poDoc.lines[0]!.description);
+    expect(received?.balances).toEqual([expect.objectContaining({ projectId: null, quantity: 2 })]);
     expect(summaryAfterReceive.missingTaxInvoice).toBe(true);
 
     const inv = await createInvoice(db, f.users.finance, {

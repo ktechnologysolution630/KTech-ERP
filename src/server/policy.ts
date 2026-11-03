@@ -32,7 +32,10 @@ export type Action =
   | 'ar.manage'
   | 'advance.request'
   | 'advance.approve'
-  | 'advance.pay';
+  | 'advance.pay'
+  | 'stock.items'
+  | 'stock.move'
+  | 'stock.approveAdjust';
 
 export interface PolicyContext {
   projectId?: string | null;
@@ -99,6 +102,18 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'advance.request': {
       // Any active staff member may ask for a cash advance
       return true;
+    }
+    case 'stock.items': {
+      return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'OWNER', 'ADMIN']);
+    }
+    case 'stock.move': {
+      // Purchasing and management handle every location (incl. the central store, projectId null);
+      // site staff record receipts/issues/transfers only for projects they belong to
+      if (hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'])) return true;
+      return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
+    }
+    case 'stock.approveAdjust': {
+      return hasRole(u, ['PURCHASING_HEAD', 'OWNER', 'ADMIN']);
     }
     case 'advance.approve': {
       return hasRole(u, ['OWNER', 'ADMIN']);

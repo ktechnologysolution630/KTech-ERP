@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 import {
-  createOrUpdateStockItem,
+  decideStockAdjust,
+  getStockPageData,
   recordStockMovement,
-  getStockOverview,
-  getAllStockItems,
-  createStockAdjustRequest,
-  approveStockAdjustRequest,
+  requestStockAdjust,
+  summarizeStock,
+  upsertStockItem,
 } from '@/server/services/stock';
 import { createPrv, getPrvs, getPrvById, updatePrvStatus } from '@/server/services/prv';
 
@@ -20,8 +20,14 @@ describe('Stock & PRV Services', () => {
     f = await seedBasics(db);
   });
 
+  const qtyAt = async (itemId: string, projectId: string | null) => {
+    const data = await getStockPageData(db, f.users.owner);
+    const item = data.items.find((i) => i.id === itemId)!;
+    return item.balances.find((b) => b.projectId === projectId)?.quantity ?? 0;
+  };
+
   it('Stock: creates stock item, records receive and issue, updates balance & overview', async () => {
-    const item = await createOrUpdateStockItem(db, {
+    const item = await upsertStockItem(db, f.users.buyer, {
       sku: 'MAT-TEST-01',
       name: 'เหล็กเส้นกลม RB9',
       category: 'งานโครงสร้าง',
@@ -29,81 +35,93 @@ describe('Stock & PRV Services', () => {
       unitCost: 150,
       reorderPoint: 20,
     });
-
     expect(item.sku).toBe('MAT-TEST-01');
 
-    // Receive 50
-    await recordStockMovement(db, {
-      stockItemId: item.id,
-      projectId: f.projectA,
-      type: 'RECEIVE',
-      quantity: 50,
-      unitCost: 150,
-      performedBy: f.users.foreman.id,
-      notes: 'รับของเข้าคลังโครงการ A',
-    });
+    await recordStockMovement(db, f.users.foreman, { stockItemId: item.id, projectId: f.projectA, type: 'RECEIVE', quantity: 50, unitCost: 150 });
+    let summary = summarizeStock((await getStockPageData(db, f.users.owner)).items);
+    expect(summary.totalValue).toBe(7500);
 
-    // Overview check
-    let overview = await getStockOverview(db);
-    expect(overview.totalItems).toBeGreaterThanOrEqual(1);
-    expect(overview.totalValue).toBe(7500);
+    await recordStockMovement(db, f.users.foreman, { stockItemId: item.id, projectId: f.projectA, type: 'ISSUE', quantity: 15, locationUsed: 'ฐานราก F1' });
+    const data = await getStockPageData(db, f.users.owner);
+    const found = data.items.find((i) => i.id === item.id);
+    expect(found).toMatchObject({ totalQty: 35, totalValue: 35 * 150 });
+    // Issues are valued at standard cost and show up in the monthly flow
+    const thisMonth = data.monthly.at(-1)!;
+    expect(thisMonth).toMatchObject({ receiveValue: 7500, issueValue: 2250, receiveCount: 1, issueCount: 1 });
+    summary = summarizeStock(data.items);
+    expect(summary.lowStock).toHaveLength(0);
+  });
 
-    // Issue 15
-    await recordStockMovement(db, {
-      stockItemId: item.id,
-      projectId: f.projectA,
-      type: 'ISSUE',
-      quantity: 15,
-      performedBy: f.users.foreman.id,
-      locationUsed: 'ฐานราก F1',
-    });
+  it('Stock: refuses over-issue, requires a transfer target, and transfers between locations', async () => {
+    const item = await upsertStockItem(db, f.users.buyer, { name: 'ทราย', unit: 'คิว', unitCost: 400 });
+    expect(item.sku).toMatch(/^MAT-/);
+    await recordStockMovement(db, f.users.buyer, { stockItemId: item.id, projectId: null, type: 'RECEIVE', quantity: 10 });
 
-    const all = await getAllStockItems(db);
-    const found = all.find((i) => i.id === item.id);
-    expect(found?.totalQty).toBe(35);
-    expect(found?.totalValue).toBe(35 * 150);
+    await expect(
+      recordStockMovement(db, f.users.buyer, { stockItemId: item.id, projectId: null, type: 'ISSUE', quantity: 11 }),
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK' });
+    await expect(
+      recordStockMovement(db, f.users.buyer, { stockItemId: item.id, projectId: null, type: 'TRANSFER', quantity: 1 }),
+    ).rejects.toMatchObject({ code: 'INVALID_STOCK' });
+    await expect(
+      recordStockMovement(db, f.users.buyer, { stockItemId: item.id, projectId: null, type: 'TRANSFER', quantity: 1, targetProjectId: null }),
+    ).rejects.toMatchObject({ code: 'INVALID_STOCK' });
+
+    await recordStockMovement(db, f.users.buyer, { stockItemId: item.id, projectId: null, type: 'TRANSFER', quantity: 4, targetProjectId: f.projectA });
+    expect(await qtyAt(item.id, null)).toBe(6);
+    expect(await qtyAt(item.id, f.projectA)).toBe(4);
+    // Nothing changed after a refused movement
+    await expect(
+      recordStockMovement(db, f.users.foreman, { stockItemId: item.id, projectId: f.projectA, type: 'TRANSFER', quantity: 5, targetProjectId: null }),
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK' });
+    expect(await qtyAt(item.id, f.projectA)).toBe(4);
+  });
+
+  it('Stock: permissions by role and project', async () => {
+    const item = await upsertStockItem(db, f.users.buyer, { name: 'ตะปู', unit: 'กล่อง' });
+    await expect(upsertStockItem(db, f.users.foreman, { name: 'x' })).rejects.toMatchObject({ status: 403 });
+    // Site staff: own project only, not the central store or another project
+    await expect(
+      recordStockMovement(db, f.users.foreman, { stockItemId: item.id, projectId: f.projectB, type: 'RECEIVE', quantity: 1 }),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      recordStockMovement(db, f.users.foreman, { stockItemId: item.id, projectId: null, type: 'RECEIVE', quantity: 1 }),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      recordStockMovement(db, f.users.finance, { stockItemId: item.id, projectId: f.projectA, type: 'RECEIVE', quantity: 1 }),
+    ).rejects.toMatchObject({ status: 403 });
+    // Site staff only see the central store and their own projects
+    const seen = await getStockPageData(db, f.users.otherForeman);
+    expect(seen.locations.map((l) => l.projectId)).toEqual([null, f.projectB]);
+    expect(seen.permissions).toMatchObject({ manageItems: false, approveAdjust: false, moveCentral: false, movableProjectIds: [f.projectB] });
   });
 
   it('Stock: adjustment request workflow with approval', async () => {
-    const item = await createOrUpdateStockItem(db, {
-      sku: 'MAT-TEST-02',
-      name: 'ปูนซีเมนต์ปอร์ตแลนด์',
-      category: 'งานปูน',
-      unit: 'ถุง',
-      unitCost: 140,
-      reorderPoint: 10,
-    });
+    const item = await upsertStockItem(db, f.users.buyer, { sku: 'MAT-TEST-02', name: 'ปูนซีเมนต์ปอร์ตแลนด์', unit: 'ถุง', unitCost: 140 });
+    await recordStockMovement(db, f.users.foreman, { stockItemId: item.id, projectId: f.projectA, type: 'RECEIVE', quantity: 20 });
 
-    // Initial stock 20
-    await recordStockMovement(db, {
+    // The system quantity is read on the server (20), so the difference is -2
+    const req = await requestStockAdjust(db, f.users.foreman, {
       stockItemId: item.id,
       projectId: f.projectA,
-      type: 'RECEIVE',
-      quantity: 20,
-      performedBy: f.users.foreman.id,
-    });
-
-    // Request adjust from 20 -> 18 (ชำรุด 2 ถุง)
-    const req = await createStockAdjustRequest(db, {
-      stockItemId: item.id,
-      projectId: f.projectA,
-      currentQty: 20,
-      adjustedQty: 18,
+      countedQty: 18,
       reason: 'ถุงแตกชำรุดระหว่างฝนตก',
-      requestedBy: f.users.foreman.id,
     });
+    expect(req).toMatchObject({ status: 'PENDING', currentQty: '20.000', differenceQty: '-2.000' });
+    await expect(
+      requestStockAdjust(db, f.users.foreman, { stockItemId: item.id, projectId: f.projectA, countedQty: 20, reason: 'x' }),
+    ).rejects.toMatchObject({ code: 'INVALID_STOCK' });
 
-    expect(req.status).toBe('PENDING');
-    expect(Number(req.differenceQty)).toBe(-2);
+    await expect(decideStockAdjust(db, f.users.foreman, req.id, true)).rejects.toMatchObject({ status: 403 });
+    expect(await decideStockAdjust(db, f.users.owner, req.id, true)).toBe('APPROVED');
+    await expect(decideStockAdjust(db, f.users.owner, req.id, true)).rejects.toMatchObject({ status: 409 });
+    expect(await qtyAt(item.id, f.projectA)).toBe(18);
 
-    // Owner approves
-    const result = await approveStockAdjustRequest(db, req.id, f.users.owner.id, true);
-    expect(result.status).toBe('APPROVED');
-
-    // Check new balance
-    const all = await getAllStockItems(db);
-    const found = all.find((i) => i.id === item.id);
-    expect(found?.totalQty).toBe(18);
+    // Approvers cannot approve their own request
+    const own = await requestStockAdjust(db, f.users.buyerHead, { stockItemId: item.id, projectId: f.projectA, countedQty: 17, reason: 'นับใหม่' });
+    await expect(decideStockAdjust(db, f.users.buyerHead, own.id, true)).rejects.toMatchObject({ code: 'SELF_APPROVAL' });
+    expect(await decideStockAdjust(db, f.users.owner, own.id, false)).toBe('REJECTED');
+    expect(await qtyAt(item.id, f.projectA)).toBe(18);
   });
 
   it('PRV: creates Payment Request Voucher, calculates retention & wht, and processes approval', async () => {

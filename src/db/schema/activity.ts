@@ -14,7 +14,8 @@ export type EntityType =
   | 'VO'
   | 'AR_INVOICE'
   | 'ADVANCE'
-  | 'RECEIPT_SUBSTITUTE';
+  | 'RECEIPT_SUBSTITUTE'
+  | 'STOCK_ADJUST';
 
 export const activityLogs = pgTable('activity_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
