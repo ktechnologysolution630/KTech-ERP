@@ -9,9 +9,35 @@ export type { SessionUser };
 
 export const SESSION_COOKIE_NAME = 'ktec_session';
 
+export const MIN_AUTH_SECRET_LENGTH = 32;
+const PLACEHOLDER_SECRET = 'replace-with-at-least-32-character-secret-key';
+// Only for local development and tests; production refuses to run without a real secret
+const DEV_ONLY_SECRET = 'dev-secret-change-in-production-ktec-erp-2026';
+
+/** AUTH_SECRET is missing, too short or still the .env.example placeholder in production. */
+export class AuthConfigError extends Error {
+  constructor() {
+    super(
+      `AUTH_SECRET must be set to a random value of at least ${MIN_AUTH_SECRET_LENGTH} characters ` +
+        '(e.g. `openssl rand -base64 48`); sessions cannot be signed or verified without it.',
+    );
+    this.name = 'AuthConfigError';
+  }
+}
+
+/**
+ * Resolves the session signing secret. A known fallback secret would let anyone forge a session
+ * cookie for any user, so outside development/test a proper AUTH_SECRET is mandatory.
+ */
+export function resolveAuthSecret(env: { AUTH_SECRET?: string; NODE_ENV?: string } = process.env): string {
+  const secret = env.AUTH_SECRET?.trim() ?? '';
+  if (secret.length >= MIN_AUTH_SECRET_LENGTH && secret !== PLACEHOLDER_SECRET) return secret;
+  if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') return DEV_ONLY_SECRET;
+  throw new AuthConfigError();
+}
+
 function getSecretKey(): Uint8Array {
-  const secret = process.env.AUTH_SECRET || 'dev-secret-change-in-production-ktec-erp-2026';
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(resolveAuthSecret());
 }
 
 export async function loadSessionUserById(db: Db, userId: string): Promise<SessionUser | null> {
@@ -62,10 +88,12 @@ export async function signSessionToken(userId: string): Promise<string> {
 }
 
 export async function verifySessionToken(token: string): Promise<string | null> {
+  const key = getSecretKey();
   try {
-    const { payload } = await jwtVerify(token, getSecretKey());
+    const { payload } = await jwtVerify(token, key);
     return typeof payload.sub === 'string' ? payload.sub : null;
   } catch {
+    // Invalid, expired or tampered token: treat as signed out
     return null;
   }
 }
