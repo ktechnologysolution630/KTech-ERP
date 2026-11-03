@@ -1129,13 +1129,24 @@ export async function listPos(
     q?: string;
   } = {},
 ) {
+  if (isSiteScopedOnly(actor) && actor.projectIds.length === 0) return [];
+  const conditions = [
+    // Site staff only see their own projects' POs (office POs have no project)
+    isSiteScopedOnly(actor) ? inArray(pos.projectId, actor.projectIds) : undefined,
+    filters.projectId ? eq(pos.projectId, filters.projectId) : undefined,
+    filters.vendorId ? eq(pos.vendorId, filters.vendorId) : undefined,
+    filters.status ? eq(pos.status, filters.status) : undefined,
+  ];
   const rows = await db
     .select({
       id: pos.id,
       number: pos.number,
       projectId: pos.projectId,
+      projectCode: projects.code,
+      projectName: projects.name,
       vendorId: pos.vendorId,
       vendorName: vendors.name,
+      creatorName: users.name,
       status: pos.status,
       paymentType: pos.paymentType,
       gross: pos.gross,
@@ -1145,36 +1156,17 @@ export async function listPos(
     })
     .from(pos)
     .innerJoin(vendors, eq(vendors.id, pos.vendorId))
+    .innerJoin(users, eq(users.id, pos.createdBy))
+    .leftJoin(projects, eq(projects.id, pos.projectId))
+    .where(and(...conditions))
     .orderBy(desc(pos.createdAt));
 
-  const allProjects = await db.select().from(projects);
-  const projMap = new Map(allProjects.map((p) => [p.id, p]));
-
+  const q = filters.q?.toLowerCase();
   return rows
-    .filter((r) => {
-      if (isSiteScopedOnly(actor)) {
-        if (!r.projectId || !actor.projectIds.includes(r.projectId)) return false;
-      }
-      if (filters.projectId && r.projectId !== filters.projectId) return false;
-      if (filters.vendorId && r.vendorId !== filters.vendorId) return false;
-      if (filters.status && r.status !== filters.status) return false;
-      if (filters.q) {
-        const q = filters.q.toLowerCase();
-        if (
-          !r.number.toLowerCase().includes(q) &&
-          !r.vendorName.toLowerCase().includes(q)
-        ) {
-          return false;
-        }
-      }
-      return true;
-    })
-    .map((r) => {
-      const p = r.projectId ? projMap.get(r.projectId) : null;
-      return {
-        ...r,
-        projectCode: p?.code ?? 'OFFICE',
-        projectName: p?.name ?? 'สำนักงาน / ส่วนกลาง',
-      };
-    });
+    .filter((r) => !q || r.number.toLowerCase().includes(q) || r.vendorName.toLowerCase().includes(q))
+    .map((r) => ({
+      ...r,
+      projectCode: r.projectCode ?? 'OFFICE',
+      projectName: r.projectName ?? 'สำนักงาน / ส่วนกลาง',
+    }));
 }

@@ -2,21 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Plus, ShoppingCart, ArrowUpDown } from 'lucide-react';
-
-interface PurchasingDoc {
-  id: string;
-  docNumber: string;
-  type: 'PR' | 'PO';
-  customer: string;
-  project: string;
-  vendor: string;
-  date: Date;
-  amount: number;
-  status: string;
-  owner: string;
-  link: string;
-}
+import { Plus, ShoppingCart } from 'lucide-react';
+import { PurchasingDocTable, type PurchasingDocRow } from '@/components/purchasing-doc-table';
 
 interface PurchasingClientProps {
   stats: {
@@ -25,7 +12,7 @@ interface PurchasingClientProps {
     pendingReceiveCount: number;
     poTotalThisMonth: number;
   };
-  documents: PurchasingDoc[];
+  documents: PurchasingDocRow[];
 }
 
 export function PurchasingClient({ stats, documents }: PurchasingClientProps) {
@@ -144,116 +131,7 @@ export function PurchasingClient({ stats, documents }: PurchasingClientProps) {
           </div>
         </div>
 
-        {/* Navy Table Header (Image 1) */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[950px] text-xs">
-            <thead className="bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0">
-              <tr>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>เลขที่เอกสาร</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>ประเภท</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>ลูกค้า</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>โครงการ</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>ซัพพลายเออร์</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>วันที่</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-right font-medium">
-                  <div className="flex items-center justify-end gap-1 cursor-pointer">
-                    <span>มูลค่า</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-center font-medium">
-                  <div className="flex items-center justify-center gap-1 cursor-pointer">
-                    <span>สถานะ</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-                <th className="px-3.5 py-2.5 text-left font-medium">
-                  <div className="flex items-center gap-1 cursor-pointer">
-                    <span>ผู้รับผิดชอบ</span>
-                    <ArrowUpDown className="w-3 h-3 text-white/70" />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredDocs.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
-                    ยังไม่มีเอกสารจัดซื้อในระบบ
-                  </td>
-                </tr>
-              ) : (
-                filteredDocs.map((doc) => (
-                  <tr key={`${doc.type}-${doc.id}`} className="hover:bg-slate-50 transition">
-                    <td className="px-3.5 py-2.5 font-mono font-semibold text-[#2453d4]">
-                      <Link href={doc.link} className="hover:underline">
-                        {doc.docNumber}
-                      </Link>
-                    </td>
-                    <td className="px-3.5 py-2.5">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                          doc.type === 'PR' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {doc.type}
-                      </span>
-                    </td>
-                    <td className="px-3.5 py-2.5 text-slate-500">{doc.customer}</td>
-                    <td className="px-3.5 py-2.5 font-medium text-slate-800">{doc.project}</td>
-                    <td className="px-3.5 py-2.5 text-slate-600">{doc.vendor}</td>
-                    <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap">
-                      {new Date(doc.date).toLocaleDateString('th-TH', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-right font-bold text-slate-900">
-                      ฿{doc.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="px-3.5 py-2.5 text-slate-500">{doc.owner}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <PurchasingDocTable docs={filteredDocs} emptyText="ยังไม่มีเอกสารจัดซื้อในระบบ" />
       </div>
     </div>
   );

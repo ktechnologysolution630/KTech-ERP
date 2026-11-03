@@ -2,6 +2,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listPrs } from '@/server/services/pr';
 import { listPos } from '@/server/services/po';
+import type { PurchasingDocRow } from '@/components/purchasing-doc-table';
 import { PurchasingClient } from './purchasing-client';
 
 export default async function PurchasingPage() {
@@ -26,17 +27,15 @@ export default async function PurchasingPage() {
     })
     .reduce((sum, p) => sum + Number(p.gross || 0), 0);
 
-  // Unified documents
-  const unifiedDocs = [
+  const unifiedDocs: PurchasingDocRow[] = [
     ...prList.map((p) => ({
       id: p.id,
       docNumber: p.number,
       type: 'PR' as const,
-      customer: '-',
       project: p.projectName || '-',
       vendor: '-',
       date: p.createdAt,
-      amount: 0,
+      amount: null,
       status: p.status,
       owner: p.requesterName || '-',
       link: `/pr/${p.id}`,
@@ -45,16 +44,15 @@ export default async function PurchasingPage() {
       id: p.id,
       docNumber: p.number,
       type: 'PO' as const,
-      customer: '-',
       project: p.projectName || '-',
       vendor: p.vendorName || '-',
       date: p.createdAt,
       amount: Number(p.gross || 0),
       status: p.status,
-      owner: 'ผู้จัดซื้อ',
+      owner: p.creatorName,
       link: `/po/${p.id}`,
     })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  ];
 
   return (
     <PurchasingClient
