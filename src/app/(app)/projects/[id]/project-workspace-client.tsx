@@ -270,7 +270,9 @@ export function ProjectWorkspaceClient({
       </div>
 
       {/* 2. Horizontal Sub-Navigation Tabs Ribbon (14 Tabs) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-1.5 shadow-xs overflow-x-auto scrollbar-thin">
+      <div className="relative rounded-xl border border-[#1e2a4a] bg-gradient-to-r from-[#0b1430] via-[#13224a] to-[#0b1430] p-1.5 shadow-lg shadow-slate-900/20 overflow-x-auto scrollbar-thin">
+        {/* Thin champagne highlight along the top edge */}
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#d4b26a]/70 to-transparent" />
         <div className="flex items-center gap-1 min-w-max text-xs">
           {tabs.map((t) => {
             const isActive = activeTab === t.key;
@@ -279,10 +281,11 @@ export function ProjectWorkspaceClient({
                 key={t.key}
                 type="button"
                 onClick={() => setActiveTab(t.key)}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition select-none ${
                   isActive
-                    ? 'bg-blue-50 text-[#2453d4] font-semibold border border-blue-200 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-gradient-to-b from-[#f3dfa8] to-[#c9a253] text-[#1a1408] font-semibold shadow-md shadow-black/30 ring-1 ring-[#f6e7bd]/60'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {t.icon}
