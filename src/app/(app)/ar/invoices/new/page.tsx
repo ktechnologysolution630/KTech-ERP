@@ -3,8 +3,8 @@ import { listProjects } from '@/server/services/master';
 import { requireArUser } from '../../ar-guard';
 import { ArInvoiceForm } from './ar-invoice-form';
 
-export default async function NewArInvoicePage() {
-  const { actor, db } = await requireArUser();
+export default async function NewArInvoicePage({ searchParams }: { searchParams: Promise<{ projectId?: string }> }) {
+  const [{ actor, db }, sp] = await Promise.all([requireArUser(), searchParams]);
   const [customers, projects] = await Promise.all([listCustomers(db, actor), listProjects(db, actor)]);
   return (
     <div className="space-y-4">
@@ -12,6 +12,7 @@ export default async function NewArInvoicePage() {
       <ArInvoiceForm
         customers={customers.filter((c) => c.active).map((c) => ({ id: c.id, label: `${c.code} - ${c.name}` }))}
         projects={projects.map((p) => ({ id: p.id, label: `${p.code} - ${p.name}`, customerId: p.customerId }))}
+        initialProjectId={sp.projectId}
       />
     </div>
   );

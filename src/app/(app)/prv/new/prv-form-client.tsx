@@ -23,14 +23,16 @@ const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2
 export function PrvFormClient({
   projects,
   vendors,
+  initialProjectId,
 }: {
   projects: Array<{ id: string; name: string }>;
   vendors: Array<{ id: string; name: string }>;
+  initialProjectId?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState(projects[0]?.id || '');
+  const [projectId, setProjectId] = useState(initialProjectId ?? projects[0]?.id ?? '');
   const [vendorId, setVendorId] = useState('');
   const [category, setCategory] = useState<(typeof PRV_NEW_CATEGORIES)[number]>('CONTRACTOR_PROGRESS');
   const [installmentNo, setInstallmentNo] = useState(1);

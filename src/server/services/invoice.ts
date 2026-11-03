@@ -135,6 +135,7 @@ export async function createInvoice(
         .values({
           sourceType: 'CREDIT_INVOICE',
           poId: po.id,
+          projectId: po.projectId,
           vendorId: po.vendorId,
           invoiceId: created!.id,
           beforeVat: beforeVat.toFixed(2),

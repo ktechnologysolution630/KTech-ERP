@@ -8,9 +8,10 @@ import {
   boolean,
   date,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './core';
-import { vendors } from './master';
+import { projects, vendors } from './master';
 import { pos, poInstallments } from './po';
 
 export type InvoiceStatus = 'ACTIVE' | 'CANCELLED';
@@ -66,6 +67,8 @@ export const payables = pgTable('payables', {
   id: uuid('id').defaultRandom().primaryKey(),
   sourceType: text('source_type').$type<PayableSourceType>().notNull(),
   poId: uuid('po_id').references(() => pos.id),
+  // Project the cost belongs to (from the PO or the PRV); null for office purchases
+  projectId: uuid('project_id').references(() => projects.id),
   vendorId: uuid('vendor_id')
     .notNull()
     .references(() => vendors.id),
@@ -82,7 +85,7 @@ export const payables = pgTable('payables', {
   note: text('note').default('').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [index('payables_project_idx').on(t.projectId)]);
 
 export const invoicePayableMatches = pgTable('invoice_payable_matches', {
   id: uuid('id').defaultRandom().primaryKey(),

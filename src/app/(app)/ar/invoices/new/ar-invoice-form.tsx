@@ -18,15 +18,22 @@ const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:ou
 export function ArInvoiceForm({
   customers,
   projects,
+  initialProjectId,
 }: {
   customers: Option[];
   projects: (Option & { customerId: string | null })[];
+  initialProjectId?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '');
-  const [projectId, setProjectId] = useState('');
+  const initialProject = projects.find((p) => p.id === initialProjectId);
+  const [customerId, setCustomerId] = useState(
+    initialProject?.customerId && customers.some((c) => c.id === initialProject.customerId)
+      ? initialProject.customerId
+      : (customers[0]?.id ?? ''),
+  );
+  const [projectId, setProjectId] = useState(initialProject?.id ?? '');
   const [docDate, setDocDate] = useState(bangkokDateString());
   const [dueDate, setDueDate] = useState('');
   const [vatMode, setVatMode] = useState<VatMode>('EXCLUSIVE');

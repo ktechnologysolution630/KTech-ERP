@@ -45,6 +45,7 @@ import { FilesPanel } from '@/components/project-site/files-panel';
 import { TeamPanel } from '@/components/project-site/team-panel';
 import { ProjectCoverPicker } from '@/components/project-cover-picker';
 import type { ProjectTaskList } from '@/server/services/tasks';
+import { formatThaiDate } from '@/domain/thai';
 import { ProjectCashflowView } from '@/components/project-cashflow-view';
 import { ProjectCostPerformanceView } from '@/components/project-cost-performance-view';
 import { ProjectVoView } from '@/components/project-vo-view';
@@ -165,8 +166,8 @@ export function ProjectWorkspaceClient({
     location: project.location || '-',
     projectManager: project.pmName ?? '-',
     budget: project.budget.toLocaleString('th-TH'),
-    startDate: project.startDate ?? '-',
-    endDate: project.endDate ?? '-',
+    startDate: project.startDate ? formatThaiDate(project.startDate) : '-',
+    endDate: project.endDate ? formatThaiDate(project.endDate) : '-',
     status: PROJECT_STATUS_LABELS[project.status],
   };
 
@@ -242,7 +243,9 @@ export function ProjectWorkspaceClient({
               <span className="flex items-center gap-1.5 opacity-90">
                 <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
                 <span>
-                  {projectInfo.startDate} - {projectInfo.endDate}
+                  {project.startDate || project.endDate
+                    ? `${projectInfo.startDate} - ${projectInfo.endDate}`
+                    : 'ยังไม่กำหนดระยะเวลา'}
                 </span>
               </span>
             </div>
@@ -714,11 +717,7 @@ export function ProjectWorkspaceClient({
         {/* Tab 2: รายรับรายจ่ายโครงการ (Cash Flow - Matching reference Layout Exactly) */}
         {activeTab === 'cashflow' && (
           <div className="animate-glass-card">
-            <ProjectCashflowView
-              projectId={project.id}
-              projectCode={project.code}
-              projectName={project.name}
-            />
+            <ProjectCashflowView projectId={project.id} />
           </div>
         )}
 
@@ -751,12 +750,10 @@ export function ProjectWorkspaceClient({
           <div className="animate-glass-card">
             <ProjectCostPerformanceView
               projectId={project.id}
-              projectCode={project.code}
               projectName={project.name}
               location={projectInfo.location}
-              budget={projectInfo.budget}
-              startDate="15/09/2569"
-              endDate="18/11/2570"
+              startDate={projectInfo.startDate}
+              endDate={projectInfo.endDate}
               projectManager={projectInfo.projectManager}
             />
           </div>

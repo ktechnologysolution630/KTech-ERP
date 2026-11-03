@@ -167,6 +167,7 @@ export async function transitionPrv(db: Db, actor: SessionUser, id: string, acti
       };
       await tx.insert(payables).values({
         sourceType: prv.category === 'CONTRACTOR_PROGRESS' ? 'CONTRACTOR_CLAIM' : 'EXPENSE',
+        projectId: prv.projectId,
         vendorId: prv.vendorId,
         beforeVat: totals.beforeVat.toFixed(2),
         vat: totals.vat.toFixed(2),

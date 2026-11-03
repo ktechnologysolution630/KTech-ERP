@@ -11,11 +11,7 @@ export default async function ProjectCashflowPage({ params }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <ProjectCashflowView
-        projectId={project.id}
-        projectCode={project.code}
-        projectName={project.name}
-      />
+      <ProjectCashflowView projectId={project.id} />
     </div>
   );
 }

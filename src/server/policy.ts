@@ -19,6 +19,7 @@ export type Action =
   | 'settings.manage'
   | 'export.view'
   | 'project.view'
+  | 'project.finance'
   | 'boq.manage'
   | 'project.manage'
   | 'task.manage'
@@ -75,6 +76,11 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       if (hasRole(u, GLOBAL_PROJECT_VIEW_ROLES)) return true;
       if (ctx.projectId === null || ctx.projectId === undefined) return false;
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
+    }
+    case 'project.finance': {
+      // Income, payments and cost performance: management, office money roles and the project's PM
+      if (hasRole(u, ['FINANCE', 'PURCHASING', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'])) return true;
+      return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
     }
     case 'pr.create': {
       if (hasRole(u, ['OWNER', 'ADMIN'])) return true;

@@ -86,6 +86,7 @@ export async function requestPrepaid(
       .values({
         sourceType: 'PREPAID_REQUEST',
         poId: po.id,
+        projectId: po.projectId,
         vendorId: po.vendorId,
         beforeVat: beforeVat.toFixed(2),
         vat: vat.toFixed(2),
@@ -164,6 +165,7 @@ export async function requestInstallment(
       .values({
         sourceType: 'INSTALLMENT',
         poId: po.id,
+        projectId: po.projectId,
         vendorId: po.vendorId,
         installmentId: inst.id,
         beforeVat: beforeVat.toFixed(2),

@@ -5,6 +5,7 @@ import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { deleteAttachment } from '@/server/services/attachments';
+import { getProjectCashflow, getProjectCostPerformance } from '@/server/services/project-finance';
 import {
   addProjectMember,
   createProjectEvent,
@@ -39,6 +40,15 @@ async function run<T>(fn: () => Promise<T>, revalidate?: string): Promise<SiteRe
 
 async function ctx() {
   return { actor: await requireUser(), db: await getDb() };
+}
+
+export async function loadCashflowAction(projectId: string) {
+  const { actor, db } = await ctx();
+  return run(() => getProjectCashflow(db, actor, projectId));
+}
+export async function loadCostPerformanceAction(projectId: string) {
+  const { actor, db } = await ctx();
+  return run(() => getProjectCostPerformance(db, actor, projectId));
 }
 
 export async function loadTeamAction(projectId: string) {
