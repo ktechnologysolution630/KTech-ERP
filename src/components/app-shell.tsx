@@ -14,7 +14,6 @@ import {
   Receipt,
   ShieldCheck,
   Users,
-  CreditCard,
   Settings as SettingsIcon,
   ChevronDown,
   ChevronRight,
@@ -719,24 +718,6 @@ export function AppShell({ user, unreadCount = 0, companyName, children }: AppSh
                 {!collapsed && <span className="text-[10px] text-slate-400">Users</span>}
               </Link>
 
-              {user.roles.some((r) => r === 'ADMIN' || r === 'OWNER') && (
-                <Link
-                  href="/billing"
-                  prefetch={false}
-                  className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                    pathname.startsWith('/billing')
-                      ? 'bg-blue-50 text-blue-700 font-semibold'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                  title="การใช้งานระบบ"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <CreditCard className="w-4 h-4 text-slate-500 shrink-0" />
-                    {!collapsed && <span>การใช้งานระบบ</span>}
-                  </div>
-                  {!collapsed && <span className="text-[10px] text-slate-400">Usage</span>}
-                </Link>
-              )}
 
               <Link
                 href="/settings"
