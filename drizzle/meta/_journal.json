@@ -134,6 +134,13 @@
       "when": 1793715053624,
       "tag": "0018_handover_warranty",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793716907205,
+      "tag": "0019_announcements",
+      "breakpoints": true
     }
   ]
 }

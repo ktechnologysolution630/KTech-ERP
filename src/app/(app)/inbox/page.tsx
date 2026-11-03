@@ -8,22 +8,37 @@ import {
 } from '@/server/services/notifications';
 import { formatMoneyDisplay } from '@/domain/money';
 import { NotificationBell } from '@/components/notification-bell';
+import { canManageNews, listNews } from '@/server/services/news';
+import { getPortalProjects } from '@/server/services/portal';
+import { NewsSection } from './news-section';
+import { PortalProjects } from './portal-projects';
 
 export default async function InboxPage() {
   const actor = await requireUser();
   const db = await getDb();
-  const [groups, notifications] = await Promise.all([
+  const [groups, notifications, news, portal] = await Promise.all([
     getInbox(db, actor),
     listNotifications(db, actor),
+    listNews(db),
+    getPortalProjects(db, actor),
   ]);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">พอร์ทัลของฉัน</h1>
+        <p className="text-xs text-slate-600">ข่าวสารของบริษัท โครงการของคุณ และงานที่รอคุณดำเนินการ</p>
+      </div>
+
+      <NewsSection items={news} canManage={canManageNews(actor)} />
+
+      <PortalProjects projects={portal.projects} scope={portal.scope} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">
+          <h2 className="text-base font-bold text-slate-900">
             กล่องงานของฉัน (Action Inbox)
-          </h1>
+          </h2>
           <p className="text-xs text-slate-600">
             รายการงานที่รอการอนุมัติ สั่งซื้อ รับของ หรือทำจ่ายตามบทบาทของคุณ
           </p>
