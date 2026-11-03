@@ -10,6 +10,7 @@ import {
   stockBalances,
   stockMovements,
   prvs,
+  vendors,
 } from './schema';
 import { hashPassword } from '@/server/auth/password';
 import { getSettings } from '@/server/services/settings';
@@ -125,21 +126,28 @@ export async function runSeed(db: Db): Promise<void> {
       });
     }
 
-    // Seed sample PRV
+    // Seed sample PRV for a contractor that exists as a vendor, so it can be paid through a PV
+    const contractorName = 'หจก. ช่างวิเชียร งานก่อสร้าง (ผู้รับเหมาฐานราก)';
+    const [contractor] = await db
+      .insert(vendors)
+      .values({ code: 'CONT-0001', name: contractorName, type: 'INDIVIDUAL', defaultCreditDays: 0, defaultWhtRate: 3 })
+      .onConflictDoUpdate({ target: vendors.code, set: { name: contractorName } })
+      .returning();
     await db.insert(prvs).values({
       prvNumber: 'PRV-2611-0001',
       date: new Date().toISOString().slice(0, 10),
       projectId: sampleProjectId,
-      payeeName: 'หจก. ช่างวิเชียร งานก่อสร้าง (ผู้รับเหมาฐานราก)',
+      vendorId: contractor.id,
+      payeeName: contractorName,
       category: 'CONTRACTOR_PROGRESS',
       installmentNo: 1,
       totalAmount: '100000.00',
       retentionPercent: '5.00',
       retentionAmount: '5000.00',
       whtRate: '3.00',
-      whtAmount: '3000.00',
+      whtAmount: '2850.00',
       vatAmount: '0.00',
-      netAmount: '92000.00',
+      netAmount: '92150.00',
       status: 'PM_VERIFIED',
       requestedBy: userId,
       verifiedBy: userId,

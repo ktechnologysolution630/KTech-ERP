@@ -1,28 +1,20 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { getDb } from '@/db/client';
+import { bahtText, D } from '@/domain/money';
+import { PRV_CATEGORY_LABELS } from '@/domain/prv';
 import { requireUser } from '@/server/auth/current-user';
 import { getPrvById } from '@/server/services/prv';
-import { updatePrvStatusAction } from '../actions';
-import { ArrowLeft, Printer, CheckCircle2, XCircle, ArrowRight, Building2, User, Calendar, Receipt } from 'lucide-react';
-import { bahtText, D } from '@/domain/money';
+import { getSettings } from '@/server/services/settings';
+import { PrvActions } from './prv-actions';
 
-export default async function PrvDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const user = await requireUser();
-
+export default async function PrvDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const actor = await requireUser();
   const { id } = await params;
   const db = await getDb();
-  const prv = await getPrvById(db, id);
-
+  const [prv, settings] = await Promise.all([getPrvById(db, actor, id), getSettings(db)]);
   if (!prv) notFound();
-
-  const isOwner = user.roles.includes('OWNER') || user.roles.includes('ADMIN');
-  const isPM = user.roles.includes('PM') || isOwner;
-  const isFinance = user.roles.includes('FINANCE') || isOwner;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -36,78 +28,7 @@ export default async function PrvDetailPage({
           กลับไปหน้ารายการ PRV
         </Link>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={undefined}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-xs transition"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            พิมพ์ Payment Certificate (A4)
-          </button>
-
-          {/* Workflow Actions */}
-          {prv.status === 'DRAFT' && (
-            <form action={updatePrvStatusAction}>
-              <input type="hidden" name="id" value={prv.id} />
-              <input type="hidden" name="status" value="SUBMITTED" />
-              <button
-                type="submit"
-                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition"
-              >
-                ส่งขอเบิกเงิน (Submit)
-              </button>
-            </form>
-          )}
-
-          {prv.status === 'SUBMITTED' && isPM && (
-            <form action={updatePrvStatusAction}>
-              <input type="hidden" name="id" value={prv.id} />
-              <input type="hidden" name="status" value="PM_VERIFIED" />
-              <button
-                type="submit"
-                className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition"
-              >
-                PM รับรองผลงาน ➔ ส่งเจ้าของอนุมัติ
-              </button>
-            </form>
-          )}
-
-          {prv.status === 'PM_VERIFIED' && isOwner && (
-            <div className="flex items-center gap-2">
-              <form action={updatePrvStatusAction}>
-                <input type="hidden" name="id" value={prv.id} />
-                <input type="hidden" name="status" value="APPROVED" />
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  เจ้าของอนุมัติจ่าย (Approve)
-                </button>
-              </form>
-              <form action={updatePrvStatusAction}>
-                <input type="hidden" name="id" value={prv.id} />
-                <input type="hidden" name="status" value="REJECTED" />
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 font-semibold text-xs transition"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  ไม่อนุมัติ
-                </button>
-              </form>
-            </div>
-          )}
-
-          {prv.status === 'APPROVED' && isFinance && (
-            <Link
-              href={`/pv/new?prvId=${prv.id}&amount=${prv.netAmount}&payee=${encodeURIComponent(prv.payeeName)}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-sm transition"
-            >
-              ออกใบสำคัญจ่าย (Create PV) ➔
-            </Link>
-          )}
-        </div>
+        <PrvActions id={prv.id} vendorId={prv.vendorId} allowed={prv.allowed} />
       </div>
 
       {/* Main Payment Certificate Sheet (Printable A4) */}
@@ -117,9 +38,9 @@ export default async function PrvDetailPage({
           <div className="inline-block px-3 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold tracking-wider text-[11px] mb-1">
             PAYMENT CERTIFICATE / ใบรับรองการขอเบิกเงิน
           </div>
-          <h1 className="text-xl font-bold text-slate-900">บริษัท เค เทคโนโลยี โซลูชั่น จำกัด (สำนักงานใหญ่)</h1>
+          <h1 className="text-xl font-bold text-slate-900">{settings.companyName}</h1>
           <p className="text-slate-500 text-[11px]">
-            38/194 ซอยสุขาภิบาล 5 ซอย 20 แยก 3 แขวงท่าแร้ง เขตบางเขน กรุงเทพมหานคร 10220 · เลขประจำตัวผู้เสียภาษี 0105551054984
+            {settings.companyAddress} · เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}
           </p>
         </div>
 
@@ -137,11 +58,7 @@ export default async function PrvDetailPage({
             <div>
               <span className="text-slate-500">ประเภทการเบิก:</span>{' '}
               <span className="font-semibold text-slate-700">
-                {prv.category === 'CONTRACTOR_PROGRESS'
-                  ? 'งวดงานผู้รับเหมา'
-                  : prv.category === 'PO_ADVANCE'
-                  ? 'เงินมัดจำล่วงหน้า'
-                  : prv.category}
+                {PRV_CATEGORY_LABELS[prv.category] ?? prv.category}
               </span>
               {prv.installmentNo ? ` (งวดที่ ${prv.installmentNo})` : ''}
             </div>

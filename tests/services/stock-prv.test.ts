@@ -9,7 +9,9 @@ import {
   summarizeStock,
   upsertStockItem,
 } from '@/server/services/stock';
-import { createPrv, getPrvs, getPrvById, updatePrvStatus } from '@/server/services/prv';
+import { eq } from 'drizzle-orm';
+import { payables } from '@/db/schema';
+import { createPrv, getPrvs, getPrvById, transitionPrv, type CreatePrvInput } from '@/server/services/prv';
 
 describe('Stock & PRV Services', () => {
   let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -124,46 +126,59 @@ describe('Stock & PRV Services', () => {
     expect(await qtyAt(item.id, f.projectA)).toBe(18);
   });
 
-  it('PRV: creates Payment Request Voucher, calculates retention & wht, and processes approval', async () => {
-    const prv = await createPrv(
-      db,
-      {
-        projectId: f.projectA,
-        payeeName: 'หจก. ช่างวิเชียร งานก่อสร้าง',
-        category: 'CONTRACTOR_PROGRESS',
-        installmentNo: 1,
-        retentionPercent: 5,
-        whtRate: 3,
-        vatRate: 7,
-        notes: 'เบิกงวดที่ 1 ฐานราก',
-        items: [
-          { description: 'งานเทเสาเข็ม', quantity: 1, unit: 'งาน', unitPrice: 100000, progressPercent: 100 },
-        ],
-      },
-      f.users.foreman.id,
-    );
+  const claim = (overrides: Partial<CreatePrvInput> = {}): CreatePrvInput => ({
+    projectId: f.projectA,
+    vendorId: f.vendorPerson,
+    category: 'CONTRACTOR_PROGRESS',
+    installmentNo: 1,
+    retentionPercent: 5,
+    whtRate: 3,
+    vatRate: 7,
+    notes: 'เบิกงวดที่ 1 ฐานราก',
+    items: [{ description: 'งานเทเสาเข็ม', quantity: 1, unit: 'งาน', unitPrice: 200000, progressPercent: 50 }],
+    ...overrides,
+  });
 
+  it('PRV: computes the certificate, enforces the approval chain and raises a payable', async () => {
+    const prv = await createPrv(db, f.users.foreman, claim());
     expect(prv.prvNumber).toContain('PRV-');
-    expect(Number(prv.totalAmount)).toBe(100000);
-    expect(Number(prv.retentionAmount)).toBe(5000); // 5%
-    expect(Number(prv.whtAmount)).toBe(3000); // 3%
-    expect(Number(prv.vatAmount)).toBe(7000); // 7%
-    // Net: 100000 - 5000 - 3000 + 7000 = 99000
-    expect(Number(prv.netAmount)).toBe(99000);
-    expect(prv.status).toBe('DRAFT');
+    // 200,000 × 50% = 100,000 claimed; retention 5% = 5,000; WHT 3% of the 95,000 paid now;
+    // VAT 7% of the full 100,000
+    expect(prv).toMatchObject({
+      totalAmount: '100000.00',
+      retentionAmount: '5000.00',
+      whtAmount: '2850.00',
+      vatAmount: '7000.00',
+      netAmount: '99150.00',
+      status: 'DRAFT',
+    });
 
-    // PM verifies
-    const verified = await updatePrvStatus(db, prv.id, 'PM_VERIFIED', f.users.pm.id);
-    expect(verified.status).toBe('PM_VERIFIED');
-    expect(verified.verifiedBy).toBe(f.users.pm.id);
+    // Steps must follow the chain and come from the right people
+    await expect(transitionPrv(db, f.users.owner, prv.id, 'approve')).rejects.toMatchObject({ status: 409 });
+    await transitionPrv(db, f.users.foreman, prv.id, 'submit');
+    await expect(transitionPrv(db, f.users.foreman, prv.id, 'verify')).rejects.toMatchObject({ code: 'SELF_APPROVAL' });
+    await expect(transitionPrv(db, f.users.buyer, prv.id, 'verify')).rejects.toMatchObject({ status: 403 });
+    await expect(transitionPrv(db, f.users.pm, prv.id, 'reject')).rejects.toMatchObject({ code: 'REASON_REQUIRED' });
+    await transitionPrv(db, f.users.pm, prv.id, 'verify');
+    await expect(transitionPrv(db, f.users.pm, prv.id, 'approve')).rejects.toMatchObject({ status: 403 });
+    expect(await transitionPrv(db, f.users.owner, prv.id, 'approve')).toBe('APPROVED');
 
-    // Owner approves
-    const approved = await updatePrvStatus(db, prv.id, 'APPROVED', f.users.owner.id);
-    expect(approved.status).toBe('APPROVED');
-    expect(approved.approvedBy).toBe(f.users.owner.id);
+    const fetched = await getPrvById(db, f.users.owner, prv.id);
+    expect(fetched).toMatchObject({ verifiedBy: f.users.pm.id, approvedBy: f.users.owner.id, payeeName: expect.any(String) });
+    expect(fetched?.items).toHaveLength(1);
 
-    const fetched = await getPrvById(db, prv.id);
-    expect(fetched?.items.length).toBe(1);
-    expect(fetched?.project?.name).toBe('โครงการก่อสร้างคลังสินค้า A');
+    // Approval leaves an open payable for finance: paid now before VAT + VAT
+    const [payable] = await db.select().from(payables).where(eq(payables.vendorId, f.vendorPerson));
+    expect(payable).toMatchObject({ sourceType: 'CONTRACTOR_CLAIM', beforeVat: '95000.00', vat: '7000.00', gross: '102000.00', status: 'OPEN' });
+    expect(payable.note).toContain(prv.prvNumber);
+  });
+
+  it('PRV: validates input, project access and visibility', async () => {
+    await expect(createPrv(db, f.users.foreman, claim({ vendorId: '' }))).rejects.toMatchObject({ code: 'INVALID_PRV' });
+    await expect(createPrv(db, f.users.foreman, claim({ items: [] }))).rejects.toMatchObject({ code: 'INVALID_PRV' });
+    await expect(createPrv(db, f.users.foreman, claim({ projectId: f.projectB }))).rejects.toMatchObject({ status: 403 });
+    await createPrv(db, f.users.foreman, claim());
+    expect(await getPrvs(db, f.users.otherForeman)).toHaveLength(0);
+    expect(await getPrvs(db, f.users.finance)).toHaveLength(1);
   });
 });

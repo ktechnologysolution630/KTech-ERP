@@ -26,10 +26,10 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
   const db = await getDb();
 
   // Run all queries in parallel for high-speed page loading
-  const [allPrs, allPos, allPrvs, allVendors, allUsers, boqSheet, taskList, voList, customers] = await Promise.all([
-    listPrs(db, actor, {}),
-    listPos(db, actor, {}),
-    getPrvs(db),
+  const [projectPrs, projectPos, projectPrvs, allVendors, allUsers, boqSheet, taskList, voList, customers] = await Promise.all([
+    listPrs(db, actor, { projectId: project.id }),
+    listPos(db, actor, { projectId: project.id }),
+    getPrvs(db, actor, { projectId: project.id }),
     listVendors(db),
     listUserContactOptions(db),
     getProjectBoqSheet(db, actor, project.id),
@@ -37,11 +37,6 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
     listProjectVos(db, actor, project.id),
     listCustomerOptions(db),
   ]);
-
-  // Filter linked records for this project
-  const projectPrs = allPrs.filter((pr) => pr.projectId === project.id);
-  const projectPos = allPos.filter((po) => po.projectId === project.id);
-  const projectPrvs = allPrvs.filter((prv) => prv.projectId === project.id);
 
   return (
     <ProjectWorkspaceClient
@@ -71,7 +66,7 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
         id: prv.id,
         prvNumber: prv.prvNumber,
         title: `ใบสั่งจ่าย ${prv.prvNumber}`,
-        vendorName: prv.vendorName || '-',
+        vendorName: prv.payeeName || '-',
         category: prv.category,
         totalAmount: Number(prv.totalAmount || 0),
         status: prv.status,

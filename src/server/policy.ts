@@ -33,6 +33,9 @@ export type Action =
   | 'advance.request'
   | 'advance.approve'
   | 'advance.pay'
+  | 'prv.create'
+  | 'prv.verify'
+  | 'prv.approve'
   | 'stock.items'
   | 'stock.move'
   | 'stock.approveAdjust';
@@ -102,6 +105,18 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'advance.request': {
       // Any active staff member may ask for a cash advance
       return true;
+    }
+    case 'prv.create': {
+      // Site staff raise claims for their projects; purchasing/finance/management for any
+      if (hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'FINANCE', 'OWNER', 'ADMIN'])) return true;
+      return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
+    }
+    case 'prv.verify': {
+      if (hasRole(u, ['OWNER'])) return true;
+      return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
+    }
+    case 'prv.approve': {
+      return hasRole(u, ['OWNER']);
     }
     case 'stock.items': {
       return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'OWNER', 'ADMIN']);

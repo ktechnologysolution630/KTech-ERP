@@ -4,12 +4,12 @@ import { requireUser } from '@/server/auth/current-user';
 import { getPrvs } from '@/server/services/prv';
 import { Receipt, Plus, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { GsapReveal } from '@/components/gsap-animator';
+import { PRV_CATEGORY_LABELS } from '@/domain/prv';
 
 export default async function PrvListPage() {
-  const user = await requireUser();
-
+  const actor = await requireUser();
   const db = await getDb();
-  const prvsList = await getPrvs(db);
+  const prvsList = await getPrvs(db, actor);
 
   const pendingApprovalCount = prvsList.filter(
     (p) => p.status === 'SUBMITTED' || p.status === 'PM_VERIFIED',
@@ -17,13 +17,7 @@ export default async function PrvListPage() {
   const approvedCount = prvsList.filter((p) => p.status === 'APPROVED' || p.status === 'PV_CREATED').length;
   const totalAmount = prvsList.reduce((sum, p) => sum + Number(p.netAmount), 0);
 
-  const categoryLabels: Record<string, string> = {
-    CONTRACTOR_PROGRESS: 'งวดงานผู้รับเหมา',
-    PO_ADVANCE: 'มัดจำล่วงหน้า PO',
-    PO_CREDIT: 'ค่าของเครดิต PO',
-    EXPENSE: 'ค่าใช้จ่ายทั่วไป',
-    PETTY_CASH: 'เบิกเงินสดย่อย',
-  };
+  const categoryLabels = PRV_CATEGORY_LABELS;
 
   const statusLabels: Record<string, { label: string; color: string }> = {
     DRAFT: { label: 'ร่างเอกสาร', color: 'bg-slate-100 text-slate-700' },
