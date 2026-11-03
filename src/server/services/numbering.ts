@@ -21,7 +21,9 @@ export type DocPrefix =
   | 'ADV'
   | 'RS'
   | 'MAT'
-  | 'DR';
+  | 'DR'
+  | 'WAR'
+  | 'DF';
 
 export async function nextDocNumber(
   tx: Db,
