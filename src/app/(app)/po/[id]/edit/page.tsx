@@ -3,6 +3,7 @@ import { requireUser } from '@/server/auth/current-user';
 import { listProjects, listVendors } from '@/server/services/master';
 import { getPo } from '@/server/services/po';
 import { listOrderablePrLines } from '@/server/services/pr';
+import { listBoqMaterialOptions } from '@/server/services/boq-overrun';
 import { PoForm } from '@/components/po-form';
 
 export default async function EditPoPage({
@@ -13,11 +14,12 @@ export default async function EditPoPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [po, projects, vendors, orderable] = await Promise.all([
+  const [po, projects, vendors, orderable, boqMaterials] = await Promise.all([
     getPo(db, actor, id),
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),
+    listBoqMaterialOptions(db, actor),
   ]);
 
   return (
@@ -26,6 +28,7 @@ export default async function EditPoPage({
       <PoForm
         projects={projects}
         vendors={vendors}
+        boqMaterials={boqMaterials}
         orderablePrLines={orderable.map((l) => ({
           id: l.id,
           prNumber: l.prNumber,
@@ -52,6 +55,7 @@ export default async function EditPoPage({
           lines: po.lines.map((l) => ({
             id: l.id,
             prLineId: l.prLineId,
+            boqLineId: l.boqLineId,
             description: l.description,
             unitName: l.unitName,
             qty: l.qty,

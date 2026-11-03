@@ -42,4 +42,5 @@ next-env.d.ts
 # local storage and test dbs
 .uploads/
 .pglite/
+.pglite-*/
 .superpowers/

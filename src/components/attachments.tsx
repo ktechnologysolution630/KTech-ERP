@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { type EntityType } from '@/db/schema';
+import type { EntityType } from '@/db/schema';
 import { resizeImage } from '@/lib/image-resize';
 
 export function AttachmentsBox({

@@ -19,6 +19,8 @@ import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/components/money-input';
 import { PoSummaryCard } from '@/components/po-summary-card';
+import { BoqOverrunPanel } from '@/components/boq-overrun-panel';
+import { getPoBoqCheck } from '@/server/services/boq-overrun';
 import {
   addPoCommentAction,
   approveCloseShortAction,
@@ -54,6 +56,7 @@ export default async function PoDetailPage({
       getCloseShortRequestsForPo(db, id),
       getPoSummary(db, id),
     ]);
+  const boqCheck = po.projectId ? await getPoBoqCheck(db, actor, id) : null;
   const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
   const hasSomeReceipt = receipts.length > 0;
   const hasRemainingQty = po.lines.some((l) => l.remainingQty.gt(0));
@@ -143,6 +146,8 @@ export default async function PoDetailPage({
           <strong>เหตุผลที่ตีกลับ:</strong> {po.rejectReason}
         </div>
       )}
+
+      {boqCheck && <BoqOverrunPanel poId={po.id} check={boqCheck} />}
 
       {isWaitingApproval && (
         <ApprovalBar

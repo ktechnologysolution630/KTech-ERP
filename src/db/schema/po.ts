@@ -13,6 +13,7 @@ import {
 import { users } from './core';
 import { items, projects, vendors } from './master';
 import { prLines } from './pr';
+import { boqLines } from './boq';
 import { type VatMode } from '@/domain/money';
 
 export type PoStatus =
@@ -81,6 +82,8 @@ export const poLines = pgTable('po_lines', {
     .references(() => pos.id, { onDelete: 'cascade' }),
   prLineId: uuid('pr_line_id').references(() => prLines.id),
   itemId: uuid('item_id').references(() => items.id),
+  // BOQ material line this purchase draws on; used for the over-BOQ (AP) check
+  boqLineId: uuid('boq_line_id').references(() => boqLines.id),
   description: text('description').notNull(),
   unitName: text('unit_name').notNull(),
   qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),

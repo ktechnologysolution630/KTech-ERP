@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "cover_image_url" text DEFAULT '' NOT NULL;

@@ -8,7 +8,13 @@ export type EntityType =
   | 'INVOICE'
   | 'PAYABLE'
   | 'PV'
-  | 'CLOSE_SHORT';
+  | 'CLOSE_SHORT'
+  | 'BOQ'
+  | 'MILESTONE'
+  | 'VO'
+  | 'AR_INVOICE'
+  | 'ADVANCE'
+  | 'RECEIPT_SUBSTITUTE';
 
 export const activityLogs = pgTable('activity_logs', {
   id: uuid('id').defaultRandom().primaryKey(),

@@ -1,6 +1,6 @@
 'use client';
 
-import { type InstallmentCondition } from '@/db/schema';
+import type { InstallmentCondition } from '@/db/schema';
 import { D, sum } from '@/domain/money';
 
 export interface InstallmentRowState {

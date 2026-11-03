@@ -5,9 +5,13 @@ import {
   boolean,
   timestamp,
   integer,
+  numeric,
+  date,
   primaryKey,
   uniqueIndex,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { type ProjectStatus } from '@/domain/project';
 import { users } from './core';
 
 export type VendorType = 'INDIVIDUAL' | 'COMPANY';
@@ -19,6 +23,19 @@ export const projects = pgTable(
     code: text('code').notNull(),
     name: text('name').notNull(),
     active: boolean('active').default(true).notNull(),
+    status: text('status').$type<ProjectStatus>().default('IN_PROGRESS').notNull(),
+    clientName: text('client_name').default('').notNull(),
+    projectGroup: text('project_group').default('').notNull(),
+    contactName: text('contact_name').default('').notNull(),
+    contactPhone: text('contact_phone').default('').notNull(),
+    location: text('location').default('').notNull(),
+    budget: numeric('budget', { precision: 16, scale: 2 }).default('0.00').notNull(),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    pmUserId: uuid('pm_user_id').references((): AnyPgColumn => users.id),
+    coverImageUrl: text('cover_image_url').default('').notNull(),
+    // Billing customer (ลูกค้า); clientName stays as the free-text display name
+    customerId: uuid('customer_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

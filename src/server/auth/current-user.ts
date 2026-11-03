@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
@@ -8,7 +9,7 @@ import {
   type SessionUser,
 } from './session';
 
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -18,7 +19,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   const db = await getDb();
   return loadSessionUserById(db, userId);
-}
+});
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();

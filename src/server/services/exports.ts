@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
   invoices,
@@ -23,6 +23,15 @@ function getMonthDateRange(year: number, month: number): { start: string; end: s
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const end = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
   return { start, end };
+}
+
+export async function listWhtCertsWithRefs(db: Db) {
+  const [certs, allVendors, allPvs] = await Promise.all([
+    db.select().from(whtCerts).orderBy(desc(whtCerts.paidAt), desc(whtCerts.number)),
+    db.select().from(vendors),
+    db.select().from(pvs),
+  ]);
+  return { certs, allVendors, allPvs };
 }
 
 export async function exportMonthly(

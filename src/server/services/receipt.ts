@@ -16,6 +16,7 @@ import { assertCan, can } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
 import { lockPo, receivedQtyByPoLine } from './po';
+import { syncReceiptToStock } from './stock';
 
 export { receivedQtyByPoLine };
 
@@ -117,6 +118,24 @@ export async function createReceipt(
         poLineId: e.poLineId,
         qty: e.qty.toDecimalPlaces(3).toFixed(3),
       })),
+    );
+
+    // Sync received goods into Stock balances and movements
+    await syncReceiptToStock(
+      tx,
+      created.id,
+      actor.id,
+      po.projectId || '',
+      po.number,
+      validEntries.map((e) => {
+        const line = lineMap.get(e.poLineId)!;
+        return {
+          description: line.description,
+          unit: line.unitName,
+          unitPrice: Number(line.unitPrice),
+          qty: e.qty.toNumber(),
+        };
+      }),
     );
 
     await logActivity(tx, {

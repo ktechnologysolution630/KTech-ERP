@@ -59,6 +59,14 @@ export async function usersWithRole(
   return Array.from(new Set(matched.map((r) => r.userId)));
 }
 
+export async function countUnreadNotifications(db: Db, userId: string): Promise<number> {
+  const rows = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+  return rows.length;
+}
+
 export async function listNotifications(db: Db, actor: SessionUser) {
   return db
     .select()

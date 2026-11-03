@@ -3,7 +3,7 @@ import { type Db } from '@/db/client';
 import { docCounters } from '@/db/schema';
 import { docPeriod } from '@/domain/thai';
 
-export type DocPrefix = 'PR' | 'PO' | 'PV' | 'WHT';
+export type DocPrefix = 'PR' | 'PO' | 'PV' | 'WHT' | 'PRV' | 'SM' | 'SAR' | 'BOQ' | 'PJ' | 'AP' | 'VO' | 'INV' | 'RC' | 'CN' | 'ADV' | 'RS';
 
 export async function nextDocNumber(
   tx: Db,

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { ROLES, type Role } from '@/db/schema';
+import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import {
   upsertItem,
@@ -14,16 +15,39 @@ import {
 import { importItems, importVendors } from '@/server/services/import';
 import { updateSettings } from '@/server/services/settings';
 
-export async function saveProjectAction(formData: FormData) {
+function optionalText(formData: FormData, key: string): string | undefined {
+  const v = formData.get(key);
+  return v === null ? undefined : String(v);
+}
+
+function optionalDate(formData: FormData, key: string): string | null | undefined {
+  const v = formData.get(key);
+  if (v === null) return undefined;
+  return String(v) || null;
+}
+
+export async function saveProjectAction(formData: FormData): Promise<{ error?: string }> {
   const actor = await requireUser();
   const db = await getDb();
-  await upsertProject(db, actor, {
-    id: String(formData.get('id') || '') || undefined,
-    code: String(formData.get('code') || ''),
-    name: String(formData.get('name') || ''),
-    active: formData.get('active') !== 'false',
-  });
-  revalidatePath('/master/projects');
+  const budgetRaw = formData.get('budget');
+  try {
+    await upsertProject(db, actor, {
+      id: String(formData.get('id') || '') || undefined,
+      code: String(formData.get('code') || ''),
+      name: String(formData.get('name') || ''),
+      active: formData.get('active') !== 'false',
+      clientName: optionalText(formData, 'clientName'),
+      location: optionalText(formData, 'location'),
+      budget: budgetRaw === null || budgetRaw === '' ? undefined : Number(budgetRaw),
+      startDate: optionalDate(formData, 'startDate'),
+      endDate: optionalDate(formData, 'endDate'),
+    });
+  } catch (err) {
+    if (err instanceof DomainError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath('/projects');
+  return {};
 }
 
 export async function saveVendorAction(formData: FormData) {

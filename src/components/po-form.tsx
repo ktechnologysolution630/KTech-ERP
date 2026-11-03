@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { type PoPaymentType } from '@/db/schema';
+import type { PoPaymentType } from '@/db/schema';
 import { computeDocTotals, D, type VatMode } from '@/domain/money';
 import { formatMoneyDisplay } from '@/components/money-input';
 import {
@@ -21,14 +21,28 @@ export interface OrderablePrLineOption {
   estUnitPrice: string | null;
 }
 
+export interface BoqMaterialPick {
+  id: string;
+  projectId: string;
+  source?: string;
+  no: string;
+  description: string;
+  unit: string;
+  budget: number;
+  remaining: number;
+}
+
 export function PoForm({
   projects,
   vendors,
   orderablePrLines = [],
+  boqMaterials = [],
   initialProjectId,
   existing,
 }: {
   projects: { id: string; code: string; name: string }[];
+  /** Main-BOQ material lines; a PO line linked to one is checked against its budget */
+  boqMaterials?: BoqMaterialPick[];
   vendors: { id: string; code: string; name: string; defaultCreditDays: number }[];
   orderablePrLines?: OrderablePrLineOption[];
   initialProjectId?: string | null;
@@ -48,6 +62,7 @@ export function PoForm({
     lines: {
       id?: string;
       prLineId: string | null;
+      boqLineId?: string | null;
       description: string;
       unitName: string;
       qty: string;
@@ -83,6 +98,7 @@ export function PoForm({
     existing?.lines.map((l) => ({
       id: l.id,
       prLineId: l.prLineId ?? '',
+      boqLineId: l.boqLineId ?? '',
       description: l.description,
       unitName: l.unitName,
       qty: String(Number(l.qty)),
@@ -92,6 +108,7 @@ export function PoForm({
       {
         id: undefined,
         prLineId: '',
+        boqLineId: '',
         description: '',
         unitName: 'ชิ้น',
         qty: '1',
@@ -146,6 +163,8 @@ export function PoForm({
     })),
   });
 
+  const projectBoqMaterials = boqMaterials.filter((b) => projectId !== 'OFFICE' && b.projectId === projectId);
+
   const matchingPrLines = orderablePrLines.filter(
     (pl) => projectId !== 'OFFICE' && pl.projectId === projectId,
   );
@@ -156,6 +175,7 @@ export function PoForm({
       {
         id: undefined,
         prLineId: prLine.id,
+        boqLineId: '',
         description: prLine.description,
         unitName: prLine.unitName,
         qty: String(Number(prLine.remainingQty)),
@@ -185,6 +205,7 @@ export function PoForm({
           lines: lines.map((l) => ({
             id: l.id,
             prLineId: l.prLineId || null,
+            boqLineId: projectId === 'OFFICE' ? null : l.boqLineId || null,
             description: l.description,
             unitName: l.unitName,
             qty: l.qty,
@@ -314,6 +335,7 @@ export function PoForm({
                 {
                   id: undefined,
                   prLineId: '',
+                  boqLineId: '',
                   description: '',
                   unitName: 'ชิ้น',
                   qty: '1',
@@ -333,6 +355,39 @@ export function PoForm({
             key={idx}
             className="grid grid-cols-1 sm:grid-cols-12 gap-2 rounded-lg border border-slate-200 p-3 bg-slate-50/50 items-end"
           >
+            {projectBoqMaterials.length > 0 && (
+              <div className="sm:col-span-12">
+                <label className="block text-[11px] text-slate-500">รายการ BOQ (ใช้ตรวจงบซื้อเกิน BOQ)</label>
+                <select
+                  value={l.boqLineId}
+                  onChange={(e) => {
+                    const pick = projectBoqMaterials.find((b) => b.id === e.target.value);
+                    setLines((prev) =>
+                      prev.map((r, i) =>
+                        i === idx
+                          ? {
+                              ...r,
+                              boqLineId: e.target.value,
+                              description: r.description.trim() || pick?.description || r.description,
+                              unitName: pick?.unit && (r.unitName === 'ชิ้น' || !r.unitName) ? pick.unit : r.unitName,
+                            }
+                          : r,
+                      ),
+                    );
+                  }}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs"
+                >
+                  <option value="">— ไม่ผูกกับ BOQ —</option>
+                  {projectBoqMaterials.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.source && b.source !== 'BOQ หลัก' ? `[${b.source}] ` : ''}
+                      {b.no} {b.description} · งบวัสดุคงเหลือ {formatMoneyDisplay(b.remaining.toFixed(2))}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="sm:col-span-4">
               <label className="block text-[11px] text-slate-500">รายละเอียดสินค้า *</label>
               <input

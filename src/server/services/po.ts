@@ -1,6 +1,9 @@
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
+  boqLines,
+  boqs,
+  variationOrders,
   poInstallments,
   poLines,
   poRevisions,
@@ -31,6 +34,7 @@ import {
 import { requiredPoApprover } from '@/domain/po-approval';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
+import { assertOverrunApproved } from './boq-overrun';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 import { orderedQtyByPrLine, registerOrderedQtyResolver } from './pr';
@@ -40,6 +44,7 @@ export interface PoLineInput {
   id?: string;
   prLineId?: string | null;
   itemId?: string | null;
+  boqLineId?: string | null;
   description: string;
   unitName: string;
   qty: Decimal | string | number;
@@ -88,6 +93,8 @@ export interface SerializedPoRevisionPayload {
     id?: string;
     prLineId: string | null;
     itemId: string | null;
+    /** Absent in revisions saved before BOQ linking existed */
+    boqLineId?: string | null;
     description: string;
     unitName: string;
     qty: string;
@@ -171,6 +178,44 @@ export async function receivedQtyByPoLine(
   return map;
 }
 
+/** A PO line may only draw on a material line of its own project's main BOQ. */
+async function assertBoqLinesBelongToProject(
+  tx: Db,
+  projectId: string | null,
+  lines: { boqLineId?: string | null }[],
+) {
+  const ids = [...new Set(lines.map((l) => l.boqLineId).filter((x): x is string => Boolean(x)))];
+  if (ids.length === 0) return;
+  if (!projectId) {
+    throw new DomainError('BOQ_LINE_MISMATCH', 'PO ของสำนักงานอ้างอิงรายการ BOQ ไม่ได้');
+  }
+  const rows = await tx
+    .select({
+      id: boqLines.id,
+      isCategory: boqLines.isCategory,
+      projectId: boqs.projectId,
+      kind: boqs.kind,
+      voStatus: variationOrders.status,
+    })
+    .from(boqLines)
+    .innerJoin(boqs, eq(boqs.id, boqLines.boqId))
+    .leftJoin(variationOrders, eq(variationOrders.id, boqs.voId))
+    .where(inArray(boqLines.id, ids));
+  // Purchasable budget = main BOQ plus BOQs of approved variation orders
+  const valid = rows.filter(
+    (r) =>
+      r.projectId === projectId &&
+      !r.isCategory &&
+      (r.kind === 'MAIN' || (r.kind === 'VO' && r.voStatus === 'APPROVED')),
+  );
+  if (valid.length !== ids.length) {
+    throw new DomainError(
+      'BOQ_LINE_MISMATCH',
+      'รายการ BOQ ที่อ้างอิงต้องเป็นรายการวัสดุใน BOQ หลัก หรือ BOQ ของ VO ที่อนุมัติแล้วของโครงการนี้',
+    );
+  }
+}
+
 async function validateAndComputePo(
   tx: Db,
   input: PoInput,
@@ -200,6 +245,8 @@ async function validateAndComputePo(
       throw new DomainError('INVALID_PRICE', 'ราคาต่อหน่วยต้องไม่ติดลบ');
     }
   }
+
+  await assertBoqLinesBelongToProject(tx, input.projectId, input.lines);
 
   // Validate PR lines if linked
   const prLineIds = input.lines.map((l) => l.prLineId).filter((x): x is string => Boolean(x));
@@ -326,6 +373,7 @@ export async function createPo(
           poId: created.id,
           prLineId: l.prLineId ?? null,
           itemId: l.itemId ?? null,
+          boqLineId: l.boqLineId ?? null,
           description: l.description.trim(),
           unitName: l.unitName.trim(),
           qty: D(l.qty).toDecimalPlaces(3).toFixed(3),
@@ -413,6 +461,7 @@ export async function updatePo(
             poId: id,
             prLineId: l.prLineId ?? null,
             itemId: l.itemId ?? null,
+            boqLineId: l.boqLineId ?? null,
             description: l.description.trim(),
             unitName: l.unitName.trim(),
             qty: D(l.qty).toDecimalPlaces(3).toFixed(3),
@@ -509,6 +558,7 @@ export async function updatePo(
           id: l.id,
           prLineId: l.prLineId ?? null,
           itemId: l.itemId ?? null,
+          boqLineId: l.boqLineId ?? null,
           description: l.description.trim(),
           unitName: l.unitName.trim(),
           qty: D(l.qty).toDecimalPlaces(3).toFixed(3),
@@ -652,6 +702,11 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
         poApprovalLimit: limit,
         createdBy: po.createdBy,
       });
+      await assertOverrunApproved(
+        tx,
+        po,
+        payload.lines.map((l, i) => ({ boqLineId: l.boqLineId ?? null, netBeforeVat: totals.lines[i].allocatedBeforeVat })),
+      );
 
       const existingLines = await tx
         .select()
@@ -671,6 +726,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
             .set({
               prLineId: nl.prLineId,
               itemId: nl.itemId,
+              boqLineId: nl.boqLineId ?? null,
               description: nl.description,
               unitName: nl.unitName,
               qty: nl.qty,
@@ -689,6 +745,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
             poId: id,
             prLineId: nl.prLineId,
             itemId: nl.itemId,
+            boqLineId: nl.boqLineId ?? null,
             description: nl.description,
             unitName: nl.unitName,
             qty: nl.qty,
@@ -786,6 +843,14 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
       poApprovalLimit: limit,
       createdBy: po.createdBy,
     });
+    await assertOverrunApproved(
+      tx,
+      po,
+      await tx
+        .select({ boqLineId: poLines.boqLineId, netBeforeVat: poLines.allocatedBeforeVat })
+        .from(poLines)
+        .where(eq(poLines.poId, id)),
+    );
 
     await tx
       .update(pos)

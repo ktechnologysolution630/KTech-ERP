@@ -6,6 +6,14 @@ import { type EntityType } from '@/db/schema';
 import { getCurrentUser } from '@/server/auth/current-user';
 import { addAttachment } from '@/server/services/attachments';
 
+const IMAGE_TYPES: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
+
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -18,9 +26,12 @@ export async function GET(req: NextRequest) {
   const fullPath = path.resolve(process.cwd(), '.uploads', f);
   try {
     const buf = await fs.readFile(fullPath);
+    // Raster images render inline (project covers); everything else stays a download. SVG is excluded on purpose.
+    const imageType = IMAGE_TYPES[path.extname(f).toLowerCase()];
     return new NextResponse(buf, {
       headers: {
-        'Content-Type': 'application/octet-stream',
+        'Content-Type': imageType ?? 'application/octet-stream',
+        'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'private, max-age=3600',
       },
     });

@@ -18,15 +18,16 @@ export async function loadSessionUserById(db: Db, userId: string): Promise<Sessi
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user || !user.active) return null;
 
-  const rolesRows = await db
-    .select({ role: userRoles.role })
-    .from(userRoles)
-    .where(eq(userRoles.userId, user.id));
-
-  const memberRows = await db
-    .select({ projectId: projectMembers.projectId })
-    .from(projectMembers)
-    .where(eq(projectMembers.userId, user.id));
+  const [rolesRows, memberRows] = await Promise.all([
+    db
+      .select({ role: userRoles.role })
+      .from(userRoles)
+      .where(eq(userRoles.userId, user.id)),
+    db
+      .select({ projectId: projectMembers.projectId })
+      .from(projectMembers)
+      .where(eq(projectMembers.userId, user.id)),
+  ]);
 
   return {
     id: user.id,

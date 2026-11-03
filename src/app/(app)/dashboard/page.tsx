@@ -185,8 +185,20 @@ export default async function DashboardPage() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {dash.purchasesByProject.map((p) => (
-              <tr key={p.projectId ?? '__OFFICE__'}>
-                <td className="px-3 py-2 font-medium">{p.name}</td>
+              <tr key={p.projectId ?? '__OFFICE__'} className="hover:bg-blue-50/40 transition">
+                <td className="px-3 py-2 font-medium">
+                  {p.projectId && p.projectId !== '__OFFICE__' ? (
+                    <Link
+                      href={`/projects/${p.projectId}`}
+                      prefetch={false}
+                      className="text-[#2453d4] hover:underline font-semibold"
+                    >
+                      {p.name}
+                    </Link>
+                  ) : (
+                    <span>{p.name}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right">
                   ฿{formatMoneyDisplay(p.monthGross)}
                 </td>

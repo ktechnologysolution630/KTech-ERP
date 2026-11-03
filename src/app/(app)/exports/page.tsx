@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import { desc, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { pvs, vendors, whtCerts } from '@/db/schema';
 import { toBangkok } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { assertCan } from '@/server/policy';
+import { listWhtCertsWithRefs } from '@/server/services/exports';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/components/money-input';
 
@@ -22,11 +21,7 @@ export default async function ExportsPage({
   const year = Number(sp.year ?? nowBkk.getUTCFullYear());
   const month = Number(sp.month ?? nowBkk.getUTCMonth() + 1);
 
-  const [certs, allVendors, allPvs] = await Promise.all([
-    db.select().from(whtCerts).orderBy(desc(whtCerts.paidAt), desc(whtCerts.number)),
-    db.select().from(vendors),
-    db.select().from(pvs),
-  ]);
+  const { certs, allVendors, allPvs } = await listWhtCertsWithRefs(db);
   const vendorMap = new Map(allVendors.map((v) => [v.id, v]));
   const pvMap = new Map(allPvs.map((p) => [p.id, p]));
 

@@ -16,7 +16,7 @@ export async function loginAction(
     return { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
   }
   await createSessionCookie(user.id);
-  redirect('/inbox');
+  redirect('/stock');
 }
 
 export async function logoutAction(): Promise<void> {
