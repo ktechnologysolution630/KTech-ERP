@@ -58,6 +58,7 @@ import { ProjectTasksBoard } from '@/components/project-tasks-board';
 import { ProjectGanttView } from '@/components/project-gantt-view';
 import { isTaskOverdue } from '@/domain/schedule';
 import { voCostImpact } from '@/domain/variation-order';
+import { ProjectCoverPicker } from '@/components/project-cover-picker';
 import type { ProjectTaskList } from '@/server/services/tasks';
 import { ProjectCashflowView } from '@/components/project-cashflow-view';
 import { ProjectCostPerformanceView } from '@/components/project-cost-performance-view';
@@ -1005,8 +1006,10 @@ export function ProjectWorkspaceClient({
 
                 {/* Card B: เพิ่มรูปโครงการ */}
                 <div
-                  onClick={() => setIsCoverPhotoModalOpen(true)}
-                  className="bg-[#f5f5f4] hover:bg-[#eaeae8] transition rounded-xl border border-slate-200/80 p-4 shadow-xs flex flex-col items-center justify-center text-center cursor-pointer min-h-[220px] group"
+                  onClick={() => project.canEdit && setIsCoverPhotoModalOpen(true)}
+                  className={`bg-[#f5f5f4] transition rounded-xl border border-slate-200/80 p-4 shadow-xs flex flex-col items-center justify-center text-center min-h-[220px] group ${
+                    project.canEdit ? 'hover:bg-[#eaeae8] cursor-pointer' : ''
+                  }`}
                 >
                   {coverPhoto ? (
                     <div className="w-full h-full rounded-lg overflow-hidden relative">
@@ -1676,42 +1679,12 @@ export function ProjectWorkspaceClient({
 
       {/* MODAL 5: เพิ่มรูปโครงการ */}
       {isCoverPhotoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-slate-900">เพิ่มรูปโครงการ</h3>
-              <button
-                type="button"
-                onClick={() => setIsCoverPhotoModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-3 text-xs">
-              <p className="text-slate-500">เลือกภาพไซต์งานก่อสร้างที่ต้องการใช้เป็นรูปหน้าปกโครงการ</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?q=80&w=400',
-                  'https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=400',
-                  'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=400',
-                  'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?q=80&w=400',
-                ].map((imgUrl, i) => (
-                  <div
-                    key={i}
-                    onClick={() => {
-                      setCoverPhoto(imgUrl);
-                      setIsCoverPhotoModalOpen(false);
-                    }}
-                    className="h-24 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-500 cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <ProjectCoverPicker
+          projectId={project.id}
+          current={coverPhoto}
+          onClose={() => setIsCoverPhotoModalOpen(false)}
+          onChanged={setCoverPhoto}
+        />
       )}
 
       {/* MODAL 6: สร้างรายงานประจำวัน (Daily Construction Report) */}

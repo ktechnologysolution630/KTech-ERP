@@ -16,7 +16,7 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { D, WHT_RATES } from '@/domain/money';
-import { PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
+import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
 import { hashPassword } from '@/server/auth/password';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { storeFile } from './attachments';
@@ -161,6 +161,45 @@ const COVER_TYPES: Record<string, true> = {
 /** Keep in step with `serverActions.bodySizeLimit` in next.config.ts */
 export const MAX_COVER_BYTES = 4 * 1024 * 1024;
 
+function assertCoverFile(cover: File) {
+  if (!COVER_TYPES[cover.type]) {
+    throw new DomainError('INVALID_PROJECT', 'รูปโครงการต้องเป็นไฟล์ JPG, PNG, WebP หรือ GIF');
+  }
+  if (cover.size > MAX_COVER_BYTES) {
+    throw new DomainError('INVALID_PROJECT', 'รูปโครงการต้องมีขนาดไม่เกิน 4 MB');
+  }
+}
+
+export type ProjectCoverSource =
+  | { kind: 'upload'; file: File }
+  | { kind: 'preset'; url: string }
+  | { kind: 'remove' };
+
+/** Sets the workspace cover photo from an upload or a built-in preset, or clears it. */
+export async function setProjectCover(
+  db: Db,
+  actor: SessionUser,
+  projectId: string,
+  source: ProjectCoverSource,
+): Promise<string> {
+  await getProjectDetail(db, actor, projectId);
+  assertCan(actor, 'project.manage', { projectId });
+
+  let url = '';
+  if (source.kind === 'upload') {
+    if (source.file.size === 0) throw new DomainError('INVALID_PROJECT', 'กรุณาเลือกไฟล์รูป');
+    assertCoverFile(source.file);
+    url = (await storeFile(source.file, actor)).url;
+  } else if (source.kind === 'preset') {
+    if (!PROJECT_COVER_PRESETS.includes(source.url)) {
+      throw new DomainError('INVALID_PROJECT', 'ไม่พบรูปที่เลือก');
+    }
+    url = source.url;
+  }
+  await db.update(projects).set({ coverImageUrl: url, updatedAt: new Date() }).where(eq(projects.id, projectId));
+  return url;
+}
+
 /**
  * Creates a project from the "สร้างโครงการ" dialog. Unlike `upsertProject` (import/master use),
  * a duplicate code is rejected instead of overwriting the existing project.
@@ -179,14 +218,7 @@ export async function createProject(
   const data = parsed.data;
   assertDateRange(data.startDate, data.endDate);
   await assertPmUser(db, data.pmUserId);
-  if (cover && cover.size > 0) {
-    if (!COVER_TYPES[cover.type]) {
-      throw new DomainError('INVALID_PROJECT', 'รูปโครงการต้องเป็นไฟล์ JPG, PNG, WebP หรือ GIF');
-    }
-    if (cover.size > MAX_COVER_BYTES) {
-      throw new DomainError('INVALID_PROJECT', 'รูปโครงการต้องมีขนาดไม่เกิน 4 MB');
-    }
-  }
+  if (cover && cover.size > 0) assertCoverFile(cover);
 
   const created = await db.transaction(async (tx) => {
     let code = data.code;

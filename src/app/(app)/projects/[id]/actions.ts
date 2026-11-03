@@ -5,7 +5,12 @@ import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { type ProjectStatus } from '@/domain/project';
 import { requireUser } from '@/server/auth/current-user';
-import { updateProjectDetails, type ProjectDetailDto } from '@/server/services/master';
+import {
+  setProjectCover,
+  updateProjectDetails,
+  type ProjectCoverSource,
+  type ProjectDetailDto,
+} from '@/server/services/master';
 
 export interface ProjectDetailsFormInput {
   name: string;
@@ -39,6 +44,35 @@ export async function updateProjectDetailsAction(
     return { ok: true, project };
   } catch (err) {
     // Domain errors carry user-safe Thai messages; anything else is unexpected and rethrown
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+/**
+ * Cover photo from the workspace picker. FormData carries either `file` (upload),
+ * `preset` (a built-in image URL) or `remove`.
+ */
+export async function setProjectCoverAction(
+  projectId: string,
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const file = formData.get('file');
+  const preset = formData.get('preset');
+  let source: ProjectCoverSource;
+  if (file instanceof File) source = { kind: 'upload', file };
+  else if (typeof preset === 'string') source = { kind: 'preset', url: preset };
+  else if (formData.get('remove')) source = { kind: 'remove' };
+  else return { ok: false, error: 'กรุณาเลือกรูป' };
+
+  try {
+    const url = await setProjectCover(db, actor, projectId, source);
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${projectId}`, 'layout');
+    return { ok: true, url };
+  } catch (err) {
     if (err instanceof DomainError) return { ok: false, error: err.message };
     throw err;
   }
