@@ -15,7 +15,34 @@ const ACTION_LABELS: Record<string, string> = {
   'close_short.request': 'ขอปิดยอดค้างรับ',
   'close_short.approve': 'อนุมัติปิดยอดค้างรับ',
   'close_short.reject': 'ปฏิเสธปิดยอดค้างรับ',
+  // Services that log upper-case codes (looked up case-insensitively)
+  created: 'สร้างเอกสาร',
+  updated: 'แก้ไขเอกสาร',
+  submitted: 'ส่งขออนุมัติ',
+  approved: 'อนุมัติ',
+  rejected: 'ตีกลับ',
+  cancelled: 'ยกเลิก',
+  paid: 'บันทึกจ่ายเงินแล้ว',
+  request: 'ส่งคำขอ',
+  issue: 'ออกเอกสาร',
+  void: 'ยกเลิกเอกสาร',
+  receipt: 'รับชำระเงิน',
+  receipt_void: 'ยกเลิกใบเสร็จ',
+  credit_note: 'ออกใบลดหนี้',
+  invoice_created: 'บันทึกใบแจ้งหนี้',
+  invoice_matched: 'จับคู่ใบกำกับภาษี',
+  invoice_cancelled: 'ยกเลิกใบแจ้งหนี้',
+  prepaid_requested: 'ขอเบิกจ่ายล่วงหน้า',
+  installment_requested: 'ขอเบิกงวด',
+  close_short_requested: 'ขอปิดยอดค้างรับ',
+  close_short_approved: 'อนุมัติปิดยอดค้างรับ',
+  close_short_rejected: 'ปฏิเสธปิดยอดค้างรับ',
+  wht_cert_voided: 'ยกเลิกหนังสือรับรอง 50 ทวิ',
 };
+
+function actionLabel(action: string): string {
+  return ACTION_LABELS[action] ?? ACTION_LABELS[action.toLowerCase()] ?? action;
+}
 
 export function ActivityFeed({
   items,
@@ -39,7 +66,7 @@ export function ActivityFeed({
             <li key={item.id} className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
               <div>
                 <span className="font-medium text-slate-800">
-                  {ACTION_LABELS[item.action] ?? item.action}
+                  {actionLabel(item.action)}
                 </span>{' '}
                 <span className="text-slate-500">โดย {item.userName}</span>
                 {item.note && (

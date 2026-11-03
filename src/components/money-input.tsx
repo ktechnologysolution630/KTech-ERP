@@ -1,16 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { parseDecimalInput } from '@/domain/money';
-
-export function formatMoneyDisplay(value: string | number | undefined | null, decimals = 2): string {
-  if (value === undefined || value === null || value === '') return '';
-  const d = parseDecimalInput(String(value));
-  if (!d) return String(value);
-  const parts = d.toFixed(decimals).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return parts.join('.');
-}
+import { formatMoneyDisplay, parseDecimalInput } from '@/domain/money';
 
 export function MoneyInput({
   name,

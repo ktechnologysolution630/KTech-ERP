@@ -4,7 +4,7 @@ import { formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { listPvs } from '@/server/services/pv';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 
 export default async function PvListPage() {
   const actor = await requireUser();

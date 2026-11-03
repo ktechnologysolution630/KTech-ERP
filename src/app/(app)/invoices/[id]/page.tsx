@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { getInvoice } from '@/server/services/invoice';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 import { cancelInvoiceAction, matchInvoiceAction } from '../actions';
 
 export default async function InvoiceDetailPage({

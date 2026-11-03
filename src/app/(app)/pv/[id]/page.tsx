@@ -12,7 +12,7 @@ import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 import {
   addPvCommentAction,
   approvePvAction,
@@ -49,8 +49,14 @@ export default async function PvDetailPage({
             <DocStatusBadge status={pv.status} />
           </div>
           <p className="text-xs text-slate-600 mt-1">
-            ผู้ขาย: {pv.vendorName} · บัญชี: {pv.vendorBankName}{' '}
-            {pv.vendorBankAccountNo} ({pv.vendorBankAccountName}) · ผู้จัดทำ:{' '}
+            ผู้ขาย: {pv.vendorName}
+            {(pv.vendorBankName || pv.vendorBankAccountNo) && (
+              <>
+                {' '}· บัญชี: {pv.vendorBankName} {pv.vendorBankAccountNo}
+                {pv.vendorBankAccountName && ` (${pv.vendorBankAccountName})`}
+              </>
+            )}{' '}
+            · ผู้จัดทำ:{' '}
             {pv.creatorName} · {formatThaiDate(pv.createdAt)}
           </p>
         </div>

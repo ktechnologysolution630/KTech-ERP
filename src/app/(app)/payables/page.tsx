@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listOpenPayables } from '@/server/services/payable';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 
 export default async function PayablesPage() {
   const actor = await requireUser();

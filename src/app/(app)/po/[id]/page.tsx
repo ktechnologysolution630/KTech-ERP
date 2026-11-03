@@ -17,7 +17,7 @@ import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 import { PoSummaryCard } from '@/components/po-summary-card';
 import { BoqOverrunPanel } from '@/components/boq-overrun-panel';
 import { getPoBoqCheck } from '@/server/services/boq-overrun';

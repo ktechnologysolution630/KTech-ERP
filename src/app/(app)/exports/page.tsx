@@ -5,7 +5,7 @@ import { requireUser } from '@/server/auth/current-user';
 import { assertCan } from '@/server/policy';
 import { listWhtCertsWithRefs } from '@/server/services/exports';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 
 export default async function ExportsPage({
   searchParams,

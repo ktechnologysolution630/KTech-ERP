@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import type { PoPaymentType } from '@/db/schema';
 import { computeDocTotals, D, type VatMode } from '@/domain/money';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 import {
   InstallmentEditor,
   type InstallmentRowState,

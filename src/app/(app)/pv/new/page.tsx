@@ -2,7 +2,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listVendors } from '@/server/services/master';
 import { listOpenPayables } from '@/server/services/payable';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 import { createPvAction } from '../actions';
 
 export default async function NewPvPage({

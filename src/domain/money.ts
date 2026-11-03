@@ -225,6 +225,16 @@ export function parseDecimalInput(s: string): Decimal | null {
   }
 }
 
+/** "1234567.5" → "1,234,567.50". Pure, so server pages and client components can both use it. */
+export function formatMoneyDisplay(value: string | number | undefined | null, decimals = 2): string {
+  if (value === undefined || value === null || value === '') return '';
+  const d = parseDecimalInput(String(value));
+  if (!d) return String(value);
+  const parts = d.toFixed(decimals).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 const THAI_NUM_WORDS = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
 const THAI_POS_WORDS = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
 

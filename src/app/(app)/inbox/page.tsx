@@ -6,7 +6,7 @@ import {
   listNotifications,
   markAllRead,
 } from '@/server/services/notifications';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 import { NotificationBell } from '@/components/notification-bell';
 
 export default async function InboxPage() {

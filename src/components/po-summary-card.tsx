@@ -1,5 +1,5 @@
 import { type PoSummary } from '@/domain/po-summary';
-import { formatMoneyDisplay } from './money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 
 export function PoSummaryCard({ summary }: { summary: PoSummary }) {
   return (

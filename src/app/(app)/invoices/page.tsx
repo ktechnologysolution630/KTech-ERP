@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listInvoices } from '@/server/services/invoice';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { formatMoneyDisplay } from '@/components/money-input';
+import { formatMoneyDisplay } from '@/domain/money';
 
 export default async function InvoicesPage() {
   const actor = await requireUser();
