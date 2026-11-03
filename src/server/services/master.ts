@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
@@ -568,55 +568,81 @@ export async function listUnits(db: Db) {
   return db.select().from(units).orderBy(asc(units.name));
 }
 
+export const MIN_PASSWORD_LENGTH = 8;
+const passwordSchema = z
+  .string()
+  .min(MIN_PASSWORD_LENGTH, `รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`)
+  .max(200)
+  .refine((p) => /[A-Za-z]/.test(p) && /\d/.test(p), 'รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข');
+
 const userSchema = z.object({
   id: z.string().uuid().optional(),
   email: z.string().trim().email('รูปแบบอีเมลไม่ถูกต้อง'),
-  name: z.string().trim().min(1, 'กรุณาระบุชื่อผู้ใช้'),
-  password: z.string().min(4, 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร').optional(),
+  name: z.string().trim().min(1, 'กรุณาระบุชื่อผู้ใช้').max(200),
+  /** Required when creating; when editing, empty keeps the current password */
+  password: passwordSchema.optional(),
   roles: z.array(z.enum(ROLES)).min(1, 'ต้องเลือกอย่างน้อย 1 บทบาท'),
   projectIds: z.array(z.string().uuid()).default([]),
   active: z.boolean().default(true),
 });
+export type UserInput = z.input<typeof userSchema>;
 
-export async function upsertUser(
-  db: Db,
-  actor: SessionUser,
-  input: z.input<typeof userSchema>,
-) {
+const ADMIN_ROLES: Role[] = ['ADMIN', 'OWNER'];
+
+/** At least one active user must keep the ability to manage users, or nobody can fix accounts. */
+async function assertUserManagerRemains(tx: Db, excludingUserId: string) {
+  const [row] = await tx
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .where(and(eq(users.active, true), inArray(userRoles.role, ADMIN_ROLES), sql`${users.id} <> ${excludingUserId}`))
+    .limit(1);
+  if (!row) {
+    throw new DomainError('LAST_ADMIN', 'ต้องมีผู้ดูแลระบบหรือเจ้าของที่ใช้งานได้อย่างน้อย 1 คน', 409);
+  }
+}
+
+export async function upsertUser(db: Db, actor: SessionUser, input: UserInput) {
   assertCan(actor, 'users.manage');
-  const parsed = userSchema.safeParse(input);
+  const parsed = userSchema.safeParse({ ...input, password: input.password || undefined });
   if (!parsed.success) {
     throw new DomainError('INVALID_USER', parsed.error.issues[0].message);
   }
   const d = parsed.data;
   const email = d.email.toLowerCase();
+  if (!d.id && !d.password) throw new DomainError('INVALID_USER', 'กรุณาตั้งรหัสผ่านเริ่มต้น');
 
   return db.transaction(async (tx) => {
+    const [dup] = await tx.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (dup && dup.id !== d.id) throw new DomainError('DUPLICATE_EMAIL', `อีเมล ${email} มีผู้ใช้งานแล้ว`, 409);
+    if (d.projectIds.length > 0) {
+      const found = await tx.select({ id: projects.id }).from(projects).where(inArray(projects.id, d.projectIds));
+      if (found.length !== new Set(d.projectIds).size) throw new DomainError('INVALID_USER', 'ไม่พบโครงการที่เลือก');
+    }
+
     let userId = d.id;
     if (userId) {
+      const [existing] = await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
+      if (!existing) throw new DomainError('NOT_FOUND', 'ไม่พบผู้ใช้งาน', 404);
+      const keepsAdmin = d.active && d.roles.some((r) => ADMIN_ROLES.includes(r));
+      if (userId === actor.id && !keepsAdmin) {
+        throw new DomainError('SELF_LOCKOUT', 'ไม่สามารถปิดการใช้งานหรือถอดสิทธิ์ผู้ดูแลของตนเองได้', 409);
+      }
+      if (!keepsAdmin) await assertUserManagerRemains(tx, userId);
       await tx
         .update(users)
         .set({
           email,
           name: d.name,
           active: d.active,
+          ...(d.password ? { passwordHash: await hashPassword(d.password) } : {}),
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
-      if (d.password) {
-        const passwordHash = await hashPassword(d.password);
-        await tx.update(users).set({ passwordHash }).where(eq(users.id, userId));
-      }
     } else {
-      const passwordHash = await hashPassword(d.password || 'ktec1234');
       const [created] = await tx
         .insert(users)
-        .values({
-          email,
-          name: d.name,
-          passwordHash,
-          active: d.active,
-        })
+        .values({ email, name: d.name, passwordHash: await hashPassword(d.password!), active: d.active })
         .returning();
       userId = created.id;
     }
@@ -672,21 +698,34 @@ export async function resetPassword(
   newPassword: string,
 ): Promise<void> {
   assertCan(actor, 'users.manage');
-  if (!newPassword || newPassword.length < 4) {
-    throw new DomainError('INVALID_PASSWORD', 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร');
-  }
-  const passwordHash = await hashPassword(newPassword);
-  await db
+  const parsed = passwordSchema.safeParse(newPassword);
+  if (!parsed.success) throw new DomainError('INVALID_PASSWORD', parsed.error.issues[0].message);
+  if (!z.string().uuid().safeParse(userId).success) throw new DomainError('NOT_FOUND', 'ไม่พบผู้ใช้งาน', 404);
+  const updated = await db
     .update(users)
-    .set({ passwordHash, updatedAt: new Date() })
-    .where(eq(users.id, userId));
+    .set({ passwordHash: await hashPassword(parsed.data), updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  if (updated.length === 0) throw new DomainError('NOT_FOUND', 'ไม่พบผู้ใช้งาน', 404);
 }
 
-export async function listUsersWithRoles(db: Db) {
-  const allUsers = await db.select().from(users).orderBy(asc(users.email));
-  const allRoles = await db.select().from(userRoles);
-  const allMembers = await db.select().from(projectMembers);
+export interface UserRowDto {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  roles: Role[];
+  projectIds: string[];
+}
 
+/** User list for administrators; the password hash never leaves the server. */
+export async function listUsersWithRoles(db: Db, actor: SessionUser): Promise<UserRowDto[]> {
+  assertCan(actor, 'users.manage');
+  const [allUsers, allRoles, allMembers] = await Promise.all([
+    db.select({ id: users.id, name: users.name, email: users.email, active: users.active }).from(users).orderBy(asc(users.name)),
+    db.select().from(userRoles),
+    db.select().from(projectMembers),
+  ]);
   return allUsers.map((u) => ({
     ...u,
     roles: allRoles.filter((r) => r.userId === u.id).map((r) => r.role),

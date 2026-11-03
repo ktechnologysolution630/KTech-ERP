@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
-import { ROLES, type Role } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import {
@@ -11,6 +10,7 @@ import {
   upsertUser,
   upsertVendor,
   resetPassword,
+  type UserInput,
 } from '@/server/services/master';
 import { importItems, importVendors } from '@/server/services/import';
 import { updateSettings } from '@/server/services/settings';
@@ -102,35 +102,30 @@ export async function importItemsAction(rows: Record<string, string>[]) {
   return res;
 }
 
-export async function saveUserAction(formData: FormData) {
-  const actor = await requireUser();
-  const db = await getDb();
-  const roles = formData
-    .getAll('roles')
-    .map(String)
-    .filter((r): r is Role => (ROLES as readonly string[]).includes(r));
-  const projectIds = formData.getAll('projectIds').map(String).filter(Boolean);
-  const password = String(formData.get('password') || '').trim() || undefined;
+export type UserActionResult = { ok: true } | { ok: false; error: string };
 
-  await upsertUser(db, actor, {
-    id: String(formData.get('id') || '') || undefined,
-    email: String(formData.get('email') || ''),
-    name: String(formData.get('name') || ''),
-    password,
-    roles,
-    projectIds,
-    active: formData.get('active') !== 'false',
-  });
-  revalidatePath('/master/users');
+async function userAction(fn: () => Promise<unknown>): Promise<UserActionResult> {
+  try {
+    await fn();
+    revalidatePath('/master/users');
+    return { ok: true };
+  } catch (err) {
+    // Domain errors carry user-safe Thai messages; anything else is unexpected and rethrown
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
 }
 
-export async function resetUserPasswordAction(formData: FormData) {
+export async function saveUserAction(input: UserInput): Promise<UserActionResult> {
   const actor = await requireUser();
   const db = await getDb();
-  const userId = String(formData.get('userId') || '');
-  const newPassword = String(formData.get('newPassword') || '');
-  await resetPassword(db, actor, userId, newPassword);
-  revalidatePath('/master/users');
+  return userAction(() => upsertUser(db, actor, input));
+}
+
+export async function resetUserPasswordAction(userId: string, newPassword: string): Promise<UserActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  return userAction(() => resetPassword(db, actor, userId, newPassword));
 }
 
 export async function saveSettingsAction(formData: FormData) {

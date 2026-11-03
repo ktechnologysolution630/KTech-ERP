@@ -8,6 +8,7 @@ import {
   upsertUser,
   setProjectMembers,
   resetPassword,
+  listUsersWithRoles,
 } from '@/server/services/master';
 import { DomainError } from '@/domain/errors';
 import { authenticate } from '@/server/auth/session';
@@ -82,5 +83,37 @@ describe('master service', () => {
     await resetPassword(db, f.users.admin, newUser.id, 'NewPass456');
     const authUser = await authenticate(db, 'eng1@ktec.local', 'NewPass456');
     expect(authUser?.projectIds).toContain(proj.id);
+  });
+
+  test('user management guards: passwords, duplicates, self-lockout, last admin', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const base = { name: 'ทดสอบ', roles: ['FOREMAN' as const], projectIds: [], active: true };
+
+    await expect(upsertUser(db, f.users.admin, { ...base, email: 'a@ktec.local' })).rejects.toMatchObject({ code: 'INVALID_USER' });
+    await expect(upsertUser(db, f.users.admin, { ...base, email: 'a@ktec.local', password: 'short1' })).rejects.toMatchObject({ code: 'INVALID_USER' });
+    await expect(upsertUser(db, f.users.admin, { ...base, email: 'a@ktec.local', password: 'onlyletters' })).rejects.toMatchObject({ code: 'INVALID_USER' });
+    await expect(upsertUser(db, f.users.admin, { ...base, email: f.users.pm.email, password: 'Passw0rd99' })).rejects.toMatchObject({ code: 'DUPLICATE_EMAIL' });
+    await expect(upsertUser(db, f.users.pm, { ...base, email: 'b@ktec.local', password: 'Passw0rd99' })).rejects.toMatchObject({ status: 403 });
+    await expect(listUsersWithRoles(db, f.users.pm)).rejects.toMatchObject({ status: 403 });
+
+    // Editing keeps the password when none is given
+    const u = await upsertUser(db, f.users.admin, { ...base, email: 'a@ktec.local', password: 'Passw0rd99' });
+    await upsertUser(db, f.users.admin, { ...base, id: u.id, email: 'a@ktec.local', name: 'ชื่อใหม่' });
+    expect(await authenticate(db, 'a@ktec.local', 'Passw0rd99')).toMatchObject({ name: 'ชื่อใหม่' });
+    // Deactivated users cannot log in
+    await upsertUser(db, f.users.admin, { ...base, id: u.id, email: 'a@ktec.local', active: false });
+    expect(await authenticate(db, 'a@ktec.local', 'Passw0rd99')).toBeNull();
+
+    // An admin cannot lock themselves out
+    const admin = (await listUsersWithRoles(db, f.users.admin)).find((x) => x.id === f.users.admin.id)!;
+    await expect(
+      upsertUser(db, f.users.admin, { ...admin, roles: ['FINANCE'], password: undefined }),
+    ).rejects.toMatchObject({ code: 'SELF_LOCKOUT' });
+    // Demoting another admin/owner is fine while the actor still manages users
+    const owner = (await listUsersWithRoles(db, f.users.admin)).find((x) => x.id === f.users.owner.id)!;
+    await upsertUser(db, f.users.admin, { ...owner, roles: ['FINANCE'] });
+    expect((await listUsersWithRoles(db, f.users.admin)).find((x) => x.id === f.users.owner.id)?.roles).toEqual(['FINANCE']);
+    await expect(resetPassword(db, f.users.admin, f.users.pm.id, '123')).rejects.toMatchObject({ code: 'INVALID_PASSWORD' });
   });
 });
