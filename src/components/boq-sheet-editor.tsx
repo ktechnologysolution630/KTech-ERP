@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useRef, useState, useTransition } from 'react';
+import { downloadWorkbook, readSpreadsheetRows } from '@/lib/spreadsheet';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -36,6 +37,8 @@ import {
 } from '@/components/boq-line-grid';
 
 export type { BoqRow };
+
+const BOQ_IMPORT_COLUMNS = ['ลำดับ', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วยวัสดุ', 'ราคาต่อหน่วยค่าแรง', 'หมายเหตุ'] as const;
 
 interface BoqSheetEditorProps {
   projectId: string;
@@ -226,9 +229,49 @@ export function BoqSheetEditor({
     URL.revokeObjectURL(url);
   };
 
-  // Template Download
+  // Template (same column names the import reads and the export writes)
   const handleTemplate = () => {
-    alert('ระบบสร้างเทมเพลตมาตรฐาน BOQ กรมบัญชีกลาง (Excel .XLSX) ให้เรียบร้อยแล้ว');
+    void downloadWorkbook('BOQ_Template.xlsx', [...BOQ_IMPORT_COLUMNS], [
+      ['1', 'หมวดงานที่ 1 งานโครงสร้าง', '', '', '', '', ''],
+      ['1.1', 'คอนกรีตผสมเสร็จ 240 ksc', 10, 'ลบ.ม.', 2200, 350, ''],
+      ['1.2', 'เหล็กเสริม DB12', 500, 'กก.', 28, 6, 'รวมค่าดัด'],
+    ]);
+  };
+
+  // Import .xlsx/.csv: a row with no quantity and no prices is a category heading
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const handleImportFile = async (file: File) => {
+    setSaveError(null);
+    try {
+      const sheet = await readSpreadsheetRows(file);
+      const num = (v: string | undefined) => {
+        const n = Number(String(v ?? '').replace(/,/g, ''));
+        return v === undefined || v.trim() === '' || !Number.isFinite(n) ? '' : n;
+      };
+      const imported: BoqRow[] = sheet
+        .filter((r) => (r['รายการ'] ?? '').trim() !== '')
+        .map((r) => {
+          const qty = num(r['จำนวน']);
+          const matRate = num(r['ราคาต่อหน่วยวัสดุ']);
+          const labRate = num(r['ราคาต่อหน่วยค่าแรง']);
+          const isCategory = qty === '' && matRate === '' && labRate === '';
+          return {
+            ...(isCategory ? makeCategoryRow([]) : makeItemRow()),
+            no: (r['ลำดับ'] ?? '').trim(),
+            description: r['รายการ'].trim(),
+            ...(isCategory ? {} : { qty, unit: (r['หน่วย'] ?? '').trim(), matRate, labRate }),
+            note: (r['หมายเหตุ'] ?? '').trim(),
+          };
+        });
+      if (imported.length === 0) {
+        setSaveError(`ไม่พบรายการในไฟล์ — ต้องมีคอลัมน์ ${BOQ_IMPORT_COLUMNS.join(', ')}`);
+        return;
+      }
+      setRows((prev) => [...prev, ...imported]);
+      markDirty();
+    } catch {
+      setSaveError('อ่านไฟล์ไม่ได้ กรุณาใช้ไฟล์ .xlsx หรือ .csv ตามเทมเพลต');
+    }
   };
 
   return (
@@ -392,7 +435,7 @@ export function BoqSheetEditor({
           {/* 6. Import ไฟล์และดราฟต์ */}
           <button
             type="button"
-            onClick={() => alert('เปิดหน้าต่างนำเข้าไฟล์ Excel (.xlsx, .csv)')}
+            onClick={() => importInputRef.current?.click()}
             disabled={!editable}
             className="disabled:opacity-50 flex flex-col items-center justify-center px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 transition"
             title="นำเข้าไฟล์"
@@ -403,6 +446,18 @@ export function BoqSheetEditor({
             <span className="text-[11px] font-semibold mt-0.5">Import</span>
             <span className="text-[9px] text-slate-400">ไฟล์และดราฟต์</span>
           </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,.csv"
+            className="hidden"
+            aria-label="นำเข้าไฟล์ BOQ"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleImportFile(file);
+              e.target.value = '';
+            }}
+          />
 
           {/* 7. Export */}
           <button

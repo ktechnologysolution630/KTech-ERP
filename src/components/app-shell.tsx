@@ -37,6 +37,8 @@ import { logoutAction } from '@/app/login/actions';
 interface AppShellProps {
   user: SessionUser;
   unreadCount?: number;
+  /** From Settings; shown in the top bar */
+  companyName: string;
   children: React.ReactNode;
 }
 
@@ -50,7 +52,7 @@ const AR_LINKS = [
   { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ' },
 ];
 
-export function AppShell({ user, unreadCount = 0, children }: AppShellProps) {
+export function AppShell({ user, unreadCount = 0, companyName, children }: AppShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
@@ -808,7 +810,7 @@ export function AppShell({ user, unreadCount = 0, children }: AppShellProps) {
                 <Building2 className="w-4 h-4" />
               </div>
               <div className="leading-tight">
-                <div className="text-xs font-bold text-slate-900 tracking-tight">Light</div>
+                <div className="text-xs font-bold text-slate-900 tracking-tight">{companyName}</div>
                 <div className="text-[10px] text-slate-500">{displayName}</div>
               </div>
             </div>

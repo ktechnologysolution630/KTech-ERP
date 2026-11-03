@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Filter, CheckCircle, Table as TableIcon, Plus, Folder, Building2, Calendar, MapPin, ArrowRight } from 'lucide-react';
-import { PROJECT_STATUS_LABELS, isProjectClosed, type ProjectStatus } from '@/domain/project';
+import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, isProjectClosed, type ProjectStatus } from '@/domain/project';
 import { CreateProjectDialog } from '@/components/create-project-dialog';
 
 interface Project {
@@ -39,9 +39,14 @@ export function ProjectsClient({
   const [showCompleted, setShowCompleted] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [showModal, setShowModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
 
   const filtered = initialProjects.filter((p) => {
-    if (!showCompleted && isProjectClosed(p.status)) return false;
+    if (statusFilter !== 'ALL') {
+      if (p.status !== statusFilter) return false;
+    } else if (!showCompleted && isProjectClosed(p.status)) {
+      return false;
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       return (
@@ -70,14 +75,28 @@ export function ProjectsClient({
             />
           </div>
 
-          {/* Filter button */}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+          {/* Status filter */}
+          <label
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition ${
+              statusFilter === 'ALL' ? 'border-slate-200 bg-white text-slate-700' : 'border-[#2453d4] bg-blue-50 text-[#2453d4]'
+            }`}
           >
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <span>ตัวกรอง</span>
-          </button>
+            <Filter className="w-3.5 h-3.5" />
+            <span className="sr-only">ตัวกรองสถานะ</span>
+            <select
+              aria-label="ตัวกรองสถานะ"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'ALL')}
+              className="bg-transparent focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">ตัวกรอง: ทุกสถานะ</option>
+              {PROJECT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {PROJECT_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
 
           {/* Completed toggle */}
           <button
