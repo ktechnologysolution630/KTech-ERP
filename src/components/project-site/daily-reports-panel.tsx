@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowLeft, FileText, ImagePlus, Plus, Printer, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Cloud, CloudLightning, CloudRain, CloudSun, Droplets, FileText, ImagePlus, Plus, Printer, Send, Sun, Thermometer, Trash2, Wind } from 'lucide-react';
 import type { DailyWeather, DailyWorkOutcome } from '@/db/schema';
 import { projectDuration, totalWorkHours } from '@/domain/site-report';
 import type { DailyReportInput } from '@/server/services/project-site';
 import {
   deleteFileAction,
+  loadForecastAction,
   loadDailyReportAction,
   loadDailyReportsAction,
   saveDailyReportAction,
@@ -28,7 +29,7 @@ const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const plainInput = 'block w-full border-b border-slate-300 bg-transparent px-2 py-1.5 text-xs sm:border-b-0 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#2453d4] disabled:cursor-not-allowed';
 
 const WORK_COLS = 'sm:grid-cols-[minmax(0,1.6fr)_90px_90px_minmax(0,1fr)]';
-const RESOURCE_COLS = 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]';
+const RESOURCE_COLS = 'sm:grid-cols-[repeat(5,minmax(0,1fr))]';
 const PROGRESS_COLS = 'sm:grid-cols-[52px_minmax(0,0.8fr)_minmax(0,2fr)_100px_minmax(0,1fr)]';
 
 export interface DailyProject {
@@ -176,8 +177,8 @@ const padded = <T,>(lines: T[], blank: () => T, rows = DEFAULT_ROWS): T[] => [..
 
 const blank = (today: string): Form => ({
   reportDate: today,
-  startTime: '08:00',
-  endTime: '17:00',
+  startTime: null,
+  endTime: null,
   weatherMorning: 'SUNNY',
   weatherAfternoon: 'SUNNY',
   scheduleImpact: false,
@@ -206,16 +207,86 @@ function Choice({ name, checked, onChange, children }: { name: string; checked: 
 
 function SheetHeader({ number, logoUrl }: { number: string; logoUrl: string | null }) {
   return (
-    <header className="keep-together flex flex-wrap items-stretch border border-[#173a7a]">
-      <div className="flex items-center justify-center px-5 py-1.5">
+    <header className="keep-together grid grid-cols-[80px_minmax(0,1fr)] border border-[#173a7a] sm:grid-cols-[150px_minmax(0,1fr)_180px]">
+      <div className="flex items-center justify-center p-1.5">
         <Logo name="K Tec" url={logoUrl} />
       </div>
-      <h2 className="flex min-w-[200px] flex-1 items-center justify-center bg-[#173a7a] px-3 py-2.5 text-center text-base font-bold text-white">Daily Construction Report</h2>
-      <div className="flex items-center gap-3 px-3 py-1.5 text-[11px]">
-        <span className="font-semibold text-slate-600">Report No.</span>
-        <span className="font-mono font-bold text-slate-900">{number}</span>
+      <div className="flex flex-wrap items-center bg-[#173a7a] px-3 py-2.5 text-white">
+        <h2 className="flex-1 text-center text-lg font-bold">Daily Construction Report</h2>
+        <span className="text-[11px] font-bold">Report No.</span>
       </div>
+      <div className="col-span-2 flex items-center px-3 py-2 font-mono text-[11px] font-bold text-slate-900 sm:col-span-1">{number}</div>
     </header>
+  );
+}
+
+const FORECAST_ICON: [RegExp, React.ComponentType<{ className?: string }>][] = [
+  [/ฟ้าคะนอง/, CloudLightning],
+  [/ฝน/, CloudRain],
+  [/เมฆมาก|หมอก/, Cloud],
+  [/บางส่วน/, CloudSun],
+];
+
+/** Forecast for the report date; the weather picked below it is what goes on the report. */
+function ForecastCard({ projectId, date }: { projectId: string; date: string }) {
+  const { data } = useSiteLoader(() => loadForecastAction(projectId, date), [projectId, date]);
+  const box = 'rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-amber-50 p-3.5 shadow-sm';
+  if (!data) return <div className={`${box} py-10 text-center text-[11px] text-slate-500`}>กำลังโหลดพยากรณ์อากาศ...</div>;
+  if (data.status !== 'OK') {
+    const message =
+      data.status === 'NO_PROVINCE'
+        ? 'ระบุจังหวัดในช่องสถานที่ของโครงการ (แท็บตั้งค่า) เพื่อแสดงพยากรณ์อากาศ'
+        : data.status === 'OUT_OF_RANGE'
+          ? `ไม่มีพยากรณ์ของ${data.province}สำหรับวันที่เลือก (มีเฉพาะวันนี้และประมาณ 9 วันข้างหน้า)`
+          : 'โหลดพยากรณ์อากาศไม่สำเร็จ เลือกสภาพอากาศด้านล่างได้ตามปกติ';
+    return <div className={`${box} py-8 text-center text-[11px] text-slate-600`}>{message}</div>;
+  }
+  const f = data.forecast;
+  const Icon = FORECAST_ICON.find(([re]) => re.test(f.condition))?.[1] ?? Sun;
+  const stats: [React.ReactNode, string, string][] = [
+    [<Thermometer key="t" className="h-4 w-4" />, 'อุณหภูมิ', `${f.temperature}°C`],
+    [<Droplets key="r" className="h-4 w-4" />, 'ฝน', `${f.rainMm} มม.`],
+    [<Wind key="w" className="h-4 w-4" />, 'ลม', `${f.windKmh} กม./ชม.`],
+  ];
+  return (
+    <div className={box}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-sky-700">Weather Forecast</div>
+          <div className="text-sm font-bold text-slate-900">พยากรณ์อากาศ</div>
+          <div className="text-[11px] text-slate-500">
+            {data.province} · {dateText(date)}
+          </div>
+        </div>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-amber-500 shadow-sm">
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <div className="text-2xl font-light text-slate-900">
+            {f.maxTemp}° / {f.minTemp}° <span className="text-[10px] text-slate-500">สูงสุด / ต่ำสุด</span>
+          </div>
+          <div className="text-xs font-semibold text-slate-800">{f.condition}</div>
+          <div className={`text-[11px] ${f.normal ? 'text-slate-500' : 'font-semibold text-amber-700'}`}>{f.normal ? 'ปกติ' : 'ควรเฝ้าระวังผลกระทบต่องาน'}</div>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {stats.map(([icon, label, value]) => (
+            <div key={label} className="flex min-w-[58px] flex-col items-center gap-0.5 rounded-lg bg-white px-1.5 py-2 text-center shadow-sm">
+              <span className="text-sky-700">{icon}</span>
+              <span className="text-[10px] text-slate-500">{label}</span>
+              <span className="text-[11px] font-semibold text-slate-900">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-1.5 text-right text-[9px] text-slate-500">
+        ข้อมูลจาก{' '}
+        <a href="https://www.met.no/en" target="_blank" rel="noopener noreferrer" className="underline">
+          MET Norway
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -223,8 +294,8 @@ function SheetHeader({ number, logoUrl }: { number: string; logoUrl: string | nu
 function DetailCells({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
-      <div className="border-b border-r border-slate-300 px-2 py-1.5 font-semibold text-slate-900">{label}</div>
-      <div className="min-w-0 border-b border-slate-300 px-2 py-1.5 text-slate-900 sm:border-r">{children}</div>
+      <div className="border-b border-r border-[#173a7a] px-2 py-1.5 font-semibold text-slate-900">{label}</div>
+      <div className="min-w-0 border-b border-[#173a7a] px-2 py-1.5 text-slate-900 last:border-r-0 sm:border-r [&:nth-child(4n+1)]:border-r-0">{children}</div>
     </>
   );
 }
@@ -382,13 +453,13 @@ function ReportEditor({
   };
 
   const caption = (text: string) => <span className="block px-2 pb-1 text-[11px] text-slate-500 sm:hidden">{text}</span>;
-  const addRowButton = (onClick: () => void) => (
-    <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded bg-white/15 px-2 py-0.5 text-[11px] font-medium hover:bg-white/25">
+  const addRowLink = (onClick: () => void) => (
+    <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-1 border-t border-[#173a7a] py-1 text-[11px] font-medium text-[#173a7a] hover:bg-slate-50">
       <Plus className="h-3 w-3" /> เพิ่มแถว
     </button>
   );
 
-  const duration = form ? projectDuration(project.startDate, project.endDate, form.reportDate) : null;
+const duration = form ? projectDuration(project.startDate, project.endDate, form.reportDate) : null;
   const workHours = form ? totalWorkHours(form.labour) : 0;
   const slotCount = Math.max(MIN_PHOTO_SLOTS, Math.ceil((photos.length + 1) / 2) * 2);
 
@@ -422,24 +493,22 @@ function ReportEditor({
               <section className="grid grid-cols-1 border border-[#173a7a] sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.8fr)]">
                 <div className="flex flex-col sm:border-r sm:border-[#173a7a]">
                   <div className="bg-[#173a7a] px-2 py-2 text-center font-bold text-white">สภาพอากาศ (Weather Condition)</div>
-                  <div className="grid flex-1 grid-cols-2 gap-3 p-3">
-                    {(
-                      [
-                        ['weatherMorning', 'ช่วงเช้า'],
-                        ['weatherAfternoon', 'ช่วงบ่าย'],
-                      ] as const
-                    ).map(([key, label]) => (
-                      <label key={key} className="block">
-                        <select value={form[key]} onChange={(e) => set(key, e.target.value as DailyWeather)} className={field}>
-                          {Object.entries(WEATHER).map(([k, v]) => (
-                            <option key={k} value={k}>
-                              {v}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="mt-0.5 block text-[11px] text-slate-500">{label}</span>
-                      </label>
-                    ))}
+                  <div className="flex-1 space-y-2 p-2">
+                    <ForecastCard projectId={project.id} date={form.reportDate} />
+                    <label className="block">
+                      <span className="sr-only">สภาพอากาศหน้างาน</span>
+                      <select
+                        value={form.weatherMorning}
+                        onChange={(e) => setForm((f) => (f ? { ...f, weatherMorning: e.target.value as DailyWeather, weatherAfternoon: e.target.value as DailyWeather } : f))}
+                        className={field}
+                      >
+                        {Object.entries(WEATHER).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                 </div>
                 <div className="border-t border-[#173a7a] sm:border-r sm:border-t-0">
@@ -460,9 +529,7 @@ function ReportEditor({
               </section>
 
               <section className="border border-[#173a7a]">
-                <Band right={addRowButton(() => set('work', [...form.work, blankWork()]))}>
-                  <span className="block text-center">สรุปงานประจำวัน (Work Summary)</span>
-                </Band>
+                <div className="bg-[#173a7a] px-2 py-2 text-center font-bold text-white">สรุปงานประจำวัน (Work Summary)</div>
                 <div className={`hidden divide-x divide-[#173a7a] border-b border-[#173a7a] text-center font-semibold text-slate-900 sm:grid ${WORK_COLS}`}>
                   <span className="py-1.5">รายละเอียดการทำงาน (Task)</span>
                   <span className="py-1.5">Completed</span>
@@ -496,15 +563,13 @@ function ReportEditor({
                     </div>
                   ))}
                 </div>
+                {addRowLink(() => set('work', [...form.work, blankWork()]))}
               </section>
 
               <section className="border border-[#173a7a]">
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-[#173a7a] px-2.5 py-1.5 font-bold text-white">
-                  <span>สรุปจำนวนคนงาน (Labour Summary) · รวม {form.labour.reduce((s, l) => s + (l.workers || 0), 0)} คน</span>
-                  <span className="flex items-center gap-3">
-                    สรุปการใช้เครื่องมือ-เครื่องจักร (Equipment Summary)
-                    {addRowButton(() => setForm((f) => (f ? { ...f, labour: [...f.labour, blankLabour()], equipment: [...f.equipment, blankEquipment()] } : f)))}
-                  </span>
+                <div className="grid grid-cols-1 gap-1 bg-[#173a7a] px-2.5 py-2 text-center font-bold text-white sm:grid-cols-[3fr_2fr]">
+                  <span>สรุปจำนวนคนงาน (Labour Summary)</span>
+                  <span>สรุปการใช้เครื่องมือ-เครื่องจักรในการทำงาน (Equipment Summary)</span>
                 </div>
                 <div className={`hidden divide-x divide-[#173a7a] border-b border-[#173a7a] text-center font-semibold text-slate-900 sm:grid ${RESOURCE_COLS}`}>
                   <span className="py-1.5">บริษัท (Company)</span>
@@ -540,6 +605,7 @@ function ReportEditor({
                     );
                   })}
                 </div>
+                {addRowLink(() => setForm((f) => (f ? { ...f, labour: [...f.labour, blankLabour()], equipment: [...f.equipment, blankEquipment()] } : f)))}
               </section>
 
               <section className="border border-[#173a7a]">
@@ -579,19 +645,17 @@ function ReportEditor({
               <section className="border border-[#173a7a]">
                 <div className="bg-[#173a7a] px-2 py-2 text-center font-bold text-white">Project Duration</div>
                 <div className="grid grid-cols-[minmax(0,1fr)_80px] sm:grid-cols-[minmax(0,1fr)_80px_minmax(0,1fr)_80px_minmax(0,1fr)_80px]">
-                  <div className="border-b border-r border-slate-300 p-2 sm:border-b-0">Total work hours today</div>
-                  <div className="border-b border-slate-300 p-2 sm:border-b-0 sm:border-r" title="คนงาน × ชั่วโมง รวมทุกแถว">{workHours > 0 ? workHours : <span className="text-slate-500">Auto</span>}</div>
-                  <div className="border-b border-r border-slate-300 p-2 sm:border-b-0">Elapsed project days</div>
-                  <div className="border-b border-slate-300 p-2 sm:border-b-0 sm:border-r">{durationText(duration?.elapsed ?? null)}</div>
-                  <div className="border-r border-slate-300 p-2">Remaining project days</div>
+                  <div className="border-b border-r border-[#173a7a] p-2 sm:border-b-0">Total work hours today</div>
+                  <div className="border-b border-[#173a7a] p-2 sm:border-b-0 sm:border-r" title="คนงาน × ชั่วโมง รวมทุกแถว">{workHours > 0 ? workHours : <span className="text-slate-500">Auto</span>}</div>
+                  <div className="border-b border-r border-[#173a7a] p-2 sm:border-b-0">Elapsed project days</div>
+                  <div className="border-b border-[#173a7a] p-2 sm:border-b-0 sm:border-r">{durationText(duration?.elapsed ?? null)}</div>
+                  <div className="border-r border-[#173a7a] p-2">Remaining project days</div>
                   <div className="p-2">{durationText(duration?.remaining ?? null)}</div>
                 </div>
               </section>
 
               <section className="border border-[#173a7a]">
-                <Band right={addRowButton(() => set('progress', [...form.progress, blankProgress()]))}>
-                  <span className="block text-center">{"Today's Overall Progress"}</span>
-                </Band>
+                <div className="bg-[#173a7a] px-2 py-2 text-center font-bold text-white">{"Today's Overall Progress"}</div>
                 <div className={`hidden divide-x divide-[#173a7a] border-b border-[#173a7a] font-semibold text-slate-900 sm:grid ${PROGRESS_COLS}`}>
                   <span className="px-2 py-1.5">ลำดับ</span>
                   <span className="px-2 py-1.5">พื้นที่/ยูนิต</span>
@@ -640,9 +704,7 @@ function ReportEditor({
                     </div>
                   ))}
                 </div>
-                <p className="border-t border-[#173a7a] bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
-                  ผลงานวันนี้ (%) คือเปอร์เซ็นต์ที่ทำเพิ่มในวันนี้ เมื่อกด &quot;ส่งรายงาน&quot; ระบบจะบวกเพิ่มไปที่งานใน Gantt (สูงสุด 100%)
-                </p>
+                {addRowLink(() => set('progress', [...form.progress, blankProgress()]))}
               </section>
 
               <SheetHeader number={number ?? 'ออกเลขเมื่อบันทึก'} logoUrl={logoUrl} />
@@ -697,13 +759,13 @@ function ReportEditor({
           </form>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-3 py-2.5 text-xs">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 px-3 py-2.5 text-xs">
         {error && (
-          <p role="alert" className="mr-auto font-medium text-red-600">
+          <p role="alert" className="mr-auto rounded-lg bg-white px-3 py-2 font-medium text-red-600">
             {error}
           </p>
         )}
-        <button type="button" disabled={isPending} onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 font-medium hover:bg-slate-50">
+        <button type="button" disabled={isPending} onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium hover:bg-slate-50">
           ยกเลิก
         </button>
         <button type="button" disabled={isPending || !form} onClick={() => persist(false)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold hover:bg-slate-50 disabled:opacity-60">
@@ -749,8 +811,14 @@ function DailySheet({ data, project, tasks, logoUrl }: { data: LoadedReport; pro
           <div className="border-r border-[#173a7a]">
             <div className="bg-[#173a7a] px-2 py-1.5 text-center font-bold text-white">สภาพอากาศ (Weather)</div>
             <div className="space-y-0.5 p-2">
-              <div>ช่วงเช้า: <b>{WEATHER[data.weatherMorning]}</b></div>
-              <div>ช่วงบ่าย: <b>{WEATHER[data.weatherAfternoon]}</b></div>
+              {data.weatherMorning === data.weatherAfternoon ? (
+                <b>{WEATHER[data.weatherMorning]}</b>
+              ) : (
+                <>
+                  <div>ช่วงเช้า: <b>{WEATHER[data.weatherMorning]}</b></div>
+                  <div>ช่วงบ่าย: <b>{WEATHER[data.weatherAfternoon]}</b></div>
+                </>
+              )}
             </div>
           </div>
           <div className="border-r border-[#173a7a]">
@@ -799,7 +867,7 @@ function DailySheet({ data, project, tasks, logoUrl }: { data: LoadedReport; pro
         </section>
         <section className="keep-together border border-[#173a7a]">
           <div className="flex justify-between bg-[#173a7a] px-2.5 py-1.5 font-bold text-white">
-            <span>สรุปจำนวนคนงาน (Labour Summary) · รวม {data.labour.reduce((s, l) => s + l.workers, 0)} คน</span>
+            <span>สรุปจำนวนคนงาน (Labour Summary)</span>
             <span>เครื่องมือ-เครื่องจักร (Equipment Summary)</span>
           </div>
           <table className="w-full text-[10.5px]">
@@ -865,13 +933,12 @@ function DailySheet({ data, project, tasks, logoUrl }: { data: LoadedReport; pro
                 <th className="px-2 py-1 text-left">พื้นที่/ยูนิต</th>
                 <th className="px-2 py-1 text-left">รายการงาน</th>
                 <th className="px-2 py-1 text-center">ผลงานวันนี้ (%)</th>
-                <th className="px-2 py-1 text-center">สะสม (%)</th>
                 <th className="px-2 py-1 text-left">หมายเหตุ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {data.progress.length === 0 ? (
-                <tr><td colSpan={6} className="px-2 py-2 text-center text-slate-500">ไม่มีรายการ</td></tr>
+                <tr><td colSpan={5} className="px-2 py-2 text-center text-slate-500">ไม่มีรายการ</td></tr>
               ) : (
                 data.progress.map((p, i) => (
                   <tr key={i}>
@@ -882,7 +949,6 @@ function DailySheet({ data, project, tasks, logoUrl }: { data: LoadedReport; pro
                       {p.taskId && p.detail && <div className="text-[10px] text-slate-500">{p.detail}</div>}
                     </td>
                     <td className="px-2 py-1 text-center">{p.todayPercent ?? '-'}</td>
-                    <td className="px-2 py-1 text-center">{p.cumulativePercent ?? '-'}</td>
                     <td className="px-2 py-1">{p.note || '-'}</td>
                   </tr>
                 ))

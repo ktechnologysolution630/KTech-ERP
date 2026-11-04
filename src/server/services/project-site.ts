@@ -26,7 +26,7 @@ import { assertCan, can } from '@/server/policy';
 import { logActivity } from './activity';
 import { listAttachments } from './attachments';
 import { notify } from './notifications';
-import { nextDocNumber } from './numbering';
+import { nextDailyReportNumber } from './numbering';
 
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ไม่ถูกต้อง');
@@ -456,7 +456,7 @@ export async function saveDailyReport(
       await tx.update(dailyReports).set({ ...data, updatedAt: new Date() }).where(eq(dailyReports.id, reportId));
       return { id: r.id, number: r.number };
     }
-    const number = await nextDocNumber(tx, 'DR');
+    const number = await nextDailyReportNumber(tx, data.reportDate);
     const [created] = await tx.insert(dailyReports).values({ ...data, projectId, number, createdBy: actor.id }).returning();
     await logActivity(tx, { entityType: 'DAILY_REPORT', entityId: created.id, action: 'CREATE', userId: actor.id, note: `${project.code} ${data.reportDate}` });
     return { id: created.id, number };

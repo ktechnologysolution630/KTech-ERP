@@ -213,3 +213,31 @@ export function ProgressCurve({ curve, cutoff, height = 240 }: { curve: CurvePoi
     </div>
   );
 }
+
+/** A labelled group on the reports ribbon: tools above, the group's name below. */
+export function RibbonGroup({ caption, children }: { caption: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-between gap-1 border-r border-slate-200 px-4 py-2 last:border-r-0">
+      <div className="flex flex-1 items-center gap-2">{children}</div>
+      <div className="text-[10px] text-slate-500">{caption}</div>
+    </div>
+  );
+}
+
+/** Icon over a label; the ribbon's tool button and its non-clickable title use the same shape. */
+export function RibbonTool({ icon, title, subtitle, onClick, disabled }: { icon: React.ReactNode; title: string; subtitle?: string; onClick?: () => void; disabled?: boolean }) {
+  const body = (
+    <>
+      <span className="text-[#173a7a]">{icon}</span>
+      <span className="mt-0.5 block whitespace-nowrap text-[11px] font-semibold text-slate-900">{title}</span>
+      {subtitle && <span className="block whitespace-nowrap text-[10px] text-slate-500">{subtitle}</span>}
+    </>
+  );
+  const shape = 'flex flex-col items-center rounded-lg px-3 py-1 text-center';
+  if (!onClick) return <div className={shape}>{body}</div>;
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={`${shape} hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent`}>
+      {body}
+    </button>
+  );
+}

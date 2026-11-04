@@ -7,6 +7,7 @@ import { requireUser } from '@/server/auth/current-user';
 import { deleteAttachment, setAttachmentCaption } from '@/server/services/attachments';
 import { getProjectCashflow, getProjectCostPerformance } from '@/server/services/project-finance';
 import { getPeriodicReport, type ReportKind } from '@/server/services/site-reports';
+import { getProjectForecast } from '@/server/services/weather';
 import {
   addProjectMember,
   createProjectEvent,
@@ -55,6 +56,11 @@ export async function loadCostPerformanceAction(projectId: string) {
 export async function loadPeriodicReportAction(projectId: string, kind: ReportKind, anchorDate: string) {
   const { actor, db } = await ctx();
   return run(() => getPeriodicReport(db, actor, projectId, kind, anchorDate));
+}
+
+export async function loadForecastAction(projectId: string, date: string) {
+  const { actor, db } = await ctx();
+  return run(() => getProjectForecast(db, actor, projectId, date));
 }
 
 export async function loadTeamAction(projectId: string) {

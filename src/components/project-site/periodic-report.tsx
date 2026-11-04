@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Download, FileText, Info } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Download, Eye, FileText, Info, X } from 'lucide-react';
 import { loadPeriodicReportAction } from '@/app/(app)/projects/[id]/site-actions';
 import { formatMoneyDisplay } from '@/domain/money';
 import { addDays, formatPeriod, monthOf, weekOf } from '@/domain/site-report';
 import type { PeriodicReport as Report, ReportKind } from '@/server/services/site-reports';
-import { A4Page, DataTable, InfoGrid, Logo, pct, points, PrintRoot, ProgressCurve, Sheet, thaiShortDate } from './report-sheet';
+import { A4Page, DataTable, InfoGrid, Logo, pct, points, PrintRoot, ProgressCurve, RibbonGroup, RibbonTool, Sheet, thaiShortDate } from './report-sheet';
 import { useSiteLoader } from './use-site-loader';
 
 const OUTCOME = { COMPLETED: 'เสร็จ', DELAYED: 'ล่าช้า' } as const;
@@ -327,8 +327,9 @@ function SourcePanel({ report: r }: { report: Report }) {
 }
 
 /** Weekly or monthly report for the chosen date; everything on it is generated. */
-export function PeriodicReportView({ projectId, kind, today, toolbarLead }: { projectId: string; kind: ReportKind; today: string; toolbarLead: React.ReactNode }) {
+export function PeriodicReportView({ projectId, kind, today, typeTool }: { projectId: string; kind: ReportKind; today: string; typeTool: React.ReactNode }) {
   const [anchor, setAnchor] = useState(today);
+  const [previewing, setPreviewing] = useState(false);
   const { data, error } = useSiteLoader(() => loadPeriodicReportAction(projectId, kind, anchor), [projectId, kind, anchor]);
   const period = kind === 'WEEK' ? weekOf(anchor) : monthOf(anchor);
   const atLatest = period.end >= today;
@@ -338,38 +339,45 @@ export function PeriodicReportView({ projectId, kind, today, toolbarLead }: { pr
   const step = (dir: -1 | 1) => setAnchor(dir < 0 ? addDays(period.start, -1) : addDays(period.end, 1));
   const label = kind === 'WEEK' ? 'สัปดาห์' : 'เดือน';
   const pages = report ? kind === 'WEEK' ? <WeeklyPages report={report} /> : <MonthlyPages report={report} /> : null;
+  const notReady = !report || !!stale;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-b-xl border border-t-0 border-slate-200 bg-white px-4 py-3 shadow-xs">
-        {toolbarLead}
-        <div className="flex items-center gap-1.5 text-xs">
-          <button type="button" onClick={() => step(-1)} aria-label={`${label}ก่อนหน้า`} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5">
-            <CalendarDays className="h-4 w-4 text-slate-500" />
-            <span className="sr-only">เลือก{label}</span>
-            {kind === 'WEEK' ? (
-              <input type="date" value={anchor} max={today} onChange={(e) => e.target.value && setAnchor(e.target.value)} className="bg-transparent focus:outline-none" />
-            ) : (
-              <input type="month" value={anchor.slice(0, 7)} max={today.slice(0, 7)} onChange={(e) => e.target.value && setAnchor(`${e.target.value}-01`)} className="bg-transparent focus:outline-none" />
-            )}
-          </label>
-          <button type="button" onClick={() => step(1)} disabled={atLatest} aria-label={`${label}ถัดไป`} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <span className="ml-1 font-medium text-slate-700">{formatPeriod(period)}</span>
-        </div>
-        <button
-          type="button"
-          disabled={!report || !!stale}
-          onClick={() => window.print()}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" /> Export PDF
-        </button>
+      <div className="flex flex-wrap items-stretch rounded-b-xl border border-t-0 border-slate-200 bg-white shadow-xs">
+        <RibbonGroup caption="ประเภทรายงาน">{typeTool}</RibbonGroup>
+        <RibbonGroup caption={kind === 'WEEK' ? 'ช่วงสัปดาห์' : 'เดือน'}>
+          <div className="flex items-center gap-1.5 text-xs">
+            <button type="button" onClick={() => step(-1)} aria-label={`${label}ก่อนหน้า`} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5">
+              <span className="sr-only">เลือก{label}</span>
+              {kind === 'WEEK' ? (
+                <input type="date" value={anchor} max={today} onChange={(e) => e.target.value && setAnchor(e.target.value)} className="bg-transparent focus:outline-none" />
+              ) : (
+                <input type="month" value={anchor.slice(0, 7)} max={today.slice(0, 7)} onChange={(e) => e.target.value && setAnchor(`${e.target.value}-01`)} className="bg-transparent focus:outline-none" />
+              )}
+            </label>
+            <button type="button" onClick={() => step(1)} disabled={atLatest} aria-label={`${label}ถัดไป`} className="rounded-lg border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="ml-1 whitespace-nowrap font-medium text-slate-700">{formatPeriod(period)}</span>
+          </div>
+        </RibbonGroup>
+        <RibbonGroup caption="เอกสาร">
+          <RibbonTool icon={<Eye className="h-6 w-6" />} title="Preview A4" onClick={() => setPreviewing(true)} disabled={notReady} />
+          <RibbonTool icon={<Download className="h-6 w-6" />} title="Export PDF" onClick={() => window.print()} disabled={notReady} />
+        </RibbonGroup>
       </div>
+
+      {previewing && pages && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/70 p-4" role="dialog" aria-modal="true" aria-label="Preview A4">
+          <button type="button" onClick={() => setPreviewing(false)} aria-label="ปิด Preview" className="fixed right-5 top-5 z-10 rounded-full bg-white p-2 text-slate-700 shadow-lg hover:bg-slate-100">
+            <X className="h-5 w-5" />
+          </button>
+          <div className="w-max min-w-full space-y-4">{pages}</div>
+        </div>
+      )}
 
       {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
       {!report && !error && <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-xs text-slate-500">กำลังสร้างรายงาน...</div>}

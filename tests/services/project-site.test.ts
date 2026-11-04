@@ -113,8 +113,10 @@ describe('project site services', () => {
       ],
       equipment: [{ type: 'รถโม่', hours: 3 }],
     });
-    expect(saved.number).toMatch(/^DR-/);
-    const [listed] = await listDailyReports(db, f.users.pm, f.projectA);
+    expect(saved.number).toBe('DR-20261103-001');
+    expect((await saveDailyReport(db, f.users.foreman, f.projectA, null, { reportDate: '2026-11-03' })).number).toBe('DR-20261103-002');
+    expect((await saveDailyReport(db, f.users.foreman, f.projectA, null, { reportDate: '2026-11-02' })).number).toBe('DR-20261102-001');
+    const listed = (await listDailyReports(db, f.users.pm, f.projectA)).find((r) => r.id === saved.id);
     expect(listed).toMatchObject({ workers: 12, status: 'DRAFT', weatherAfternoon: 'RAIN' });
     // Blank form lines are not stored
     expect((await getDailyReport(db, f.users.pm, saved.id)).work).toHaveLength(1);
