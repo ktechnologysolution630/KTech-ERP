@@ -198,6 +198,12 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     {!collapsed && <span>K Tec Approve</span>}
                   </div>
+                  {!collapsed && pendingApprovalCount > 0 && (
+                    <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{pendingApprovalCount}</span>
+                  )}
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Section: Operations */}
