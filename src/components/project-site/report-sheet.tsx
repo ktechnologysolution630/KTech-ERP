@@ -24,6 +24,16 @@ export function PrintRoot({ children }: { children: React.ReactNode }) {
   return createPortal(<div className="print-root">{children}</div>, document.body);
 }
 
+/** A site photo on a report; says so plainly when its file is gone instead of showing a broken image. */
+export function ReportPhoto({ url, alt, className }: { url: string; alt: string; className: string }) {
+  const [missing, setMissing] = useState(false);
+  if (missing) {
+    return <div className={`${className} flex items-center justify-center bg-slate-50 p-2 text-center text-[10.5px] text-slate-500`}>ไม่พบไฟล์รูป</div>;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt={alt} onError={() => setMissing(true)} className={className} />;
+}
+
 /** One A4 sheet on screen; on paper the sheet's padding gives way to the page margin. */
 export function A4Page({ children }: { children: React.ReactNode }) {
   return (

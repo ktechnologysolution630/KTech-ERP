@@ -5,7 +5,7 @@ import { getDb } from '@/db/client';
 import { type EntityType } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { getCurrentUser } from '@/server/auth/current-user';
-import { addAttachment, readStoredFile } from '@/server/services/attachments';
+import { addAttachment, readStoredFile, replacePhoto } from '@/server/services/attachments';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,6 +68,12 @@ export async function POST(req: NextRequest) {
     const kind = form.get('kind') === 'PHOTO' ? 'PHOTO' : 'FILE';
     const folder = String(form.get('folder') || '');
     const caption = String(form.get('caption') || '');
+    const replaces = form.get('replaces');
+    if (file instanceof File && typeof replaces === 'string') {
+      if (!UUID.test(replaces)) return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
+      await replacePhoto(await getDb(), user, replaces, file);
+      return NextResponse.json({ ok: true });
+    }
     if (!(file instanceof File) || !entityType || !entityId) {
       return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
     }

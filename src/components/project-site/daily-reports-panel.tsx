@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowLeft, Cloud, CloudLightning, CloudRain, CloudSun, Droplets, FileText, ImagePlus, Plus, Printer, Send, Sun, Thermometer, Trash2, Wind } from 'lucide-react';
+import { ArrowLeft, Cloud, CloudLightning, CloudRain, CloudSun, Droplets, FileText, ImagePlus, Plus, Printer, RefreshCw, Send, Sun, Thermometer, Trash2, Wind } from 'lucide-react';
 import type { DailyWeather, DailyWorkOutcome } from '@/db/schema';
 import { projectDuration, totalWorkHours } from '@/domain/site-report';
 import type { DailyReportInput } from '@/server/services/project-site';
@@ -14,8 +14,8 @@ import {
   setPhotoCaptionAction,
   submitDailyReportAction,
 } from '@/app/(app)/projects/[id]/site-actions';
-import { A4Page, Band, Logo, PrintRoot } from './report-sheet';
-import { uploadFile, useSiteLoader } from './use-site-loader';
+import { A4Page, Band, Logo, PrintRoot, ReportPhoto } from './report-sheet';
+import { replacePhotoFile, uploadFile, useSiteLoader } from './use-site-loader';
 
 const WEATHER: Record<DailyWeather, string> = { SUNNY: 'แดด', CLOUDY: 'เมฆครึ้ม', RAIN: 'ฝนตก', HEAVY_RAIN: 'ฝนตกหนัก', OTHER: 'อื่นๆ' };
 const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-[#2453d4] focus:outline-none bg-white disabled:bg-slate-50';
@@ -782,7 +782,21 @@ const duration = form ? projectDuration(project.startDate, project.endDate, form
 type LoadedReport = Extract<Awaited<ReturnType<typeof loadDailyReportAction>>, { ok: true }>['value'];
 
 /** The report as printable A4 sheets; used on screen and in the print copy. */
-function DailySheet({ data, project, tasks, logoUrl }: { data: LoadedReport; project: DailyProject; tasks: { id: string; wbs: string; title: string }[]; logoUrl: string | null }) {
+function DailySheet({
+  data,
+  project,
+  tasks,
+  logoUrl,
+  onReplacePhoto,
+  replacingPhotoId,
+}: {
+  data: LoadedReport;
+  project: DailyProject;
+  tasks: { id: string; wbs: string; title: string }[];
+  logoUrl: string | null;
+  onReplacePhoto?: (photoId: string, file: File) => void;
+  replacingPhotoId?: string | null;
+}) {
   const taskName = (id: string | null | undefined) => {
     const t = tasks.find((x) => x.id === id);
     return t ? `${t.wbs} ${t.title}` : '';
@@ -977,8 +991,27 @@ function DailySheet({ data, project, tasks, logoUrl }: { data: LoadedReport; pro
             <div className="grid grid-cols-2">
               {photos.map((p, i) => (
                 <figure key={p.id} className={`keep-together border-[#173a7a] p-2 ${i > 1 ? 'border-t' : ''} ${i % 2 === 1 ? 'border-l' : ''}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={p.caption || p.name} className="aspect-[4/3] w-full border border-slate-200 object-cover" />
+                  <div className="relative">
+                    <ReportPhoto key={p.url} url={p.url} alt={p.caption || p.name} className="aspect-[4/3] w-full border border-slate-200 object-cover" />
+                    {onReplacePhoto && (
+                      <label className={`absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-white/95 px-2 py-1 text-[10.5px] font-semibold text-[#173a7a] shadow-sm focus-within:ring-2 focus-within:ring-[#2453d4] ${replacingPhotoId ? 'opacity-50' : 'cursor-pointer hover:bg-white'}`}>
+                        <RefreshCw className={`h-3 w-3 ${replacingPhotoId === p.id ? 'animate-spin' : ''}`} />
+                        {replacingPhotoId === p.id ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรูป'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="sr-only"
+                          disabled={!!replacingPhotoId}
+                          aria-label={`เปลี่ยนรูปที่ ${i + 1}`}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (file) onReplacePhoto(p.id, file);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                   <figcaption className="mt-1 min-h-[1.25rem] text-[10.5px] text-slate-700">{p.caption}</figcaption>
                 </figure>
               ))}
@@ -1008,6 +1041,20 @@ function ReportView({
   const { data, error, reload } = useSiteLoader(() => loadDailyReportAction(reportId), [reportId]);
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [replacingPhotoId, setReplacingPhotoId] = useState<string | null>(null);
+
+  const replacePhoto = async (photoId: string, file: File) => {
+    if (file.size > MAX_PHOTO_BYTES) {
+      setActionError(`${file.name}: ขนาดไฟล์ต้องไม่เกิน 10 MB`);
+      return;
+    }
+    setActionError(null);
+    setReplacingPhotoId(photoId);
+    const failure = await replacePhotoFile(photoId, file);
+    if (failure) setActionError(`${file.name}: ${failure}`);
+    await reload();
+    setReplacingPhotoId(null);
+  };
 
   if (error) return <p className="text-xs text-red-600">{error}</p>;
   if (!data) return <p className="rounded-xl bg-white p-8 text-center text-xs text-slate-500">กำลังโหลดรายงาน...</p>;
@@ -1049,7 +1096,7 @@ function ReportView({
       {actionError && <p className="text-xs text-red-600">{actionError}</p>}
 
       <div className="space-y-4 overflow-x-auto rounded-xl bg-slate-100 p-4">
-        <DailySheet data={data} project={project} tasks={tasks} logoUrl={logoUrl} />
+        <DailySheet data={data} project={project} tasks={tasks} logoUrl={logoUrl} onReplacePhoto={data.canReplacePhotos ? replacePhoto : undefined} replacingPhotoId={replacingPhotoId} />
       </div>
       <PrintRoot>
         <DailySheet data={data} project={project} tasks={tasks} logoUrl={logoUrl} />

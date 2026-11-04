@@ -148,6 +148,31 @@ export async function setAttachmentCaption(db: Db, actor: SessionUser, attachmen
   await db.update(attachments).set({ caption: caption.trim().slice(0, MAX_CAPTION) }).where(eq(attachments.id, attachmentId));
 }
 
+/**
+ * Swaps the image of a photo in place, keeping its caption and position. Project managers only,
+ * because this also changes photos on reports that are already submitted; the activity log keeps both names.
+ */
+export async function replacePhoto(db: Db, actor: SessionUser, attachmentId: string, file: File) {
+  const [att] = await db.select().from(attachments).where(eq(attachments.id, attachmentId)).limit(1);
+  if (!att) throw new DomainError('NOT_FOUND', 'ไม่พบรูป', 404);
+  const projectId = await assertEntityAccess(db, actor, att.entityType, att.entityId);
+  if (!can(actor, 'project.manage', { projectId })) {
+    throw new DomainError('FORBIDDEN', 'เปลี่ยนรูปได้เฉพาะผู้ดูแลโครงการ', 403);
+  }
+  // Same test the reports use: older daily report photos were stored with kind FILE
+  if (!att.contentType.startsWith('image/')) throw new DomainError('INVALID_FILE', 'เปลี่ยนได้เฉพาะรูปภาพ');
+  if (!PHOTO_TYPES.includes(file.type)) {
+    throw new DomainError('INVALID_FILE', 'รูปภาพต้องเป็นไฟล์ JPG, PNG, WebP หรือ GIF');
+  }
+  const stored = await storeFile(db, file);
+  await db
+    .update(attachments)
+    .set({ url: stored.url, name: stored.name, size: stored.size, contentType: stored.contentType })
+    .where(eq(attachments.id, attachmentId));
+  await removeStoredFile(db, att.url);
+  await logActivity(db, { entityType: att.entityType, entityId: att.entityId, action: 'attachment.replace', userId: actor.id, note: `${att.name} → ${stored.name}` });
+}
+
 /** Uploader, or anyone who manages the document's project, may remove an attachment. */
 export async function deleteAttachment(db: Db, actor: SessionUser, attachmentId: string) {
   const [att] = await db.select().from(attachments).where(eq(attachments.id, attachmentId)).limit(1);

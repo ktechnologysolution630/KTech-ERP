@@ -6,7 +6,7 @@ import { loadPeriodicReportAction } from '@/app/(app)/projects/[id]/site-actions
 import { formatMoneyDisplay } from '@/domain/money';
 import { addDays, formatPeriod, monthOf, weekOf } from '@/domain/site-report';
 import type { PeriodicReport as Report, ReportKind } from '@/server/services/site-reports';
-import { A4Page, DataTable, InfoGrid, Logo, pct, points, PrintRoot, ProgressCurve, RibbonGroup, RibbonTool, Sheet, thaiShortDate } from './report-sheet';
+import { A4Page, DataTable, InfoGrid, Logo, pct, points, PrintRoot, ProgressCurve, ReportPhoto, RibbonGroup, RibbonTool, Sheet, thaiShortDate } from './report-sheet';
 import { useSiteLoader } from './use-site-loader';
 
 const OUTCOME = { COMPLETED: 'เสร็จ', DELAYED: 'ล่าช้า' } as const;
@@ -175,8 +175,7 @@ function PhotoSheet({ report }: { report: Report }) {
       <div className="grid grid-cols-4 gap-2 p-2">
         {report.photos.map((p) => (
           <figure key={p.id}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt={p.caption || p.name} className="aspect-[4/3] w-full rounded border border-slate-200 object-cover" />
+            <ReportPhoto key={p.url} url={p.url} alt={p.caption || p.name} className="aspect-[4/3] w-full rounded border border-slate-200 object-cover" />
             {p.caption && <figcaption className="mt-0.5 text-[10px] text-slate-600">{p.caption}</figcaption>}
           </figure>
         ))}

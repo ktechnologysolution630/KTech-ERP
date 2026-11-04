@@ -430,6 +430,7 @@ export async function getDailyReport(db: Db, actor: SessionUser, reportId: strin
     endTime: row.r.endTime?.slice(0, 5) ?? null,
     photos,
     canEdit: row.r.status === 'DRAFT' && (row.r.createdBy === actor.id || can(actor, 'project.manage', { projectId: row.r.projectId })),
+    canReplacePhotos: can(actor, 'project.manage', { projectId: row.r.projectId }),
   };
 }
 

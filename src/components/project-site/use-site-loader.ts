@@ -43,6 +43,17 @@ export function useSiteLoader<T>(load: () => Promise<SiteResult<T>>, deps: unkno
 export const fileSize = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
+/** Swaps the image of an existing photo through /api/upload. */
+export async function replacePhotoFile(attachmentId: string, file: File): Promise<string | null> {
+  const body = new FormData();
+  body.set('file', file);
+  body.set('replaces', attachmentId);
+  const res = await fetch('/api/upload', { method: 'POST', body });
+  if (res.ok) return null;
+  const json = (await res.json().catch(() => null)) as { error?: string } | null;
+  return json?.error ?? 'เปลี่ยนรูปไม่สำเร็จ';
+}
+
 /** Uploads one file to the project (or another entity) through /api/upload. */
 export async function uploadFile(form: {
   entityType: string;
