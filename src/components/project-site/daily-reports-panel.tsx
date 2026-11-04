@@ -284,42 +284,52 @@ function ReportEditor({
           'งานที่ทำวันนี้ / ความคืบหน้า',
           <div className="space-y-2">
             {form.work.map((w, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-start">
-                <select
-                  aria-label="งานจาก Gantt"
-                  value={w.taskId ?? ''}
-                  onChange={(e) => {
-                    const t = tasks.find((x) => x.id === e.target.value);
-                    setLine('work', i, { taskId: e.target.value || null, ...(t && !w.description ? { description: t.title } : {}), ...(t && w.progressPercent === null ? { progressPercent: t.progress } : {}) });
-                  }}
-                  className={`${field} col-span-12 sm:col-span-4`}
-                >
-                  <option value="">— ไม่ผูกกับงานใน Gantt —</option>
-                  {tasks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.wbs} {t.title} ({t.progress}%)
-                    </option>
-                  ))}
-                </select>
-                <input aria-label="รายละเอียดงาน" value={w.description} onChange={(e) => setLine('work', i, { description: e.target.value })} placeholder="รายละเอียดงานที่ทำ" className={`${field} col-span-12 sm:col-span-4`} />
-                <input
-                  aria-label="ความคืบหน้าสะสม %"
-                  type="number"
-                  min={0}
-                  max={100}
-                  disabled={!w.taskId}
-                  value={w.progressPercent ?? ''}
-                  onChange={(e) => setLine('work', i, { progressPercent: e.target.value === '' ? null : Number(e.target.value) })}
-                  placeholder="สะสม %"
-                  className={`${field} col-span-4 sm:col-span-1`}
-                />
-                <input aria-label="หมายเหตุงาน" value={w.note} onChange={(e) => setLine('work', i, { note: e.target.value })} placeholder="ปัญหา/หมายเหตุ" className={`${field} col-span-7 sm:col-span-2`} />
-                <button type="button" onClick={() => removeLine('work', i)} className="col-span-1 p-1.5 text-slate-400 hover:text-red-600" title="ลบแถว">
+              <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                <label className="col-span-12 sm:col-span-4">
+                  <span className="block text-slate-600 mb-0.5">งานใน Gantt</span>
+                  <select
+                    value={w.taskId ?? ''}
+                    onChange={(e) => {
+                      const t = tasks.find((x) => x.id === e.target.value);
+                      setLine('work', i, { taskId: e.target.value || null, ...(t && !w.description ? { description: t.title } : {}), ...(t && w.progressPercent === null ? { progressPercent: t.progress } : {}) });
+                    }}
+                    className={field}
+                  >
+                    <option value="">— ไม่ผูกกับงานใน Gantt —</option>
+                    {tasks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.wbs} {t.title} ({t.progress}%)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="col-span-12 sm:col-span-3">
+                  <span className="block text-slate-600 mb-0.5">รายละเอียดงาน</span>
+                  <input value={w.description} onChange={(e) => setLine('work', i, { description: e.target.value })} placeholder="รายละเอียดงานที่ทำ" className={field} />
+                </label>
+                <label className="col-span-5 sm:col-span-2">
+                  <span className="block text-slate-600 mb-0.5">ปริมาณงานสะสม (%)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    disabled={!w.taskId}
+                    value={w.progressPercent ?? ''}
+                    onChange={(e) => setLine('work', i, { progressPercent: e.target.value === '' ? null : Number(e.target.value) })}
+                    placeholder={w.taskId ? '0-100' : 'เลือกงานก่อน'}
+                    className={field}
+                  />
+                </label>
+                <label className="col-span-6 sm:col-span-2">
+                  <span className="block text-slate-600 mb-0.5">ปัญหา/หมายเหตุ</span>
+                  <input value={w.note} onChange={(e) => setLine('work', i, { note: e.target.value })} className={field} />
+                </label>
+                <button type="button" onClick={() => removeLine('work', i)} className="col-span-1 p-1.5 pb-2.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
-            <p className="text-[11px] text-slate-500">ความคืบหน้าสะสม (%) ของงานที่ผูกกับ Gantt จะอัปเดตไปที่งานเมื่อกด &quot;ส่งรายงาน&quot;</p>
+            <p className="text-[11px] text-slate-500">ปริมาณงานสะสม (%) คือเปอร์เซ็นต์งานที่ทำเสร็จแล้วรวมถึงวันนี้ กรอกได้เมื่อเลือกงานใน Gantt และจะอัปเดตไปที่งานเมื่อกด &quot;ส่งรายงาน&quot;</p>
           </div>,
           addBtn('work'),
         )}
@@ -329,16 +339,24 @@ function ReportEditor({
             `คนงาน (รวม ${totalWorkers} คน)`,
             <div className="space-y-2">
               {form.labour.map((l, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2">
-                  <input aria-label="บริษัท/ประเภทคนงาน" value={l.company} onChange={(e) => setLine('labour', i, { company: e.target.value })} placeholder="บริษัท / ประเภทคนงาน" className={`${field} col-span-6`} />
-                  <input aria-label="จำนวนคน" type="number" min={0} value={l.workers} onChange={(e) => setLine('labour', i, { workers: Math.max(0, Math.trunc(Number(e.target.value) || 0)) })} className={`${field} col-span-2`} />
-                  <input aria-label="ชั่วโมง" type="number" min={0} max={24} step={0.5} value={l.hours} onChange={(e) => setLine('labour', i, { hours: Number(e.target.value) || 0 })} className={`${field} col-span-3`} />
-                  <button type="button" onClick={() => removeLine('labour', i)} className="col-span-1 text-slate-400 hover:text-red-600" title="ลบแถว">
+                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                  <label className="col-span-5">
+                    <span className="block text-slate-600 mb-0.5">บริษัท / ประเภทคนงาน</span>
+                    <input value={l.company} onChange={(e) => setLine('labour', i, { company: e.target.value })} className={field} />
+                  </label>
+                  <label className="col-span-3">
+                    <span className="block text-slate-600 mb-0.5">จำนวนคน</span>
+                    <input type="number" min={0} value={l.workers} onChange={(e) => setLine('labour', i, { workers: Math.max(0, Math.trunc(Number(e.target.value) || 0)) })} className={field} />
+                  </label>
+                  <label className="col-span-3">
+                    <span className="block text-slate-600 mb-0.5">ชั่วโมงทำงาน</span>
+                    <input type="number" min={0} max={24} step={0.5} value={l.hours} onChange={(e) => setLine('labour', i, { hours: Number(e.target.value) || 0 })} className={field} />
+                  </label>
+                  <button type="button" onClick={() => removeLine('labour', i)} className="col-span-1 pb-2.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
-              <p className="text-[11px] text-slate-400">ชื่อ · จำนวนคน · ชั่วโมงทำงาน</p>
             </div>,
             addBtn('labour'),
           )}
@@ -346,15 +364,20 @@ function ReportEditor({
             'เครื่องมือ-เครื่องจักร',
             <div className="space-y-2">
               {form.equipment.map((q, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2">
-                  <input aria-label="ประเภทเครื่องจักร" value={q.type} onChange={(e) => setLine('equipment', i, { type: e.target.value })} placeholder="เช่น รถแบ็คโฮ, รถโม่ปูน" className={`${field} col-span-8`} />
-                  <input aria-label="ชั่วโมงใช้งาน" type="number" min={0} max={24} step={0.5} value={q.hours} onChange={(e) => setLine('equipment', i, { hours: Number(e.target.value) || 0 })} className={`${field} col-span-3`} />
-                  <button type="button" onClick={() => removeLine('equipment', i)} className="col-span-1 text-slate-400 hover:text-red-600" title="ลบแถว">
+                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                  <label className="col-span-8">
+                    <span className="block text-slate-600 mb-0.5">ประเภทเครื่องจักร</span>
+                    <input value={q.type} onChange={(e) => setLine('equipment', i, { type: e.target.value })} placeholder="เช่น รถแบ็คโฮ, รถโม่ปูน" className={field} />
+                  </label>
+                  <label className="col-span-3">
+                    <span className="block text-slate-600 mb-0.5">ชั่วโมงใช้งาน</span>
+                    <input type="number" min={0} max={24} step={0.5} value={q.hours} onChange={(e) => setLine('equipment', i, { hours: Number(e.target.value) || 0 })} className={field} />
+                  </label>
+                  <button type="button" onClick={() => removeLine('equipment', i)} className="col-span-1 pb-2.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
-              <p className="text-[11px] text-slate-400">ประเภท · ชั่วโมงใช้งาน</p>
             </div>,
             addBtn('equipment'),
           )}
@@ -505,7 +528,7 @@ function ReportView({
             <tr>
               <th className="px-2 py-1.5 text-left">งาน</th>
               <th className="px-2 py-1.5 text-left">รายละเอียด</th>
-              <th className="px-2 py-1.5 text-right">สะสม %</th>
+              <th className="px-2 py-1.5 text-right">ปริมาณงานสะสม (%)</th>
               <th className="px-2 py-1.5 text-left">หมายเหตุ</th>
             </tr>
           </thead>
