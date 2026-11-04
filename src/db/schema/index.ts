@@ -17,3 +17,4 @@ export * from './advances';
 export * from './site';
 export * from './handover';
 export * from './news';
+export * from './assets';

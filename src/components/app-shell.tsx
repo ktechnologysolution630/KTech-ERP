@@ -27,6 +27,7 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   BarChart2,
+  ClipboardCheck,
   Layers,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
@@ -69,7 +70,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
     pathname.startsWith('/labor-payments') || pathname.startsWith('/prv') || pathname.startsWith('/payables'),
   );
   const [openFinance, setOpenFinance] = useState<boolean>(
-    pathname.startsWith('/invoices') || pathname.startsWith('/pv') || pathname.startsWith('/exports'),
+    pathname.startsWith('/invoices') || pathname.startsWith('/pv') || pathname.startsWith('/exports') || pathname.startsWith('/assets'),
   );
   const [openAfterService, setOpenAfterService] = useState<boolean>(
     pathname.startsWith('/handover') || pathname.startsWith('/warranty'),
@@ -600,6 +601,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     pathname.startsWith('/invoices') ||
                     pathname.startsWith('/pv') ||
                     pathname.startsWith('/exports') ||
+                    pathname.startsWith('/assets') ||
                     pathname.startsWith('/ar') ||
                     pathname.startsWith('/advances') ||
                     pathname.startsWith('/receipt-substitutes')
@@ -672,6 +674,18 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     >
                       <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                       <span>รายงาน/50 ทวิ</span>
+                    </Link>
+                    <Link
+                      href="/assets"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/assets')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>ตรวจเช็คทรัพย์สิน</span>
                     </Link>
                   </div>
                 )}

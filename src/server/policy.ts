@@ -40,7 +40,9 @@ export type Action =
   | 'prv.approve'
   | 'stock.items'
   | 'stock.move'
-  | 'stock.approveAdjust';
+  | 'stock.approveAdjust'
+  | 'asset.manage'
+  | 'asset.inspect';
 
 export interface PolicyContext {
   projectId?: string | null;
@@ -57,6 +59,8 @@ const GLOBAL_PROJECT_VIEW_ROLES: Role[] = [
   'OWNER',
   'ADMIN',
 ];
+
+const ASSET_OFFICE_ROLES: Role[] = ['FINANCE', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'];
 
 function hasRole(u: SessionUser, roles: Role[]): boolean {
   return u.roles.some((r) => roles.includes(r));
@@ -181,6 +185,14 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'boq.manage': {
       if (hasRole(u, ['OWNER', 'ADMIN'])) return true;
       return hasRole(u, ['PM', 'ENGINEER']) && isProjectMember(u, ctx.projectId);
+    }
+    case 'asset.manage': {
+      return hasRole(u, ASSET_OFFICE_ROLES);
+    }
+    case 'asset.inspect': {
+      // Site staff check what is on their projects; the office checks everything, incl. what is held at the office
+      if (hasRole(u, ASSET_OFFICE_ROLES)) return true;
+      return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'project.delete': {
       return hasRole(u, ['OWNER', 'ADMIN']);

@@ -169,6 +169,13 @@
       "when": 1793772652840,
       "tag": "0023_stored_files",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793782674954,
+      "tag": "0024_assets",
+      "breakpoints": true
     }
   ]
 }

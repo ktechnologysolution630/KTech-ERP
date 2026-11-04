@@ -23,7 +23,8 @@ export type DocPrefix =
   | 'MAT'
   | 'DR'
   | 'WAR'
-  | 'DF';
+  | 'DF'
+  | 'AST';
 
 /** Daily report number by report date, e.g. DR-20261104-001; several reports on one day get the next number. */
 export async function nextDailyReportNumber(tx: Db, reportDate: string): Promise<string> {

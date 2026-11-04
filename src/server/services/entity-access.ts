@@ -5,6 +5,8 @@ import { type Db } from '@/db/client';
 import {
   advances,
   arInvoices,
+  assetInspections,
+  assets,
   boqs,
   closeShortRequests,
   dailyReports,
@@ -49,6 +51,12 @@ const LOOKUPS: Record<EntityType, Lookup> = {
   STOCK_ADJUST: { table: stockAdjustRequests, id: stockAdjustRequests.id, project: stockAdjustRequests.projectId },
   PRV: { table: prvs, id: prvs.id, project: prvs.projectId },
   DAILY_REPORT: { table: dailyReports, id: dailyReports.id, project: dailyReports.projectId },
+  ASSET: { table: assets, id: assets.id, project: assets.projectId },
+  ASSET_INSPECTION: {
+    table: assetInspections,
+    id: assetInspections.id,
+    project: sql<string | null>`(select ${assets.projectId} from ${assets} where ${assets.id} = ${assetInspections.assetId})`,
+  },
 };
 
 export const ENTITY_TYPES = Object.keys(LOOKUPS) as EntityType[];
