@@ -7,32 +7,33 @@ export function parseCsvText(text: string): Record<string, string>[] {
     .split(/\r?\n/)
     .filter((l) => l.trim() !== '');
   if (lines.length < 2) return [];
-  const split = (line: string) => {
-    const out: string[] = [];
-    let cur = '';
-    let quoted = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (quoted) {
-        if (ch === '"' && line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else if (ch === '"') quoted = false;
-        else cur += ch;
-      } else if (ch === '"') quoted = true;
-      else if (ch === ',') {
-        out.push(cur.trim());
-        cur = '';
-      } else cur += ch;
-    }
-    out.push(cur.trim());
-    return out;
-  };
-  const headers = split(lines[0]);
+  const headers = splitCsvLine(lines[0]);
   return lines.slice(1).map((line) => {
-    const cols = split(line);
+    const cols = splitCsvLine(line);
     return Object.fromEntries(headers.map((h, i) => [h, cols[i] ?? '']));
   });
+}
+
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') {
+      out.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
 }
 
 function cellText(value: ExcelJS.CellValue): string {
@@ -66,6 +67,63 @@ export async function readSpreadsheetRows(file: File): Promise<Record<string, st
     rows.push(record);
   });
   return rows;
+}
+
+export interface SheetPreview {
+  name: string;
+  rows: string[][];
+  /** Rows beyond the display limit that were left out */
+  hiddenRows: number;
+}
+
+const MAX_PREVIEW_ROWS = 2000;
+
+function previewCellText(cell: ExcelJS.Cell): string {
+  // A merged range holds its value on the first cell only; the others would repeat it
+  if (cell.isMerged && cell.master.address !== cell.address) return '';
+  const value = cell.value;
+  const shown = value && typeof value === 'object' && 'result' in value ? value.result : value;
+  if (shown instanceof Date) return shown.toISOString().slice(0, 10);
+  if (shown && typeof shown === 'object' && 'error' in shown) return String(shown.error);
+  return cellText(shown as ExcelJS.CellValue);
+}
+
+/** Every sheet of an .xlsx file as plain text rows, for viewing; blank rows and columns at the end are dropped. */
+export async function readWorkbookPreview(data: ArrayBuffer): Promise<SheetPreview[]> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(data);
+  return wb.worksheets.map((ws) => {
+    const rows: string[][] = [];
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      const cells: string[] = [];
+      for (let c = 1; c <= ws.columnCount; c++) cells.push(previewCellText(row.getCell(c)));
+      rows.push(cells);
+    }
+    return trimPreview(ws.name, rows);
+  });
+}
+
+/** A .csv file as plain text rows, for viewing. */
+export function readCsvPreview(text: string, name = 'CSV'): SheetPreview[] {
+  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  return [trimPreview(name, lines.map(splitCsvLine))];
+}
+
+function trimPreview(name: string, rows: string[][]): SheetPreview {
+  let last = rows.length;
+  while (last > 0 && rows[last - 1]!.every((c) => c === '')) last--;
+  const used = rows.slice(0, last);
+  const width = used.reduce((w, r) => {
+    let end = r.length;
+    while (end > 0 && r[end - 1] === '') end--;
+    return Math.max(w, end);
+  }, 0);
+  return {
+    name,
+    rows: used.slice(0, MAX_PREVIEW_ROWS).map((r) => Array.from({ length: width }, (_, i) => r[i] ?? '')),
+    hiddenRows: Math.max(0, used.length - MAX_PREVIEW_ROWS),
+  };
 }
 
 /** Builds a one-sheet workbook and triggers a browser download. */

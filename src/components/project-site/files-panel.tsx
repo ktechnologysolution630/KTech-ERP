@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { Download, FileText, Folder, ImagePlus, Search, Trash2, Upload, X } from 'lucide-react';
+import React, { useCallback, useRef, useState } from 'react';
+import { Download, Eye, FileText, Folder, ImagePlus, Search, Trash2, Upload, X } from 'lucide-react';
 import { deleteFileAction, loadFilesAction } from '@/app/(app)/projects/[id]/site-actions';
+import { DocumentViewer } from './document-viewer';
 import { fileSize, uploadFile, useSiteLoader } from './use-site-loader';
 
 const DOCUMENT_FOLDERS = [
@@ -28,6 +29,8 @@ export function FilesPanel({ projectId, kind, me }: { projectId: string; kind: '
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<{ name: string; url: string } | null>(null);
+  const closeViewer = useCallback(() => setViewing(null), []);
 
   const isPhoto = kind === 'PHOTO';
   const albums = isPhoto ? [...new Set((data ?? []).map((f) => f.folder || 'ทั่วไป'))] : DOCUMENT_FOLDERS;
@@ -196,10 +199,13 @@ export function FilesPanel({ projectId, kind, me }: { projectId: string; kind: '
                   <td className="px-3 py-2">{f.uploaderName}</td>
                   <td className="px-3 py-2">{dateText(f.createdAt)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <a href={f.url} target="_blank" rel="noreferrer" className="inline-flex p-1 rounded text-slate-500 hover:text-[#2453d4]" title="ดาวน์โหลด">
+                    <button type="button" onClick={() => setViewing({ name: f.name, url: f.url })} className="p-1 rounded text-slate-500 hover:text-[#2453d4]" title="ดูเอกสาร" aria-label={`ดูเอกสาร ${f.name}`}>
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <a href={f.url} download={f.name} className="inline-flex p-1 rounded text-slate-500 hover:text-[#2453d4]" title="ดาวน์โหลด" aria-label={`ดาวน์โหลด ${f.name}`}>
                       <Download className="w-3.5 h-3.5" />
                     </a>
-                    <button type="button" onClick={() => void remove(f.id, f.name)} className="p-1 rounded text-slate-400 hover:text-red-600" title="ลบ">
+                    <button type="button" onClick={() => void remove(f.id, f.name)} className="p-1 rounded text-slate-400 hover:text-red-600" title="ลบ" aria-label={`ลบ ${f.name}`}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </td>
@@ -209,6 +215,8 @@ export function FilesPanel({ projectId, kind, me }: { projectId: string; kind: '
           </table>
         </div>
       )}
+
+      {viewing && <DocumentViewer name={viewing.name} url={viewing.url} onClose={closeViewer} />}
 
       {preview && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreview(null)} role="dialog" aria-label="ดูรูป">

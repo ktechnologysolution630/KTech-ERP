@@ -7,7 +7,8 @@ import { DomainError } from '@/domain/errors';
 import { getCurrentUser } from '@/server/auth/current-user';
 import { addAttachment } from '@/server/services/attachments';
 
-const IMAGE_TYPES: Record<string, string> = {
+const INLINE_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
@@ -27,11 +28,11 @@ export async function GET(req: NextRequest) {
   const fullPath = path.resolve(process.cwd(), '.uploads', f);
   try {
     const buf = await fs.readFile(fullPath);
-    // Raster images render inline (project covers); everything else stays a download. SVG is excluded on purpose.
-    const imageType = IMAGE_TYPES[path.extname(f).toLowerCase()];
+    // Raster images and PDFs render inline (covers, document viewer); everything else stays a download. SVG and HTML are excluded on purpose.
+    const inlineType = INLINE_TYPES[path.extname(f).toLowerCase()];
     return new NextResponse(buf, {
       headers: {
-        'Content-Type': imageType ?? 'application/octet-stream',
+        'Content-Type': inlineType ?? 'application/octet-stream',
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'private, max-age=3600',
       },
