@@ -50,8 +50,10 @@ export async function uploadFile(form: {
   file: File;
   kind?: 'FILE' | 'PHOTO';
   folder?: string;
+  caption?: string;
 }): Promise<string | null> {
   const body = new FormData();
+  if (form.caption) body.set('caption', form.caption);
   body.set('file', form.file);
   body.set('entityType', form.entityType);
   body.set('entityId', form.entityId);

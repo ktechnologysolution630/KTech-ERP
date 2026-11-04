@@ -59,13 +59,14 @@ export interface PeriodicReport {
   curve: CurvePoint[];
   rollup: DailyRollup;
   sources: { submitted: number; drafts: number; workItems: number; issues: number; photos: number };
-  work: { date: string; wbs: string | null; description: string; progressPercent: number | null; outcome: DailyWorkOutcome | null; note: string }[];
+  /** Work summary lines and progress lines; `todayPercent` is set only on progress lines */
+  work: { date: string; wbs: string | null; description: string; todayPercent: number | null; progressPercent: number | null; outcome: DailyWorkOutcome | null; note: string }[];
   issues: { date: string; text: string }[];
   safety: { date: string; accident: boolean; note: string }[];
   visitors: { date: string; text: string }[];
-  photos: { id: string; url: string; name: string }[];
-  /** Open tasks that are overdue or have delayed work this period */
-  critical: { wbs: string; title: string; dueDate: string | null; progress: number; cause: string }[];
+  photos: { id: string; url: string; name: string; caption: string }[];
+  /** Open tasks that are overdue or reported late, plus work reported late with no task behind it */
+  critical: { wbs: string; title: string; dueDate: string | null; progress: number | null; cause: string }[];
   nextPlan: { wbs: string; title: string; startDate: string | null; dueDate: string | null; progress: number }[];
   milestones: { kind: 'PAY' | 'RECEIVE'; title: string; plannedDate: string | null; status: string }[];
   materials: { name: string; unit: string; quantity: number }[];
@@ -141,42 +142,66 @@ export async function getPeriodicReport(db: Db, actor: SessionUser, projectId: s
   const inPeriod = submitted.filter((r) => r.reportDate >= period.start);
   const drafts = reportRows.filter((r) => r.status === 'DRAFT' && r.reportDate >= period.start).length;
 
-  const entries: ProgressEntry[] = submitted.flatMap((r) =>
-    r.work.flatMap((w) => (w.taskId && w.progressPercent !== null ? [{ reportDate: r.reportDate, taskId: w.taskId, progressPercent: w.progressPercent }] : [])),
-  );
+  const entries: ProgressEntry[] = submitted.flatMap((r) => [
+    // Reports from before the progress table kept a cumulative figure on the work line
+    ...r.work.flatMap((w) => (w.taskId && w.progressPercent != null ? [{ reportDate: r.reportDate, taskId: w.taskId, progressPercent: w.progressPercent }] : [])),
+    ...r.progress.flatMap((p) => (p.taskId && p.cumulativePercent != null ? [{ reportDate: r.reportDate, taskId: p.taskId, progressPercent: p.cumulativePercent }] : [])),
+  ]);
 
   const progress = compareProgress(tasks, entries, period, today);
   const hasPlan = tasks.some((t) => t.startDate && t.dueDate);
   const rollup = rollupDaily(inPeriod);
 
-  const work = inPeriod.flatMap((r) =>
-    r.work.map((w) => ({
+  const titleOf = (t: ScheduleTask) => (t as ScheduleTask & { title: string }).title;
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
+  const work = inPeriod.flatMap((r) => [
+    ...r.work.map((w) => ({
       date: r.reportDate,
       wbs: w.taskId ? (wbs.get(w.taskId) ?? null) : null,
       description: w.description,
-      progressPercent: w.progressPercent,
+      todayPercent: null,
+      progressPercent: w.progressPercent ?? null,
       outcome: w.outcome ?? null,
       note: w.note,
     })),
-  );
+    ...r.progress.map((p) => {
+      const task = p.taskId ? taskById.get(p.taskId) : undefined;
+      return {
+        date: r.reportDate,
+        wbs: p.taskId ? (wbs.get(p.taskId) ?? null) : null,
+        description: [p.area, task ? titleOf(task) : '', p.detail].filter(Boolean).join(' · '),
+        todayPercent: p.todayPercent,
+        progressPercent: p.cumulativePercent ?? null,
+        outcome: null,
+        note: p.note,
+      };
+    }),
+  ]);
   const issues = inPeriod.flatMap((r) => [
     ...(r.issues ? [{ date: r.reportDate, text: r.issues }] : []),
     ...r.work.filter((w) => w.note).map((w) => ({ date: r.reportDate, text: `${w.description ? `${w.description}: ` : ''}${w.note}` })),
+    ...r.progress.filter((p) => p.note).map((p) => ({ date: r.reportDate, text: `${p.detail || p.area ? `${p.detail || p.area}: ` : ''}${p.note}` })),
     ...(r.scheduleNote ? [{ date: r.reportDate, text: r.scheduleNote }] : []),
   ]);
 
   // Open leaf tasks that need attention, with the reason
   const delayedTaskIds = new Set(inPeriod.flatMap((r) => r.work.filter((w) => w.taskId && w.outcome === 'DELAYED').map((w) => w.taskId as string)));
-  const titleOf = (t: ScheduleTask) => (t as ScheduleTask & { title: string }).title;
-  const critical = leafTasks(tasks)
-    .filter((t) => t.status !== 'DONE' && t.progress < 100 && (isTaskOverdue(t, cutoff) || delayedTaskIds.has(t.id)))
-    .map((t) => ({
-      wbs: wbs.get(t.id) ?? '',
-      title: titleOf(t),
-      dueDate: t.dueDate,
-      progress: t.progress,
-      cause: isTaskOverdue(t, cutoff) ? 'เกินกำหนด' : 'รายงานว่าล่าช้า',
-    }));
+  const critical: PeriodicReport['critical'] = [
+    ...leafTasks(tasks)
+      .filter((t) => t.status !== 'DONE' && t.progress < 100 && (isTaskOverdue(t, cutoff) || delayedTaskIds.has(t.id)))
+      .map((t) => ({
+        wbs: wbs.get(t.id) ?? '',
+        title: titleOf(t),
+        dueDate: t.dueDate,
+        progress: t.progress,
+        cause: isTaskOverdue(t, cutoff) ? 'เกินกำหนด' : 'รายงานว่าล่าช้า',
+      })),
+    ...inPeriod.flatMap((r) =>
+      r.work
+        .filter((w) => !w.taskId && w.outcome === 'DELAYED')
+        .map((w) => ({ wbs: '-', title: w.description || '-', dueDate: null, progress: null, cause: `รายงานว่าล่าช้า (${r.reportDate})${w.note ? `: ${w.note}` : ''}` })),
+    ),
+  ];
   const nextPlan = leafTasks(tasks)
     .filter((t) => t.status !== 'DONE' && t.progress < 100 && t.startDate && t.dueDate && t.startDate <= next.end && t.dueDate >= next.start)
     .map((t) => ({ wbs: wbs.get(t.id) ?? '', title: titleOf(t), startDate: t.startDate, dueDate: t.dueDate, progress: t.progress }));
@@ -184,7 +209,7 @@ export async function getPeriodicReport(db: Db, actor: SessionUser, projectId: s
   const reportIds = inPeriod.map((r) => r.id);
   const photoRows = reportIds.length
     ? await db
-        .select({ id: attachments.id, url: attachments.url, name: attachments.name, contentType: attachments.contentType })
+        .select({ id: attachments.id, url: attachments.url, name: attachments.name, caption: attachments.caption, contentType: attachments.contentType })
         .from(attachments)
         .where(and(eq(attachments.entityType, 'DAILY_REPORT'), inArray(attachments.entityId, reportIds)))
         .orderBy(asc(attachments.createdAt))
@@ -250,7 +275,7 @@ export async function getPeriodicReport(db: Db, actor: SessionUser, projectId: s
     issues,
     safety: inPeriod.filter((r) => r.accident || r.safetyNote).map((r) => ({ date: r.reportDate, accident: r.accident, note: r.safetyNote })),
     visitors: inPeriod.filter((r) => r.visitors).map((r) => ({ date: r.reportDate, text: r.visitors })),
-    photos: photos.slice(0, MAX_LISTED_PHOTOS).map(({ id, url, name }) => ({ id, url, name })),
+    photos: photos.slice(0, MAX_LISTED_PHOTOS).map(({ id, url, name, caption }) => ({ id, url, name, caption })),
     critical,
     nextPlan,
     milestones: milestoneRows

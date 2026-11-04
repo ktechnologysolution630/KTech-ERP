@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
-import { deleteAttachment } from '@/server/services/attachments';
+import { deleteAttachment, setAttachmentCaption } from '@/server/services/attachments';
 import { getProjectCashflow, getProjectCostPerformance } from '@/server/services/project-finance';
 import { getPeriodicReport, type ReportKind } from '@/server/services/site-reports';
 import {
@@ -73,6 +73,10 @@ export async function removeMemberAction(projectId: string, userId: string) {
 export async function loadFilesAction(projectId: string, kind: 'FILE' | 'PHOTO') {
   const { actor, db } = await ctx();
   return run(() => listProjectFiles(db, actor, projectId, kind));
+}
+export async function setPhotoCaptionAction(attachmentId: string, caption: string) {
+  const { actor, db } = await ctx();
+  return run(() => setAttachmentCaption(db, actor, attachmentId, caption));
 }
 export async function deleteFileAction(attachmentId: string) {
   const { actor, db } = await ctx();

@@ -198,6 +198,19 @@ export function rollupDaily(reports: DailyRollupInput[]): DailyRollup {
   };
 }
 
+/** Days since the project started and days left at `date`; null where the project has no such date. Remaining goes negative when overrun. */
+export function projectDuration(start: string | null, end: string | null, date: string): { elapsed: number | null; remaining: number | null } {
+  return {
+    elapsed: start ? Math.max(0, toDay(date) - toDay(start)) : null,
+    remaining: end ? toDay(end) - toDay(date) : null,
+  };
+}
+
+/** Workers × hours across the day's labour lines. */
+export function totalWorkHours(labour: { workers: number; hours: number }[]): number {
+  return round1(labour.reduce((sum, l) => sum + (l.workers || 0) * (l.hours || 0), 0));
+}
+
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 export function formatPeriod(p: Period): string {

@@ -10,7 +10,9 @@ import {
   formatPeriod,
   monthOf,
   previousPeriod,
+  projectDuration,
   rollupDaily,
+  totalWorkHours,
   weekOf,
 } from '@/domain/site-report';
 
@@ -98,6 +100,14 @@ describe('site report maths', () => {
     ]);
     expect(r.equipment).toEqual([{ type: 'แบ็คโฮ', hours: 6 }]);
     expect(rollupDaily([])).toMatchObject({ reportDays: 0, avgManpower: 0, peakManpower: 0 });
+  });
+
+  test('project duration and work hours for the daily report', () => {
+    expect(projectDuration('2026-09-14', '2027-11-18', '2026-11-04')).toEqual({ elapsed: 51, remaining: 379 });
+    expect(projectDuration(null, null, '2026-11-04')).toEqual({ elapsed: null, remaining: null });
+    expect(projectDuration('2026-12-01', '2026-11-01', '2026-11-04')).toEqual({ elapsed: 0, remaining: -3 });
+    expect(totalWorkHours([{ workers: 5, hours: 8 }, { workers: 2, hours: 4.5 }, { workers: 0, hours: 8 }])).toBe(49);
+    expect(totalWorkHours([])).toBe(0);
   });
 
   test('writes the summary from the figures', () => {

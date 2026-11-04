@@ -155,6 +155,13 @@
       "when": 1793764478663,
       "tag": "0021_daily_schedule_note",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793766723003,
+      "tag": "0022_daily_progress_photo_caption",
+      "breakpoints": true
     }
   ]
 }

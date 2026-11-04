@@ -25,9 +25,10 @@ describe('weekly and monthly reports', () => {
       scheduleImpact: true,
       scheduleNote: 'ฝนตกช่วงบ่าย',
       work: [
-        { taskId: task.id, description: 'เทคาน', progressPercent: 40, outcome: 'DELAYED', note: 'ปูนมาช้า' },
+        { description: 'เทคาน', outcome: 'DELAYED', note: 'ปูนมาช้า' },
         { description: 'เก็บงาน', outcome: 'COMPLETED' },
       ],
+      progress: [{ area: 'ชั้น 2', taskId: task.id, detail: 'โซน A', todayPercent: 40, note: '' }],
       labour: [{ company: 'ช่างปูน', workers: 6, hours: 8 }],
       equipment: [{ type: 'รถโม่', hours: 4 }],
       accident: true,
@@ -53,15 +54,16 @@ describe('weekly and monthly reports', () => {
     weekly = await getPeriodicReport(db, f.users.foreman, f.projectA, 'WEEK', today);
     expect(weekly.period).toEqual(weekOf(today));
     expect(weekly.number).toBe(`WR-${weekOf(today).start.replaceAll('-', '')}`);
-    expect(weekly.sources).toMatchObject({ submitted: 1, drafts: 0, workItems: 2, issues: 3 });
+    expect(weekly.sources).toMatchObject({ submitted: 1, drafts: 0, workItems: 3, issues: 3 });
     expect(weekly.progress.actual).toBe(40);
-    expect(weekly.work[0]).toMatchObject({ wbs: '1', description: 'เทคาน', progressPercent: 40, outcome: 'DELAYED' });
+    expect(weekly.work[0]).toMatchObject({ wbs: null, description: 'เทคาน', outcome: 'DELAYED' });
     expect(weekly.work[1]).toMatchObject({ wbs: null, outcome: 'COMPLETED' });
+    expect(weekly.work[2]).toMatchObject({ wbs: '1', description: 'ชั้น 2 · เทคานชั้น 2 · โซน A', todayPercent: 40, progressPercent: 40, outcome: null });
     expect(weekly.rollup).toMatchObject({ reportDays: 1, manDays: 6, accidents: 1, impactedDays: 1 });
     expect(weekly.rollup.equipment).toEqual([{ type: 'รถโม่', hours: 4 }]);
     expect(weekly.issues.map((i) => i.text)).toEqual(['วัสดุขาด', 'เทคาน: ปูนมาช้า', 'ฝนตกช่วงบ่าย']);
     expect(weekly.safety).toEqual([{ date: today, accident: true, note: 'มือถูกบาด' }]);
-    expect(weekly.critical[0]).toMatchObject({ title: 'เทคานชั้น 2', cause: 'รายงานว่าล่าช้า', progress: 40 });
+    expect(weekly.critical).toEqual([{ wbs: '-', title: 'เทคาน', dueDate: null, progress: null, cause: `รายงานว่าล่าช้า (${today}): ปูนมาช้า` }]);
     expect(weekly.summary).toContain('พบอุบัติเหตุ 1 ครั้ง');
 
     const monthly = await getPeriodicReport(db, f.users.pm, f.projectA, 'MONTH', today);

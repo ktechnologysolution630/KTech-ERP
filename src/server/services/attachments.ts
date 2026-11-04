@@ -20,6 +20,7 @@ import { assertEntityAccess } from './entity-access';
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_CAPTION = 500;
 
 export async function storeFile(
   file: File,
@@ -62,7 +63,7 @@ export async function storeFile(
 export async function addAttachment(
   db: Db,
   actor: SessionUser,
-  input: { entityType: EntityType; entityId: string; file: File; kind?: AttachmentKind; folder?: string },
+  input: { entityType: EntityType; entityId: string; file: File; kind?: AttachmentKind; folder?: string; caption?: string },
 ) {
   await assertEntityAccess(db, actor, input.entityType, input.entityId);
   if (input.kind === 'PHOTO' && !PHOTO_TYPES.includes(input.file.type)) {
@@ -80,6 +81,7 @@ export async function addAttachment(
       contentType: stored.contentType,
       kind: input.kind ?? 'FILE',
       folder: (input.folder ?? '').trim().slice(0, 100),
+      caption: (input.caption ?? '').trim().slice(0, MAX_CAPTION),
       uploadedBy: actor.id,
     })
     .returning();
@@ -110,6 +112,7 @@ export async function listAttachments(
       contentType: attachments.contentType,
       kind: attachments.kind,
       folder: attachments.folder,
+      caption: attachments.caption,
       uploadedBy: attachments.uploadedBy,
       uploaderName: users.name,
       createdAt: attachments.createdAt,
@@ -124,6 +127,17 @@ export async function listAttachments(
       ),
     )
     .orderBy(desc(attachments.createdAt));
+}
+
+/** Same rule as deleting: the uploader, or anyone who manages the document's project. */
+export async function setAttachmentCaption(db: Db, actor: SessionUser, attachmentId: string, caption: string) {
+  const [att] = await db.select().from(attachments).where(eq(attachments.id, attachmentId)).limit(1);
+  if (!att) throw new DomainError('NOT_FOUND', 'ไม่พบไฟล์', 404);
+  const projectId = await assertEntityAccess(db, actor, att.entityType, att.entityId);
+  if (att.uploadedBy !== actor.id && !can(actor, 'project.manage', { projectId })) {
+    throw new DomainError('FORBIDDEN', 'แก้ไขได้เฉพาะผู้อัปโหลดหรือผู้ดูแลโครงการ', 403);
+  }
+  await db.update(attachments).set({ caption: caption.trim().slice(0, MAX_CAPTION) }).where(eq(attachments.id, attachmentId));
 }
 
 /** Uploader, or anyone who manages the document's project, may remove an attachment. */

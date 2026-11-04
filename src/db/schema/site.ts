@@ -37,6 +37,17 @@ export interface DailyWorkLine {
   outcome?: DailyWorkOutcome | null;
   note: string;
 }
+/** "Today's Overall Progress": what was achieved today, by area and Gantt task. */
+export interface DailyProgressLine {
+  area: string;
+  taskId: string | null;
+  detail: string;
+  /** Percentage points achieved today; added to the task when the report is submitted */
+  todayPercent: number | null;
+  note: string;
+  /** The task's total right after this report was submitted; progress history reads from it */
+  cumulativePercent?: number | null;
+}
 export interface DailyLabourLine {
   company: string;
   workers: number;
@@ -64,6 +75,7 @@ export const dailyReports = pgTable(
     scheduleImpact: boolean('schedule_impact').default(false).notNull(),
     scheduleNote: text('schedule_note').default('').notNull(),
     work: jsonb('work').$type<DailyWorkLine[]>().default([]).notNull(),
+    progress: jsonb('progress').$type<DailyProgressLine[]>().default([]).notNull(),
     labour: jsonb('labour').$type<DailyLabourLine[]>().default([]).notNull(),
     equipment: jsonb('equipment').$type<DailyEquipmentLine[]>().default([]).notNull(),
     accident: boolean('accident').default(false).notNull(),

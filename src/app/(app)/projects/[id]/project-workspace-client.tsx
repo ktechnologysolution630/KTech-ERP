@@ -791,11 +791,12 @@ export function ProjectWorkspaceClient({
         {activeTab === 'photos' && <FilesPanel projectId={project.id} kind="PHOTO" me={me} />}
         {activeTab === 'reports' && (
           <ReportsPanel
-            project={{ id: project.id, name: project.name, location: project.location, group: project.projectGroup }}
+            project={{ id: project.id, name: project.name, location: project.location, group: project.projectGroup, startDate: project.startDate, endDate: project.endDate }}
             today={today}
             preparedBy={meName}
             logoUrl={companyLogoUrl}
-            tasks={tasks.map((t) => ({ id: t.id, wbs: t.wbs, title: t.title, progress: t.progress }))}
+            // Only leaf tasks carry progress; a parent just groups its children
+            tasks={tasks.filter((t) => !tasks.some((c) => c.parentId === t.id)).map((t) => ({ id: t.id, wbs: t.wbs, title: t.title, progress: t.progress }))}
           />
         )}
         {activeTab === 'docs' && <FilesPanel projectId={project.id} kind="FILE" me={me} />}

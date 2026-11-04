@@ -47,13 +47,14 @@ function WorkSheet({ report, title }: { report: Report; title: string }) {
   return (
     <Sheet title={title}>
       <DataTable
-        head={['วันที่', 'WBS', 'รายละเอียดงาน', 'สะสม (%)', 'ผล', 'หมายเหตุ']}
-        align={['left', 'left', 'left', 'right', 'center', 'left']}
+        head={['วันที่', 'WBS', 'รายละเอียดงาน', 'วันนี้ (%)', 'สะสม (%)', 'ผล', 'หมายเหตุ']}
+        align={['left', 'left', 'left', 'right', 'right', 'center', 'left']}
         empty="ไม่มีงานจาก Daily Report ในช่วงนี้"
         rows={report.work.map((w) => [
           thaiShortDate(w.date),
           w.wbs ?? '-',
           w.description || '-',
+          w.todayPercent ?? '-',
           w.progressPercent ?? '-',
           w.outcome ? OUTCOME[w.outcome] : '-',
           w.note || '-',
@@ -128,7 +129,7 @@ function CriticalSheet({ report }: { report: Report }) {
         head={['WBS', 'กิจกรรม', 'กำหนดเสร็จ', 'จริง (%)', 'สาเหตุ']}
         align={['left', 'left', 'left', 'right', 'left']}
         empty="ไม่มีกิจกรรมที่ล่าช้า"
-        rows={report.critical.map((c) => [c.wbs, c.title, thaiShortDate(c.dueDate), c.progress, c.cause])}
+        rows={report.critical.map((c) => [c.wbs, c.title, thaiShortDate(c.dueDate), c.progress ?? '-', c.cause])}
       />
     </Sheet>
   );
@@ -173,8 +174,11 @@ function PhotoSheet({ report }: { report: Report }) {
     <Sheet title={`รูปถ่ายหน้างาน (${report.sources.photos} รูป${report.sources.photos > report.photos.length ? ` · แสดง ${report.photos.length} รูปแรก` : ''})`}>
       <div className="grid grid-cols-4 gap-2 p-2">
         {report.photos.map((p) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={p.id} src={p.url} alt={p.name} className="aspect-[4/3] w-full rounded border border-slate-200 object-cover" />
+          <figure key={p.id}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.url} alt={p.caption || p.name} className="aspect-[4/3] w-full rounded border border-slate-200 object-cover" />
+            {p.caption && <figcaption className="mt-0.5 text-[10px] text-slate-600">{p.caption}</figcaption>}
+          </figure>
         ))}
       </div>
     </Sheet>

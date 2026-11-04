@@ -127,5 +127,27 @@ describe('project site services', () => {
     expect(t.progress).toBe(40);
     await expect(saveDailyReport(db, f.users.foreman, f.projectA, saved.id, { reportDate: '2026-11-03' })).rejects.toMatchObject({ status: 409 });
     expect((await getDailyReport(db, f.users.foreman, saved.id)).canEdit).toBe(false);
+
+    // Today's percent adds to the task, is capped at 100, and the total is recorded on the line
+    const second = await saveDailyReport(db, f.users.foreman, f.projectA, null, {
+      reportDate: '2026-11-03',
+      progress: [
+        { area: 'โซน A', taskId: task.id, detail: 'เทพื้น', todayPercent: 25, note: '' },
+        { taskId: task.id, todayPercent: 50 },
+        { detail: 'งานนอกแผน', todayPercent: 5 },
+        { area: '', detail: '', note: '' },
+      ],
+    });
+    const [untouched] = await db.select().from(projectTasks).where(eq(projectTasks.id, task.id));
+    expect(untouched.progress).toBe(40);
+    await submitDailyReport(db, f.users.foreman, second.id);
+    const [added] = await db.select().from(projectTasks).where(eq(projectTasks.id, task.id));
+    expect(added.progress).toBe(100);
+    const lines = (await getDailyReport(db, f.users.foreman, second.id)).progress;
+    expect(lines.map((l) => l.cumulativePercent ?? null)).toEqual([65, 100, null]);
+    await expect(saveDailyReport(db, f.users.foreman, f.projectA, null, { reportDate: '2026-11-03', progress: [{ todayPercent: 101 }] })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(
+      saveDailyReport(db, f.users.otherForeman, f.projectB, null, { reportDate: '2026-11-03', progress: [{ taskId: task.id, todayPercent: 1 }] }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });
 });

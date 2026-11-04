@@ -15,6 +15,7 @@ import {
   type DailyLabourLine,
   type DailyReportStatus,
   type DailyWeather,
+  type DailyProgressLine,
   type DailyWorkLine,
   type Role,
   type SessionUser,
@@ -313,6 +314,18 @@ const dailySchema = z.object({
     )
     .max(50)
     .default([]),
+  progress: z
+    .array(
+      z.object({
+        area: z.string().trim().max(200).default(''),
+        taskId: uuid.nullable().default(null),
+        detail: z.string().trim().max(500).default(''),
+        todayPercent: z.number().finite().min(0, 'ผลงานวันนี้ต้องไม่ติดลบ').max(100, 'ผลงานวันนี้ต้องไม่เกิน 100%').nullable().default(null),
+        note: z.string().trim().max(500).default(''),
+      }),
+    )
+    .max(50)
+    .default([]),
   labour: z
     .array(
       z.object({
@@ -353,14 +366,15 @@ function cleanReport(data: z.output<typeof dailySchema>) {
   // Blank lines from the form are dropped rather than stored
   return {
     ...data,
-    work: data.work.filter((w) => w.taskId || w.description) as DailyWorkLine[],
+    work: data.work.filter((w) => w.taskId || w.description || w.note || w.outcome) as DailyWorkLine[],
+    progress: data.progress.filter((p) => p.taskId || p.detail || p.area || p.note || p.todayPercent !== null) as DailyProgressLine[],
     labour: data.labour.filter((l) => l.company || l.workers > 0) as DailyLabourLine[],
     equipment: data.equipment.filter((e) => e.type) as DailyEquipmentLine[],
   };
 }
 
-async function assertTasksInProject(db: Db, projectId: string, work: DailyWorkLine[]) {
-  const ids = [...new Set(work.map((w) => w.taskId).filter((x): x is string => !!x))];
+async function assertTasksInProject(db: Db, projectId: string, lines: { taskId?: string | null }[]) {
+  const ids = [...new Set(lines.map((w) => w.taskId).filter((x): x is string => !!x))];
   if (ids.length === 0) return;
   const found = await db.select({ id: projectTasks.id }).from(projectTasks).where(and(eq(projectTasks.projectId, projectId), inArray(projectTasks.id, ids)));
   if (found.length !== ids.length) throw new DomainError('INVALID_INPUT', 'งานที่เลือกไม่อยู่ในโครงการนี้');
@@ -391,7 +405,7 @@ export async function listDailyReports(db: Db, actor: SessionUser, projectId: st
     weatherAfternoon: r.weatherAfternoon,
     workers: r.labour.reduce((s, l) => s + (l.workers || 0), 0),
     accident: r.accident,
-    summary: r.summary || r.work.map((w) => w.description).filter(Boolean).join(', '),
+    summary: r.summary || [...r.work.map((w) => w.description), ...r.progress.map((p) => p.detail)].filter(Boolean).join(', '),
     createdByName,
     photoCount: Number(photoCounts.find((p) => p.entityId === r.id)?.n ?? 0),
   }));
@@ -407,7 +421,8 @@ export async function getDailyReport(db: Db, actor: SessionUser, reportId: strin
     .limit(1);
   if (!row) throw new DomainError('NOT_FOUND', 'ไม่พบรายงาน', 404);
   assertCan(actor, 'project.view', { projectId: row.r.projectId });
-  const photos = await listAttachments(db, 'DAILY_REPORT', reportId);
+  // Oldest first, so photos keep their numbered slot on the form
+  const photos = (await listAttachments(db, 'DAILY_REPORT', reportId)).reverse();
   return {
     ...row.r,
     createdByName: row.createdByName,
@@ -428,7 +443,7 @@ export async function saveDailyReport(
   const project = await assertProject(db, actor, projectId);
   const data = cleanReport(parse(dailySchema, input));
   if (data.reportDate > bangkokDateString()) throw new DomainError('INVALID_INPUT', 'วันที่รายงานต้องไม่เกินวันนี้');
-  await assertTasksInProject(db, projectId, data.work);
+  await assertTasksInProject(db, projectId, [...data.work, ...data.progress]);
 
   return db.transaction(async (tx) => {
     if (reportId) {
@@ -466,7 +481,28 @@ export async function submitDailyReport(db: Db, actor: SessionUser, reportId: st
         .set({ progress: Math.round(w.progressPercent), updatedAt: new Date() })
         .where(and(eq(projectTasks.id, w.taskId), eq(projectTasks.projectId, r.projectId), lte(projectTasks.progress, Math.round(w.progressPercent))));
     }
-    await tx.update(dailyReports).set({ status: 'SUBMITTED', updatedAt: new Date() }).where(eq(dailyReports.id, reportId));
+    // Today's percentage points add to each task, capped at 100%; the total is kept on the line as history
+    const progress: DailyProgressLine[] = [];
+    for (const line of r.progress) {
+      if (!line.taskId || line.todayPercent === null) {
+        progress.push(line);
+        continue;
+      }
+      const [task] = await tx
+        .select({ progress: projectTasks.progress })
+        .from(projectTasks)
+        .where(and(eq(projectTasks.id, line.taskId), eq(projectTasks.projectId, r.projectId)))
+        .for('update');
+      if (!task) {
+        // The task was deleted after the draft was written; keep the line as text
+        progress.push(line);
+        continue;
+      }
+      const total = Math.min(100, Math.round(task.progress + line.todayPercent));
+      await tx.update(projectTasks).set({ progress: total, updatedAt: new Date() }).where(eq(projectTasks.id, line.taskId));
+      progress.push({ ...line, cumulativePercent: total });
+    }
+    await tx.update(dailyReports).set({ status: 'SUBMITTED', progress, updatedAt: new Date() }).where(eq(dailyReports.id, reportId));
     await logActivity(tx, { entityType: 'DAILY_REPORT', entityId: reportId, action: 'SUBMIT', userId: actor.id });
   });
 }

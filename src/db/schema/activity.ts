@@ -59,6 +59,8 @@ export const attachments = pgTable('attachments', {
   kind: text('kind').$type<AttachmentKind>().default('FILE').notNull(),
   /** Document category or photo album; empty for document attachments */
   folder: text('folder').default('').notNull(),
+  /** Photo description, shown under the photo on reports */
+  caption: text('caption').default('').notNull(),
   uploadedBy: uuid('uploaded_by')
     .notNull()
     .references(() => users.id),

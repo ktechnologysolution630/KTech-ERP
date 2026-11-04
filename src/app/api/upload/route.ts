@@ -53,12 +53,13 @@ export async function POST(req: NextRequest) {
     const entityId = String(form.get('entityId') || '');
     const kind = form.get('kind') === 'PHOTO' ? 'PHOTO' : 'FILE';
     const folder = String(form.get('folder') || '');
+    const caption = String(form.get('caption') || '');
     if (!(file instanceof File) || !entityType || !entityId) {
       return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
     }
     const db = await getDb();
     // addAttachment checks the entity exists and that this user may see it
-    const saved = await addAttachment(db, user, { entityType, entityId, file, kind, folder });
+    const saved = await addAttachment(db, user, { entityType, entityId, file, kind, folder, caption });
     return NextResponse.json({ attachment: saved });
   } catch (err) {
     if (err instanceof DomainError) return NextResponse.json({ error: err.message }, { status: err.status });
