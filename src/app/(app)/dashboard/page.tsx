@@ -1,13 +1,44 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ClipboardCheck, FolderKanban, HandCoins, Landmark, Scale } from 'lucide-react';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
-import { getOwnerDashboard } from '@/server/services/dashboard';
+import { can } from '@/server/policy';
+import { getDashboardOverview, getOwnerDashboard } from '@/server/services/dashboard';
 import { formatMoneyDisplay } from '@/domain/money';
+import { PROJECT_STATUS_LABELS } from '@/domain/project';
+import { GroupedColumnChart, HorizontalBarChart } from './dashboard-charts';
+
+const CASH_IN = '#2a78d6';
+const CASH_OUT = '#eb6834';
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+const monthName = (key: string) => TH_MONTHS[Number(key.slice(5, 7)) - 1]!;
+const baht = (n: number) => formatMoneyDisplay(n, 0);
+
+function Tile({ label, value, hint, icon, alert }: { label: string; value: string; hint: string; icon: React.ReactNode; alert?: boolean }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        {label}
+        <span className="text-slate-400">{icon}</span>
+      </div>
+      <div className="mt-2 font-mono text-xl font-bold text-slate-900 sm:text-2xl">{value}</div>
+      <div className={`mt-1 flex items-center gap-1 text-[11px] ${alert ? 'font-medium text-rose-700' : 'text-slate-500'}`}>
+        {alert && <AlertTriangle className="h-3 w-3 shrink-0" />}
+        {hint}
+      </div>
+    </div>
+  );
+}
 
 export default async function DashboardPage() {
   const actor = await requireUser();
+  // The company-wide figures are for finance and management; everyone else works from the portal
+  if (!can(actor, 'export.view')) redirect('/inbox');
   const db = await getDb();
-  const dash = await getOwnerDashboard(db, actor);
+  const [dash, overview] = await Promise.all([getOwnerDashboard(db, actor), getDashboardOverview(db, actor)]);
+  const pendingTotal = dash.pendingApprovals.po + dash.pendingApprovals.pv + dash.pendingApprovals.closeShort;
 
   return (
     <div className="space-y-6">
@@ -16,29 +47,187 @@ export default async function DashboardPage() {
           ภาพรวมผู้บริหารและการเงิน (Owner & Finance Dashboard)
         </h1>
         <p className="text-xs text-slate-600">
-          ติดตามยอดค้างจ่าย กำหนดชำระ รายการจ่ายแล้วของยังไม่มา และสรุปยอดซื้อตามโครงการ
+          เงินเข้า-ออก ลูกหนี้ เจ้าหนี้ และสถานะโครงการของทั้งบริษัท · ตัวเลขสะสมนับตั้งแต่ ม.ค. {overview.year + 543}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs text-slate-500">PO รออนุมัติ</div>
-          <div className="text-2xl font-bold text-blue-700 mt-1">
-            {dash.pendingApprovals.po} ใบ
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Tile
+          label="เงินเข้าปีนี้"
+          value={baht(overview.cashInYtd)}
+          hint={`เดือนนี้ ${baht(overview.thisMonth.cashIn)}`}
+          icon={<ArrowDownLeft className="h-4 w-4" />}
+        />
+        <Tile
+          label="เงินออกปีนี้"
+          value={baht(overview.cashOutYtd)}
+          hint={`เดือนนี้ ${baht(overview.thisMonth.cashOut)}`}
+          icon={<ArrowUpRight className="h-4 w-4" />}
+        />
+        <Tile
+          label="ลูกหนี้ค้างรับ"
+          value={baht(overview.receivable.total)}
+          hint={overview.receivable.overdue > 0 ? `เกินกำหนด ${baht(overview.receivable.overdue)}` : `${overview.receivable.invoices} ใบแจ้งหนี้ · ไม่มีเกินกำหนด`}
+          icon={<HandCoins className="h-4 w-4" />}
+          alert={overview.receivable.overdue > 0}
+        />
+        <Tile
+          label="เจ้าหนี้ค้างจ่าย"
+          value={baht(overview.payable.total)}
+          hint={overview.payable.overdue > 0 ? `เกินกำหนด ${baht(overview.payable.overdue)}` : `${overview.payable.items} รายการ · ไม่มีเกินกำหนด`}
+          icon={<Landmark className="h-4 w-4" />}
+          alert={overview.payable.overdue > 0}
+        />
+        <Tile
+          label="เงินสดสุทธิปีนี้"
+          value={baht(overview.netYtd)}
+          hint="เงินเข้า − เงินออก"
+          icon={<Scale className="h-4 w-4" />}
+          alert={overview.netYtd < 0}
+        />
+        <Tile
+          label="โครงการที่เปิดอยู่"
+          value={String(overview.projectCounts.open)}
+          hint={
+            overview.projectCounts.behindPlan + overview.projectCounts.overBudget > 0
+              ? `ช้ากว่าแผน ${overview.projectCounts.behindPlan} · เกินงบ ${overview.projectCounts.overBudget}`
+              : 'ไม่มีโครงการช้ากว่าแผนหรือเกินงบ'
+          }
+          icon={<FolderKanban className="h-4 w-4" />}
+          alert={overview.projectCounts.behindPlan + overview.projectCounts.overBudget > 0}
+        />
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:col-span-2">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            รออนุมัติ
+            <ClipboardCheck className="h-4 w-4 text-slate-400" />
           </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs text-slate-500">ใบสำคัญจ่าย (PV) รออนุมัติ</div>
-          <div className="text-2xl font-bold text-amber-700 mt-1">
-            {dash.pendingApprovals.pv} ใบ
+          <div className="mt-2 grid grid-cols-3 divide-x divide-slate-100">
+            <Link href="/purchasing/approve" className="pr-3 hover:opacity-70">
+              <div className="font-mono text-xl font-bold text-slate-900 sm:text-2xl">{dash.pendingApprovals.po}</div>
+              <div className="mt-1 text-[11px] text-slate-500">PO</div>
+            </Link>
+            <Link href="/pv" className="px-3 hover:opacity-70">
+              <div className="font-mono text-xl font-bold text-slate-900 sm:text-2xl">{dash.pendingApprovals.pv}</div>
+              <div className="mt-1 text-[11px] text-slate-500">ใบสำคัญจ่าย (PV)</div>
+            </Link>
+            <Link href="/inbox" className="pl-3 hover:opacity-70">
+              <div className="font-mono text-xl font-bold text-slate-900 sm:text-2xl">{dash.pendingApprovals.closeShort}</div>
+              <div className="mt-1 text-[11px] text-slate-500">ปิดยอดค้างรับ</div>
+            </Link>
           </div>
+          {pendingTotal === 0 && <div className="sr-only">ไม่มีรายการรออนุมัติ</div>}
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs text-slate-500">คำขอปิดยอดค้างรับรออนุมัติ</div>
-          <div className="text-2xl font-bold text-slate-900 mt-1">
-            {dash.pendingApprovals.closeShort} รายการ
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <GroupedColumnChart
+            title="เงินเข้า-ออกรายเดือน"
+            subtitle="12 เดือนล่าสุด ทั้งบริษัท (บาท) · เงินเข้าจากใบเสร็จลูกค้า เงินออกจากใบสำคัญจ่ายที่จ่ายแล้ว"
+            series={[
+              { key: 'cashIn', label: 'เงินเข้า', color: CASH_IN },
+              { key: 'cashOut', label: 'เงินออก', color: CASH_OUT },
+            ]}
+            rows={overview.monthly.map((m) => ({
+              key: m.month,
+              label: monthName(m.month),
+              fullLabel: `${monthName(m.month)} ${Number(m.month.slice(0, 4)) + 543}`,
+              values: { cashIn: m.cashIn, cashOut: m.cashOut },
+            }))}
+            emptyText="ยังไม่มีการรับหรือจ่ายเงินใน 12 เดือนนี้"
+          />
+        </div>
+        <HorizontalBarChart
+          title="เงินออกปีนี้แยกตามประเภท"
+          subtitle="จากใบสำคัญจ่ายที่จ่ายแล้ว (บาท)"
+          rows={overview.expenseMix}
+          color={CASH_OUT}
+          emptyText="ปีนี้ยังไม่มีการจ่ายเงิน"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <GroupedColumnChart
+          title="อายุลูกหนี้และเจ้าหนี้"
+          subtitle="ยอดค้างแยกตามจำนวนวันที่เกินกำหนด (บาท)"
+          series={[
+            { key: 'receivable', label: 'ลูกหนี้ค้างรับ', color: CASH_IN },
+            { key: 'payable', label: 'เจ้าหนี้ค้างจ่าย', color: CASH_OUT },
+          ]}
+          rows={overview.aging.map((a) => ({
+            key: a.bucket,
+            label: a.bucket === 'NOT_DUE' ? 'ยังไม่ถึง' : a.label.replace(' วัน', '').replace('เกิน ', '>'),
+            fullLabel: a.label,
+            values: { receivable: a.receivable, payable: a.payable },
+          }))}
+          emptyText="ไม่มียอดค้างรับหรือค้างจ่าย"
+        />
+
+        <section className="rounded-xl border border-slate-200 bg-white shadow-xs xl:col-span-2">
+          <div className="flex items-start justify-between gap-3 p-5 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">สถานะโครงการที่เปิดอยู่</h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">ความคืบหน้าจริงเทียบแผน และต้นทุนที่ตั้งหนี้แล้ว (ก่อน VAT) เทียบงบ</p>
+            </div>
+            <Link href="/timeline" className="shrink-0 text-[11px] font-medium text-[#2453d4] hover:underline">
+              ดู Timeline
+            </Link>
           </div>
-        </div>
+          {overview.projects.length === 0 ? (
+            <div className="py-14 text-center text-xs text-slate-400">ไม่มีโครงการที่เปิดอยู่</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-xs">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-5 py-2 text-left font-medium">โครงการ</th>
+                    <th className="w-44 px-3 py-2 text-left font-medium">ความคืบหน้า</th>
+                    <th className="px-3 py-2 text-right font-medium">งบประมาณ</th>
+                    <th className="px-3 py-2 text-right font-medium">ต้นทุน</th>
+                    <th className="px-5 py-2 text-right font-medium">รับเงินแล้ว</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {overview.projects.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/70">
+                      <td className="max-w-[260px] px-5 py-3">
+                        <Link href={`/projects/${p.id}`} prefetch={false} className="block truncate font-semibold text-slate-900 hover:text-[#2453d4] hover:underline" title={p.name}>
+                          {p.name}
+                        </Link>
+                        <div className="mt-0.5 text-[10px] text-slate-500">
+                          <span className="font-mono">{p.code}</span> · {PROJECT_STATUS_LABELS[p.status]}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        {/* The tick marks where the plan says the project should be today */}
+                        <div className="relative h-2 rounded-full bg-slate-100">
+                          <div className="h-full rounded-full bg-[#2a78d6]" style={{ width: `${Math.min(100, p.progress)}%` }} />
+                          {p.plannedProgress > 0 && (
+                            <div className="absolute -bottom-0.5 -top-0.5 w-0.5 rounded bg-slate-900" style={{ left: `${Math.min(100, p.plannedProgress)}%` }} />
+                          )}
+                        </div>
+                        <div className={`mt-1 flex items-center gap-1 text-[10px] ${p.behindPlan ? 'font-medium text-rose-700' : 'text-slate-500'}`}>
+                          {p.behindPlan && <AlertTriangle className="h-3 w-3" />}
+                          จริง {p.progress}% · แผน {p.plannedProgress}%
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-slate-700">{p.budget > 0 ? baht(p.budget) : '-'}</td>
+                      <td className="px-3 py-3 text-right font-mono text-slate-900">
+                        {baht(p.cost)}
+                        {p.overBudget && (
+                          <div className="mt-0.5 flex items-center justify-end gap-1 font-sans text-[10px] font-medium text-rose-700">
+                            <AlertTriangle className="h-3 w-3" /> เกินงบ
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-slate-700">{baht(p.received)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

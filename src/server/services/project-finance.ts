@@ -33,7 +33,7 @@ import { assertCan, can } from '@/server/policy';
 const num = (v: string | number | null | undefined) => Number(v ?? 0);
 
 /** Expense groups shown on the cashflow donut, by how the payable arose. */
-const EXPENSE_GROUP: Record<PayableSourceType, string> = {
+export const EXPENSE_GROUP: Record<PayableSourceType, string> = {
   CREDIT_INVOICE: 'ค่าวัสดุ/สั่งซื้อ (PO)',
   PREPAID_REQUEST: 'ค่าวัสดุ/สั่งซื้อ (PO)',
   INSTALLMENT: 'ค่าวัสดุ/สั่งซื้อ (PO)',
