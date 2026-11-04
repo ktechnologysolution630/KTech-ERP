@@ -1,5 +1,3 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { randomUUID } from 'crypto';
 import { put } from '@vercel/blob';
 import { and, desc, eq } from 'drizzle-orm';
@@ -7,6 +5,7 @@ import { type Db } from '@/db/client';
 import {
   attachments,
   comments,
+  storedFiles,
   users,
   type AttachmentKind,
   type EntityType,
@@ -22,9 +21,11 @@ const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_CAPTION = 500;
 
+const STORED_FILE_URL = /^\/api\/upload\?id=([0-9a-f-]{36})$/;
+
 export async function storeFile(
+  db: Db,
   file: File,
-  _actor: SessionUser,
 ): Promise<{ url: string; name: string; size: number; contentType: string }> {
   if (file.size > MAX_FILE_SIZE) {
     throw new DomainError('FILE_TOO_LARGE', 'ขนาดไฟล์ต้องไม่เกิน 10 MB', 400);
@@ -45,19 +46,26 @@ export async function storeFile(
     };
   }
 
-  const uploadsDir = path.resolve(process.cwd(), '.uploads');
-  await fs.mkdir(uploadsDir, { recursive: true });
-  const storedFileName = `${randomUUID()}-${safeName}`;
-  const fullPath = path.join(uploadsDir, storedFileName);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(fullPath, buffer);
+  const id = randomUUID();
+  await db.insert(storedFiles).values({ id, name: file.name, content: new Uint8Array(await file.arrayBuffer()) });
 
   return {
-    url: `/api/upload?f=${encodeURIComponent(storedFileName)}`,
+    url: `/api/upload?id=${id}`,
     name: file.name,
     size: file.size,
     contentType,
   };
+}
+
+export async function readStoredFile(db: Db, id: string): Promise<{ name: string; content: Uint8Array } | null> {
+  const [row] = await db.select({ name: storedFiles.name, content: storedFiles.content }).from(storedFiles).where(eq(storedFiles.id, id)).limit(1);
+  return row ?? null;
+}
+
+/** Frees the contents behind a URL from storeFile; other URLs (Blob, cover presets, old files on disk) are left alone. */
+export async function removeStoredFile(db: Db, url: string): Promise<void> {
+  const id = STORED_FILE_URL.exec(url)?.[1];
+  if (id) await db.delete(storedFiles).where(eq(storedFiles.id, id));
 }
 
 export async function addAttachment(
@@ -69,7 +77,7 @@ export async function addAttachment(
   if (input.kind === 'PHOTO' && !PHOTO_TYPES.includes(input.file.type)) {
     throw new DomainError('INVALID_FILE', 'รูปภาพต้องเป็นไฟล์ JPG, PNG, WebP หรือ GIF');
   }
-  const stored = await storeFile(input.file, actor);
+  const stored = await storeFile(db, input.file);
   const [inserted] = await db
     .insert(attachments)
     .values({
@@ -149,6 +157,7 @@ export async function deleteAttachment(db: Db, actor: SessionUser, attachmentId:
     throw new DomainError('FORBIDDEN', 'ลบได้เฉพาะผู้อัปโหลดหรือผู้ดูแลโครงการ', 403);
   }
   await db.delete(attachments).where(eq(attachments.id, attachmentId));
+  await removeStoredFile(db, att.url);
   await logActivity(db, { entityType: att.entityType, entityId: att.entityId, action: 'attachment.delete', userId: actor.id, note: att.name });
 }
 

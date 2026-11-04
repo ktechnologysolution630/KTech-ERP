@@ -5,7 +5,9 @@ import { getDb } from '@/db/client';
 import { type EntityType } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { getCurrentUser } from '@/server/auth/current-user';
-import { addAttachment } from '@/server/services/attachments';
+import { addAttachment, readStoredFile } from '@/server/services/attachments';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const INLINE_TYPES: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -16,27 +18,38 @@ const INLINE_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
 };
 
+function fileResponse(content: Uint8Array<ArrayBuffer>, fileName: string) {
+  // Raster images and PDFs render inline (covers, document viewer); everything else stays a download. SVG and HTML are excluded on purpose.
+  const inlineType = INLINE_TYPES[path.extname(fileName).toLowerCase()];
+  return new NextResponse(content, {
+    headers: {
+      'Content-Type': inlineType ?? 'application/octet-stream',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, max-age=3600',
+    },
+  });
+}
+
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const id = req.nextUrl.searchParams.get('id');
+  if (id !== null) {
+    if (!UUID.test(id)) return NextResponse.json({ error: 'Invalid file' }, { status: 400 });
+    const stored = await readStoredFile(await getDb(), id);
+    if (!stored) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return fileResponse(new Uint8Array(stored.content), stored.name);
+  }
+  // Files uploaded before contents moved to the database
   const f = req.nextUrl.searchParams.get('f');
   if (!f || f.includes('..') || f.includes('/') || f.includes('\\')) {
     return NextResponse.json({ error: 'Invalid file' }, { status: 400 });
   }
   const fullPath = path.resolve(process.cwd(), '.uploads', f);
   try {
-    const buf = await fs.readFile(fullPath);
-    // Raster images and PDFs render inline (covers, document viewer); everything else stays a download. SVG and HTML are excluded on purpose.
-    const inlineType = INLINE_TYPES[path.extname(f).toLowerCase()];
-    return new NextResponse(buf, {
-      headers: {
-        'Content-Type': inlineType ?? 'application/octet-stream',
-        'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'private, max-age=3600',
-      },
-    });
+    return fileResponse(new Uint8Array(await fs.readFile(fullPath)), f);
   } catch {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }

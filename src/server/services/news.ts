@@ -4,7 +4,7 @@ import { type Db } from '@/db/client';
 import { announcements, users, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { assertCan, can } from '@/server/policy';
-import { storeFile } from './attachments';
+import { removeStoredFile, storeFile } from './attachments';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 /** Keep in step with `serverActions.bodySizeLimit` in next.config.ts */
@@ -71,7 +71,7 @@ export async function createNews(db: Db, actor: SessionUser, input: NewsInput): 
   if (image && image.size > 0) {
     if (!IMAGE_TYPES.includes(image.type)) throw new DomainError('INVALID_NEWS', 'รูปต้องเป็นไฟล์ JPG, PNG, WebP หรือ GIF');
     if (image.size > MAX_IMAGE_BYTES) throw new DomainError('INVALID_NEWS', 'รูปต้องมีขนาดไม่เกิน 4 MB');
-    imageUrl = (await storeFile(image, actor)).url;
+    imageUrl = (await storeFile(db, image)).url;
   }
 
   const [row] = await db
@@ -86,4 +86,5 @@ export async function deleteNews(db: Db, actor: SessionUser, id: string): Promis
   if (!z.string().uuid().safeParse(id).success) throw new DomainError('NOT_FOUND', 'ไม่พบข่าว', 404);
   const deleted = await db.delete(announcements).where(eq(announcements.id, id)).returning();
   if (deleted.length === 0) throw new DomainError('NOT_FOUND', 'ไม่พบข่าว', 404);
+  await removeStoredFile(db, deleted[0]!.imageUrl);
 }

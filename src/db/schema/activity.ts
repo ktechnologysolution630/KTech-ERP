@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, jsonb, index } from 'drizzle-orm/pg-core';
+import { customType, pgTable, uuid, text, timestamp, integer, jsonb, index } from 'drizzle-orm/pg-core';
 import { users } from './core';
 
 export type EntityType =
@@ -66,6 +66,18 @@ export const attachments = pgTable('attachments', {
     .references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index('attachments_entity_idx').on(t.entityType, t.entityId)]);
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => 'bytea',
+});
+
+/** Uploaded file contents. Kept in the database because a host's local disk may be wiped on every deploy or restart. */
+export const storedFiles = pgTable('stored_files', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  content: bytea('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const notifications = pgTable('notifications', {
   id: uuid('id').defaultRandom().primaryKey(),

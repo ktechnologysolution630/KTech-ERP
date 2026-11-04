@@ -19,7 +19,7 @@ import { D, WHT_RATES } from '@/domain/money';
 import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
 import { hashPassword } from '@/server/auth/password';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
-import { storeFile } from './attachments';
+import { removeStoredFile, storeFile } from './attachments';
 import { nextDocNumber } from './numbering';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ไม่ถูกต้อง');
@@ -182,14 +182,14 @@ export async function setProjectCover(
   projectId: string,
   source: ProjectCoverSource,
 ): Promise<string> {
-  await getProjectDetail(db, actor, projectId);
+  const previous = await getProjectDetail(db, actor, projectId);
   assertCan(actor, 'project.manage', { projectId });
 
   let url = '';
   if (source.kind === 'upload') {
     if (source.file.size === 0) throw new DomainError('INVALID_PROJECT', 'กรุณาเลือกไฟล์รูป');
     assertCoverFile(source.file);
-    url = (await storeFile(source.file, actor)).url;
+    url = (await storeFile(db, source.file)).url;
   } else if (source.kind === 'preset') {
     if (!PROJECT_COVER_PRESETS.includes(source.url)) {
       throw new DomainError('INVALID_PROJECT', 'ไม่พบรูปที่เลือก');
@@ -197,6 +197,7 @@ export async function setProjectCover(
     url = source.url;
   }
   await db.update(projects).set({ coverImageUrl: url, updatedAt: new Date() }).where(eq(projects.id, projectId));
+  await removeStoredFile(db, previous.coverImageUrl);
   return url;
 }
 
@@ -242,7 +243,7 @@ export async function createProject(
 
   if (cover && cover.size > 0) {
     // Stored after the row exists so a rejected project never leaves an orphan file
-    const stored = await storeFile(cover, actor);
+    const stored = await storeFile(db, cover);
     const [withCover] = await db
       .update(projects)
       .set({ coverImageUrl: stored.url, updatedAt: new Date() })
