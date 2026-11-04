@@ -284,9 +284,8 @@ function ReportEditor({
           'งานที่ทำวันนี้ / ความคืบหน้า',
           <div className="space-y-2">
             {form.work.map((w, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-end">
+              <div key={i} className="grid grid-cols-12 gap-2 items-start">
                 <label className="col-span-12 sm:col-span-4">
-                  <span className="block text-slate-600 mb-0.5">งานใน Gantt</span>
                   <select
                     value={w.taskId ?? ''}
                     onChange={(e) => {
@@ -302,13 +301,13 @@ function ReportEditor({
                       </option>
                     ))}
                   </select>
+                  <span className="block mt-0.5 text-[11px] text-slate-500">งานใน Gantt</span>
                 </label>
                 <label className="col-span-12 sm:col-span-3">
-                  <span className="block text-slate-600 mb-0.5">รายละเอียดงาน</span>
                   <input value={w.description} onChange={(e) => setLine('work', i, { description: e.target.value })} placeholder="รายละเอียดงานที่ทำ" className={field} />
+                  <span className="block mt-0.5 text-[11px] text-slate-500">รายละเอียดงาน</span>
                 </label>
                 <label className="col-span-5 sm:col-span-2">
-                  <span className="block text-slate-600 mb-0.5">ปริมาณงานสะสม (%)</span>
                   <input
                     type="number"
                     min={0}
@@ -319,17 +318,18 @@ function ReportEditor({
                     placeholder={w.taskId ? '0-100' : 'เลือกงานก่อน'}
                     className={field}
                   />
+                  <span className="block mt-0.5 text-[11px] text-slate-500">ปริมาณงานสะสม (%) รวมถึงวันนี้</span>
                 </label>
                 <label className="col-span-6 sm:col-span-2">
-                  <span className="block text-slate-600 mb-0.5">ปัญหา/หมายเหตุ</span>
                   <input value={w.note} onChange={(e) => setLine('work', i, { note: e.target.value })} className={field} />
+                  <span className="block mt-0.5 text-[11px] text-slate-500">ปัญหา/หมายเหตุ</span>
                 </label>
-                <button type="button" onClick={() => removeLine('work', i)} className="col-span-1 p-1.5 pb-2.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
+                <button type="button" onClick={() => removeLine('work', i)} className="col-span-1 p-1.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
-            <p className="text-[11px] text-slate-500">ปริมาณงานสะสม (%) คือเปอร์เซ็นต์งานที่ทำเสร็จแล้วรวมถึงวันนี้ กรอกได้เมื่อเลือกงานใน Gantt และจะอัปเดตไปที่งานเมื่อกด &quot;ส่งรายงาน&quot;</p>
+            <p className="text-[11px] text-slate-500">กรอกเปอร์เซ็นต์ได้เมื่อเลือกงานใน Gantt และจะอัปเดตไปที่งานเมื่อกด &quot;ส่งรายงาน&quot;</p>
           </div>,
           addBtn('work'),
         )}
@@ -339,20 +339,20 @@ function ReportEditor({
             `คนงาน (รวม ${totalWorkers} คน)`,
             <div className="space-y-2">
               {form.labour.map((l, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                <div key={i} className="grid grid-cols-12 gap-2 items-start">
                   <label className="col-span-5">
-                    <span className="block text-slate-600 mb-0.5">บริษัท / ประเภทคนงาน</span>
                     <input value={l.company} onChange={(e) => setLine('labour', i, { company: e.target.value })} className={field} />
+                    <span className="block mt-0.5 text-[11px] text-slate-500">บริษัท / ประเภทคนงาน</span>
                   </label>
                   <label className="col-span-3">
-                    <span className="block text-slate-600 mb-0.5">จำนวนคน</span>
                     <input type="number" min={0} value={l.workers} onChange={(e) => setLine('labour', i, { workers: Math.max(0, Math.trunc(Number(e.target.value) || 0)) })} className={field} />
+                    <span className="block mt-0.5 text-[11px] text-slate-500">จำนวนคน</span>
                   </label>
                   <label className="col-span-3">
-                    <span className="block text-slate-600 mb-0.5">ชั่วโมงทำงาน</span>
                     <input type="number" min={0} max={24} step={0.5} value={l.hours} onChange={(e) => setLine('labour', i, { hours: Number(e.target.value) || 0 })} className={field} />
+                    <span className="block mt-0.5 text-[11px] text-slate-500">ชั่วโมงทำงาน</span>
                   </label>
-                  <button type="button" onClick={() => removeLine('labour', i)} className="col-span-1 pb-2.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
+                  <button type="button" onClick={() => removeLine('labour', i)} className="col-span-1 pt-2 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -364,16 +364,16 @@ function ReportEditor({
             'เครื่องมือ-เครื่องจักร',
             <div className="space-y-2">
               {form.equipment.map((q, i) => (
-                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                <div key={i} className="grid grid-cols-12 gap-2 items-start">
                   <label className="col-span-8">
-                    <span className="block text-slate-600 mb-0.5">ประเภทเครื่องจักร</span>
                     <input value={q.type} onChange={(e) => setLine('equipment', i, { type: e.target.value })} placeholder="เช่น รถแบ็คโฮ, รถโม่ปูน" className={field} />
+                    <span className="block mt-0.5 text-[11px] text-slate-500">ประเภทเครื่องจักร</span>
                   </label>
                   <label className="col-span-3">
-                    <span className="block text-slate-600 mb-0.5">ชั่วโมงใช้งาน</span>
                     <input type="number" min={0} max={24} step={0.5} value={q.hours} onChange={(e) => setLine('equipment', i, { hours: Number(e.target.value) || 0 })} className={field} />
+                    <span className="block mt-0.5 text-[11px] text-slate-500">ชั่วโมงใช้งาน</span>
                   </label>
-                  <button type="button" onClick={() => removeLine('equipment', i)} className="col-span-1 pb-2.5 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
+                  <button type="button" onClick={() => removeLine('equipment', i)} className="col-span-1 pt-2 text-slate-400 hover:text-red-600" title="ลบแถว" aria-label="ลบแถว">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
