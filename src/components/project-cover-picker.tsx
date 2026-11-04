@@ -9,24 +9,13 @@ import { setProjectCoverAction } from '@/app/(app)/projects/[id]/actions';
 const MAX_COVER_BYTES = 4 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-const thumbUrl = (url: string) => url.replace('w=1200', 'w=400');
+export const COVER_FILE_TYPES = ACCEPTED_TYPES.join(',');
+export const thumbUrl = (url: string) => url.replace('w=1200', 'w=400');
 
-export function ProjectCoverPicker({
-  projectId,
-  current,
-  onClose,
-  onChanged,
-}: {
-  projectId: string;
-  current: string | null;
-  onClose: () => void;
-  /** Receives the saved cover URL, or null when the cover was removed */
-  onChanged: (url: string | null) => void;
-}) {
+/** Saves a project's cover from an uploaded file, a preset or removal; `onSaved` gets the new URL, or null when removed. */
+export function useProjectCover(projectId: string, onSaved: (url: string | null) => void) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const save = (form: FormData) => {
     setError(null);
@@ -36,8 +25,7 @@ export function ProjectCoverPicker({
         setError(r.error);
         return;
       }
-      onChanged(r.url || null);
-      onClose();
+      onSaved(r.url || null);
     });
   };
 
@@ -68,6 +56,28 @@ export function ProjectCoverPicker({
     form.set('remove', '1');
     save(form);
   };
+
+  return { isPending, error, upload, choosePreset, remove };
+}
+
+export function ProjectCoverPicker({
+  projectId,
+  current,
+  onClose,
+  onChanged,
+}: {
+  projectId: string;
+  current: string | null;
+  onClose: () => void;
+  /** Receives the saved cover URL, or null when the cover was removed */
+  onChanged: (url: string | null) => void;
+}) {
+  const { isPending, error, upload, choosePreset, remove } = useProjectCover(projectId, (url) => {
+    onChanged(url);
+    onClose();
+  });
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div
@@ -111,7 +121,7 @@ export function ProjectCoverPicker({
           <input
             ref={inputRef}
             type="file"
-            accept={ACCEPTED_TYPES.join(',')}
+            accept={COVER_FILE_TYPES}
             className="hidden"
             aria-label="เลือกไฟล์รูปโครงการ"
             onChange={(e) => {

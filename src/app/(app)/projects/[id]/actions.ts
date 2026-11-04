@@ -6,6 +6,7 @@ import { DomainError } from '@/domain/errors';
 import { type ProjectStatus } from '@/domain/project';
 import { requireUser } from '@/server/auth/current-user';
 import {
+  deleteProject,
   setProjectCover,
   updateProjectDetails,
   type ProjectCoverSource,
@@ -44,6 +45,19 @@ export async function updateProjectDetailsAction(
     return { ok: true, project };
   } catch (err) {
     // Domain errors carry user-safe Thai messages; anything else is unexpected and rethrown
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+export async function deleteProjectAction(projectId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    await deleteProject(db, actor, projectId);
+    revalidatePath('/projects');
+    return { ok: true };
+  } catch (err) {
     if (err instanceof DomainError) return { ok: false, error: err.message };
     throw err;
   }

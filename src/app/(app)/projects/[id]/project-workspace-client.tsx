@@ -44,6 +44,7 @@ import { ReportsPanel } from '@/components/project-site/reports-panel';
 import { FilesPanel } from '@/components/project-site/files-panel';
 import { TeamPanel } from '@/components/project-site/team-panel';
 import { ProjectCoverPicker } from '@/components/project-cover-picker';
+import { ProjectSettingsPanel } from '@/components/project-settings-panel';
 import type { ProjectTaskList } from '@/server/services/tasks';
 import { formatThaiDate } from '@/domain/thai';
 import { ProjectCashflowView } from '@/components/project-cashflow-view';
@@ -805,14 +806,7 @@ export function ProjectWorkspaceClient({
 
         {/* Tab 14: ตั้งค่า (Settings) */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 max-w-3xl animate-glass-card">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">ตั้งค่าข้อมูลโครงการ</h3>
-              <p className="text-xs text-slate-500">แก้ไขรายละเอียดสัญญา วันเริ่ม-สิ้นสุด และเงื่อนไขการส่งมอบ</p>
-            </div>
-
-            <ProjectDetailsForm project={project} users={allUsers} customers={customers} />
-          </div>
+          <ProjectSettingsPanel project={project} users={allUsers} customers={customers} cover={coverPhoto} onCoverChanged={setCoverPhoto} />
         )}
       </div>
 

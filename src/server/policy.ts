@@ -22,6 +22,7 @@ export type Action =
   | 'project.finance'
   | 'boq.manage'
   | 'project.manage'
+  | 'project.delete'
   | 'task.manage'
   | 'task.progress'
   | 'milestone.manage'
@@ -180,6 +181,9 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'boq.manage': {
       if (hasRole(u, ['OWNER', 'ADMIN'])) return true;
       return hasRole(u, ['PM', 'ENGINEER']) && isProjectMember(u, ctx.projectId);
+    }
+    case 'project.delete': {
+      return hasRole(u, ['OWNER', 'ADMIN']);
     }
     case 'master.manage': {
       return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'ADMIN', 'OWNER']);

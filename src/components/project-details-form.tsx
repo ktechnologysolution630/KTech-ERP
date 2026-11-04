@@ -16,6 +16,10 @@ interface ProjectDetailsFormProps {
   customers?: { id: string; code: string; name: string }[];
   onSaved?: () => void;
   onCancel?: () => void;
+  /** Offers "ยกเลิก" that puts back the saved values, for a form not inside a dialog */
+  showReset?: boolean;
+  /** Shown at the start of the button row */
+  footerStart?: React.ReactNode;
 }
 
 const inputClass =
@@ -38,7 +42,7 @@ function toFormState(p: ProjectDetailDto): ProjectDetailsFormInput {
   };
 }
 
-export function ProjectDetailsForm({ project, users, customers = [], onSaved, onCancel }: ProjectDetailsFormProps) {
+export function ProjectDetailsForm({ project, users, customers = [], onSaved, onCancel, showReset, footerStart }: ProjectDetailsFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<ProjectDetailsFormInput>(() => toFormState(project));
@@ -76,10 +80,6 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
       <fieldset disabled={!project.canEdit || isPending} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block font-medium text-slate-700 mb-1">รหัสโครงการ</label>
-            <input type="text" value={project.code} readOnly className={`${inputClass} bg-slate-50 font-mono`} />
-          </div>
-          <div>
             <label htmlFor="pd-name" className="block font-medium text-slate-700 mb-1">
               ชื่อโครงการ <span className="text-red-500">*</span>
             </label>
@@ -91,6 +91,57 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
               onChange={(e) => set('name', e.target.value)}
               className={inputClass}
             />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-700 mb-1">รหัสโครงการ</label>
+            <input type="text" value={project.code} readOnly className={`${inputClass} bg-slate-50 font-mono`} />
+          </div>
+          <div>
+            <label htmlFor="pd-group" className="block font-medium text-slate-700 mb-1">กลุ่มโครงการ</label>
+            <input
+              id="pd-group"
+              type="text"
+              value={form.projectGroup}
+              onChange={(e) => set('projectGroup', e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="pd-location" className="block font-medium text-slate-700 mb-1">สถานที่ก่อสร้าง</label>
+            <input
+              id="pd-location"
+              type="text"
+              value={form.location}
+              onChange={(e) => set('location', e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="pd-budget" className="block font-medium text-slate-700 mb-1">งบประมาณตามสัญญา (บาท)</label>
+            <input
+              id="pd-budget"
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.budget}
+              onChange={(e) => set('budget', e.target.value === '' ? 0 : Number(e.target.value))}
+              className={`${inputClass} font-mono`}
+            />
+          </div>
+          <div>
+            <label htmlFor="pd-status" className="block font-medium text-slate-700 mb-1">สถานะโครงการ</label>
+            <select
+              id="pd-status"
+              value={form.status}
+              onChange={(e) => set('status', e.target.value as ProjectStatus)}
+              className={inputClass}
+            >
+              {PROJECT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {PROJECT_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -125,16 +176,6 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="pd-group" className="block font-medium text-slate-700 mb-1">กลุ่มโครงการ</label>
-            <input
-              id="pd-group"
-              type="text"
-              value={form.projectGroup}
-              onChange={(e) => set('projectGroup', e.target.value)}
-              className={inputClass}
-            />
-          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -160,45 +201,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
           </div>
         </div>
 
-        <div>
-          <label htmlFor="pd-location" className="block font-medium text-slate-700 mb-1">สถานที่ก่อสร้าง</label>
-          <input
-            id="pd-location"
-            type="text"
-            value={form.location}
-            onChange={(e) => set('location', e.target.value)}
-            className={inputClass}
-          />
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="pd-budget" className="block font-medium text-slate-700 mb-1">งบประมาณตามสัญญา (บาท)</label>
-            <input
-              id="pd-budget"
-              type="number"
-              min={0}
-              step="0.01"
-              value={form.budget}
-              onChange={(e) => set('budget', e.target.value === '' ? 0 : Number(e.target.value))}
-              className={`${inputClass} font-mono`}
-            />
-          </div>
-          <div>
-            <label htmlFor="pd-status" className="block font-medium text-slate-700 mb-1">สถานะโครงการ</label>
-            <select
-              id="pd-status"
-              value={form.status}
-              onChange={(e) => set('status', e.target.value as ProjectStatus)}
-              className={inputClass}
-            >
-              {PROJECT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {PROJECT_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </div>
           <div>
             <label htmlFor="pd-pm" className="block font-medium text-slate-700 mb-1">ผู้จัดการโครงการ</label>
             <select
@@ -215,9 +218,6 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="pd-start" className="block font-medium text-slate-700 mb-1">วันเริ่มต้นสัญญา</label>
             <input
@@ -242,13 +242,28 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
         </div>
       </fieldset>
 
-      <div className="pt-2 flex items-center justify-end gap-3">
+      <div className="pt-2 flex flex-wrap items-center justify-end gap-3">
+        {footerStart && <div className="mr-auto">{footerStart}</div>}
         {error && (
-          <span role="alert" className="text-red-600 font-medium mr-auto">
+          <span role="alert" className="text-red-600 font-medium">
             {error}
           </span>
         )}
-        {savedAt && !error && <span className="text-emerald-700 mr-auto">บันทึกแล้ว ({savedAt} น.)</span>}
+        {savedAt && !error && <span className="text-emerald-700">บันทึกแล้ว ({savedAt} น.)</span>}
+        {showReset && project.canEdit && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => {
+              setForm(toFormState(project));
+              setError(null);
+              setSavedAt(null);
+            }}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+          >
+            ยกเลิก
+          </button>
+        )}
         {onCancel && (
           <button
             type="button"
@@ -264,7 +279,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
             disabled={isPending}
             className="px-4 py-2 bg-[#2453d4] hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-60"
           >
-            {isPending ? 'กำลังบันทึก...' : 'บันทึกข้อมูลโครงการ'}
+            {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         )}
       </div>

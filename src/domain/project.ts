@@ -27,6 +27,10 @@ export const PROJECT_COVER_PRESETS = [
   'photo-1508450859948-4e04fabaa4ea',
   'photo-1517089596392-fb9a9033e05b',
   'photo-1503387762-592deb58ef4e',
+  'photo-1541888946425-d81bb19240f5',
+  'photo-1486406146926-c627a92ad1ab',
+  'photo-1487958449943-2429e8be8625',
+  'photo-1516937941344-00b4e0337589',
 ].map((id) => `https://images.unsplash.com/${id}?q=80&w=1200&auto=format&fit=crop`);
 
 /** Closed projects are hidden from the default project list; handover/warranty need COMPLETED. */
