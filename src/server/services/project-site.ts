@@ -300,12 +300,14 @@ const dailySchema = z.object({
   weatherMorning: z.enum(WEATHERS).default('SUNNY'),
   weatherAfternoon: z.enum(WEATHERS).default('SUNNY'),
   scheduleImpact: z.boolean().default(false),
+  scheduleNote: z.string().trim().max(1000).default(''),
   work: z
     .array(
       z.object({
         taskId: uuid.nullable().default(null),
         description: z.string().trim().max(500).default(''),
         progressPercent: z.number().finite().min(0).max(100).nullable().default(null),
+        outcome: z.enum(['COMPLETED', 'DELAYED']).nullable().default(null),
         note: z.string().trim().max(500).default(''),
       }),
     )

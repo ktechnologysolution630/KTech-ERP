@@ -1,0 +1,1 @@
+ALTER TABLE "daily_reports" ADD COLUMN "schedule_note" text DEFAULT '' NOT NULL;

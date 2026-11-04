@@ -27,10 +27,14 @@ export const projectEvents = pgTable(
 export type DailyReportStatus = 'DRAFT' | 'SUBMITTED';
 export type DailyWeather = 'SUNNY' | 'CLOUDY' | 'RAIN' | 'HEAVY_RAIN' | 'OTHER';
 
+export type DailyWorkOutcome = 'COMPLETED' | 'DELAYED';
+
 export interface DailyWorkLine {
   taskId: string | null;
   description: string;
   progressPercent: number | null;
+  /** Reports written before this field existed have no outcome */
+  outcome?: DailyWorkOutcome | null;
   note: string;
 }
 export interface DailyLabourLine {
@@ -58,6 +62,7 @@ export const dailyReports = pgTable(
     weatherMorning: text('weather_morning').$type<DailyWeather>().default('SUNNY').notNull(),
     weatherAfternoon: text('weather_afternoon').$type<DailyWeather>().default('SUNNY').notNull(),
     scheduleImpact: boolean('schedule_impact').default(false).notNull(),
+    scheduleNote: text('schedule_note').default('').notNull(),
     work: jsonb('work').$type<DailyWorkLine[]>().default([]).notNull(),
     labour: jsonb('labour').$type<DailyLabourLine[]>().default([]).notNull(),
     equipment: jsonb('equipment').$type<DailyEquipmentLine[]>().default([]).notNull(),

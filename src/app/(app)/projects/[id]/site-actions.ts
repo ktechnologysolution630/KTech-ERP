@@ -6,6 +6,7 @@ import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { deleteAttachment } from '@/server/services/attachments';
 import { getProjectCashflow, getProjectCostPerformance } from '@/server/services/project-finance';
+import { getPeriodicReport, type ReportKind } from '@/server/services/site-reports';
 import {
   addProjectMember,
   createProjectEvent,
@@ -49,6 +50,11 @@ export async function loadCashflowAction(projectId: string) {
 export async function loadCostPerformanceAction(projectId: string) {
   const { actor, db } = await ctx();
   return run(() => getProjectCostPerformance(db, actor, projectId));
+}
+
+export async function loadPeriodicReportAction(projectId: string, kind: ReportKind, anchorDate: string) {
+  const { actor, db } = await ctx();
+  return run(() => getPeriodicReport(db, actor, projectId, kind, anchorDate));
 }
 
 export async function loadTeamAction(projectId: string) {

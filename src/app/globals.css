@@ -79,3 +79,40 @@ body {
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* A4 report sheets. On print, only the report portal is shown (pages without one print as before). */
+.print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  body:has(> .print-root) > *:not(.print-root) {
+    display: none !important;
+  }
+  .print-root {
+    display: block;
+  }
+  .print-root * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-root .a4-page {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+    break-after: page;
+  }
+  .print-root .a4-page:last-child {
+    break-after: auto;
+  }
+  .print-root .keep-together {
+    break-inside: avoid;
+  }
+}

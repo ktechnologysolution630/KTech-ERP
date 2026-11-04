@@ -148,6 +148,13 @@
       "when": 1793760830448,
       "tag": "0020_vo_affected_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793764478663,
+      "tag": "0021_daily_schedule_note",
+      "breakpoints": true
     }
   ]
 }

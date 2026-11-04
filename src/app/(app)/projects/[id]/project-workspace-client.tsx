@@ -40,7 +40,7 @@ import { isTaskOverdue } from '@/domain/schedule';
 import { voCostImpact } from '@/domain/variation-order';
 import { CalendarPanel } from '@/components/project-site/calendar-panel';
 import { ChatPanel } from '@/components/project-site/chat-panel';
-import { DailyReportsPanel } from '@/components/project-site/daily-reports-panel';
+import { ReportsPanel } from '@/components/project-site/reports-panel';
 import { FilesPanel } from '@/components/project-site/files-panel';
 import { TeamPanel } from '@/components/project-site/team-panel';
 import { ProjectCoverPicker } from '@/components/project-cover-picker';
@@ -114,6 +114,8 @@ interface ProjectWorkspaceProps {
   customers?: { id: string; code: string; name: string }[];
   /** Signed-in user id (own chat bubbles, own uploads) */
   me: string;
+  meName: string;
+  companyLogoUrl: string | null;
   teamCount: number;
   photoCount: number;
 }
@@ -133,6 +135,8 @@ export function ProjectWorkspaceClient({
   voData,
   customers = [],
   me,
+  meName,
+  companyLogoUrl,
   teamCount,
   photoCount,
 }: ProjectWorkspaceProps) {
@@ -786,10 +790,11 @@ export function ProjectWorkspaceClient({
         {activeTab === 'calendar' && <CalendarPanel projectId={project.id} today={today} />}
         {activeTab === 'photos' && <FilesPanel projectId={project.id} kind="PHOTO" me={me} />}
         {activeTab === 'reports' && (
-          <DailyReportsPanel
-            projectId={project.id}
-            projectName={project.name}
+          <ReportsPanel
+            project={{ id: project.id, name: project.name, location: project.location, group: project.projectGroup }}
             today={today}
+            preparedBy={meName}
+            logoUrl={companyLogoUrl}
             tasks={tasks.map((t) => ({ id: t.id, wbs: t.wbs, title: t.title, progress: t.progress }))}
           />
         )}
