@@ -46,6 +46,8 @@ export const variationOrders = pgTable(
     impactEndDate: date('impact_end_date'),
     criticalPath: boolean('critical_path').default(false).notNull(),
     affectedTaskId: uuid('affected_task_id').references(() => projectTasks.id, { onDelete: 'set null' }),
+    /** As typed on the form; set whether or not it matches a task, and kept if the task is later deleted */
+    affectedActivity: text('affected_activity').default('').notNull(),
     timeReason: text('time_reason').default('').notNull(),
     status: text('status').$type<VoStatus>().default('DRAFT').notNull(),
     requestedBy: uuid('requested_by')

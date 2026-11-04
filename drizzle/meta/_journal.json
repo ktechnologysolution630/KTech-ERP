@@ -141,6 +141,13 @@
       "when": 1793716907205,
       "tag": "0019_announcements",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793760830448,
+      "tag": "0020_vo_affected_activity",
+      "breakpoints": true
     }
   ]
 }

@@ -82,6 +82,7 @@ function blankForm(contractValue: number): VoForm {
     impactEndDate: null,
     criticalPath: false,
     affectedTaskId: null,
+    affectedActivity: '',
     timeReason: '',
   };
 }
@@ -426,20 +427,26 @@ function VoFormBody({
               กระทบ Critical Path
             </label>
             <Field label="กิจกรรมที่ได้รับผลกระทบ" htmlFor="vo-task" className="sm:col-span-3">
-              <select
+              <input
                 id="vo-task"
+                list="vo-task-options"
+                maxLength={300}
                 disabled={!form.scheduleImpact}
-                value={form.affectedTaskId ?? ''}
-                onChange={(e) => set('affectedTaskId', e.target.value || null)}
+                value={form.affectedActivity}
+                placeholder={form.scheduleImpact ? 'พิมพ์ชื่อกิจกรรม หรือเลือกจากงานในโครงการ' : 'ติ๊ก "กระทบแผนงาน" ก่อนจึงจะกรอกได้'}
+                onChange={(e) => {
+                  const text = e.target.value;
+                  // Exactly matching a task's name links the VO to that task; other text stays free text
+                  const match = options.tasks.find((t) => t.title === text.trim());
+                  setForm((f) => ({ ...f, affectedActivity: text, affectedTaskId: match?.id ?? null }));
+                }}
                 className={inputClass}
-              >
-                <option value="">ไม่ระบุ</option>
+              />
+              <datalist id="vo-task-options">
                 {options.tasks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                  </option>
+                  <option key={t.id} value={t.title} />
                 ))}
-              </select>
+              </datalist>
             </Field>
             <Field label="เหตุผลด้านเวลา" htmlFor="vo-time-reason" className="sm:col-span-3">
               <textarea id="vo-time-reason" rows={3} maxLength={2000} value={form.timeReason} onChange={(e) => set('timeReason', e.target.value)} className={inputClass} />

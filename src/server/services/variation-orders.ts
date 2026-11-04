@@ -101,6 +101,7 @@ const voSchema = z
     impactEndDate: isoDate.nullable().default(null),
     criticalPath: z.boolean().default(false),
     affectedTaskId: z.string().uuid().nullable().default(null),
+    affectedActivity: z.string().trim().max(300, 'กิจกรรมที่ได้รับผลกระทบยาวเกิน 300 ตัวอักษร').default(''),
     timeReason: z.string().trim().max(2000).default(''),
   })
   .refine((v) => !v.impactStartDate || !v.impactEndDate || v.impactEndDate >= v.impactStartDate, {
@@ -283,6 +284,7 @@ function headerValues(data: VoData, addAmount: Decimal.Value) {
     impactEndDate: schedule ? data.impactEndDate : null,
     criticalPath: schedule && data.criticalPath,
     affectedTaskId: schedule ? data.affectedTaskId : null,
+    affectedActivity: schedule ? data.affectedActivity : '',
     timeReason: data.timeReason,
   };
 }
@@ -408,6 +410,7 @@ export async function getVoDocument(db: Db, actor: SessionUser, voId: string): P
       impactEndDate: vo.impactEndDate,
       criticalPath: vo.criticalPath,
       affectedTaskId: vo.affectedTaskId,
+      affectedActivity: vo.affectedActivity,
       timeReason: vo.timeReason,
     },
     boq: boq ? await toDto(db, boq) : null,

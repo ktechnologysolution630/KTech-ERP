@@ -180,6 +180,21 @@ describe('variation order service', () => {
         boq: null,
       }),
     ).rejects.toMatchObject({ code: 'INVALID_VO' });
+    // Affected activity is free text, with or without a linked task; dropped when the plan is unaffected
+    const typed = await saveVoDocument(db, f.users.pm, f.projectA, null, {
+      vo: { ...header, scheduleImpact: true, affectedActivity: '  งานเทพื้นชั้น 2  ' },
+      boq: null,
+    });
+    expect((await getVoDocument(db, f.users.pm, typed.id)).input).toMatchObject({ affectedActivity: 'งานเทพื้นชั้น 2', affectedTaskId: null });
+    const noImpact = await saveVoDocument(db, f.users.pm, f.projectA, null, {
+      vo: { ...header, scheduleImpact: false, affectedActivity: 'งานเทพื้นชั้น 2' },
+      boq: null,
+    });
+    expect((await getVoDocument(db, f.users.pm, noImpact.id)).input.affectedActivity).toBe('');
+    await expect(
+      saveVoDocument(db, f.users.pm, f.projectA, null, { vo: { ...header, scheduleImpact: true, affectedActivity: 'ก'.repeat(301) }, boq: null }),
+    ).rejects.toMatchObject({ code: 'INVALID_VO' });
+
     // A VO id from another project is not editable through this project
     await expect(saveVoDocument(db, f.users.owner, f.projectB, priced.id, { vo: header, boq: null })).rejects.toMatchObject({ status: 404 });
 
