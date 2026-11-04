@@ -11,7 +11,7 @@ import {
   vendors,
   type SessionUser,
 } from '@/db/schema';
-import { computeDocTotals, D } from '@/domain/money';
+import { computeDocTotals, D, type Decimal } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import { can } from '@/server/policy';
 import { type SerializedPoRevisionPayload } from './po';
@@ -45,6 +45,24 @@ export interface InboxGroup {
   label: string;
   count: number;
   items: InboxItem[];
+}
+
+/** The amount awaiting approval on a PO (a new PO or a submitted revision), or null when nothing is awaiting. */
+export function poPendingGross(po: typeof pos.$inferSelect): Decimal | null {
+  const pendingRev = po.pendingRevision as SerializedPoRevisionPayload | null;
+  if (po.status !== 'PENDING_APPROVAL' && !pendingRev?.submittedForApproval) return null;
+  return pendingRev
+    ? computeDocTotals({
+        vatMode: pendingRev.vatMode,
+        billDiscount: D(pendingRev.billDiscount || 0),
+        shipping: D(pendingRev.shipping || 0),
+        lines: pendingRev.lines.map((l) => ({
+          qty: D(l.qty),
+          unitPrice: D(l.unitPrice),
+          discount: D(l.discount),
+        })),
+      }).gross
+    : D(po.gross);
 }
 
 export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]> {
@@ -130,23 +148,8 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
     .orderBy(desc(pos.createdAt));
 
   const poToApprove = allPos.filter((po) => {
-    const pendingRev = po.pendingRevision as SerializedPoRevisionPayload | null;
-    const isPending =
-      po.status === 'PENDING_APPROVAL' || Boolean(pendingRev?.submittedForApproval);
-    if (!isPending) return false;
-
-    const gross = pendingRev
-      ? computeDocTotals({
-          vatMode: pendingRev.vatMode,
-          billDiscount: D(pendingRev.billDiscount || 0),
-          shipping: D(pendingRev.shipping || 0),
-          lines: pendingRev.lines.map((l) => ({
-            qty: D(l.qty),
-            unitPrice: D(l.unitPrice),
-            discount: D(l.discount),
-          })),
-        }).gross
-      : D(po.gross);
+    const gross = poPendingGross(po);
+    if (!gross) return false;
 
     return can(actor, 'po.approve', {
       gross,

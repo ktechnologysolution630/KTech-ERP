@@ -7,6 +7,8 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     testTimeout: 30000,
+    // beforeEach hooks create the same in-memory database the tests do
+    hookTimeout: 30000,
   },
   resolve: {
     alias: {

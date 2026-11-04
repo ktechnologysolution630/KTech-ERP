@@ -37,6 +37,8 @@ interface AppShellProps {
   unreadCount?: number;
   /** From Settings; shown in the top bar */
   companyName: string;
+  /** Documents waiting on this user; null hides the menu from users who approve nothing */
+  pendingApprovalCount?: number | null;
   children: React.ReactNode;
 }
 
@@ -50,7 +52,7 @@ const AR_LINKS = [
   { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ' },
 ];
 
-export function AppShell({ user, unreadCount = 0, companyName, children }: AppShellProps) {
+export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, children }: AppShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
@@ -180,7 +182,22 @@ export function AppShell({ user, unreadCount = 0, companyName, children }: AppSh
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Dashboard</span>}
               </Link>
-            </div>
+
+              {pendingApprovalCount !== null && (
+                <Link
+                  href="/approvals"
+                  prefetch={false}
+                  className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                    pathname === '/approvals'
+                      ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title="K Tec Approve"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    {!collapsed && <span>K Tec Approve</span>}
+                  </div>
           </div>
 
           {/* Section: Operations */}
