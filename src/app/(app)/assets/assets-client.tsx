@@ -3,17 +3,19 @@
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, Download, FileUp, History, Pencil, Plus, QrCode, Search } from 'lucide-react';
-import { uploadFile } from '@/components/project-site/use-site-loader';
+import { ClipboardCheck, Download, FileUp, History, MapPin, Pencil, Plus, QrCode, Search } from 'lucide-react';
 import {
   ASSET_CATEGORIES,
+  ASSET_CHECK_STATE_LABELS,
   ASSET_STATUS_LABELS,
+  assetCheckState,
   DEFAULT_INSPECT_EVERY_DAYS,
   hasProblem,
   INSPECTION_DUE_LABELS,
   INSPECTION_RESULT_LABELS,
-  INSPECTION_RESULTS,
+  mapLinkUrl,
   needsInspection,
+  type AssetCheckState,
   type AssetStatus,
   type InspectionDue,
   type InspectionResult,
@@ -21,8 +23,9 @@ import {
 import { formatMoneyDisplay } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import type { AssetPage, AssetRow, InspectionRow } from '@/server/services/assets';
+import { AssetCheckDialog } from './asset-check-dialog';
 import { Dialog } from './asset-dialog';
-import { loadInspectionsAction, recordInspectionAction, saveAssetAction } from './actions';
+import { loadInspectionsAction, saveAssetAction } from './actions';
 
 const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsDialog), { ssr: false });
 const ImportDialog = dynamic(() => import('./asset-tools').then((m) => m.ImportDialog), { ssr: false });
@@ -38,7 +41,6 @@ const VIEW_LABELS: Record<View, string> = {
 };
 const fieldClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-hidden disabled:bg-slate-50';
 const labelClass = 'mb-1 block font-medium text-slate-700';
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const dateText = (d: string | null) => (d ? formatThaiDate(d) : '-');
 
 const DUE_CLASS: Record<InspectionDue, string> = {
@@ -47,6 +49,12 @@ const DUE_CLASS: Record<InspectionDue, string> = {
   DUE_SOON: 'text-amber-700',
   OK: 'text-slate-500',
   RETIRED: 'text-slate-400',
+};
+const CHECK_STATE_CLASS: Record<AssetCheckState, string> = {
+  ACTIVE: 'bg-emerald-50 text-emerald-800',
+  PROBLEM: 'bg-rose-50 text-rose-800',
+  AWAITING_CHECK: 'bg-amber-50 text-amber-800',
+  RETIRED: 'bg-slate-100 text-slate-600',
 };
 const RESULT_CLASS: Record<InspectionResult, string> = {
   GOOD: 'bg-emerald-50 text-emerald-800',
@@ -191,113 +199,6 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
   );
 }
 
-function InspectDialog({ asset, today, onClose }: { asset: AssetRow; today: string; onClose: () => void }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [inspectedOn, setInspectedOn] = useState(today);
-  const [result, setResult] = useState<InspectionResult>('GOOD');
-  const [note, setNote] = useState('');
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [savedId, setSavedId] = useState<string | null>(null);
-  const noteRequired = result !== 'GOOD';
-
-  const pickPhotos = (files: FileList | null) => {
-    const list = [...(files ?? [])];
-    const tooBig = list.find((f) => f.size > MAX_PHOTO_BYTES);
-    if (tooBig) {
-      setError(`${tooBig.name}: ขนาดไฟล์ต้องไม่เกิน 10 MB`);
-      return;
-    }
-    setError(null);
-    setPhotos(list);
-  };
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      // Kept after a failed upload, so trying again sends the photos without recording a second check
-      let inspectionId = savedId;
-      if (!inspectionId) {
-        const r = await recordInspectionAction(asset.id, { inspectedOn, result, note });
-        if (!r.ok) {
-          setError(r.error);
-          return;
-        }
-        inspectionId = r.value.id;
-        setSavedId(inspectionId);
-      }
-      for (const [i, file] of photos.entries()) {
-        const failure = await uploadFile({ entityType: 'ASSET_INSPECTION', entityId: inspectionId, file, kind: 'PHOTO' });
-        if (failure) {
-          setPhotos(photos.slice(i));
-          setError(`บันทึกผลตรวจแล้ว แต่ส่งรูป ${file.name} ไม่สำเร็จ: ${failure}`);
-          return;
-        }
-      }
-      router.refresh();
-      onClose();
-    });
-  };
-
-  return (
-    <Dialog title={`ตรวจเช็ค ${asset.code} ${asset.name}`} onClose={onClose} busy={isPending}>
-      <form onSubmit={submit} className="space-y-3">
-        <fieldset disabled={savedId !== null} className="space-y-3">
-          <label className="block">
-            <span className={labelClass}>วันที่ตรวจ</span>
-            <input type="date" required max={today} value={inspectedOn} onChange={(e) => setInspectedOn(e.target.value)} className={fieldClass} />
-          </label>
-          <div>
-            <span className={labelClass}>สภาพที่พบ</span>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {INSPECTION_RESULTS.map((r) => (
-                <label key={r} className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 font-semibold focus-within:ring-2 focus-within:ring-[#2453d4] ${result === r ? `border-current ${RESULT_CLASS[r]}` : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                  <input type="radio" name="inspection-result" value={r} checked={result === r} onChange={() => setResult(r)} className="sr-only" />
-                  {INSPECTION_RESULT_LABELS[r]}
-                </label>
-              ))}
-            </div>
-          </div>
-          <label className="block">
-            <span className={labelClass}>
-              รายละเอียด {noteRequired && <span className="text-red-500">*</span>}
-            </span>
-            <textarea rows={3} maxLength={1000} required={noteRequired} value={note} onChange={(e) => setNote(e.target.value)} className={fieldClass} />
-          </label>
-        </fieldset>
-        <label className="block">
-          <span className={labelClass}>รูปถ่าย (ถ้ามี)</span>
-          <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => pickPhotos(e.target.files)} className={fieldClass} />
-          {photos.length > 0 && <span className="mt-1 block text-slate-500">เลือกแล้ว {photos.length} รูป</span>}
-        </label>
-        {error && (
-          <p role="alert" className="font-medium text-red-600">
-            {error}
-          </p>
-        )}
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              if (savedId) router.refresh();
-              onClose();
-            }}
-            disabled={isPending}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50"
-          >
-            {savedId ? 'ปิด' : 'ยกเลิก'}
-          </button>
-          <button type="submit" disabled={isPending} className="rounded-lg bg-[#2453d4] px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
-            {isPending ? 'กำลังบันทึก...' : savedId ? 'ส่งรูปอีกครั้ง' : 'บันทึกผลตรวจ'}
-          </button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}
-
 function HistoryDialog({ asset, onClose }: { asset: AssetRow; onClose: () => void }) {
   const [rows, setRows] = useState<InspectionRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -334,6 +235,11 @@ function HistoryDialog({ asset, onClose }: { asset: AssetRow; onClose: () => voi
               </div>
               {r.note && <p className="whitespace-pre-wrap text-slate-700">{r.note}</p>}
               <p className="text-[11px] text-slate-500">ผู้ตรวจ: {r.inspectorName}</p>
+              {r.location && (
+                <a href={mapLinkUrl(r.location)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-[#2453d4] hover:underline">
+                  <MapPin className="h-3 w-3" /> ดูตำแหน่งบนแผนที่ (คลาดเคลื่อนประมาณ {r.location.accuracyMeters} เมตร)
+                </a>
+              )}
               {r.photos.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
                   {r.photos.map((p) => (
@@ -522,7 +428,7 @@ export function AssetsClient({
                   </th>
                   <th className="px-3 py-2.5 text-left font-medium">ทรัพย์สิน</th>
                   <th className="px-3 py-2.5 text-left font-medium">ที่อยู่ / ผู้ดูแล</th>
-                  <th className="px-3 py-2.5 text-left font-medium">สภาพล่าสุด</th>
+                  <th className="px-3 py-2.5 text-left font-medium">สถานะ</th>
                   <th className="px-3 py-2.5 text-left font-medium">ตรวจล่าสุด</th>
                   <th className="px-3 py-2.5 text-left font-medium">ตรวจครั้งถัดไป</th>
                   {canSeeValue && <th className="px-3 py-2.5 text-right font-medium">มูลค่าตามบัญชี</th>}
@@ -552,7 +458,8 @@ export function AssetsClient({
                       <div className="mt-0.5 truncate text-[11px] text-slate-500">{r.custodian || '-'}</div>
                     </td>
                     <td className="px-3 py-3">
-                      {r.lastResult ? <span className={`rounded-full px-2 py-0.5 font-semibold ${RESULT_CLASS[r.lastResult]}`}>{INSPECTION_RESULT_LABELS[r.lastResult]}</span> : <span className="text-slate-400">-</span>}
+                      <span className={`rounded-full px-2 py-0.5 font-semibold ${CHECK_STATE_CLASS[assetCheckState(r.status, r.lastResult, r.due)]}`}>{ASSET_CHECK_STATE_LABELS[assetCheckState(r.status, r.lastResult, r.due)]}</span>
+                      {r.lastResult && r.lastResult !== 'GOOD' && <div className="mt-1 text-[11px] text-slate-500">{INSPECTION_RESULT_LABELS[r.lastResult]}</div>}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-slate-600">{dateText(r.lastInspectedOn)}</td>
                     <td className="whitespace-nowrap px-3 py-3">
@@ -597,7 +504,7 @@ export function AssetsClient({
       </section>
 
       {editing && <AssetFormDialog asset={editing === 'new' ? null : editing} projects={projects} onClose={() => setEditing(null)} />}
-      {inspecting && <InspectDialog asset={inspecting} today={today} onClose={() => setInspecting(null)} />}
+      {inspecting && <AssetCheckDialog asset={inspecting} onClose={() => setInspecting(null)} />}
       {history && <HistoryDialog asset={history} onClose={() => setHistory(null)} />}
       {printing && <LabelsDialog assets={printing} onClose={() => setPrinting(null)} />}
       {importing && <ImportDialog onClose={() => setImporting(false)} />}

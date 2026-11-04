@@ -13,6 +13,7 @@ import {
   needsInspection,
   nextInspectionDate,
   type AssetStatus,
+  type CheckLocation,
   type Depreciation,
   type InspectionDue,
   type InspectionResult,
@@ -21,6 +22,7 @@ import { DomainError } from '@/domain/errors';
 import { bangkokDateString } from '@/domain/thai';
 import { ASSET_OFFICE_ROLES, assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
+import { addAttachment } from './attachments';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 
@@ -46,11 +48,18 @@ const assetSchema = z
 
 export type AssetInput = z.input<typeof assetSchema>;
 
+const locationSchema = z.object({
+  latitude: z.number({ invalid_type_error: 'กรุณายืนยันตำแหน่งบนแผนที่', required_error: 'กรุณายืนยันตำแหน่งบนแผนที่' }).min(-90, 'พิกัดไม่ถูกต้อง').max(90, 'พิกัดไม่ถูกต้อง'),
+  longitude: z.number({ invalid_type_error: 'กรุณายืนยันตำแหน่งบนแผนที่', required_error: 'กรุณายืนยันตำแหน่งบนแผนที่' }).min(-180, 'พิกัดไม่ถูกต้อง').max(180, 'พิกัดไม่ถูกต้อง'),
+  accuracyMeters: z.number({ invalid_type_error: 'กรุณายืนยันตำแหน่งบนแผนที่', required_error: 'กรุณายืนยันตำแหน่งบนแผนที่' }).min(0, 'พิกัดไม่ถูกต้อง').max(1_000_000, 'พิกัดไม่ถูกต้อง'),
+});
+
 const inspectionSchema = z
   .object({
     inspectedOn: isoDate,
     result: z.enum(INSPECTION_RESULTS),
     note: z.string().trim().max(1000).default(''),
+    location: locationSchema.nullable().default(null),
   })
   .refine((d) => d.result === 'GOOD' || d.note.length > 0, { message: 'กรุณาระบุรายละเอียดเมื่อสภาพไม่ปกติ', path: ['note'] });
 
@@ -234,10 +243,43 @@ export async function recordInspection(db: Db, actor: SessionUser, assetId: stri
   const asset = await loadVisibleAsset(db, actor, assetId);
   assertCan(actor, 'asset.inspect', { projectId: asset.projectId });
   if (asset.status !== 'ACTIVE') throw new DomainError('INVALID_STATE', 'ทรัพย์สินนี้ปลดระวางแล้ว', 409);
+  const { location, ...inspection } = data;
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(assetInspections).values({ ...data, assetId, inspectedBy: actor.id }).returning();
+    const [row] = await tx
+      .insert(assetInspections)
+      .values({
+        ...inspection,
+        assetId,
+        inspectedBy: actor.id,
+        latitude: location?.latitude.toFixed(6),
+        longitude: location?.longitude.toFixed(6),
+        locationAccuracyM: location && Math.round(location.accuracyMeters),
+      })
+      .returning();
     await logActivity(tx, { entityType: 'ASSET', entityId: assetId, action: `INSPECT_${data.result}`, userId: actor.id, note: data.note || undefined });
     return { id: row!.id };
+  });
+}
+
+export interface AssetCheckInput {
+  result: InspectionResult;
+  note?: string;
+  location: CheckLocation;
+  photo: File | null;
+}
+
+/**
+ * The on-site check: a photo, a confirmed location and a result, saved together or not at all.
+ * The date is the server's, because the photo and location vouch for today and no other day.
+ */
+export async function confirmAssetCheck(db: Db, actor: SessionUser, assetId: string, input: AssetCheckInput): Promise<{ id: string }> {
+  if (!input.photo || input.photo.size === 0) throw new DomainError('INVALID_ASSET', 'กรุณาถ่ายรูปยืนยันทรัพย์สิน');
+  const location = parse(locationSchema, input.location);
+  const photo = input.photo;
+  return db.transaction(async (tx) => {
+    const { id } = await recordInspection(tx, actor, assetId, { inspectedOn: bangkokDateString(), result: input.result, note: input.note, location });
+    await addAttachment(tx, actor, { entityType: 'ASSET_INSPECTION', entityId: id, file: photo, kind: 'PHOTO' });
+    return { id };
   });
 }
 
@@ -310,6 +352,7 @@ export interface InspectionRow {
   result: InspectionResult;
   note: string;
   inspectorName: string;
+  location: CheckLocation | null;
   photos: { id: string; url: string; name: string }[];
 }
 
@@ -335,6 +378,7 @@ export async function listInspections(db: Db, actor: SessionUser, assetId: strin
     result: i.result,
     note: i.note,
     inspectorName,
+    location: i.latitude && i.longitude ? { latitude: Number(i.latitude), longitude: Number(i.longitude), accuracyMeters: i.locationAccuracyM ?? 0 } : null,
     photos: photos.filter((p) => p.entityId === i.id).map(({ id, url, name }) => ({ id, url, name })),
   }));
 }

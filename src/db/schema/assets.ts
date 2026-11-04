@@ -47,6 +47,10 @@ export const assetInspections = pgTable(
     inspectedOn: date('inspected_on').notNull(),
     result: text('result').$type<InspectionResult>().notNull(),
     note: text('note').default('').notNull(),
+    /** Where the phone was when the check was confirmed; null on checks from before location was asked for */
+    latitude: numeric('latitude', { precision: 9, scale: 6 }),
+    longitude: numeric('longitude', { precision: 9, scale: 6 }),
+    locationAccuracyM: integer('location_accuracy_m'),
     inspectedBy: uuid('inspected_by')
       .notNull()
       .references(() => users.id),

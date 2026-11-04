@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { computeDepreciation, hasProblem, inspectionDue, nextInspectionDate, parseImportDate } from '@/domain/asset';
+import { assetCheckState, computeDepreciation, hasProblem, inspectionDue, nextInspectionDate, parseImportDate } from '@/domain/asset';
 import { bangkokDateString } from '@/domain/thai';
 import { addAttachment } from '@/server/services/attachments';
-import { createAsset, listAssets, listInspections, notifyAssetsDue, recordInspection, updateAsset } from '@/server/services/assets';
+import { confirmAssetCheck, createAsset, listAssets, listInspections, notifyAssetsDue, recordInspection, updateAsset } from '@/server/services/assets';
 import { importAssets } from '@/server/services/import';
 import { listNotifications } from '@/server/services/notifications';
 import { createTestDb } from '../helpers/test-db';
@@ -222,6 +222,54 @@ describe('assets', () => {
     await expect(importAssets(db, f.users.pm, rows)).rejects.toMatchObject({ status: 403 });
     const tooMany = Array.from({ length: 1001 }, () => ({ ชื่อทรัพย์สิน: 'x' }));
     expect(await importAssets(db, f.users.admin, tooMany)).toMatchObject({ created: 0, errors: [{ row: 1 }] });
+  });
+
+  describe('the on-site check', () => {
+    const photo = () => new File([new Uint8Array([1])], 'check.jpg', { type: 'image/jpeg' });
+    const location = { latitude: 13.756331, longitude: 100.501765, accuracyMeters: 12.4 };
+
+    test('saves the photo and location with the result, dated today, and the asset becomes Active', async () => {
+      const { db, f, onSite } = await seed();
+      await confirmAssetCheck(db, f.users.foreman, onSite.id, { result: 'GOOD', location, photo: photo() });
+      const [check] = await listInspections(db, f.users.pm, onSite.id);
+      expect(check).toMatchObject({ result: 'GOOD', inspectedOn: daysAgo(0), location: { latitude: 13.756331, longitude: 100.501765, accuracyMeters: 12 } });
+      expect(check!.photos.map((p) => p.name)).toEqual(['check.jpg']);
+      const row = (await listAssets(db, f.users.foreman)).rows[0]!;
+      expect(assetCheckState(row.status, row.lastResult, row.due)).toBe('ACTIVE');
+    });
+
+    test('saves nothing without a photo or a real location, including one that was left blank', async () => {
+      const { db, f, onSite } = await seed();
+      await expect(confirmAssetCheck(db, f.users.foreman, onSite.id, { result: 'GOOD', location, photo: null })).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+      for (const bad of [{ ...location, latitude: NaN }, { ...location, latitude: 91 }, { ...location, longitude: -181 }, { ...location, accuracyMeters: NaN }]) {
+        await expect(confirmAssetCheck(db, f.users.foreman, onSite.id, { result: 'GOOD', location: bad, photo: photo() })).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+      }
+      expect(await listInspections(db, f.users.pm, onSite.id)).toEqual([]);
+    });
+
+    test('a photo that cannot be stored leaves no check behind', async () => {
+      const { db, f, onSite } = await seed();
+      const notAnImage = new File(['x'], 'a.pdf', { type: 'application/pdf' });
+      await expect(confirmAssetCheck(db, f.users.foreman, onSite.id, { result: 'GOOD', location, photo: notAnImage })).rejects.toMatchObject({ code: 'INVALID_FILE' });
+      expect(await listInspections(db, f.users.pm, onSite.id)).toEqual([]);
+    });
+
+    test('a problem needs details and is not Active; access follows the project', async () => {
+      const { db, f, onSite } = await seed();
+      await expect(confirmAssetCheck(db, f.users.foreman, onSite.id, { result: 'MISSING', note: ' ', location, photo: photo() })).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+      await expect(confirmAssetCheck(db, f.users.otherForeman, onSite.id, { result: 'GOOD', location, photo: photo() })).rejects.toMatchObject({ status: 403 });
+      await confirmAssetCheck(db, f.users.foreman, onSite.id, { result: 'MISSING', note: 'หาไม่พบ', location, photo: photo() });
+      const row = (await listAssets(db, f.users.foreman)).rows[0]!;
+      expect(assetCheckState(row.status, row.lastResult, row.due)).toBe('PROBLEM');
+    });
+
+    test('Active runs out with the check, and a later good check clears a problem', () => {
+      expect(assetCheckState('ACTIVE', null, 'NEVER')).toBe('AWAITING_CHECK');
+      expect(assetCheckState('ACTIVE', 'GOOD', 'OVERDUE')).toBe('AWAITING_CHECK');
+      expect(assetCheckState('ACTIVE', 'GOOD', 'DUE_SOON')).toBe('ACTIVE');
+      expect(assetCheckState('ACTIVE', 'DAMAGED', 'OK')).toBe('PROBLEM');
+      expect(assetCheckState('RETIRED', 'GOOD', 'RETIRED')).toBe('RETIRED');
+    });
   });
 
   test('inspection photos show in the history and follow project access', async () => {

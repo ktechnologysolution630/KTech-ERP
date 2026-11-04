@@ -5,13 +5,13 @@ import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { importAssets, type ImportResult } from '@/server/services/import';
+import type { InspectionResult } from '@/domain/asset';
 import {
+  confirmAssetCheck,
   createAsset,
   listInspections,
-  recordInspection,
   updateAsset,
   type AssetInput,
-  type InspectionInput,
   type InspectionRow,
 } from '@/server/services/assets';
 
@@ -43,10 +43,23 @@ export async function importAssetsAction(rows: Record<string, string>[]): Promis
   return result;
 }
 
-export async function recordInspectionAction(assetId: string, input: InspectionInput): Promise<AssetResult<{ id: string }>> {
+export async function confirmAssetCheckAction(assetId: string, form: FormData): Promise<AssetResult<{ id: string }>> {
   const actor = await requireUser();
   const db = await getDb();
-  const result = await run(() => recordInspection(db, actor, assetId, input));
+  // A missing field must not turn into 0, which is a valid coordinate
+  const coordinate = (key: string) => {
+    const value = form.get(key);
+    return typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  };
+  const photo = form.get('photo');
+  const result = await run(() =>
+    confirmAssetCheck(db, actor, assetId, {
+      result: String(form.get('result')) as InspectionResult,
+      note: String(form.get('note') ?? ''),
+      location: { latitude: coordinate('latitude'), longitude: coordinate('longitude'), accuracyMeters: coordinate('accuracyMeters') },
+      photo: photo instanceof File ? photo : null,
+    }),
+  );
   if (result.ok) revalidatePath('/assets');
   return result;
 }

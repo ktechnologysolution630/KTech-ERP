@@ -57,6 +57,39 @@ export const hasProblem = (status: AssetStatus, lastResult: InspectionResult | n
 
 export const needsInspection = (due: InspectionDue): boolean => due === 'NEVER' || due === 'OVERDUE' || due === 'DUE_SOON';
 
+export type AssetCheckState = 'ACTIVE' | 'PROBLEM' | 'AWAITING_CHECK' | 'RETIRED';
+
+export const ASSET_CHECK_STATE_LABELS: Record<AssetCheckState, string> = {
+  ACTIVE: 'Active',
+  PROBLEM: 'มีปัญหา',
+  AWAITING_CHECK: 'รอตรวจยืนยัน',
+  RETIRED: 'ปลดระวาง',
+};
+
+/** An asset is Active once its latest check found it in order, until that check runs out. */
+export function assetCheckState(status: AssetStatus, lastResult: InspectionResult | null, due: InspectionDue): AssetCheckState {
+  if (status === 'RETIRED') return 'RETIRED';
+  if (hasProblem(status, lastResult)) return 'PROBLEM';
+  return due === 'NEVER' || due === 'OVERDUE' ? 'AWAITING_CHECK' : 'ACTIVE';
+}
+
+export interface CheckLocation {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+}
+
+/** OpenStreetMap needs no API key, so the map works without any account being set up. */
+export function mapEmbedUrl({ latitude, longitude }: Pick<CheckLocation, 'latitude' | 'longitude'>): string {
+  const span = 0.003;
+  const bbox = [longitude - span, latitude - span, longitude + span, latitude + span].map((n) => n.toFixed(6)).join(',');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+}
+
+export function mapLinkUrl({ latitude, longitude }: Pick<CheckLocation, 'latitude' | 'longitude'>): string {
+  return `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=18/${latitude.toFixed(6)}/${longitude.toFixed(6)}`;
+}
+
 /** Identifies one due period; moving from "coming up" to "overdue" is a new one, so people are reminded once more. */
 export const dueNoticeKey = (due: InspectionDue, nextDueOn: string | null): string => (nextDueOn ? `${nextDueOn}:${due}` : due);
 
