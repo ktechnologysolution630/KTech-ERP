@@ -38,6 +38,7 @@ function splitCsvLine(line: string): string[] {
 
 function cellText(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === 'object') {
     if ('result' in value) return String(value.result ?? '');
     if ('richText' in value) return value.richText.map((t) => t.text).join('');

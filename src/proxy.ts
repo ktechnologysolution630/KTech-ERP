@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { loginUrlFor, RETURN_PATH_HEADER } from '@/lib/return-path';
 import { SESSION_COOKIE_NAME } from '@/server/auth/session';
 
 export function proxy(req: NextRequest) {
@@ -12,11 +13,17 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const page = req.nextUrl.clone();
+  page.searchParams.delete('_rsc');
+  const returnPath = req.method === 'GET' ? `${page.pathname}${page.search}` : null;
+
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
-    const loginUrl = new URL('/login', req.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL(loginUrlFor(returnPath), req.url));
   }
 
-  return NextResponse.next();
+  const headers = new Headers(req.headers);
+  headers.delete(RETURN_PATH_HEADER);
+  if (returnPath) headers.set(RETURN_PATH_HEADER, returnPath);
+  return NextResponse.next({ request: { headers } });
 }

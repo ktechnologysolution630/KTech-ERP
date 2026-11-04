@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { hasProblem, inspectionDue, nextInspectionDate } from '@/domain/asset';
+import { computeDepreciation, hasProblem, inspectionDue, nextInspectionDate, parseImportDate } from '@/domain/asset';
 import { bangkokDateString } from '@/domain/thai';
 import { addAttachment } from '@/server/services/attachments';
-import { createAsset, listAssets, listInspections, recordInspection, updateAsset } from '@/server/services/assets';
+import { createAsset, listAssets, listInspections, notifyAssetsDue, recordInspection, updateAsset } from '@/server/services/assets';
+import { importAssets } from '@/server/services/import';
+import { listNotifications } from '@/server/services/notifications';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 
@@ -26,6 +28,47 @@ describe('inspection schedule', () => {
     expect(hasProblem('ACTIVE', 'GOOD')).toBe(false);
     expect(hasProblem('ACTIVE', null)).toBe(false);
     expect(hasProblem('RETIRED', 'MISSING')).toBe(false);
+  });
+});
+
+describe('depreciation', () => {
+  const machine = { purchaseValue: 100_000, salvageValue: 0, usefulLifeYears: 5, purchaseDate: '2020-01-01', retiredOn: null };
+
+  test('straight line by the day, 1827 days across five years with a leap year', () => {
+    const d = computeDepreciation(machine, '2022-07-02')!;
+    expect(d).toMatchObject({ perYear: 20_000, accumulated: 49_972.63, bookValue: 50_027.37, fullyDepreciated: false });
+    // 183 of the 1827 days fall in 2022
+    expect(d.thisYear).toBe(10_016.42);
+  });
+
+  test('nothing before the purchase date, and stops at the salvage value when the life ends', () => {
+    expect(computeDepreciation(machine, '2019-06-01')).toMatchObject({ accumulated: 0, bookValue: 100_000 });
+    expect(computeDepreciation({ ...machine, salvageValue: 1 }, '2031-03-01')).toMatchObject({ accumulated: 99_999, bookValue: 1, fullyDepreciated: true, thisYear: 0 });
+  });
+
+  test('stops on the retirement date, so a later year charges nothing', () => {
+    const retired = computeDepreciation({ ...machine, retiredOn: '2021-01-01' }, '2026-11-04')!;
+    expect(retired.accumulated).toBe(computeDepreciation(machine, '2021-01-01')!.accumulated);
+    expect(retired.thisYear).toBe(0);
+  });
+
+  test('a purchase on 29 February ends on a real date', () => {
+    expect(computeDepreciation({ ...machine, purchaseDate: '2024-02-29', usefulLifeYears: 1 }, '2025-03-01')).toMatchObject({ fullyDepreciated: true, accumulated: 100_000 });
+  });
+
+  test('not depreciated without a useful life or a purchase date', () => {
+    expect(computeDepreciation({ ...machine, usefulLifeYears: null }, '2026-01-01')).toBeNull();
+    expect(computeDepreciation({ ...machine, purchaseDate: null }, '2026-01-01')).toBeNull();
+  });
+});
+
+describe('import dates', () => {
+  test('reads either format and either calendar, refusing impossible dates', () => {
+    expect(parseImportDate('2026-11-04')).toBe('2026-11-04');
+    expect(parseImportDate('4/11/2026')).toBe('2026-11-04');
+    expect(parseImportDate('4/11/2569')).toBe('2026-11-04');
+    expect(parseImportDate('31/2/2026')).toBeNull();
+    expect(parseImportDate('พฤศจิกายน')).toBeNull();
   });
 });
 
@@ -109,6 +152,76 @@ describe('assets', () => {
 
     await updateAsset(db, f.users.admin, office.id, { name: 'เครื่องวัดระยะ', projectId: f.projectB });
     expect((await listAssets(db, f.users.otherForeman)).rows.map((r) => r.id)).toEqual([office.id]);
+  });
+
+  test('the money figures stay hidden from site staff and retiring records the date', async () => {
+    const { db, f, onSite } = await seed();
+    const input = { name: 'เครื่องปั่นไฟ', projectId: f.projectA, purchaseValue: 50000, salvageValue: 1, usefulLifeYears: 5, purchaseDate: daysAgo(365) };
+    await updateAsset(db, f.users.admin, onSite.id, input);
+    expect((await listAssets(db, f.users.admin)).rows.find((r) => r.id === onSite.id)!.depreciation).toMatchObject({ perYear: 9999.8 });
+    const site = await listAssets(db, f.users.foreman);
+    expect(site.canSeeValue).toBe(false);
+    expect(site.rows[0]).toMatchObject({ salvageValue: null, usefulLifeYears: null, depreciation: null });
+
+    await updateAsset(db, f.users.admin, onSite.id, { ...input, status: 'RETIRED' });
+    const before = (await listAssets(db, f.users.admin)).rows.find((r) => r.id === onSite.id)!.depreciation!;
+    expect(before.accumulated).toBeGreaterThan(0);
+    await expect(updateAsset(db, f.users.admin, onSite.id, { ...input, salvageValue: 60000 })).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+    await expect(updateAsset(db, f.users.admin, onSite.id, { ...input, purchaseDate: null })).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+  });
+
+  test('announces each due period once, only to people who can check the asset', async () => {
+    const { db, f, onSite, office } = await seed();
+    expect(await notifyAssetsDue(db)).toBe(2);
+    expect(await notifyAssetsDue(db)).toBe(0);
+
+    const titles = async (u: typeof f.users.admin) => (await listNotifications(db, u)).map((n) => n.title);
+    expect(await titles(f.users.admin)).toEqual(['ทรัพย์สิน 2 รายการต้องตรวจเช็ค']);
+    const [foremanNotice] = await listNotifications(db, f.users.foreman);
+    expect(foremanNotice).toMatchObject({ href: `/assets?asset=${onSite.id}` });
+    expect(foremanNotice!.title).toContain('ยังไม่เคยตรวจ');
+    expect(await titles(f.users.otherForeman)).toEqual([]);
+
+    // Inspected 25 days ago on a 30-day cycle: coming up now, overdue a week later
+    await recordInspection(db, f.users.pm, onSite.id, { inspectedOn: daysAgo(25), result: 'GOOD' });
+    await updateAsset(db, f.users.admin, office.id, { name: 'เครื่องวัดระยะ', status: 'RETIRED' });
+    expect(await notifyAssetsDue(db)).toBe(1);
+    expect((await listNotifications(db, f.users.foreman))[0]!.title).toContain('ใกล้ถึงกำหนด');
+    expect(await notifyAssetsDue(db)).toBe(0);
+    const nextWeek = bangkokDateString(new Date(Date.now() + 7 * 86_400_000));
+    expect(await notifyAssetsDue(db, nextWeek)).toBe(1);
+    expect((await listNotifications(db, f.users.foreman)).map((n) => n.title).join()).toContain('เกินกำหนดตรวจ');
+
+    // A new check starts a new period that is not due yet
+    await recordInspection(db, f.users.pm, onSite.id, { inspectedOn: daysAgo(0), result: 'GOOD' });
+    expect(await notifyAssetsDue(db)).toBe(0);
+  });
+
+  test('imports good rows, reports bad ones by sheet row, and refuses a serial number twice', async () => {
+    const { db, f } = await seed();
+    const [project] = (await listAssets(db, f.users.admin)).rows.filter((r) => r.projectId);
+    const projectCode = (await db.query.projects.findFirst({ where: (p, { eq }) => eq(p.id, project!.projectId!) }))!.code;
+    const rows = [
+      { ชื่อทรัพย์สิน: 'รถกระบะ', หมวด: 'ยานพาหนะ', 'หมายเลขเครื่อง/ทะเบียน': 'ABC-1', รหัสโครงการ: projectCode, วันที่ซื้อ: '1/1/2568', มูลค่า: '800,000', 'อายุการใช้งาน(ปี)': '5', 'รอบการตรวจ(วัน)': '30' },
+      { ชื่อทรัพย์สิน: '', หมวด: 'ไม่มีชื่อ' },
+      { ชื่อทรัพย์สิน: '', หมวด: '' },
+      { ชื่อทรัพย์สิน: 'รถซ้ำ', 'หมายเลขเครื่อง/ทะเบียน': 'abc-1' },
+      { ชื่อทรัพย์สิน: 'ผิดโครงการ', รหัสโครงการ: 'NOPE' },
+      { ชื่อทรัพย์สิน: 'ราคาผิด', มูลค่า: 'แปดแสน' },
+      { ชื่อทรัพย์สิน: 'วันผิด', วันที่ซื้อ: '31/2/2026' },
+      { ชื่อทรัพย์สิน: 'เครื่องเจาะ' },
+    ] as Record<string, string>[];
+    const result = await importAssets(db, f.users.admin, rows);
+    expect(result.created).toBe(2);
+    expect(result.errors.map((e) => e.row)).toEqual([3, 5, 6, 7, 8]);
+
+    const imported = (await listAssets(db, f.users.admin)).rows.find((r) => r.name === 'รถกระบะ')!;
+    expect(imported).toMatchObject({ code: expect.stringMatching(/^AST-/), projectId: project!.projectId, purchaseDate: '2025-01-01', purchaseValue: 800000, usefulLifeYears: 5, inspectEveryDays: 30 });
+
+    expect((await importAssets(db, f.users.admin, [rows[0]!])).errors).toHaveLength(1);
+    await expect(importAssets(db, f.users.pm, rows)).rejects.toMatchObject({ status: 403 });
+    const tooMany = Array.from({ length: 1001 }, () => ({ ชื่อทรัพย์สิน: 'x' }));
+    expect(await importAssets(db, f.users.admin, tooMany)).toMatchObject({ created: 0, errors: [{ row: 1 }] });
   });
 
   test('inspection photos show in the history and follow project access', async () => {

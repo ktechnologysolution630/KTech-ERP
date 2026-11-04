@@ -176,6 +176,13 @@
       "when": 1793782674954,
       "tag": "0024_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793787224483,
+      "tag": "0025_asset_depreciation_and_due_notices",
+      "breakpoints": true
     }
   ]
 }

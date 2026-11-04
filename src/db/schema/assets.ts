@@ -17,8 +17,15 @@ export const assets = pgTable(
     custodian: text('custodian').default('').notNull(),
     purchaseDate: date('purchase_date'),
     purchaseValue: numeric('purchase_value', { precision: 16, scale: 2 }).default('0.00').notNull(),
+    salvageValue: numeric('salvage_value', { precision: 16, scale: 2 }).default('0.00').notNull(),
+    /** Null means the asset is not depreciated */
+    usefulLifeYears: integer('useful_life_years'),
     inspectEveryDays: integer('inspect_every_days').default(90).notNull(),
     status: text('status').$type<AssetStatus>().default('ACTIVE').notNull(),
+    /** Depreciation stops on this date */
+    retiredOn: date('retired_on'),
+    /** The due period people were last told about, so each one is announced only once */
+    dueNotifiedFor: text('due_notified_for'),
     note: text('note').default('').notNull(),
     createdBy: uuid('created_by')
       .notNull()

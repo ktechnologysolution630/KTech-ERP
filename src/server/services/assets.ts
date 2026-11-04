@@ -1,37 +1,48 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import { assetInspections, assets, attachments, projects, users, type SessionUser } from '@/db/schema';
 import {
   ASSET_STATUSES,
+  computeDepreciation,
   DEFAULT_INSPECT_EVERY_DAYS,
+  dueNoticeKey,
+  INSPECTION_DUE_LABELS,
   INSPECTION_RESULTS,
   inspectionDue,
+  needsInspection,
   nextInspectionDate,
   type AssetStatus,
+  type Depreciation,
   type InspectionDue,
   type InspectionResult,
 } from '@/domain/asset';
 import { DomainError } from '@/domain/errors';
 import { bangkokDateString } from '@/domain/thai';
-import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
+import { ASSET_OFFICE_ROLES, assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
+import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ไม่ถูกต้อง');
 
-const assetSchema = z.object({
-  name: z.string().trim().min(1, 'กรุณาระบุชื่อทรัพย์สิน').max(300),
-  category: z.string().trim().max(100).default(''),
-  serialNo: z.string().trim().max(100).default(''),
-  projectId: z.string().uuid().nullable().default(null),
-  custodian: z.string().trim().max(200).default(''),
-  purchaseDate: isoDate.nullable().default(null),
-  purchaseValue: z.coerce.number().min(0, 'มูลค่าต้องไม่ติดลบ').max(99_999_999_999).default(0),
-  inspectEveryDays: z.coerce.number().int('รอบการตรวจต้องเป็นจำนวนวันเต็ม').min(1, 'รอบการตรวจต้องอย่างน้อย 1 วัน').max(3650, 'รอบการตรวจต้องไม่เกิน 3650 วัน').default(DEFAULT_INSPECT_EVERY_DAYS),
-  status: z.enum(ASSET_STATUSES).default('ACTIVE'),
-  note: z.string().trim().max(1000).default(''),
-});
+const assetSchema = z
+  .object({
+    name: z.string().trim().min(1, 'กรุณาระบุชื่อทรัพย์สิน').max(300),
+    category: z.string().trim().max(100).default(''),
+    serialNo: z.string().trim().max(100).default(''),
+    projectId: z.string().uuid().nullable().default(null),
+    custodian: z.string().trim().max(200).default(''),
+    purchaseDate: isoDate.nullable().default(null),
+    purchaseValue: z.coerce.number().min(0, 'มูลค่าต้องไม่ติดลบ').max(99_999_999_999).default(0),
+    salvageValue: z.coerce.number().min(0, 'มูลค่าซากต้องไม่ติดลบ').max(99_999_999_999).default(0),
+    usefulLifeYears: z.coerce.number().int('อายุการใช้งานต้องเป็นจำนวนปีเต็ม').min(1, 'อายุการใช้งานต้องอย่างน้อย 1 ปี').max(100, 'อายุการใช้งานต้องไม่เกิน 100 ปี').nullable().default(null),
+    inspectEveryDays: z.coerce.number().int('รอบการตรวจต้องเป็นจำนวนวันเต็ม').min(1, 'รอบการตรวจต้องอย่างน้อย 1 วัน').max(3650, 'รอบการตรวจต้องไม่เกิน 3650 วัน').default(DEFAULT_INSPECT_EVERY_DAYS),
+    status: z.enum(ASSET_STATUSES).default('ACTIVE'),
+    note: z.string().trim().max(1000).default(''),
+  })
+  .refine((d) => d.salvageValue <= d.purchaseValue, { message: 'มูลค่าซากต้องไม่เกินมูลค่าทรัพย์สิน', path: ['salvageValue'] })
+  .refine((d) => d.usefulLifeYears === null || d.purchaseDate !== null, { message: 'กรุณาระบุวันที่ซื้อเพื่อคำนวณค่าเสื่อมราคา', path: ['purchaseDate'] });
 
 export type AssetInput = z.input<typeof assetSchema>;
 
@@ -63,6 +74,9 @@ export interface AssetRow {
   purchaseDate: string | null;
   /** Null for site staff, who see the asset but not what it cost */
   purchaseValue: number | null;
+  salvageValue: number | null;
+  usefulLifeYears: number | null;
+  depreciation: Depreciation | null;
   inspectEveryDays: number;
   status: AssetStatus;
   note: string;
@@ -76,22 +90,13 @@ export interface AssetRow {
 export interface AssetPage {
   rows: AssetRow[];
   canManage: boolean;
+  /** Whether the money columns apply; site staff see the asset but not what it cost */
+  canSeeValue: boolean;
   today: string;
 }
 
-/** Everything the user may see, with each asset's latest inspection. */
-export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage> {
-  const siteOnly = isSiteScopedOnly(actor);
-  const today = bangkokDateString();
-  if (siteOnly && actor.projectIds.length === 0) return { rows: [], canManage: false, today };
-
-  const rows = await db
-    .select({ asset: assets, projectName: projects.name })
-    .from(assets)
-    .leftJoin(projects, eq(projects.id, assets.projectId))
-    .where(siteOnly ? inArray(assets.projectId, actor.projectIds) : undefined)
-    .orderBy(asc(assets.code));
-  const latest = rows.length
+const latestInspections = async (db: Db, assetIds: string[]) => {
+  const latest = assetIds.length
     ? await db
         .selectDistinctOn([assetInspections.assetId], {
           assetId: assetInspections.assetId,
@@ -99,14 +104,30 @@ export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage>
           result: assetInspections.result,
         })
         .from(assetInspections)
-        .where(inArray(assetInspections.assetId, rows.map((r) => r.asset.id)))
+        .where(inArray(assetInspections.assetId, assetIds))
         .orderBy(assetInspections.assetId, desc(assetInspections.inspectedOn), desc(assetInspections.createdAt))
     : [];
-  const latestByAsset = new Map(latest.map((l) => [l.assetId, l]));
+  return new Map(latest.map((l) => [l.assetId, l]));
+};
+
+/** Everything the user may see, with each asset's latest inspection. */
+export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage> {
+  const siteOnly = isSiteScopedOnly(actor);
+  const today = bangkokDateString();
+  if (siteOnly && actor.projectIds.length === 0) return { rows: [], canManage: false, canSeeValue: false, today };
+
+  const rows = await db
+    .select({ asset: assets, projectName: projects.name })
+    .from(assets)
+    .leftJoin(projects, eq(projects.id, assets.projectId))
+    .where(siteOnly ? inArray(assets.projectId, actor.projectIds) : undefined)
+    .orderBy(asc(assets.code));
+  const latestByAsset = await latestInspections(db, rows.map((r) => r.asset.id));
 
   return {
     today,
     canManage: can(actor, 'asset.manage'),
+    canSeeValue: !siteOnly,
     rows: rows.map(({ asset: a, projectName }) => {
       const last = latestByAsset.get(a.id);
       const nextDueOn = nextInspectionDate(last?.inspectedOn ?? null, a.inspectEveryDays);
@@ -121,6 +142,9 @@ export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage>
         custodian: a.custodian,
         purchaseDate: a.purchaseDate,
         purchaseValue: siteOnly ? null : Number(a.purchaseValue),
+        salvageValue: siteOnly ? null : Number(a.salvageValue),
+        usefulLifeYears: siteOnly ? null : a.usefulLifeYears,
+        depreciation: siteOnly ? null : computeDepreciation(a, today),
         inspectEveryDays: a.inspectEveryDays,
         status: a.status,
         note: a.note,
@@ -153,7 +177,7 @@ export async function createAsset(db: Db, actor: SessionUser, input: AssetInput)
     const code = await nextDocNumber(tx, 'AST');
     const [row] = await tx
       .insert(assets)
-      .values({ ...data, code, purchaseValue: data.purchaseValue.toFixed(2), createdBy: actor.id })
+      .values({ ...data, code, purchaseValue: data.purchaseValue.toFixed(2), salvageValue: data.salvageValue.toFixed(2), createdBy: actor.id })
       .returning();
     await logActivity(tx, { entityType: 'ASSET', entityId: row!.id, action: 'CREATE', userId: actor.id, note: `${code} ${data.name}` });
     return { id: row!.id, code };
@@ -171,7 +195,13 @@ export async function updateAsset(db: Db, actor: SessionUser, id: string, input:
     if (!before) throw new DomainError('NOT_FOUND', 'ไม่พบทรัพย์สิน', 404);
     await tx
       .update(assets)
-      .set({ ...data, purchaseValue: data.purchaseValue.toFixed(2), updatedAt: new Date() })
+      .set({
+        ...data,
+        purchaseValue: data.purchaseValue.toFixed(2),
+        salvageValue: data.salvageValue.toFixed(2),
+        retiredOn: data.status === 'RETIRED' ? (before.retiredOn ?? bangkokDateString()) : null,
+        updatedAt: new Date(),
+      })
       .where(eq(assets.id, assetId));
     const moved = before.projectId !== data.projectId;
     const retired = before.status !== data.status;
@@ -209,6 +239,69 @@ export async function recordInspection(db: Db, actor: SessionUser, assetId: stri
     await logActivity(tx, { entityType: 'ASSET', entityId: assetId, action: `INSPECT_${data.result}`, userId: actor.id, note: data.note || undefined });
     return { id: row!.id };
   });
+}
+
+const SITE_INSPECTOR_ROLES = ['FOREMAN', 'ENGINEER', 'PM'] as const;
+
+/**
+ * Tells everyone who may check an asset that it needs checking, once per due period.
+ * Each person gets a single message however many assets came due. Safe to run at any time:
+ * claiming the assets inside the transaction keeps concurrent runs from announcing one twice.
+ */
+export async function notifyAssetsDue(db: Db, today = bangkokDateString()): Promise<number> {
+  const active = await db.select().from(assets).where(eq(assets.status, 'ACTIVE'));
+  const latestByAsset = await latestInspections(db, active.map((a) => a.id));
+  const due = active.flatMap((asset) => {
+    const nextDueOn = nextInspectionDate(latestByAsset.get(asset.id)?.inspectedOn ?? null, asset.inspectEveryDays);
+    const state = inspectionDue(asset.status, nextDueOn, today);
+    const key = dueNoticeKey(state, nextDueOn);
+    return needsInspection(state) && asset.dueNotifiedFor !== key ? [{ asset, state, key }] : [];
+  });
+  if (due.length === 0) return 0;
+
+  return db.transaction(async (tx) => {
+    const announcedTo = new Map<string, typeof due>();
+    let announced = 0;
+    for (const item of due) {
+      const { id, projectId } = item.asset;
+      const claimed = await tx
+        .update(assets)
+        .set({ dueNotifiedFor: item.key })
+        .where(and(eq(assets.id, id), or(isNull(assets.dueNotifiedFor), ne(assets.dueNotifiedFor, item.key))))
+        .returning();
+      if (claimed.length === 0) continue;
+      announced += 1;
+      const roles = projectId ? [...ASSET_OFFICE_ROLES, ...SITE_INSPECTOR_ROLES] : ASSET_OFFICE_ROLES;
+      for (const userId of await usersWithRole(tx, roles, projectId)) {
+        announcedTo.set(userId, [...(announcedTo.get(userId) ?? []), item]);
+      }
+    }
+    for (const [userId, items] of announcedTo) {
+      const [only] = items;
+      await notify(
+        tx,
+        [userId],
+        items.length === 1 && only
+          ? { title: `${only.asset.code} ${only.asset.name}: ${INSPECTION_DUE_LABELS[only.state]}`, href: `/assets?asset=${only.asset.id}` }
+          : { title: `ทรัพย์สิน ${items.length} รายการต้องตรวจเช็ค`, href: '/assets?view=NEEDS_CHECK' },
+      );
+    }
+    return announced;
+  });
+}
+
+let lastDueCheckOn: string | null = null;
+
+/** There is no scheduler, so the first page opened each day runs the check. A failure must not take the page down. */
+export async function checkAssetsDueOncePerDay(db: Db): Promise<void> {
+  const today = bangkokDateString();
+  if (lastDueCheckOn === today) return;
+  lastDueCheckOn = today;
+  try {
+    await notifyAssetsDue(db, today);
+  } catch (err) {
+    console.error('Could not send the asset inspection reminders', err);
+  }
 }
 
 export interface InspectionRow {

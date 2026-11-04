@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
+import { importAssets, type ImportResult } from '@/server/services/import';
 import {
   createAsset,
   listInspections,
@@ -31,6 +32,14 @@ export async function saveAssetAction(id: string | null, input: AssetInput): Pro
   const db = await getDb();
   const result = await run<unknown>(() => (id ? updateAsset(db, actor, id, input) : createAsset(db, actor, input)));
   if (result.ok) revalidatePath('/assets');
+  return result;
+}
+
+export async function importAssetsAction(rows: Record<string, string>[]): Promise<ImportResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const result = await importAssets(db, actor, rows);
+  revalidatePath('/assets');
   return result;
 }
 

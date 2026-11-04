@@ -1,9 +1,19 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { Suspense, useActionState, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { loginAction } from './actions';
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const returnPath = useSearchParams().get('next');
   const [state, formAction, pending] = useActionState(loginAction, null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +30,7 @@ export default function LoginPage() {
         </div>
 
         <form action={formAction} className="space-y-4">
+          {returnPath && <input type="hidden" name="next" value={returnPath} />}
           {state?.error && (
             <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-start gap-2">
               <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

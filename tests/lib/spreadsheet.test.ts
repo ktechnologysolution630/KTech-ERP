@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import ExcelJS from 'exceljs';
 import { previewKind } from '@/lib/file-preview';
-import { parseCsvText, readCsvPreview, readWorkbookPreview } from '@/lib/spreadsheet';
+import { parseCsvText, readCsvPreview, readSpreadsheetRows, readWorkbookPreview } from '@/lib/spreadsheet';
 
 describe('document preview', () => {
   test('chooses how to show a file by its name', () => {
@@ -47,6 +47,17 @@ describe('document preview', () => {
     expect(long[0]!.rows).toHaveLength(2000);
 
     expect(readCsvPreview('﻿a,"b, c"\r\n1\r\n\r\n')[0]).toEqual({ name: 'CSV', rows: [['a', 'b, c'], ['1', '']], hiddenRows: 0 });
+  });
+});
+
+describe('readSpreadsheetRows', () => {
+  test('a date cell comes through as an ISO date, not as the text of a Date', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Sheet1');
+    ws.addRow(['ชื่อ', 'วันที่ซื้อ']);
+    ws.addRow(['รถกระบะ', new Date(Date.UTC(2026, 10, 4))]);
+    const file = new File([await wb.xlsx.writeBuffer()], 'assets.xlsx');
+    expect(await readSpreadsheetRows(file)).toEqual([{ ชื่อ: 'รถกระบะ', วันที่ซื้อ: '2026-11-04' }]);
   });
 });
 

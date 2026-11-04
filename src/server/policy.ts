@@ -60,7 +60,7 @@ const GLOBAL_PROJECT_VIEW_ROLES: Role[] = [
   'ADMIN',
 ];
 
-const ASSET_OFFICE_ROLES: Role[] = ['FINANCE', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'];
+export const ASSET_OFFICE_ROLES: Role[] = ['FINANCE', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'];
 
 function hasRole(u: SessionUser, roles: Role[]): boolean {
   return u.roles.some((r) => roles.includes(r));

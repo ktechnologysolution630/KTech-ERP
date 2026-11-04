@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, History, Pencil, Plus, Search, X } from 'lucide-react';
+import { ClipboardCheck, Download, FileUp, History, Pencil, Plus, QrCode, Search } from 'lucide-react';
 import { uploadFile } from '@/components/project-site/use-site-loader';
 import {
   ASSET_CATEGORIES,
@@ -12,13 +13,19 @@ import {
   INSPECTION_DUE_LABELS,
   INSPECTION_RESULT_LABELS,
   INSPECTION_RESULTS,
+  needsInspection,
   type AssetStatus,
   type InspectionDue,
   type InspectionResult,
 } from '@/domain/asset';
+import { formatMoneyDisplay } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import type { AssetPage, AssetRow, InspectionRow } from '@/server/services/assets';
+import { Dialog } from './asset-dialog';
 import { loadInspectionsAction, recordInspectionAction, saveAssetAction } from './actions';
+
+const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsDialog), { ssr: false });
+const ImportDialog = dynamic(() => import('./asset-tools').then((m) => m.ImportDialog), { ssr: false });
 
 type ProjectOption = { id: string; label: string };
 type View = 'ALL' | 'NEEDS_CHECK' | 'PROBLEM' | 'RETIRED';
@@ -33,7 +40,6 @@ const fieldClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2
 const labelClass = 'mb-1 block font-medium text-slate-700';
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const dateText = (d: string | null) => (d ? formatThaiDate(d) : '-');
-const needsCheck = (due: InspectionDue) => due === 'NEVER' || due === 'OVERDUE' || due === 'DUE_SOON';
 
 const DUE_CLASS: Record<InspectionDue, string> = {
   NEVER: 'text-rose-700',
@@ -49,28 +55,6 @@ const RESULT_CLASS: Record<InspectionResult, string> = {
   MISSING: 'bg-rose-50 text-rose-800',
 };
 
-function Dialog({ title, onClose, busy, children }: { title: string; onClose: () => void; busy?: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}
-    >
-      <div className="flex max-h-full w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white text-xs shadow-xl">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
-          <h3 className="truncate text-sm font-bold text-slate-900">{title}</h3>
-          <button type="button" onClick={onClose} disabled={busy} className="text-slate-400 hover:text-slate-600" title="ปิด">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="min-h-0 overflow-y-auto p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null; projects: ProjectOption[]; onClose: () => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -83,6 +67,8 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
     custodian: asset?.custodian ?? '',
     purchaseDate: asset?.purchaseDate ?? '',
     purchaseValue: String(asset?.purchaseValue ?? 0),
+    salvageValue: String(asset?.salvageValue ?? 0),
+    usefulLifeYears: asset?.usefulLifeYears ? String(asset.usefulLifeYears) : '',
     inspectEveryDays: String(asset?.inspectEveryDays ?? DEFAULT_INSPECT_EVERY_DAYS),
     status: (asset?.status ?? 'ACTIVE') as AssetStatus,
     note: asset?.note ?? '',
@@ -99,6 +85,8 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
         projectId: form.projectId || null,
         purchaseDate: form.purchaseDate || null,
         purchaseValue: Number(form.purchaseValue),
+        salvageValue: Number(form.salvageValue),
+        usefulLifeYears: form.usefulLifeYears ? Number(form.usefulLifeYears) : null,
         inspectEveryDays: Number(form.inspectEveryDays),
       });
       if (!r.ok) {
@@ -155,6 +143,14 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
           <label className="block">
             <span className={labelClass}>มูลค่า (บาท)</span>
             <input type="number" min={0} step="0.01" value={form.purchaseValue} onChange={set('purchaseValue')} className={`${fieldClass} font-mono`} />
+          </label>
+          <label className="block">
+            <span className={labelClass}>มูลค่าซาก (บาท)</span>
+            <input type="number" min={0} step="0.01" value={form.salvageValue} onChange={set('salvageValue')} className={`${fieldClass} font-mono`} />
+          </label>
+          <label className="block">
+            <span className={labelClass}>อายุการใช้งาน (ปี)</span>
+            <input type="number" min={1} max={100} step={1} value={form.usefulLifeYears} onChange={set('usefulLifeYears')} placeholder="ว่างไว้ถ้าไม่คิดค่าเสื่อม" className={`${fieldClass} font-mono`} />
           </label>
           <label className="block">
             <span className={labelClass}>รอบการตรวจ (วัน)</span>
@@ -370,19 +366,41 @@ function Tile({ label, value, active, tone, onClick }: { label: string; value: n
   );
 }
 
-export function AssetsClient({ page, projects }: { page: AssetPage; projects: ProjectOption[] }) {
-  const { rows, canManage, today } = page;
-  const [view, setView] = useState<View>('ALL');
+export function AssetsClient({
+  page,
+  projects,
+  linkedAssetId,
+  startOnNeedsCheck,
+}: {
+  page: AssetPage;
+  projects: ProjectOption[];
+  /** From a scanned label or a notification: goes straight to that asset */
+  linkedAssetId: string | null;
+  startOnNeedsCheck: boolean;
+}) {
+  const { rows, canManage, canSeeValue, today } = page;
+  const linked = linkedAssetId ? rows.find((r) => r.id === linkedAssetId) : undefined;
+  const [view, setView] = useState<View>(startOnNeedsCheck ? 'NEEDS_CHECK' : 'ALL');
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('ALL');
   const [editing, setEditing] = useState<AssetRow | 'new' | null>(null);
-  const [inspecting, setInspecting] = useState<AssetRow | null>(null);
-  const [history, setHistory] = useState<AssetRow | null>(null);
+  const [inspecting, setInspecting] = useState<AssetRow | null>(linked?.canInspect ? linked : null);
+  const [history, setHistory] = useState<AssetRow | null>(linked && !linked.canInspect ? linked : null);
+  const [linkMissing, setLinkMissing] = useState(linkedAssetId !== null && !linked);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [printing, setPrinting] = useState<AssetRow[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Reloading after a check must not reopen the form for the asset that was just scanned
+    if (linkedAssetId || startOnNeedsCheck) window.history.replaceState(null, '', '/assets');
+  }, [linkedAssetId, startOnNeedsCheck]);
 
   const active = useMemo(() => rows.filter((r) => r.status === 'ACTIVE'), [rows]);
   const counts: Record<View, number> = {
     ALL: active.length,
-    NEEDS_CHECK: active.filter((r) => needsCheck(r.due)).length,
+    NEEDS_CHECK: active.filter((r) => needsInspection(r.due)).length,
     PROBLEM: active.filter((r) => hasProblem(r.status, r.lastResult)).length,
     RETIRED: rows.length - active.length,
   };
@@ -392,11 +410,32 @@ export function AssetsClient({ page, projects }: { page: AssetPage; projects: Pr
       const inView =
         view === 'RETIRED'
           ? r.status === 'RETIRED'
-          : r.status === 'ACTIVE' && (view === 'ALL' || (view === 'NEEDS_CHECK' ? needsCheck(r.due) : hasProblem(r.status, r.lastResult)));
+          : r.status === 'ACTIVE' && (view === 'ALL' || (view === 'NEEDS_CHECK' ? needsInspection(r.due) : hasProblem(r.status, r.lastResult)));
       const here = location === 'ALL' || (location === 'OFFICE' ? r.projectId === null : r.projectId === location);
       return inView && here && (!q || [r.code, r.name, r.category, r.serialNo, r.custodian].some((t) => t.toLowerCase().includes(q)));
     });
   }, [rows, view, location, query]);
+
+  const allShownSelected = shown.length > 0 && shown.every((r) => selected.has(r.id));
+  const toggleShown = () => setSelected(allShownSelected ? new Set() : new Set(shown.map((r) => r.id)));
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const labelTargets = selected.size > 0 ? rows.filter((r) => selected.has(r.id)) : shown;
+
+  const exportShown = async () => {
+    setExportError(null);
+    try {
+      const { exportDepreciation } = await import('./asset-tools');
+      await exportDepreciation(shown, today);
+    } catch (err) {
+      console.error(err);
+      setExportError('สร้างไฟล์ Excel ไม่สำเร็จ กรุณาลองใหม่');
+    }
+  };
 
   return (
     <div className="space-y-4 font-sans text-slate-800">
@@ -406,11 +445,25 @@ export function AssetsClient({ page, projects }: { page: AssetPage; projects: Pr
           <p className="mt-0.5 text-xs text-slate-500">ทะเบียนทรัพย์สิน กำหนดตรวจ และผลการตรวจเช็คแต่ละครั้ง</p>
         </div>
         {canManage && (
-          <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
-            <Plus className="h-4 w-4" /> เพิ่มทรัพย์สิน
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setImporting(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              <FileUp className="h-4 w-4" /> นำเข้าจาก Excel
+            </button>
+            <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+              <Plus className="h-4 w-4" /> เพิ่มทรัพย์สิน
+            </button>
+          </div>
         )}
       </div>
+
+      {linkMissing && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-800">
+          ไม่พบทรัพย์สินจากลิงก์นี้ หรือคุณไม่มีสิทธิ์ดูทรัพย์สินชิ้นนี้
+          <button type="button" onClick={() => setLinkMissing(false)} className="shrink-0 underline">
+            ปิด
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label={VIEW_LABELS.ALL} value={counts.ALL} active={view === 'ALL'} tone="text-[#2453d4]" onClick={() => setView('ALL')} />
@@ -438,7 +491,22 @@ export function AssetsClient({ page, projects }: { page: AssetPage; projects: Pr
               ))}
             </select>
           </label>
-          <span className="ml-auto text-xs text-slate-500">{shown.length} รายการ</span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">{shown.length} รายการ</span>
+            <button type="button" disabled={labelTargets.length === 0} onClick={() => setPrinting(labelTargets)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+              <QrCode className="h-4 w-4" /> พิมพ์ QR ({labelTargets.length})
+            </button>
+            {canSeeValue && (
+              <button type="button" disabled={shown.length === 0} onClick={() => void exportShown()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                <Download className="h-4 w-4" /> ส่งออกค่าเสื่อม
+              </button>
+            )}
+          </div>
+          {exportError && (
+            <p role="alert" className="w-full text-right text-xs font-medium text-red-600">
+              {exportError}
+            </p>
+          )}
         </div>
         {shown.length === 0 ? (
           <p className="py-14 text-center text-xs text-slate-500">
@@ -446,21 +514,28 @@ export function AssetsClient({ page, projects }: { page: AssetPage; projects: Pr
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-xs">
+            <table className={`w-full text-xs ${canSeeValue ? 'min-w-[1120px]' : 'min-w-[960px]'}`}>
               <thead className="bg-[#102d72] text-white">
                 <tr>
-                  <th className="px-4 py-2.5 text-left font-medium">ทรัพย์สิน</th>
+                  <th className="w-8 py-2.5 pl-4">
+                    <input type="checkbox" checked={allShownSelected} onChange={toggleShown} aria-label="เลือกทั้งหมดที่แสดง" className="align-middle" />
+                  </th>
+                  <th className="px-3 py-2.5 text-left font-medium">ทรัพย์สิน</th>
                   <th className="px-3 py-2.5 text-left font-medium">ที่อยู่ / ผู้ดูแล</th>
                   <th className="px-3 py-2.5 text-left font-medium">สภาพล่าสุด</th>
                   <th className="px-3 py-2.5 text-left font-medium">ตรวจล่าสุด</th>
                   <th className="px-3 py-2.5 text-left font-medium">ตรวจครั้งถัดไป</th>
+                  {canSeeValue && <th className="px-3 py-2.5 text-right font-medium">มูลค่าตามบัญชี</th>}
                   <th className="px-4 py-2.5 text-right font-medium">ดำเนินการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {shown.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/70">
-                    <td className="max-w-[280px] px-4 py-3">
+                    <td className="py-3 pl-4">
+                      <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} aria-label={`เลือก ${r.code}`} className="align-middle" />
+                    </td>
+                    <td className="max-w-[280px] px-3 py-3">
                       <div className="truncate font-semibold text-slate-900" title={r.name}>
                         {r.name}
                       </div>
@@ -484,6 +559,20 @@ export function AssetsClient({ page, projects }: { page: AssetPage; projects: Pr
                       <div className="text-slate-700">{dateText(r.nextDueOn)}</div>
                       <div className={`mt-0.5 text-[11px] font-medium ${DUE_CLASS[r.due]}`}>{INSPECTION_DUE_LABELS[r.due]}</div>
                     </td>
+                    {canSeeValue && (
+                      <td className="whitespace-nowrap px-3 py-3 text-right">
+                        {r.depreciation ? (
+                          <>
+                            <div className="font-mono text-slate-900">{formatMoneyDisplay(r.depreciation.bookValue)}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-500">{r.depreciation.fullyDepreciated ? 'หมดอายุการใช้งานแล้ว' : `สะสม ${formatMoneyDisplay(r.depreciation.accumulated)}`}</div>
+                          </>
+                        ) : (
+                          <span className="text-slate-400" title="ยังไม่ได้กำหนดอายุการใช้งาน">
+                            -
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {r.canInspect && (
                         <button type="button" onClick={() => setInspecting(r)} className="inline-flex items-center gap-1 rounded-md bg-[#2453d4] px-2.5 py-1.5 font-semibold text-white hover:bg-blue-700">
@@ -510,6 +599,8 @@ export function AssetsClient({ page, projects }: { page: AssetPage; projects: Pr
       {editing && <AssetFormDialog asset={editing === 'new' ? null : editing} projects={projects} onClose={() => setEditing(null)} />}
       {inspecting && <InspectDialog asset={inspecting} today={today} onClose={() => setInspecting(null)} />}
       {history && <HistoryDialog asset={history} onClose={() => setHistory(null)} />}
+      {printing && <LabelsDialog assets={printing} onClose={() => setPrinting(null)} />}
+      {importing && <ImportDialog onClose={() => setImporting(false)} />}
     </div>
   );
 }

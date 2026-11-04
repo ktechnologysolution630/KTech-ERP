@@ -1,7 +1,8 @@
 import { cache } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { loginUrlFor, RETURN_PATH_HEADER } from '@/lib/return-path';
 import {
   loadSessionUserById,
   SESSION_COOKIE_NAME,
@@ -24,7 +25,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect('/login');
+    redirect(loginUrlFor((await headers()).get(RETURN_PATH_HEADER)));
   }
   return user;
 }

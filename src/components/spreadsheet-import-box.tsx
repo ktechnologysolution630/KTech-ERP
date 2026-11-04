@@ -26,12 +26,18 @@ export function SpreadsheetImportBox({
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const rows = await readSpreadsheetRows(file);
+    e.target.value = '';
+    let rows: Record<string, string>[];
+    try {
+      rows = await readSpreadsheetRows(file);
+    } catch {
+      setResult({ created: 0, updated: 0, errors: [{ row: 1, message: 'อ่านไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv' }] });
+      return;
+    }
     startTransition(async () => {
       const res = await onImportRows(rows);
       setResult(res);
     });
-    e.target.value = '';
   }
 
   return (

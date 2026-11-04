@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { safeReturnPath } from '@/lib/return-path';
 import { AuthConfigError, authenticate, createSessionCookie, destroySession } from '@/server/auth/session';
 
 export async function loginAction(
@@ -22,7 +23,7 @@ export async function loginAction(
     console.error(err.message);
     return { error: 'ระบบยังไม่ได้ตั้งค่า AUTH_SECRET (อย่างน้อย 32 ตัวอักษร) กรุณาแจ้งผู้ดูแลระบบ' };
   }
-  redirect('/stock');
+  redirect(safeReturnPath(formData.get('next')) ?? '/stock');
 }
 
 export async function logoutAction(): Promise<void> {
