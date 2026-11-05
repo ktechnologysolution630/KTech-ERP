@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { assetCheckState, computeDepreciation, hasProblem, inspectionDue, nextInspectionDate } from '@/domain/asset';
 import { bangkokDateString } from '@/domain/thai';
-import { addAttachment } from '@/server/services/attachments';
-import { confirmAssetCheck, createAsset, listAssets, listInspections, notifyAssetsDue, recordInspection, updateAsset } from '@/server/services/assets';
+import { listActivity } from '@/server/services/activity';
+import { addAttachment, readStoredFile } from '@/server/services/attachments';
+import { confirmAssetCheck, createAsset, deleteAssets, listAssets, listInspections, notifyAssetsDue, recordInspection, updateAsset } from '@/server/services/assets';
 import { importAssets } from '@/server/services/import';
 import { listNotifications } from '@/server/services/notifications';
 import { createTestDb } from '../helpers/test-db';
@@ -269,5 +270,53 @@ describe('assets', () => {
     await addAttachment(db, f.users.foreman, { entityType: 'ASSET_INSPECTION', entityId: check.id, file: image, kind: 'PHOTO' });
     expect((await listInspections(db, f.users.pm, onSite.id))[0]!.photos.map((p) => p.name)).toEqual(['a.png']);
     await expect(addAttachment(db, f.users.otherForeman, { entityType: 'ASSET_INSPECTION', entityId: check.id, file: image, kind: 'PHOTO' })).rejects.toMatchObject({ status: 403 });
+  });
+
+  test('only owner and admin may delete, and only they are offered it', async () => {
+    const { db, f, onSite } = await seed();
+    for (const u of [f.users.foreman, f.users.pm, f.users.buyer, f.users.buyerHead, f.users.finance]) {
+      await expect(deleteAssets(db, u, [onSite.id])).rejects.toMatchObject({ status: 403 });
+      expect((await listAssets(db, u)).canDelete).toBe(false);
+    }
+    expect((await listAssets(db, f.users.otherForeman)).canDelete).toBe(false);
+    expect((await listAssets(db, f.users.owner)).canDelete).toBe(true);
+    expect((await listAssets(db, f.users.admin)).canDelete).toBe(true);
+    expect((await listAssets(db, f.users.admin)).rows).toHaveLength(2);
+  });
+
+  test('deleting takes the checks and photos of the chosen assets only, and leaves a record of who did it', async () => {
+    const { db, f, onSite, office } = await seed();
+    const image = () => new File([new Uint8Array([1])], 'a.png', { type: 'image/png' });
+    const check = await recordInspection(db, f.users.foreman, onSite.id, { inspectedOn: daysAgo(0), result: 'GOOD' });
+    const photo = await addAttachment(db, f.users.foreman, { entityType: 'ASSET_INSPECTION', entityId: check.id, file: image(), kind: 'PHOTO' });
+    const kept = await recordInspection(db, f.users.admin, office.id, { inspectedOn: daysAgo(0), result: 'GOOD' });
+    const keptPhoto = await addAttachment(db, f.users.admin, { entityType: 'ASSET_INSPECTION', entityId: kept.id, file: image(), kind: 'PHOTO' });
+
+    expect(await deleteAssets(db, f.users.owner, [onSite.id])).toEqual({ deleted: 1 });
+
+    expect((await listAssets(db, f.users.admin)).rows.map((r) => r.id)).toEqual([office.id]);
+    expect(await readStoredFile(db, photo.url.split('id=')[1]!)).toBeNull();
+    await expect(listInspections(db, f.users.admin, onSite.id)).rejects.toMatchObject({ status: 404 });
+    expect((await listInspections(db, f.users.admin, office.id))[0]!.photos.map((p) => p.id)).toEqual([keptPhoto.id]);
+    expect(await readStoredFile(db, keptPhoto.url.split('id=')[1]!)).not.toBeNull();
+
+    const [log] = await listActivity(db, 'ASSET', onSite.id);
+    expect(log).toMatchObject({ action: 'DELETE', userId: f.users.owner.id });
+    expect(log!.note).toContain(onSite.code);
+  });
+
+  test('several at once, in one go; nothing chosen or already gone is reported', async () => {
+    const { db, f, onSite, office } = await seed();
+    await expect(deleteAssets(db, f.users.admin, [])).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+    await expect(deleteAssets(db, f.users.admin, ['not-a-uuid'])).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+    expect((await listAssets(db, f.users.admin)).rows).toHaveLength(2);
+
+    expect(await deleteAssets(db, f.users.admin, [onSite.id, office.id])).toEqual({ deleted: 2 });
+    expect((await listAssets(db, f.users.admin)).rows).toEqual([]);
+    await expect(deleteAssets(db, f.users.admin, [onSite.id])).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+
+    // A deleted code is not handed out again
+    const next = await createAsset(db, f.users.admin, { name: 'ใหม่' });
+    expect([onSite.code, office.code]).not.toContain(next.code);
   });
 });

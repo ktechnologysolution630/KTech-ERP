@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { assetInspections, assets, attachments, projects, users, type SessionUser } from '@/db/schema';
+import { assetInspections, assets, attachments, comments, projects, users, type SessionUser } from '@/db/schema';
 import {
   ASSET_STATUSES,
   computeDepreciation,
@@ -22,7 +22,7 @@ import { DomainError } from '@/domain/errors';
 import { bangkokDateString } from '@/domain/thai';
 import { ASSET_OFFICE_ROLES, assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
-import { addAttachment } from './attachments';
+import { addAttachment, removeStoredFile } from './attachments';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 
@@ -99,6 +99,7 @@ export interface AssetRow {
 export interface AssetPage {
   rows: AssetRow[];
   canManage: boolean;
+  canDelete: boolean;
   /** Whether the money columns apply; site staff see the asset but not what it cost */
   canSeeValue: boolean;
   today: string;
@@ -123,7 +124,7 @@ const latestInspections = async (db: Db, assetIds: string[]) => {
 export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage> {
   const siteOnly = isSiteScopedOnly(actor);
   const today = bangkokDateString();
-  if (siteOnly && actor.projectIds.length === 0) return { rows: [], canManage: false, canSeeValue: false, today };
+  if (siteOnly && actor.projectIds.length === 0) return { rows: [], canManage: false, canDelete: false, canSeeValue: false, today };
 
   const rows = await db
     .select({ asset: assets, projectName: projects.name })
@@ -136,6 +137,7 @@ export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage>
   return {
     today,
     canManage: can(actor, 'asset.manage'),
+    canDelete: can(actor, 'asset.delete'),
     canSeeValue: !siteOnly,
     rows: rows.map(({ asset: a, projectName }) => {
       const last = latestByAsset.get(a.id);
@@ -220,6 +222,36 @@ export async function updateAsset(db: Db, actor: SessionUser, id: string, input:
       action: retired ? `STATUS_${data.status}` : moved ? 'MOVE' : 'UPDATE',
       userId: actor.id,
     });
+  });
+}
+
+const assetIdsSchema = z.array(z.string().uuid()).min(1, 'กรุณาเลือกทรัพย์สินที่จะลบ').max(5000, 'เลือกทรัพย์สินได้ครั้งละไม่เกิน 5,000 รายการ');
+
+/**
+ * Removes assets for good, with their inspection history and photos. Retiring is what keeps one on record;
+ * this is for what should never have been there. The activity log stays as the record of who removed what.
+ */
+export async function deleteAssets(db: Db, actor: SessionUser, ids: string[]): Promise<{ deleted: number }> {
+  assertCan(actor, 'asset.delete');
+  const assetIds = parse(assetIdsSchema, ids);
+  return db.transaction(async (tx) => {
+    const targets = await tx.select({ id: assets.id, code: assets.code, name: assets.name }).from(assets).where(inArray(assets.id, assetIds)).for('update');
+    if (targets.length === 0) throw new DomainError('NOT_FOUND', 'ไม่พบทรัพย์สินที่เลือก อาจถูกลบไปแล้ว', 404);
+    const foundIds = targets.map((a) => a.id);
+
+    const inspections = await tx.select({ id: assetInspections.id }).from(assetInspections).where(inArray(assetInspections.assetId, foundIds));
+    const entityIds = [...foundIds, ...inspections.map((i) => i.id)];
+    const files = await tx.select({ url: attachments.url }).from(attachments).where(inArray(attachments.entityId, entityIds));
+    await tx.delete(attachments).where(inArray(attachments.entityId, entityIds));
+    await tx.delete(comments).where(inArray(comments.entityId, entityIds));
+    for (const file of files) await removeStoredFile(tx, file.url);
+
+    await tx.delete(assetInspections).where(inArray(assetInspections.assetId, foundIds));
+    await tx.delete(assets).where(inArray(assets.id, foundIds));
+    for (const asset of targets) {
+      await logActivity(tx, { entityType: 'ASSET', entityId: asset.id, action: 'DELETE', userId: actor.id, note: `${asset.code} ${asset.name}` });
+    }
+    return { deleted: targets.length };
   });
 }
 

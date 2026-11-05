@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, Download, FileUp, History, MapPin, Pencil, Plus, QrCode, Search } from 'lucide-react';
+import { ClipboardCheck, Download, FileUp, History, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from 'lucide-react';
 import {
   ASSET_CATEGORIES,
   ASSET_CHECK_STATE_LABELS,
@@ -25,7 +25,7 @@ import { formatThaiDate } from '@/domain/thai';
 import type { AssetPage, AssetRow, InspectionRow } from '@/server/services/assets';
 import { AssetCheckDialog } from './asset-check-dialog';
 import { Dialog } from './asset-dialog';
-import { loadInspectionsAction, saveAssetAction } from './actions';
+import { deleteAssetsAction, loadInspectionsAction, saveAssetAction } from './actions';
 import { DateInput } from '@/components/date-input';
 
 const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsDialog), { ssr: false });
@@ -259,6 +259,66 @@ function HistoryDialog({ asset, onClose }: { asset: AssetRow; onClose: () => voi
   );
 }
 
+const DELETE_WORD = 'ลบ';
+
+function DeleteAssetsDialog({ assets, onDeleted, onClose }: { assets: AssetRow[]; onDeleted: () => void; onClose: () => void }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [typed, setTyped] = useState('');
+
+  const confirm = () => {
+    setError(null);
+    startTransition(async () => {
+      const r = await deleteAssetsAction(assets.map((a) => a.id));
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      onDeleted();
+      router.refresh();
+    });
+  };
+
+  return (
+    <Dialog title={`ลบทรัพย์สิน ${assets.length} รายการ`} onClose={onClose} busy={isPending}>
+      <div className="space-y-3">
+        <ul className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+          {assets.map((a) => (
+            <li key={a.id} className="flex items-baseline gap-2 px-3 py-1.5">
+              <span className="shrink-0 font-mono text-[11px] text-slate-500">{a.code}</span>
+              <span className="truncate text-slate-800" title={a.name}>
+                {a.name}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
+          <p className="font-bold">ลบถาวร กู้คืนไม่ได้</p>
+          <p className="mt-1">ประวัติการตรวจเช็คและรูปถ่ายจะหายไปด้วย และรายการนี้จะไม่อยู่ในรายงานค่าเสื่อมราคาอีก หากยังอยู่ในบัญชีแต่เลิกใช้งานแล้ว ให้เปลี่ยนสถานะเป็นปลดระวางแทน</p>
+        </div>
+        <label className="block">
+          <span className={labelClass}>พิมพ์คำว่า &quot;{DELETE_WORD}&quot; เพื่อยืนยัน</span>
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus className={fieldClass} />
+        </label>
+        {error && (
+          <p role="alert" className="font-medium text-red-600">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} disabled={isPending} className="rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50">
+            ยกเลิก
+          </button>
+          <button type="button" onClick={confirm} disabled={isPending || typed.trim() !== DELETE_WORD} className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+            {isPending ? 'กำลังลบ...' : `ลบ ${assets.length} รายการ`}
+          </button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 function Tile({ label, value, active, tone, onClick }: { label: string; value: number; active: boolean; tone: string; onClick: () => void }) {
   return (
     <button
@@ -285,7 +345,7 @@ export function AssetsClient({
   linkedAssetId: string | null;
   startOnNeedsCheck: boolean;
 }) {
-  const { rows, canManage, canSeeValue, today } = page;
+  const { rows, canManage, canDelete, canSeeValue, today } = page;
   const linked = linkedAssetId ? rows.find((r) => r.id === linkedAssetId) : undefined;
   const [view, setView] = useState<View>(startOnNeedsCheck ? 'NEEDS_CHECK' : 'ALL');
   const [query, setQuery] = useState('');
@@ -297,6 +357,7 @@ export function AssetsClient({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [printing, setPrinting] = useState<AssetRow[] | null>(null);
   const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -331,7 +392,8 @@ export function AssetsClient({
       if (!next.delete(id)) next.add(id);
       return next;
     });
-  const labelTargets = selected.size > 0 ? rows.filter((r) => selected.has(r.id)) : shown;
+  const selectedRows = rows.filter((r) => selected.has(r.id));
+  const labelTargets = selected.size > 0 ? selectedRows : shown;
 
   const exportShown = async () => {
     setExportError(null);
@@ -399,6 +461,17 @@ export function AssetsClient({
             </select>
           </label>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {canDelete && (
+              <button
+                type="button"
+                disabled={selectedRows.length === 0}
+                onClick={() => setDeleting(true)}
+                title={selectedRows.length === 0 ? 'ติ๊กเลือกรายการที่จะลบก่อน' : undefined}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" /> ลบข้อมูล{selectedRows.length > 0 && ` (${selectedRows.length})`}
+              </button>
+            )}
             <span className="text-xs text-slate-500">{shown.length} รายการ</span>
             <button type="button" disabled={labelTargets.length === 0} onClick={() => setPrinting(labelTargets)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
               <QrCode className="h-4 w-4" /> พิมพ์ QR ({labelTargets.length})
@@ -509,6 +582,16 @@ export function AssetsClient({
       {history && <HistoryDialog asset={history} onClose={() => setHistory(null)} />}
       {printing && <LabelsDialog assets={printing} onClose={() => setPrinting(null)} />}
       {importing && <ImportDialog onClose={() => setImporting(false)} />}
+      {deleting && selectedRows.length > 0 && (
+        <DeleteAssetsDialog
+          assets={selectedRows}
+          onDeleted={() => {
+            setSelected(new Set());
+            setDeleting(false);
+          }}
+          onClose={() => setDeleting(false)}
+        />
+      )}
     </div>
   );
 }

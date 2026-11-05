@@ -9,6 +9,7 @@ import type { InspectionResult } from '@/domain/asset';
 import {
   confirmAssetCheck,
   createAsset,
+  deleteAssets,
   listInspections,
   updateAsset,
   type AssetInput,
@@ -31,6 +32,14 @@ export async function saveAssetAction(id: string | null, input: AssetInput): Pro
   const actor = await requireUser();
   const db = await getDb();
   const result = await run<unknown>(() => (id ? updateAsset(db, actor, id, input) : createAsset(db, actor, input)));
+  if (result.ok) revalidatePath('/assets');
+  return result;
+}
+
+export async function deleteAssetsAction(ids: string[]): Promise<AssetResult<{ deleted: number }>> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const result = await run(() => deleteAssets(db, actor, ids));
   if (result.ok) revalidatePath('/assets');
   return result;
 }
