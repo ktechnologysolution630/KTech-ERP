@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { KeyRound, Pencil, Plus, X } from 'lucide-react';
 import type { Role } from '@/db/schema';
 import { expandHiddenMenus, MENU_TREE, type MenuKey } from '@/domain/menu';
+import { hiddenMenusForRole, ROLE_PRESETS } from '@/domain/role-presets';
 import type { UserRowDto } from '@/server/services/master';
 import { resetUserPasswordAction, saveUserAction } from '../actions';
 
@@ -196,6 +197,11 @@ function UserDialog({
   const [hiddenMenus, setHiddenMenus] = useState<MenuKey[]>(() => expandHiddenMenus(user?.hiddenMenus ?? []));
   const toggle =<T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const needsProjects = roles.some((r) => SITE_ROLES.includes(r));
+  const matchesPreset = (role: Role) => {
+    const preset = hiddenMenusForRole(role);
+    return roles.length === 1 && roles[0] === role && preset.length === hiddenMenus.length && preset.every((k) => hiddenMenus.includes(k));
+  };
+  const activePreset = ROLE_PRESETS.find((p) => matchesPreset(p.role));
 
   return (
     <Shell title={user ? `แก้ไขผู้ใช้งาน ${user.name}` : 'สร้างผู้ใช้งานใหม่'} onClose={onClose}>
@@ -241,6 +247,29 @@ function UserDialog({
               </label>
             )}
           </div>
+          <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+            <span className="block text-xs font-medium text-slate-700">ตั้งค่าตามตำแหน่ง</span>
+            <p className="mt-0.5 text-[11px] text-slate-500">เลือกแล้วระบบจะติ๊กบทบาทและเมนูที่แนะนำให้ ปรับต่อเองได้ และมีผลเมื่อกดบันทึก</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {ROLE_PRESETS.map((p) => (
+                <button
+                  key={p.role}
+                  type="button"
+                  aria-pressed={activePreset?.role === p.role}
+                  onClick={() => {
+                    setRoles([p.role]);
+                    setHiddenMenus(hiddenMenusForRole(p.role));
+                  }}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                    activePreset?.role === p.role ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {ROLE_LABELS[p.role]}
+                </button>
+              ))}
+            </div>
+            {activePreset && <p className="mt-2 text-xs text-slate-600">{activePreset.summary}</p>}
+          </div>
           <div>
             <span className="block text-xs font-medium text-slate-700 mb-1">บทบาท (เลือกได้หลายบทบาท) *</span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -265,6 +294,9 @@ function UserDialog({
                 </label>
               ))}
             </div>
+            {needsProjects && projectIds.length === 0 && projects.length > 0 && !roles.some((r) => !SITE_ROLES.includes(r)) && (
+              <p className="mt-1 text-xs text-amber-700">ยังไม่ได้เลือกโครงการ ผู้ใช้นี้จะยังไม่เห็นโครงการใดเลย</p>
+            )}
           </div>
           <div>
             <span className="block text-xs font-medium text-slate-700 mb-1">เมนูที่ใช้งานได้ (ติ๊กออกเพื่อซ่อนเมนูและบล็อกหน้าของเมนูนั้นสำหรับผู้ใช้นี้)</span>
