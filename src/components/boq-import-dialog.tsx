@@ -1,0 +1,145 @@
+'use client';
+
+import React from 'react';
+import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import type { BoqImportResult } from '@/domain/boq-import';
+import { formatDateText } from '@/domain/thai';
+
+const sameText = (a: string, b: string) => a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
+const MAX_LISTED = 5;
+
+function RowList({ rows }: { rows: string[] }) {
+  return (
+    <ul className="mt-1 list-disc pl-4 font-normal">
+      {rows.slice(0, MAX_LISTED).map((r) => (
+        <li key={r}>{r}</li>
+      ))}
+      {rows.length > MAX_LISTED && <li>และอีก {rows.length - MAX_LISTED} แถว</li>}
+    </ul>
+  );
+}
+
+/** What the import found, shown before anything enters the BOQ, so a wrong file or a misread sheet is caught here. */
+export function BoqImportDialog({
+  fileName,
+  result,
+  currentProjectName,
+  hasExistingRows,
+  onImport,
+  onClose,
+}: {
+  fileName: string;
+  result: BoqImportResult;
+  currentProjectName: string;
+  hasExistingRows: boolean;
+  onImport: (mode: 'append' | 'replace') => void;
+  onClose: () => void;
+}) {
+  const { lines, usedSheets, skippedSheets, meta, unpricedItems, amountMismatches, unreadable } = result;
+  const items = usedSheets.reduce((n, s) => n + s.items, 0);
+  const categories = usedSheets.reduce((n, s) => n + s.categories, 0);
+  const otherProject = meta.projectName !== '' && !sameText(meta.projectName, currentProjectName);
+  const details = [
+    ['โครงการในไฟล์', meta.projectName],
+    ['เจ้าของ', meta.owner],
+    ['สถานที่ก่อสร้าง', meta.location],
+    ['วันที่ประมาณราคา', formatDateText(meta.estimateDate)],
+  ].filter(([, value]) => value);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="ตรวจสอบก่อนนำเข้า BOQ">
+      <div className="flex max-h-full w-full max-w-2xl flex-col rounded-xl border border-slate-200 bg-white text-xs shadow-xl">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-slate-900">ตรวจสอบก่อนนำเข้า BOQ</h3>
+            <p className="truncate text-slate-500">{fileName}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600" title="ปิด">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 space-y-3 overflow-y-auto p-5">
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-semibold text-emerald-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            พบ {items.toLocaleString()} รายการ ใน {categories.toLocaleString()} หมวด รวม {lines.length.toLocaleString()} แถว
+          </div>
+
+          <table className="w-full">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-3 py-1.5 text-left font-medium">ชีตที่ใช้</th>
+                <th className="px-3 py-1.5 text-right font-medium">หมวด</th>
+                <th className="px-3 py-1.5 text-right font-medium">รายการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {usedSheets.map((s) => (
+                <tr key={s.name}>
+                  <td className="px-3 py-1.5 text-slate-800">{s.name}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{s.categories.toLocaleString()}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{s.items.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {skippedSheets.length > 0 && <p className="text-slate-500">ไม่ได้ใช้ เพราะไม่ใช่ตารางรายการ BOQ: {skippedSheets.join(', ')}</p>}
+
+          {details.length > 0 && (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-slate-200 px-3 py-2">
+              {details.map(([label, value]) => (
+                <React.Fragment key={label}>
+                  <dt className="text-slate-500">{label}</dt>
+                  <dd className="text-slate-800">{value}</dd>
+                </React.Fragment>
+              ))}
+            </dl>
+          )}
+
+          {otherProject && (
+            <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-semibold text-amber-900">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>ชื่อโครงการในไฟล์ไม่ตรงกับโครงการนี้ ({currentProjectName}) กรุณาตรวจว่าเลือกไฟล์ถูกต้อง</span>
+            </p>
+          )}
+          {unpricedItems > 0 && (
+            <p className="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {unpricedItems.toLocaleString()} จาก {items.toLocaleString()} รายการในไฟล์ไม่มีราคาวัสดุและค่าแรง จึงนำเข้าได้เฉพาะจำนวนและหน่วย ยอดรวมจะยังไม่ครบจนกว่าจะกรอกราคา
+              </span>
+            </p>
+          )}
+          {amountMismatches.length > 0 && (
+            <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-semibold text-amber-900">
+              จำนวนเงินในไฟล์ไม่ตรงกับ จำนวน × ราคา {amountMismatches.length} แถว ระบบจะคำนวณจาก จำนวน × ราคา
+              <RowList rows={amountMismatches} />
+            </div>
+          )}
+          {unreadable.length > 0 && (
+            <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-semibold text-amber-900">
+              อ่านค่าไม่ได้ {unreadable.length} แถว จำนวนในแถวเหล่านี้จะเว้นว่างไว้
+              <RowList rows={unreadable} />
+            </div>
+          )}
+          <p className="text-slate-500">ยังไม่มีอะไรถูกบันทึกจนกว่าจะกดบันทึก BOQ และไฟล์ต้นฉบับไม่ถูกแก้ไข</p>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-100 px-5 py-3">
+          <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50">
+            ยกเลิก
+          </button>
+          {hasExistingRows && (
+            <button type="button" onClick={() => onImport('replace')} className="rounded-lg border border-red-200 px-3 py-2 font-semibold text-red-700 hover:bg-red-50">
+              แทนที่รายการเดิม
+            </button>
+          )}
+          <button type="button" onClick={() => onImport('append')} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700">
+            {hasExistingRows ? 'ต่อท้ายรายการเดิม' : `นำเข้า ${lines.length.toLocaleString()} แถว`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

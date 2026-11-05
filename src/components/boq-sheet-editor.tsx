@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useTransition } from 'react';
-import { downloadWorkbook, readSpreadsheetRows } from '@/lib/spreadsheet';
+import { downloadWorkbook } from '@/lib/spreadsheet';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { computeBoqLine } from '@/domain/boq';
+import { parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
 import { bangkokDateString } from '@/domain/thai';
 import type { BoqDocumentDto } from '@/server/services/boq';
 import { saveBoqAction } from '@/app/(app)/projects/[id]/boq/actions';
@@ -29,11 +30,13 @@ import {
   makeCategoryRow,
   makeItemRow,
   makeSubItemRow,
+  newRowId,
   rowsFromDto,
   rowsToLines,
   toRowInput,
   type BoqRow,
 } from '@/components/boq-line-grid';
+import { BoqImportDialog } from '@/components/boq-import-dialog';
 import { DateInput } from '@/components/date-input';
 
 export type { BoqRow };
@@ -238,40 +241,43 @@ export function BoqSheetEditor({
     ]);
   };
 
-  // Import .xlsx/.csv: a row with no quantity and no prices is a category heading
+  // Import a workbook: only the BOQ tables are taken, and nothing enters the sheet until the summary is accepted
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [importReview, setImportReview] = useState<{ fileName: string; result: BoqImportResult } | null>(null);
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const handleImportFile = async (file: File) => {
     setSaveError(null);
+    setIsReadingFile(true);
     try {
-      const sheet = await readSpreadsheetRows(file);
-      const num = (v: string | undefined) => {
-        const n = Number(String(v ?? '').replace(/,/g, ''));
-        return v === undefined || v.trim() === '' || !Number.isFinite(n) ? '' : n;
-      };
-      const imported: BoqRow[] = sheet
-        .filter((r) => (r['รายการ'] ?? '').trim() !== '')
-        .map((r) => {
-          const qty = num(r['จำนวน']);
-          const matRate = num(r['ราคาต่อหน่วยวัสดุ']);
-          const labRate = num(r['ราคาต่อหน่วยค่าแรง']);
-          const isCategory = qty === '' && matRate === '' && labRate === '';
-          return {
-            ...(isCategory ? makeCategoryRow([]) : makeItemRow()),
-            no: (r['ลำดับ'] ?? '').trim(),
-            description: r['รายการ'].trim(),
-            ...(isCategory ? {} : { qty, unit: (r['หน่วย'] ?? '').trim(), matRate, labRate }),
-            note: (r['หมายเหตุ'] ?? '').trim(),
-          };
-        });
-      if (imported.length === 0) {
-        setSaveError(`ไม่พบรายการในไฟล์ — ต้องมีคอลัมน์ ${BOQ_IMPORT_COLUMNS.join(', ')}`);
+      const { readWorkbook } = await import('@/lib/read-workbook');
+      const result = parseBoqWorkbook(await readWorkbook(file));
+      if (result.lines.length === 0) {
+        setSaveError('ไม่พบตาราง BOQ ในไฟล์ ต้องมีหัวตาราง ลำดับ จำนวน หน่วย และราคาวัสดุ ค่าแรง');
         return;
       }
-      setRows((prev) => [...prev, ...imported]);
-      markDirty();
-    } catch {
-      setSaveError('อ่านไฟล์ไม่ได้ กรุณาใช้ไฟล์ .xlsx หรือ .csv ตามเทมเพลต');
+      setImportReview({ fileName: file.name, result });
+    } catch (err) {
+      console.error(err);
+      setSaveError(err instanceof Error && err.message === 'PASSWORD' ? 'ไฟล์นี้ตั้งรหัสผ่านไว้ จึงอ่านไม่ได้' : 'อ่านไฟล์ไม่ได้ กรุณาใช้ไฟล์ Excel (.xls, .xlsx) หรือ .csv');
+    } finally {
+      setIsReadingFile(false);
     }
+  };
+  const applyImport = (mode: 'append' | 'replace') => {
+    if (!importReview) return;
+    const { lines, meta: found } = importReview.result;
+    const imported: BoqRow[] = lines.map((line) => ({ ...line, id: newRowId() }));
+    setRows((prev) => (mode === 'replace' ? imported : [...prev, ...imported]));
+    // Only blanks are filled: what the project already says stays, and a difference was pointed out in the summary
+    setMeta((m) => ({
+      ...m,
+      projectName: m.projectName || found.projectName,
+      location: m.location || found.location,
+      owner: m.owner || found.owner,
+      docDate: !initialBoq && found.estimateDate ? found.estimateDate : m.docDate,
+    }));
+    setImportReview(null);
+    markDirty();
   };
 
   return (
@@ -436,20 +442,20 @@ export function BoqSheetEditor({
           <button
             type="button"
             onClick={() => importInputRef.current?.click()}
-            disabled={!editable}
+            disabled={!editable || isReadingFile}
             className="disabled:opacity-50 flex flex-col items-center justify-center px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 transition"
-            title="นำเข้าไฟล์"
+            title="นำเข้าไฟล์ Excel (.xls, .xlsx) หรือ .csv"
           >
             <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
               X↓
             </div>
-            <span className="text-[11px] font-semibold mt-0.5">Import</span>
+            <span className="text-[11px] font-semibold mt-0.5">{isReadingFile ? 'กำลังอ่าน...' : 'Import'}</span>
             <span className="text-[9px] text-slate-400">ไฟล์และดราฟต์</span>
           </button>
           <input
             ref={importInputRef}
             type="file"
-            accept=".xlsx,.csv"
+            accept=".xls,.xlsx,.csv"
             className="hidden"
             aria-label="นำเข้าไฟล์ BOQ"
             onChange={(e) => {
@@ -687,6 +693,16 @@ export function BoqSheetEditor({
         </div>
       </div>
       </fieldset>
+      {importReview && (
+        <BoqImportDialog
+          fileName={importReview.fileName}
+          result={importReview.result}
+          currentProjectName={meta.projectName}
+          hasExistingRows={rows.length > 0}
+          onImport={applyImport}
+          onClose={() => setImportReview(null)}
+        />
+      )}
     </div>
   );
 }
