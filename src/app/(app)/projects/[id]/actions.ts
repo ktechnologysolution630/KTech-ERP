@@ -6,12 +6,12 @@ import { DomainError } from '@/domain/errors';
 import { type ProjectStatus } from '@/domain/project';
 import { requireUser } from '@/server/auth/current-user';
 import {
-  deleteProject,
   setProjectCover,
   updateProjectDetails,
   type ProjectCoverSource,
   type ProjectDetailDto,
 } from '@/server/services/master';
+import { deleteProject, previewProjectDeletion, type ProjectDeletionPreview } from '@/server/services/project-delete';
 
 export interface ProjectDetailsFormInput {
   name: string;
@@ -50,12 +50,25 @@ export async function updateProjectDetailsAction(
   }
 }
 
-export async function deleteProjectAction(projectId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function previewProjectDeletionAction(
+  projectId: string,
+): Promise<{ ok: true; preview: ProjectDeletionPreview } | { ok: false; error: string }> {
   const actor = await requireUser();
   const db = await getDb();
   try {
-    await deleteProject(db, actor, projectId);
-    revalidatePath('/projects');
+    return { ok: true, preview: await previewProjectDeletion(db, actor, projectId) };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+export async function deleteProjectAction(projectId: string, confirmCode: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    await deleteProject(db, actor, projectId, confirmCode);
+    revalidatePath('/', 'layout');
     return { ok: true };
   } catch (err) {
     if (err instanceof DomainError) return { ok: false, error: err.message };

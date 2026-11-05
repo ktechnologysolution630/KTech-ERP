@@ -3,25 +3,15 @@ import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
   attachments,
-  boqs,
-  comments,
   customers,
-  dailyReports,
   items,
-  milestones,
-  projectEvents,
-  projectHandovers,
   projectMembers,
   projects,
-  projectTasks,
   ROLES,
-  stockBalances,
   units,
   userRoles,
   users,
-  variationOrders,
   vendors,
-  warrantyDefects,
   type Role,
   type SessionUser,
 } from '@/db/schema';
@@ -31,7 +21,6 @@ import { D, WHT_RATES } from '@/domain/money';
 import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
 import { hashPassword } from '@/server/auth/password';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
-import { logActivity } from './activity';
 import { removeStoredFile, storeFile } from './attachments';
 import { nextDocNumber } from './numbering';
 
@@ -364,46 +353,6 @@ export async function updateProjectDetails(
     })
     .where(eq(projects.id, projectId));
   return getProjectDetail(db, actor, projectId);
-}
-
-const isForeignKeyViolation = (err: unknown): boolean => {
-  const { code, cause } = err as { code?: string; cause?: { code?: string } };
-  return code === '23503' || cause?.code === '23503';
-};
-
-/**
- * Removes a project created by mistake. Cascades would silently take BOQs, reports and the like with it,
- * so anything beyond the project and its member list is refused; closing a used project is what status "ยกเลิก" is for.
- */
-export async function deleteProject(db: Db, actor: SessionUser, projectId: string): Promise<void> {
-  const project = await getProjectDetail(db, actor, projectId);
-  assertCan(actor, 'project.delete', { projectId });
-  const inUse = new DomainError('PROJECT_IN_USE', 'โครงการนี้มีข้อมูลงานหรือเอกสารแล้ว จึงลบไม่ได้ หากเลิกใช้งานให้เปลี่ยนสถานะเป็น "ยกเลิก"', 409);
-
-  const content = await Promise.all([
-    db.select({ id: boqs.id }).from(boqs).where(eq(boqs.projectId, projectId)).limit(1),
-    db.select({ id: variationOrders.id }).from(variationOrders).where(eq(variationOrders.projectId, projectId)).limit(1),
-    db.select({ id: projectTasks.id }).from(projectTasks).where(eq(projectTasks.projectId, projectId)).limit(1),
-    db.select({ id: milestones.id }).from(milestones).where(eq(milestones.projectId, projectId)).limit(1),
-    db.select({ id: dailyReports.id }).from(dailyReports).where(eq(dailyReports.projectId, projectId)).limit(1),
-    db.select({ id: projectEvents.id }).from(projectEvents).where(eq(projectEvents.projectId, projectId)).limit(1),
-    db.select({ id: projectHandovers.id }).from(projectHandovers).where(eq(projectHandovers.projectId, projectId)).limit(1),
-    db.select({ id: warrantyDefects.id }).from(warrantyDefects).where(eq(warrantyDefects.projectId, projectId)).limit(1),
-    db.select({ id: stockBalances.id }).from(stockBalances).where(eq(stockBalances.projectId, projectId)).limit(1),
-    db.select({ id: attachments.id }).from(attachments).where(and(eq(attachments.entityType, 'PROJECT'), eq(attachments.entityId, projectId))).limit(1),
-    db.select({ id: comments.id }).from(comments).where(and(eq(comments.entityType, 'PROJECT'), eq(comments.entityId, projectId))).limit(1),
-  ]);
-  if (content.some((rows) => rows.length > 0)) throw inUse;
-
-  try {
-    await db.delete(projects).where(eq(projects.id, projectId));
-  } catch (err) {
-    // PRs, POs, payables and other documents keep the project through a foreign key
-    if (isForeignKeyViolation(err)) throw inUse;
-    throw err;
-  }
-  await removeStoredFile(db, project.coverImageUrl);
-  await logActivity(db, { entityType: 'PROJECT', entityId: projectId, action: 'project.delete', userId: actor.id, note: `${project.code} ${project.name}` });
 }
 
 export async function listProjects(db: Db, actor: SessionUser) {

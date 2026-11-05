@@ -197,6 +197,13 @@
       "when": 1793865229055,
       "tag": "0027_user_hidden_menus",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793869832166,
+      "tag": "0028_remove_sample_data",
+      "breakpoints": true
     }
   ]
 }

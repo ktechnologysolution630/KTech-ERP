@@ -910,14 +910,6 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
             {/* User Avatar Circle */}
             <div className="w-8 h-8 rounded-full bg-emerald-600 ring-2 ring-emerald-100 overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&fit=crop&crop=faces"
-                alt={displayName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
               <span>{initials}</span>
             </div>
 

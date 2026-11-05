@@ -3,11 +3,12 @@
 import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Trash2, Upload, X } from 'lucide-react';
-import { deleteProjectAction } from '@/app/(app)/projects/[id]/actions';
+import { deleteProjectAction, previewProjectDeletionAction } from '@/app/(app)/projects/[id]/actions';
 import { ProjectDetailsForm } from '@/components/project-details-form';
 import { COVER_FILE_TYPES, thumbUrl, useProjectCover } from '@/components/project-cover-picker';
 import { PROJECT_COVER_PRESETS } from '@/domain/project';
 import type { ProjectDetailDto } from '@/server/services/master';
+import type { ProjectDeletionPreview } from '@/server/services/project-delete';
 
 const UPLOADED = 'uploaded';
 
@@ -112,17 +113,27 @@ function DeleteProject({ project }: { project: ProjectDetailDto }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ProjectDeletionPreview | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const close = () => {
     setOpen(false);
     setTyped('');
     setError(null);
+    setPreview(null);
+  };
+  const openDialog = () => {
+    setOpen(true);
+    startTransition(async () => {
+      const r = await previewProjectDeletionAction(project.id);
+      if (r.ok) setPreview(r.preview);
+      else setError(r.error);
+    });
   };
   const confirmDelete = () => {
     setError(null);
     startTransition(async () => {
-      const r = await deleteProjectAction(project.id);
+      const r = await deleteProjectAction(project.id, typed);
       if (!r.ok) {
         setError(r.error);
         return;
@@ -130,10 +141,11 @@ function DeleteProject({ project }: { project: ProjectDetailDto }) {
       router.push('/projects');
     });
   };
+  const blocked = (preview?.blockers.length ?? 0) > 0;
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 font-semibold text-red-600 hover:text-red-700">
+      <button type="button" onClick={openDialog} className="inline-flex items-center gap-1.5 font-semibold text-red-600 hover:text-red-700">
         <Trash2 className="h-3.5 w-3.5" /> ลบโครงการ
       </button>
       {open && (
@@ -144,23 +156,73 @@ function DeleteProject({ project }: { project: ProjectDetailDto }) {
           aria-label="ลบโครงการ"
           onMouseDown={(e) => e.target === e.currentTarget && !isPending && close()}
         >
-          <div className="w-full max-w-md space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-xs shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 text-xs shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-sm font-bold text-slate-900">ลบโครงการ</h3>
               <button type="button" onClick={close} disabled={isPending} className="text-slate-400 hover:text-slate-600" title="ปิด">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-slate-600">
-              ลบได้เฉพาะโครงการที่ยังไม่มีข้อมูลงานหรือเอกสาร และกู้คืนไม่ได้ พิมพ์รหัส <span className="font-mono font-semibold text-slate-900">{project.code}</span> เพื่อยืนยัน
-            </p>
-            <input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              aria-label="พิมพ์รหัสโครงการเพื่อยืนยัน"
-              autoFocus
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono focus:border-red-500 focus:outline-hidden"
-            />
+            {!preview && !error && <p className="text-slate-500">กำลังตรวจสอบข้อมูลของโครงการ...</p>}
+            {preview && (
+              <>
+                {preview.items.length > 0 ? (
+                  <div>
+                    <p className="font-semibold text-slate-800">ข้อมูลเหล่านี้จะถูกลบถาวร และกู้คืนไม่ได้</p>
+                    <ul className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 text-slate-600">
+                      {preview.items.map((i) => (
+                        <li key={i.label} className="flex justify-between gap-2">
+                          <span>{i.label}</span>
+                          <span className="font-semibold tabular-nums text-slate-900">{i.count.toLocaleString('th-TH')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-slate-600">โครงการนี้ยังไม่มีข้อมูลงานหรือเอกสาร การลบจะกู้คืนไม่ได้</p>
+                )}
+                {preview.taxRecords.length > 0 && (
+                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
+                    <p className="font-bold">เอกสารบัญชีและภาษีจะหายไปด้วย</p>
+                    <ul className="mt-1 list-disc pl-4">
+                      {preview.taxRecords.map((t) => (
+                        <li key={t.label}>
+                          {t.label} {t.count.toLocaleString('th-TH')} ใบ
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1.5">
+                      ธุรกิจต้องเก็บเอกสารเหล่านี้ไว้ตามกฎหมาย และรายงานภาษีย้อนหลังจะเปลี่ยนไป ควรปรึกษาฝ่ายบัญชีก่อน หากเพียงเลิกใช้งานโครงการ ให้เปลี่ยนสถานะเป็น &quot;ยกเลิก&quot; แทน
+                    </p>
+                  </div>
+                )}
+                {preview.stockBalancesLeft > 0 && <p className="text-amber-700">ยอดสต็อกคงเหลือในโครงการนี้ {preview.stockBalancesLeft.toLocaleString('th-TH')} รายการจะหายไป หากของยังอยู่ให้โอนออกก่อน</p>}
+                {preview.assetsToOffice > 0 && <p className="text-slate-600">ทรัพย์สิน {preview.assetsToOffice.toLocaleString('th-TH')} รายการจะไม่ถูกลบ แต่ย้ายกลับไปอยู่ที่สำนักงาน</p>}
+                {blocked ? (
+                  <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                    <p className="font-bold">ยังลบไม่ได้ เพราะกระทบข้อมูลของโครงการอื่น</p>
+                    <ul className="mt-1 list-disc pl-4">
+                      {preview.blockers.map((b) => (
+                        <li key={b}>{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-slate-600">
+                      พิมพ์รหัส <span className="font-mono font-semibold text-slate-900">{project.code}</span> เพื่อยืนยัน
+                    </p>
+                    <input
+                      value={typed}
+                      onChange={(e) => setTyped(e.target.value)}
+                      aria-label="พิมพ์รหัสโครงการเพื่อยืนยัน"
+                      autoFocus
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono focus:border-red-500 focus:outline-hidden"
+                    />
+                  </>
+                )}
+              </>
+            )}
             {error && (
               <p role="alert" className="font-medium text-red-600">
                 {error}
@@ -172,7 +234,7 @@ function DeleteProject({ project }: { project: ProjectDetailDto }) {
               </button>
               <button
                 type="button"
-                disabled={isPending || typed.trim() !== project.code}
+                disabled={isPending || !preview || blocked || typed.trim() !== project.code}
                 onClick={confirmDelete}
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
