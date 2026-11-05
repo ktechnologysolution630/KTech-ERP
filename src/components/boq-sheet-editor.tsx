@@ -252,7 +252,7 @@ export function BoqSheetEditor({
       const { readWorkbook } = await import('@/lib/read-workbook');
       const result = parseBoqWorkbook(await readWorkbook(file));
       if (result.lines.length === 0) {
-        setSaveError('ไม่พบตาราง BOQ ในไฟล์ ต้องมีหัวตาราง ลำดับ จำนวน หน่วย และราคาวัสดุ ค่าแรง');
+        setSaveError('ไม่พบตาราง BOQ ในไฟล์ ต้องมีหัวตาราง ลำดับ จำนวนหรือปริมาณ หน่วย และราคา');
         return;
       }
       setImportReview({ fileName: file.name, result });
@@ -263,11 +263,14 @@ export function BoqSheetEditor({
       setIsReadingFile(false);
     }
   };
-  const applyImport = (mode: 'append' | 'replace') => {
+  const applyImport = (mode: 'append' | 'replace', atOfferPrice: boolean) => {
     if (!importReview) return;
-    const { lines, meta: found } = importReview.result;
-    const imported: BoqRow[] = lines.map((line) => ({ ...line, id: newRowId() }));
+    const { lines, offerLines, meta: found } = importReview.result;
+    const chosen = atOfferPrice && offerLines ? offerLines : lines;
+    const imported: BoqRow[] = chosen.map((line) => ({ ...line, id: newRowId() }));
     setRows((prev) => (mode === 'replace' ? imported : [...prev, ...imported]));
+    // This price already includes VAT
+    if (atOfferPrice && offerLines) setVatPercent(0);
     // Only blanks are filled: what the project already says stays, and a difference was pointed out in the summary
     setMeta((m) => ({
       ...m,

@@ -188,6 +188,90 @@ describe('the details above the table', () => {
   });
 });
 
+describe('a price summary form', () => {
+  // Made-up figures in the layout of the form: small tables first, unit before quantity, one price per line
+  const summaryForm = (rows: Raw[][]) =>
+    sheet('แบบสรุป', [
+      ['แบบสรุปราคากลาง'],
+      ['โครงการก่อสร้างอาคารตัวอย่าง'],
+      ['ตาราง : สรุปราคากลาง'],
+      ['ลำดับ', 'รายการ', 'หน่วย', 'ค่างานต้นทุน (บาท)', 'Factor F / Vat', 'ราคากลาง (บาท)'],
+      [1, 'อาคารตัวอย่าง', 'บาท', 1000, 1.2, 1200],
+      ['ลำดับ', 'รายการ', 'หน่วย', 'ราคาที่เสนอ'],
+      [1, 'ราคาตามคำเสนอ', 'บาท', 1100],
+      ...Array.from({ length: 12 }, (): Raw[] => []),
+      ['ลำดับ', 'รายการ', 'หน่วย', 'ปริมาณ', 'ราคากลางงานก่อสร้าง (บาท)', '', '', 'ราคาที่ปรับลดตามคำเสนอ (บาท)'],
+      ['', '', '', '', 'ค่างานต้นทุน', 'Factor F / Vat', 'ราคากลาง', 'ราคาที่ปรับลด', 'ราคาต่อหน่วย'],
+      ...rows,
+    ]);
+
+  test('finds the item table below the smaller ones and takes the columns by their headings', () => {
+    const r = parseBoqWorkbook([summaryForm([[1, 'งานโครงสร้าง'], [1.1, 'เจาะสำรวจ', 'จุด', 2, 100, 1.2, 240, 220, 110]])]);
+    expect(r.usedSheets).toEqual([{ name: 'แบบสรุป', categories: 1, items: 1 }]);
+    expect(r.lines[1]).toMatchObject({ no: '1.1', description: 'เจาะสำรวจ', qty: 2, unit: 'จุด', matRate: 100, labRate: '' });
+  });
+
+  test('works the cost per unit back from the price, because the cost column may hold the whole amount', () => {
+    const r = parseBoqWorkbook([summaryForm([['', 'เบรกเกอร์', 'ชุด', 5, 24500, 1.2, 29400, 27000, 5400]])]);
+    expect(r.lines[0]).toMatchObject({ qty: 5, matRate: 4900 });
+    expect(r.amountMismatches).toEqual([]);
+  });
+
+  test('offers the same lines at the winning price', () => {
+    const r = parseBoqWorkbook([summaryForm([[1, 'งานโครงสร้าง'], ['', 'เจาะสำรวจ', 'จุด', 2, 100, 1.2, 240, 220, 110.256]])]);
+    expect(r.offerLines?.map((l) => [l.description, l.matRate])).toEqual([['งานโครงสร้าง', ''], ['เจาะสำรวจ', 110.26]]);
+    expect(r.lines[1]).toMatchObject({ matRate: 100 });
+  });
+
+  test('a line named as labour goes in the labour column, at either price', () => {
+    const r = parseBoqWorkbook([summaryForm([['', '- ค่าแรงแบบหล่อ', 'ตร.ม.', 10, 100, 1.2, 1200, 1100, 110]])]);
+    expect(r.lines[0]).toMatchObject({ matRate: '', labRate: 100 });
+    expect(r.offerLines![0]).toMatchObject({ matRate: '', labRate: 110 });
+  });
+
+  test('headings become categories, sub-headings stay as text, and the grand total is not a line', () => {
+    const r = parseBoqWorkbook([
+      summaryForm([
+        [1, 'งานโครงสร้าง'],
+        [1.7, 'คอนกรีต', '', '', 0, '', 0, 0],
+        ['', 'LP1', '', '', '', '', 0],
+        ['', 'งานครุภัณฑ์', '', '', '', '', 0],
+        ['', 'ค่าใช้จ่ายพิเศษ', '', '', '', '', 0],
+        [1, 'ค่าเครน', 'งาน', 1, 100, 1, 100, 100, 100],
+        ['', '', '', '', 'วงเงินรวม', 0, 300, 300],
+      ]),
+    ]);
+    expect(r.lines.map((l) => [l.isCategory, l.description])).toEqual([
+      [true, 'งานโครงสร้าง'],
+      [false, 'คอนกรีต'],
+      [false, 'LP1'],
+      [true, 'งานครุภัณฑ์'],
+      [true, 'ค่าใช้จ่ายพิเศษ'],
+      [false, 'ค่าเครน'],
+    ]);
+  });
+
+  test('a price of zero in the file is counted as unpriced', () => {
+    expect(parseBoqWorkbook([summaryForm([['', 'มิเตอร์', 'ชุด', 1, 0, 1.2, 0, 0, 0]])]).unpricedItems).toBe(1);
+  });
+
+  test('the project is read from its own line above the table', () => {
+    expect(parseBoqWorkbook([summaryForm([])]).meta.projectName).toBe('โครงการก่อสร้างอาคารตัวอย่าง');
+  });
+
+  test('a form with material and labour wins over a summary of the same work', () => {
+    const quantities = form('ปร.4', [[1.1, 'เจาะสำรวจ', 2, 'จุด', 100, 200, 50, 100, 300]]);
+    const r = parseBoqWorkbook([summaryForm([['', 'เจาะสำรวจ', 'จุด', 2, 100, 1.2, 240, 220, 110]]), quantities]);
+    expect(r.usedSheets.map((s) => s.name)).toEqual(['ปร.4']);
+    expect(r.skippedSheets).toEqual(['แบบสรุป']);
+    expect(r.offerLines).toBeNull();
+  });
+
+  test('other forms offer no second price', () => {
+    expect(parseBoqWorkbook([form('ปร.4', [[1.1, 'เจาะสำรวจ', 2, 'จุด', 100, 200, 50, 100, 300]])]).offerLines).toBeNull();
+  });
+});
+
 describe('the template the system itself gives out', () => {
   test('still imports', () => {
     const r = parseBoqWorkbook([

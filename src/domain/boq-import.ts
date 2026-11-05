@@ -26,6 +26,11 @@ export interface ImportedBoqLine {
 
 export interface BoqImportResult {
   lines: ImportedBoqLine[];
+  /**
+   * The same lines at the price the contract was won at, for a price summary form. It carries both prices:
+   * `lines` holds the direct cost, like every other form, and this includes Factor F and VAT. Null for other forms.
+   */
+  offerLines: ImportedBoqLine[] | null;
   usedSheets: { name: string; categories: number; items: number }[];
   skippedSheets: string[];
   meta: { projectName: string; owner: string; location: string; estimateDate: string };
@@ -42,7 +47,8 @@ const MAX_DESCRIPTION = 1000;
 const MAX_NO = 20;
 const MAX_UNIT = 50;
 const MAX_NOTE = 500;
-const HEADER_SEARCH_ROWS = 15;
+/** A price summary form opens with smaller tables, so its item table starts further down */
+const HEADER_SEARCH_ROWS = 40;
 /** A difference of up to this is rounding in the file, not a mistake */
 const AMOUNT_TOLERANCE = 1;
 
@@ -70,9 +76,16 @@ interface TableColumns {
   amountLabor: number | null;
   amountTotal: number | null;
   note: number | null;
-  /** Has both material and labour prices, which is a real BOQ rather than a price list */
-  full: boolean;
+  /** Price summary form: the price column includes this factor, and the cost column is not always per unit */
+  factor: number | null;
+  offerUnitPrice: number | null;
+  /** Only the richest kind of table in a file is used, because the others repeat the same work */
+  kind: TableKind;
 }
+
+/** Higher is better: a BOQ with material and labour, then a price summary, then a plain price list. */
+const TABLE_KIND = { PRICE_LIST: 0, PRICE_SUMMARY: 1, FULL: 2 } as const;
+type TableKind = (typeof TABLE_KIND)[keyof typeof TABLE_KIND];
 
 /** Finds the table on a sheet by its headings, which may span two rows; the description column often has no heading at all. */
 function findTable(rows: BoqSheetGrid['rows']): TableColumns | null {
@@ -106,21 +119,31 @@ function findTable(rows: BoqSheetGrid['rows']): TableColumns | null {
       qty,
       unit,
       note: noteColumn >= 0 ? noteColumn : null,
+      factor: null,
+      offerUnitPrice: null,
     };
 
     if (materialStart >= 0 && laborStart >= 0) {
       const material = columnsFrom(materialStart);
       const labor = columnsFrom(laborStart);
-      return { ...shared, material: material.rate, labor: labor.rate, priceIsTotal: false, amountMaterial: material.amount, amountLabor: labor.amount, amountTotal: totalColumn >= 0 ? totalColumn : null, full: true };
+      return { ...shared, material: material.rate, labor: labor.rate, priceIsTotal: false, amountMaterial: material.amount, amountLabor: labor.amount, amountTotal: totalColumn >= 0 ? totalColumn : null, kind: TABLE_KIND.FULL };
     }
     const lumpSum = top.findIndex((t, c) => c > unit && /ค่าใช้จ่ายรวม/.test(t));
     if (lumpSum >= 0) {
-      return { ...shared, material: lumpSum, labor: null, priceIsTotal: true, amountMaterial: null, amountLabor: null, amountTotal: null, full: true };
+      return { ...shared, material: lumpSum, labor: null, priceIsTotal: true, amountMaterial: null, amountLabor: null, amountTotal: null, kind: TABLE_KIND.FULL };
+    }
+    const afterQuantities = Math.max(unit, qty);
+    const subAfter = (pattern: RegExp) => sub.findIndex((t, c) => c > afterQuantities && pattern.test(t));
+    const factor = subAfter(/factor/i);
+    const middlePrice = subAfter(/^ราคากลาง/);
+    if (factor >= 0 && middlePrice >= 0) {
+      const offer = subAfter(/ราคาต่อหน่วย/);
+      return { ...shared, material: middlePrice, labor: null, priceIsTotal: true, amountMaterial: null, amountLabor: null, amountTotal: null, factor, offerUnitPrice: offer >= 0 ? offer : null, kind: TABLE_KIND.PRICE_SUMMARY };
     }
     const price = top.findIndex((t, c) => c > unit && /ราคา/.test(t));
     if (price >= 0) {
       const single = columnsFrom(price);
-      return { ...shared, material: single.rate, labor: null, priceIsTotal: false, amountMaterial: single.amount, amountLabor: null, amountTotal: null, full: false };
+      return { ...shared, material: single.rate, labor: null, priceIsTotal: false, amountMaterial: single.amount, amountLabor: null, amountTotal: null, kind: TABLE_KIND.PRICE_LIST };
     }
   }
   return null;
@@ -133,8 +156,12 @@ const isNotALine = (description: string, no: string) => /^ลำดับ/.test(
 const isWholeNumber = (no: string) => /^\d+\.?$/.test(no);
 const clip = (text: string, max: number) => text.slice(0, max);
 
+/** A price summary has one price per line, but a line named as labour is still labour. */
+const isLaborLine = (description: string) => /^-?\s*ค่าแรง/.test(description);
+
 function readTable(sheet: BoqSheetGrid, table: TableColumns, result: BoqImportResult): { categories: number; items: number } {
   const lines: ImportedBoqLine[] = [];
+  const offerLines: ImportedBoqLine[] = [];
   const parsed = sheet.rows.slice(table.headerRow + 1).map((row, offset) => ({ row: row ?? [], rowNumber: table.headerRow + offset + 2 }));
   const headings = parsed.filter(({ row }) => numberOf(row[table.qty]) === null && !isRollup(textOf(row[table.description]), textOf(row[table.unit]), null));
   const numberedSections = headings.some(({ row }) => textOf(row[table.description]) && isWholeNumber(shownOf(row[table.no])));
@@ -159,13 +186,19 @@ function readTable(sheet: BoqSheetGrid, table: TableColumns, result: BoqImportRe
     const noteCells = table.note === null ? [] : [row[table.note], row[table.note + 1], row[table.note + 2]];
     // Some forms write a remark one column past the heading, beside helper figures
     const note = noteCells.find((c) => c && typeof c.v === 'string' && c.v.trim() && numberOf(c) === null);
-    const rawMaterial = numberOf(row[table.material]);
+    const stated = numberOf(row[table.material]);
+    const factor = table.factor === null ? null : numberOf(row[table.factor]);
+    // The cost column holds a rate on some rows and an amount on others, so it is worked back from the priced amount
+    const rawMaterial = stated !== null && factor ? D(stated).div(factor).toNumber() : stated;
     const rawLabor = table.labor === null ? null : numberOf(row[table.labor]);
 
     if (qty === null && !rawMaterial && !rawLabor) {
       // Sections become categories. Sub-headings and lines that ran over from the row above stay as text, in place, so nothing is lost
-      const section = numberedSections ? isWholeNumber(no) : !/^\s*-/.test(description);
-      lines.push({ isCategory: section, isBold: section || no !== '', no: clip(no, MAX_NO), description: clip(description, MAX_DESCRIPTION), qty: '', unit: '', matRate: '', labRate: '', note: clip(textOf(note), MAX_NOTE) });
+      const unnumberedSection = table.factor !== null && /^(งาน|ค่าใช้จ่าย)/.test(description);
+      const section = numberedSections ? isWholeNumber(no) || unnumberedSection : !/^\s*-/.test(description);
+      const heading = { isCategory: section, isBold: section || no !== '', no: clip(no, MAX_NO), description: clip(description, MAX_DESCRIPTION), qty: '' as const, unit: '', matRate: '' as const, labRate: '' as const, note: clip(textOf(note), MAX_NOTE) };
+      lines.push(heading);
+      offerLines.push(heading);
       continue;
     }
 
@@ -175,8 +208,9 @@ function readTable(sheet: BoqSheetGrid, table: TableColumns, result: BoqImportRe
       const rate = table.priceIsTotal && qty ? D(amount).div(qty) : D(amount);
       return round2(rate).toNumber();
     };
-    const matRate = perUnit(rawMaterial);
-    const labRate = perUnit(rawLabor);
+    const asLabor = table.factor !== null && isLaborLine(description);
+    const matRate = asLabor ? '' : perUnit(rawMaterial);
+    const labRate = asLabor ? perUnit(rawMaterial) : perUnit(rawLabor);
     if (!matRate && !labRate) result.unpricedItems += 1;
 
     const quantity = roundedQty === '' ? 0 : roundedQty;
@@ -191,9 +225,14 @@ function readTable(sheet: BoqSheetGrid, table: TableColumns, result: BoqImportRe
     });
     if (differs) result.amountMismatches.push(where);
 
-    lines.push({ isCategory: false, isBold: false, no: clip(no, MAX_NO), description: clip(description, MAX_DESCRIPTION), qty: roundedQty, unit: clip(unit, MAX_UNIT), matRate, labRate, note: clip(textOf(note), MAX_NOTE) });
+    const line: ImportedBoqLine = { isCategory: false, isBold: false, no: clip(no, MAX_NO), description: clip(description, MAX_DESCRIPTION), qty: roundedQty, unit: clip(unit, MAX_UNIT), matRate, labRate, note: clip(textOf(note), MAX_NOTE) };
+    lines.push(line);
+    const offer = table.offerUnitPrice === null ? null : numberOf(row[table.offerUnitPrice]);
+    const offerRate = offer === null ? ('' as const) : round2(D(offer)).toNumber();
+    offerLines.push({ ...line, matRate: asLabor ? '' : offerRate, labRate: asLabor ? offerRate : '' });
   }
   result.lines.push(...lines);
+  if (table.offerUnitPrice !== null) result.offerLines = [...(result.offerLines ?? []), ...offerLines];
   return { categories: lines.filter((l) => l.isCategory).length, items: lines.filter((l) => l.qty !== '').length };
 }
 
@@ -212,6 +251,8 @@ function readMeta(sheet: BoqSheetGrid, table: TableColumns, meta: BoqImportResul
     if (at < 0) continue;
     const label = cells[at]!;
     const value = cells.slice(at + 1).find(Boolean) ?? '';
+    // A summary form gives the project as a line of its own, not as a label and a value
+    if (!value && !meta.projectName && /^โครงการ/.test(label)) meta.projectName = clip(label, 300);
     for (const [key, pattern] of META_LABELS) {
       if (meta[key] || !pattern.test(label) || !value) continue;
       if (key === 'estimateDate') meta[key] = findDates(value.replace(/เดือน|วันที่/g, ' '))[0] ?? '';
@@ -228,6 +269,7 @@ function readMeta(sheet: BoqSheetGrid, table: TableColumns, meta: BoqImportResul
 export function parseBoqWorkbook(sheets: BoqSheetGrid[]): BoqImportResult {
   const result: BoqImportResult = {
     lines: [],
+    offerLines: null,
     usedSheets: [],
     skippedSheets: [],
     meta: { projectName: '', owner: '', location: '', estimateDate: '' },
@@ -236,10 +278,10 @@ export function parseBoqWorkbook(sheets: BoqSheetGrid[]): BoqImportResult {
     unreadable: [],
   };
   const found = sheets.map((sheet) => ({ sheet, table: findTable(sheet.rows) }));
-  // A plain price list counts only if the file has no proper BOQ at all
-  const anyFull = found.some(({ table }) => table?.full);
+  // A summary or a plain price list counts only if the file has nothing richer
+  const bestKind = Math.max(...found.map(({ table }) => table?.kind ?? -1));
   for (const { sheet, table } of found) {
-    if (!table || (anyFull && !table.full)) {
+    if (!table || table.kind !== bestKind) {
       result.skippedSheets.push(sheet.name.trim());
       continue;
     }
