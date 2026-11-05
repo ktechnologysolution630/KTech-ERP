@@ -11,6 +11,9 @@ const RECHECK_WIDTH_PX = 2000;
 const MAX_SCALE = 4;
 const MAX_OCR_WORKERS = 4;
 const EARLY_RECHECK_MAX_PAGES = 2;
+const BLACK_BELOW = 150;
+/** Project details are usually up front, where reading further pages at once would only slow the pages that matter */
+const SEQUENTIAL_SCAN_PAGES = 2;
 
 export type PdfReadFailure = 'PASSWORD' | 'INVALID' | 'OCR';
 
@@ -75,7 +78,7 @@ class OcrPool {
     }
   }
 
-  /** A second scanned page means a scanned file, which is worth the rest of the workers */
+  /** Starts the rest of the workers, for a scan that needs more than its first pages */
   grow(): void {
     const scheduler = this.scheduler;
     if (!scheduler) return;
@@ -97,6 +100,19 @@ class OcrPool {
     this.stopped = true;
     void this.scheduler?.terminate();
   }
+}
+
+/** Hard black and white: Thai letters read noticeably better, and it makes the second reading more independent of the first. */
+function toBlackAndWhite(canvas: HTMLCanvasElement): void {
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  const image = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = image.data;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const shade = 0.3 * pixels[i]! + 0.59 * pixels[i + 1]! + 0.11 * pixels[i + 2]! < BLACK_BELOW ? 0 : 255;
+    pixels[i] = pixels[i + 1] = pixels[i + 2] = shade;
+  }
+  context.putImageData(image, 0, 0);
 }
 
 async function renderPage(page: PDFPageProxy, targetWidth: number): Promise<HTMLCanvasElement> {
@@ -148,7 +164,8 @@ export async function readPdfText(file: File, handlers: PdfReadHandlers, signal:
     isEvalSupported: false,
   });
 
-  const ocr = new OcrPool();
+  let ocr = new OcrPool();
+  let readAheadAbandoned = false;
   // Recognising a page cannot be interrupted, so stopping must not wait for it
   const aborted = new Promise<never>((_, reject) => {
     signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
@@ -159,7 +176,11 @@ export async function readPdfText(file: File, handlers: PdfReadHandlers, signal:
 
   /** In a short file the second reading will almost surely be wanted, and starting it now saves waiting for the first */
   const earlyRechecks = new Map<number, Promise<string[]>>();
-  const readForRecheck = async (pdf: PDFDocumentProxy, n: number) => ocr.read(await renderPage(await pdf.getPage(n), RECHECK_WIDTH_PX));
+  const readForRecheck = async (pdf: PDFDocumentProxy, n: number) => {
+    const canvas = await renderPage(await pdf.getPage(n), RECHECK_WIDTH_PX);
+    toBlackAndWhite(canvas);
+    return ocr.read(canvas);
+  };
 
   const firstReading = async (pdf: PDFDocumentProxy): Promise<void> => {
     const pending: PendingPage[] = [];
@@ -189,7 +210,7 @@ export async function readPdfText(file: File, handlers: PdfReadHandlers, signal:
         handlers.onScanning(done, pdf.numPages);
         await Promise.race([ocr.ready(), aborted]);
         const shortFile = pdf.numPages <= EARLY_RECHECK_MAX_PAGES;
-        if (scannedPages > 1 || shortFile) ocr.grow();
+        if (scannedPages > SEQUENTIAL_SCAN_PAGES || shortFile) ocr.grow();
         const reading = renderPage(page, FIRST_READ_WIDTH_PX).then((canvas) => ocr.read(canvas));
         // A page read ahead may never be asked for, if an earlier one ends the search
         reading.catch(() => undefined);
@@ -202,8 +223,11 @@ export async function readPdfText(file: File, handlers: PdfReadHandlers, signal:
       } else {
         pending.push({ info, lines: Promise.resolve(lines) });
       }
-      while (pending.length >= (scanned ? ocr.maxWorkers : 1)) {
-        if (await deliver()) return;
+      while (pending.length >= (scanned && scannedPages > SEQUENTIAL_SCAN_PAGES ? ocr.maxWorkers : 1)) {
+        if (await deliver()) {
+          readAheadAbandoned = pending.length > 0;
+          return;
+        }
       }
     }
     while (pending.length > 0) {
@@ -215,6 +239,13 @@ export async function readPdfText(file: File, handlers: PdfReadHandlers, signal:
     const pages = handlers.pagesToRecheck();
     if (pages.length === 0) return;
     handlers.onRechecking(pages.length);
+    if (readAheadAbandoned && earlyRechecks.size === 0) {
+      // Pages read ahead and no longer wanted would hold up the queue; fresh workers start in about a second
+      ocr.stop();
+      ocr = new OcrPool();
+      await Promise.race([ocr.ready(), aborted]);
+      if (pages.length > 1) ocr.grow();
+    }
     const readings = pages.map((n) => earlyRechecks.get(n) ?? readForRecheck(pdf, n));
     readings.forEach((r) => r.catch(() => undefined));
     for (const [i, reading] of readings.entries()) {

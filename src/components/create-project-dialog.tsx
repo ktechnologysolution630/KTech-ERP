@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FileUp, ImagePlus, Plus, X } from 'lucide-react';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from '@/domain/project';
 import { formatMoneyDisplay } from '@/domain/money';
-import { PROJECT_PDF_FIELD_LABELS, ProjectDetailsCollector, reconcileReadings, type ReconciledDetails, type ProjectPdfField } from '@/domain/project-pdf';
+import { ESSENTIAL_FIELDS, PROJECT_PDF_FIELD_LABELS, ProjectDetailsCollector, reconcileReadings, type ReconciledDetails, type ProjectPdfField } from '@/domain/project-pdf';
 import { formatDateText } from '@/domain/thai';
 import { createProjectAction } from '@/app/(app)/projects/actions';
 import { DateInput } from '@/components/date-input';
@@ -101,16 +101,21 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
 
     const labels = (fields: ProjectPdfField[]) => fields.map((f) => PROJECT_PDF_FIELD_LABELS[f]).join(', ');
     const parts = [
-      agreed.length > 0 && (scanned ? `อ่านตรงกัน 2 รอบ ${agreed.length} ช่อง: ${labels(agreed)}` : `กรอกให้ ${agreed.length} ช่อง: ${labels(agreed)}`),
+      agreed.length > 0 && (scanned ? `ตรวจทานแล้ว ${agreed.length} ช่อง: ${labels(agreed)}` : `กรอกให้ ${agreed.length} ช่อง: ${labels(agreed)}`),
       scanned && agreed.length > 0 && 'โปรดเทียบกับเอกสารก่อนกดสร้าง',
       !scanned && agreed.length > 0 && 'กรุณาตรวจสอบก่อนกดสร้าง',
       guessedMarks && !scanned && 'ไฟล์นี้เก็บวรรณยุกต์บางตัวไม่ครบ ระบบเติมให้ตามคำที่พบบ่อย โปรดตรวจการสะกดด้วย',
     ];
     setPdfResult(parts.filter(Boolean).join(' ') || null);
+    const conflicting = unrefused.filter((r) => !r.thaiDigits);
+    const inThaiDigits = unrefused.filter((r) => r.thaiDigits).map((r) => r.field);
+    const notFound = scanned ? ESSENTIAL_FIELDS.filter((f) => isEmpty(f) && !details[f] && !refused.some((r) => r.field === f)) : [];
     const warnings = [
       needsLook.length > 0 && `ช่องสีเหลืองต้องตรวจเป็นพิเศษ: ${labels(needsLook)}`,
-      unrefused.length > 0 &&
-        `ไม่ได้กรอกเพราะข้อมูลขัดกัน กรุณาดูจากเอกสาร: ${unrefused.map(({ field, readings }) => `${PROJECT_PDF_FIELD_LABELS[field]} (${readings.map((r) => readingText(field, r)).join(' หรือ ')})`).join(', ')}`,
+      conflicting.length > 0 &&
+        `ไม่ได้กรอกเพราะข้อมูลขัดกัน กรุณาดูจากเอกสาร: ${conflicting.map(({ field, readings }) => `${PROJECT_PDF_FIELD_LABELS[field]} (${readings.map((r) => readingText(field, r)).join(' หรือ ')})`).join(', ')}`,
+      inThaiDigits.length > 0 && `ไม่ได้กรอกเพราะเอกสารเขียนเป็นเลขไทย ซึ่งอ่านจากภาพสแกนได้ไม่แม่นยำ กรุณาดูจากเอกสาร: ${labels(inThaiDigits)}`,
+      notFound.length > 0 && `ไม่พบในหน้าที่อ่าน กรุณากรอกเอง: ${labels(notFound)}`,
     ];
     setPdfWarning(warnings.filter(Boolean).join(' · ') || null);
     return filled.length + unrefused.length;
@@ -141,7 +146,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             collector.addPage(lines, { page, scanned });
             if (!scanned) setPdfProgress(`กำลังอ่านหน้า ${page.toLocaleString()} จาก ${pages.toLocaleString()}`);
             // Each scanned page takes seconds, so a scan stops as soon as it has what the form needs
-            return sawScan ? collector.hasEssentials || collector.canStop(SCAN_PAGES_WITHOUT_NEWS) : collector.canStop(TEXT_PAGES_WITHOUT_NEWS);
+            return sawScan ? collector.hasCoreDetails || collector.canStop(SCAN_PAGES_WITHOUT_NEWS) : collector.canStop(TEXT_PAGES_WITHOUT_NEWS);
           },
           onScanning: (done, pages) => setPdfProgress(`กำลังอ่านภาพสแกน อ่านแล้ว ${done.toLocaleString()} จาก ${pages.toLocaleString()} หน้า`),
           pagesToRecheck: () => collector.scannedSourcePages,

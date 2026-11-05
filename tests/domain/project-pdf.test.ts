@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { amountMatchesWords, findDates, linesFromTextItems, normalizeLine, ProjectDetailsCollector, reconcileReadings } from '@/domain/project-pdf';
+import { amountMatchesWords, findDates, linesFromTextItems, normalizeLine, parseThaiAmount, ProjectDetailsCollector, reconcileReadings } from '@/domain/project-pdf';
 
 const collect = (...pages: string[][]) => {
   const c = new ProjectDetailsCollector();
@@ -215,14 +215,149 @@ describe('checking two readings of a scan', () => {
     expect(reconcileReadings(c, null).confirmed).toEqual(['clientName']);
   });
 
-  test('knows which scanned pages gave values, and when the essentials are all there', () => {
+  test('knows which scanned pages gave values, and when it has enough to stop', () => {
     const c = new ProjectDetailsCollector();
     c.addPage(['แบบก่อสร้าง'], { page: 1, scanned: true });
     c.addPage(['ชื่อโครงการ: ก', 'ลูกค้า: ข', 'สถานที่: ค'], { page: 2, scanned: true });
-    expect(c.hasEssentials).toBe(false);
-    c.addPage(['วันเริ่ม 01/01/2026', 'วันสิ้นสุด 01/02/2026', 'งบประมาณ 100'], { page: 4, scanned: true });
-    expect(c.hasEssentials).toBe(true);
+    expect(c.hasCoreDetails).toBe(false);
+    c.addPage(['วันเริ่ม 01/01/2026', 'งบประมาณ 100'], { page: 4, scanned: true });
+    expect(c.hasCoreDetails).toBe(true);
     expect(c.scannedSourcePages).toEqual([2, 4]);
+  });
+});
+
+describe('a Thai government contract, which has sentences instead of labelled fields', () => {
+  // Shaped like what OCR returned for a real scanned contract, with the names and figures made up.
+  // The bracketed amounts read correctly; the Thai digits are wrong in the same way on both readings.
+  const scannedContract = [
+    'or',
+    'สัญญาจ้างปรับปรุงอาคารสำนักงานเทศบาลเมืองตัวอย่างเป็นศูนย์บริการประชาชน',
+    'สัญญาเลขที ฆ/๒๕๒๐๕',
+    'ว)  o Xo &       YY vw a oo',
+    'สัญญาฉบับนี้ทําขึ้น ณ สำนักงานเทศบาลเมืองตัวอย่าง',
+    'เมื่อวันที่ ๑๕ กันยายน ๒๕๒๐๕ ระหว่าง เทศบาลเมืองตัวอย่าง โดย นายสมมติ ใจดี ตําแหน่ง นายกเทศมนตรี',
+    'ซึ่งต่อไปในสัญญานี่เรียกว่า "ผู้ว่าจ้าง" ฝ่ายหนึ่ง กับ บริษัท ผู้รับเหมาตัวอย่าง จํากัด',
+    'ซึงต่อไปในสัญญานี่เรียกว่า "ผู้รับจ้าง" อีกฝ่ายหนึ่ง',
+    'ผู้ว่าจ้างตกลงจ้างและผู้รับจ้างตกลงรับจ้างทํางาน ปรับปรุงอาคารสำนักงาน',
+    'ด้วยวิธีประกวดราคาอิเล็กทรอนิกส์ (e-bidding) ณ สำนักงานเทศบาลเมืองตัวอย่าง ตำบลในเมือง',
+    'vw ow a a      Pl   ๑.    PE',
+    'อำเภอเมือง จังหวัดตัวอย่าง ตามข้อกําหนดและเงื่อนไขแห่งสัญญานี้',
+  ];
+  const paymentPage = [
+    'เป็นจํานวนเงิน ๒,๕๕๓๕,๐๐.๐๐ UM',
+    '(สองล้านสี่แสนสี่หมื่นเจ็ดพันเจ็ดร้อยบาทถ้วน) ซึ่งเท่ากับร้อยละ ๕ (ห้า) ของราคาค่าจ้างตามสัญญา',
+    'ผู้ว่าจ้าง ตกลงจ่าย และผู้รับจ้างตกลงรับเงินค่าจ้างจํานวนเงิน ๕๕,๕๕๕,๐๐๐.๐๐ UM (สีสิบแปดล้าน',
+    'ม',
+    'เก้าแสนห้าหมื่นสี่พันบาทถ้วน) ซึ่งได้รวมภาษีมูลค่าเพิ่ม จํานวน ๓,๒๐๒,๕๕๕.๑๓ UN (สามล้านสองแสนสองพันบาท',
+  ];
+  const scan = (page: number, lines: string[]) => [lines, { page, scanned: true }] as const;
+  const read = () => {
+    const c = new ProjectDetailsCollector();
+    c.addPage(...scan(1, scannedContract));
+    c.addPage(...scan(2, paymentPage));
+    return c;
+  };
+
+  test('takes the project, client, site and budget from the sentences', () => {
+    expect(read().details).toEqual({
+      name: 'ปรับปรุงอาคารสำนักงานเทศบาลเมืองตัวอย่างเป็นศูนย์บริการประชาชน',
+      clientName: 'เทศบาลเมืองตัวอย่าง',
+      location: 'สำนักงานเทศบาลเมืองตัวอย่าง ตำบลในเมือง อำเภอเมือง จังหวัดตัวอย่าง',
+      budget: '48954000.00',
+    });
+  });
+
+  test('a sentence that begins with the word for the hirer is not a client', () => {
+    expect(collect(['ผู้ว่าจ้าง ตกลงจ่าย และผู้รับจ้างตกลงรับเงินค่าจ้างจำนวน']).details).toEqual({});
+    expect(collect(['ผู้ว่าจ้าง มีสิทธิบอกเลิกสัญญาได้']).details).toEqual({});
+    expect(collect(['ลูกค้า ชำระเงินภายใน 30 วัน']).details).toEqual({});
+    expect(collect(['ผู้ว่าจ้าง: ตกลงเอง']).details.clientName).toBe('ตกลงเอง');
+    expect(collect(['ผู้ว่าจ้าง บริษัท ตัวอย่าง จำกัด']).details.clientName).toBe('บริษัท ตัวอย่าง จำกัด');
+  });
+
+  test('the contractor is not taken as the client when the hirer is named second', () => {
+    const c = collect(['ระหว่าง บริษัท ผู้รับเหมา จำกัด โดย นายเอ ซึ่งต่อไปเรียกว่า "ผู้รับจ้าง" ฝ่ายหนึ่ง กับ เทศบาล ซึ่งต่อไปเรียกว่า "ผู้ว่าจ้าง" อีกฝ่ายหนึ่ง']);
+    expect(c.details.clientName).toBeUndefined();
+  });
+
+  test('a page whose only value is settled by the amount in words is not read again', () => {
+    const c = new ProjectDetailsCollector();
+    c.addPage(...scan(2, paymentPage));
+    expect(c.details).toEqual({ budget: '48954000.00' });
+    expect(c.scannedSourcePages).toEqual([]);
+    expect(read().scannedSourcePages).toEqual([1]);
+  });
+
+  test('when wording differs, the reading that lost no letters is kept whichever came first', () => {
+    const one = (name: string) => {
+      const c = new ProjectDetailsCollector();
+      c.addPage([`ชื่อโครงการ: ${name}`], { page: 1, scanned: true });
+      return c;
+    };
+    const whole = 'อาคารจังหวัดตัวอย่าง';
+    const damaged = 'อาคารงหวัดตัวอย่าง';
+    expect(reconcileReadings(one(whole), one(damaged)).details.name).toBe(whole);
+    expect(reconcileReadings(one(damaged), one(whole)).details.name).toBe(whole);
+  });
+
+  test('the budget from words is confirmed even though the digits are wrong on both readings', () => {
+    const r = reconcileReadings(read(), read());
+    expect(r.details.budget).toBe('48954000.00');
+    expect(r.confirmed).toContain('budget');
+  });
+
+  test('scanned Thai digits are never trusted, even when both readings agree', () => {
+    const lines = ['วันเริ่มสัญญา ๑๕ กันยายน ๒๕๒๕', 'วันสิ้นสุดสัญญา ๑๕ กันยายน ๒๕๒๖', 'งบประมาณ ๑๕,๐๐๐.๐๐', 'รหัสโครงการ: ๑๕-๐๐๑'];
+    const reading = () => {
+      const c = new ProjectDetailsCollector();
+      c.addPage(lines, { page: 1, scanned: true });
+      return c;
+    };
+    const r = reconcileReadings(reading(), reading());
+    expect(r.details).toEqual({});
+    expect(r.refused.map((f) => [f.field, f.thaiDigits])).toEqual([['code', true], ['startDate', true], ['endDate', true], ['budget', true]]);
+    expect(r.refused.every((f) => f.readings.length === 0)).toBe(true);
+  });
+
+  test('Thai digits typed into a real text PDF are exact, and arabic digits in a scan still compare as before', () => {
+    const c = new ProjectDetailsCollector();
+    c.addPage(['วันเริ่มสัญญา ๑๔ กันยายน ๒๕๖๙'], { page: 1, scanned: false });
+    expect(reconcileReadings(c, null)).toMatchObject({ details: { startDate: '2026-09-14' }, confirmed: ['startDate'] });
+    const scanned = () => {
+      const s = new ProjectDetailsCollector();
+      s.addPage(['วันเริ่มสัญญา 14/09/2026'], { page: 1, scanned: true });
+      return s;
+    };
+    expect(reconcileReadings(scanned(), scanned()).confirmed).toEqual(['startDate']);
+  });
+
+  test('the standard clause on when work starts and ends gives both dates', () => {
+    const c = collect(['ผู้รับจ้างต้องเริ่มทำงานที่รับจ้างภายในวันที่ 1 ตุลาคม 2569 และจะต้องทำงานให้แล้วเสร็จบริบูรณ์ภายในวันที่ 30 พฤศจิกายน 2570']);
+    expect(c.details).toMatchObject({ startDate: '2026-10-01', endDate: '2027-11-30' });
+  });
+});
+
+describe('amounts written in Thai words', () => {
+  test.each([
+    ['สี่สิบแปดล้านเก้าแสนห้าหมื่นสี่พันบาทถ้วน', '48954000.00'],
+    ['สองล้านสี่แสนสี่หมื่นเจ็ดพันเจ็ดร้อยบาทถ้วน', '2447700.00'],
+    ['สามล้านสองแสนสองพันห้าร้อยเก้าสิบแปดบาทสิบสามสตางค์', '3202598.13'],
+    ['หนึ่งร้อยเอ็ดบาทถ้วน', '101.00'],
+    ['ยี่สิบเอ็ดบาทถ้วน', '21.00'],
+    ['สิบบาทถ้วน', '10.00'],
+    ['หนึ่งร้อยล้านบาทถ้วน', '100000000.00'],
+    ['สีสิบแปดล้าน เก้าแสนห้าหมืนสีพันบาทถ้วน', '48954000.00'],
+  ])('%s', (words, amount) => {
+    expect(parseThaiAmount(words)).toBe(amount);
+  });
+
+  test('a misread word gives nothing rather than a wrong amount', () => {
+    expect(parseThaiAmount('สีสิบแปดลถ้านบาทถ้วน')).toBeNull();
+    expect(parseThaiAmount('ไม่ทราบบาทถ้วน')).toBeNull();
+    expect(parseThaiAmount('สี่สิบแปดล้าน')).toBeNull();
+    expect(parseThaiAmount('สองสามบาทถ้วน')).toBeNull();
+    expect(parseThaiAmount('ร้อยบาทถ้วน')).toBeNull();
+    expect(parseThaiAmount('')).toBeNull();
   });
 });
 
