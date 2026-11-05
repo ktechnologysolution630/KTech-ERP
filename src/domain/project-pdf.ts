@@ -36,8 +36,8 @@ const FIELD_LABELS: Record<ProjectPdfField, string[]> = {
   clientName: ['ชื่อลูกค้า', 'ลูกค้า', 'ผู้ว่าจ้าง', 'เจ้าของโครงการ', 'เจ้าของงาน', 'client', 'customer', 'owner'],
   projectGroup: ['กลุ่มโปรเจค', 'กลุ่มโปรเจกต์', 'กลุ่มโครงการ', 'ประเภทโครงการ', 'project group'],
   location: ['สถานที่ก่อสร้าง', 'สถานที่ตั้งโครงการ', 'ที่ตั้งโครงการ', 'สถานที่ตั้ง', 'สถานที่', 'ที่ตั้ง', 'location', 'site'],
-  startDate: ['วันเริ่มต้นสัญญา', 'วันที่เริ่มสัญญา', 'วันเริ่มสัญญา', 'เริ่มสัญญา', 'วันที่เริ่มงาน', 'วันเริ่มงาน', 'วันที่เริ่มต้น', 'วันเริ่มต้น', 'วันที่เริ่ม', 'วันเริ่ม', 'start date'],
-  endDate: ['วันสิ้นสุดสัญญา', 'วันที่สิ้นสุดสัญญา', 'สิ้นสุดสัญญา', 'วันที่สิ้นสุด', 'วันสิ้นสุด', 'กำหนดแล้วเสร็จ', 'วันแล้วเสร็จ', 'end date', 'finish date'],
+  startDate: ['วันเริ่มต้นสัญญา', 'วันที่เริ่มสัญญา', 'วันเริ่มสัญญา', 'เริ่มสัญญา', 'วันที่เริ่มงาน', 'วันเริ่มงาน', 'วันที่เริ่มต้น', 'วันเริ่มต้น', 'วันที่เริ่ม', 'วันเริ่ม', 'start date', 'เริ่มงาน', 'เริ่มต้น'],
+  endDate: ['วันสิ้นสุดสัญญา', 'วันที่สิ้นสุดสัญญา', 'สิ้นสุดสัญญา', 'วันที่สิ้นสุด', 'วันสิ้นสุด', 'กำหนดแล้วเสร็จ', 'วันแล้วเสร็จ', 'end date', 'finish date', 'สิ้นสุด'],
   budget: ['งบประมาณโครงการ', 'งบประมาณ', 'มูลค่าโครงการ', 'มูลค่าสัญญา', 'ราคาตามสัญญา', 'มูลค่างาน', 'วงเงิน', 'contract value', 'budget'],
   status: ['สถานะโครงการ', 'สถานะ', 'status'],
 };
@@ -195,7 +195,9 @@ export class ProjectDetailsCollector {
         FIELD_LABELS[field].some((label, rank) => {
           const known = this.found.get(field);
           if (known && known.rank <= rank) return true;
-          const m = new RegExp(`(?:^|\\s)${labelPattern(label)}(?=[\\s:：]|$)`, 'i').exec(line);
+          // A scan often garbles the first letters of a line. Dates can do without the boundary, since a real date must still follow
+          const start = field === 'startDate' || field === 'endDate' ? '' : '(?:^|\\s)';
+          const m = new RegExp(`${start}${labelPattern(label)}(?=[\\s:：]|$)`, 'i').exec(line);
           if (!m) return false;
           const value = cleanValue(field, valueAfter(normalized, index, line.slice(m.index + m[0].length)));
           if (!value) return false;
@@ -220,8 +222,8 @@ export class ProjectDetailsCollector {
   }
 
   /** Project details sit together near the front; after that, a long file only offers false matches. */
-  get canStop(): boolean {
-    return this.found.size > 0 && this.pagesWithoutNews >= 20;
+  canStop(pagesWithoutNews: number): boolean {
+    return this.found.size > 0 && this.pagesWithoutNews >= pagesWithoutNews;
   }
 
   /** The file lost some tone marks and they were filled in by best guess, so names need a closer look. */

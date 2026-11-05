@@ -93,6 +93,36 @@ describe('project details from a PDF', () => {
     expect(collect(['ชื่อโครงการ: ปกติ']).toneMarksGuessed).toBe(false);
   });
 
+  test('what OCR read from a scanned contract gives its fields, despite garbled letters', () => {
+    // These lines are what the OCR engine returned for a scanned Thai contract
+    const { details } = collect([
+      'Qs',
+      'งัญญาจ้างเหมาก่อสร้าง',
+      'สัญญาเลขที 12/2569 ทําขึนระหว่างคู่สัญญาดังต่อไปนี',
+      'ชือโครงการ: ก่อสร้างอาคารสํานักงานใหญ่ พระราม 9                 รหัสโครงการ: K69-777',
+      'ผู้ว่าจ้าง: บริษัท สยามพัฒนาการก่อสร้าง จํากัด                      กลุ่มโครงการ: โครงการภาคกลาง',
+      'สถานทีก่อสร้าง: ถนนพระราม 9 แขวงห้วยขวาง กรุงเทพมหานคร',
+      '็นเริ่มสัญญา 4 พฤศจิกายน 2569',
+      'วันสินสุดสัญญา 29 มีนาคม 2570',
+      'มูลค่าสัญญา 19,454,000.00 บาท (สิบเก้าล้านสี่แสนห้าหมื่นสี่พันบาทถ้วน)',
+      'เร้บจ้างตกลงรับจ้างทํางานตามแบบรูปรายการ เบอร์โทร 081-234-5678 เลขผู้เสียภาษี 0105551234567',
+    ]);
+    expect(details).toEqual({
+      name: 'ก่อสร้างอาคารสำนักงานใหญ่ พระราม 9',
+      code: 'K69-777',
+      clientName: 'บริษัท สยามพัฒนาการก่อสร้าง จำกัด',
+      projectGroup: 'โครงการภาคกลาง',
+      location: 'ถนนพระราม 9 แขวงห้วยขวาง กรุงเทพมหานคร',
+      startDate: '2026-11-04',
+      endDate: '2027-03-29',
+      budget: '19454000.00',
+    });
+  });
+
+  test('a date label inside a word still needs a real date after it', () => {
+    expect(collect(['การเริ่มต้นงานจะแจ้งให้ทราบ', 'ผลสิ้นสุด ตามที่ตกลง']).details).toEqual({});
+  });
+
   test('a lost mark is filled in by word, and เมื่อ is not mistaken for มื้อ', () => {
     expect(normalizeLine('ที\u0000 ชื\u0000อ สิ\u0000น นี\u0000 ซื\u0000อ เมื\u0000อ เรื\u0000อง')).toBe('ที่ ชื่อ สิ้น นี้ ซื้อ เมื่อ เรื่อง');
   });
@@ -104,11 +134,11 @@ describe('project details from a PDF', () => {
   test('stops only once something was found and many pages since added nothing', () => {
     const c = new ProjectDetailsCollector();
     for (let i = 0; i < 25; i++) c.addPage(['แบบก่อสร้าง']);
-    expect(c.canStop).toBe(false);
+    expect(c.canStop(20)).toBe(false);
     c.addPage(['ชื่อโครงการ: ทดสอบ']);
-    expect(c.canStop).toBe(false);
+    expect(c.canStop(20)).toBe(false);
     for (let i = 0; i < 20; i++) c.addPage(['แบบก่อสร้าง']);
-    expect(c.canStop).toBe(true);
+    expect(c.canStop(20)).toBe(true);
   });
 });
 

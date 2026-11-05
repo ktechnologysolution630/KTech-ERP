@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-ocr-assets.js",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-ocr-assets.js",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
@@ -15,6 +17,8 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.2.17",
     "@react-pdf/renderer": "^4.3.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/tha": "1.0.0",
     "@vercel/blob": "^1.0.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
@@ -31,6 +35,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.2.0",
+    "tesseract.js": "5.1.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {

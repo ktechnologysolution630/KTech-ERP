@@ -14,6 +14,8 @@ interface CreateProjectDialogProps {
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_BYTES = 4 * 1024 * 1024;
+const TEXT_PAGES_WITHOUT_NEWS = 20;
+const SCAN_PAGES_WITHOUT_NEWS = 5;
 
 /** Bordered box with the label inside, above the control. */
 function Field({
@@ -99,30 +101,39 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
     pdfRead.current = read;
     const collector = new ProjectDetailsCollector();
     let sawText = false;
+    let sawScan = false;
     try {
       const { readPdfText } = await import('@/lib/read-pdf-text');
       await readPdfText(
         file,
-        (lines, page, pages) => {
+        (lines, { page, pages, scanned }) => {
           sawText ||= lines.length > 0;
+          sawScan ||= scanned;
           collector.addPage(lines);
-          setPdfProgress(`กำลังอ่านหน้า ${page.toLocaleString()} จาก ${pages.toLocaleString()}`);
-          return collector.canStop;
+          setPdfProgress(`${scanned ? 'กำลังอ่านภาพสแกน' : 'กำลังอ่าน'}หน้า ${page.toLocaleString()} จาก ${pages.toLocaleString()}`);
+          // Each scanned page takes seconds, so a scan is given up on sooner
+          return collector.canStop(sawScan ? SCAN_PAGES_WITHOUT_NEWS : TEXT_PAGES_WITHOUT_NEWS);
         },
         read.signal,
       );
       const filled = applyPdfDetails(collector.details);
       if (filled.length > 0) {
-        setPdfResult(`กรอกให้ ${filled.length} ช่อง: ${filled.map((f) => PROJECT_PDF_FIELD_LABELS[f]).join(', ')} กรุณาตรวจสอบก่อนกดสร้าง${collector.toneMarksGuessed ? ' (ไฟล์นี้เก็บวรรณยุกต์บางตัวไม่ครบ ระบบเติมให้ตามคำที่พบบ่อย โปรดตรวจการสะกดด้วย)' : ''}`);
+        setPdfResult(`กรอกให้ ${filled.length} ช่อง: ${filled.map((f) => PROJECT_PDF_FIELD_LABELS[f]).join(', ')} กรุณาตรวจสอบก่อนกดสร้าง${sawScan ? ' (อ่านจากภาพสแกน ตัวสะกดและตัวเลขอาจผิด โปรดเทียบกับเอกสาร)' : collector.toneMarksGuessed ? ' (ไฟล์นี้เก็บวรรณยุกต์บางตัวไม่ครบ ระบบเติมให้ตามคำที่พบบ่อย โปรดตรวจการสะกดด้วย)' : ''}`);
       } else if (Object.keys(collector.details).length > 0) {
         setPdfResult('พบข้อมูลในไฟล์ แต่ช่องเหล่านั้นกรอกไว้แล้ว จึงไม่ได้เปลี่ยน');
       } else if (!read.signal.aborted) {
-        setError(sawText ? 'ไม่พบข้อมูลโครงการในไฟล์นี้ กรุณากรอกเอง' : 'ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็นไฟล์สแกน กรุณากรอกเอง');
+        setError(sawText ? 'ไม่พบข้อมูลโครงการในไฟล์นี้ กรุณากรอกเอง' : 'ไม่พบตัวอักษรในไฟล์นี้ กรุณากรอกเอง');
       }
     } catch (err) {
       console.error(err);
-      const password = err instanceof Error && err.message === 'PASSWORD';
-      setError(password ? 'ไฟล์นี้ตั้งรหัสผ่านไว้ จึงอ่านไม่ได้' : 'เปิดไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็นไฟล์ PDF ที่สมบูรณ์');
+      const reason = err instanceof Error ? err.message : '';
+      setError(
+        reason === 'PASSWORD'
+          ? 'ไฟล์นี้ตั้งรหัสผ่านไว้ จึงอ่านไม่ได้'
+          : reason === 'OCR'
+            ? 'อ่านภาพสแกนไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
+            : 'เปิดไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็นไฟล์ PDF ที่สมบูรณ์',
+      );
     } finally {
       setPdfProgress(null);
       pdfRead.current = null;
