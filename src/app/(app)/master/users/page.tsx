@@ -9,7 +9,7 @@ export default async function UsersMasterPage() {
   if (!can(actor, 'users.manage')) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
-        หน้านี้สำหรับผู้ดูแลระบบหรือเจ้าของเท่านั้น
+        หน้านี้สำหรับผู้ดูแลระบบเท่านั้น
       </div>
     );
   }

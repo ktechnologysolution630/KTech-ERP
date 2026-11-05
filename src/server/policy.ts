@@ -201,7 +201,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'ADMIN', 'OWNER']);
     }
     case 'users.manage': {
-      return hasRole(u, ['ADMIN', 'OWNER']);
+      return hasRole(u, ['ADMIN']);
     }
     case 'settings.manage': {
       return hasRole(u, ['ADMIN', 'OWNER']);

@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
-import { isMenuSection, MENU_SECTION_LABELS } from '@/domain/menu';
+import { isMenuKey, MENU_LABELS } from '@/domain/menu';
 
 export default async function NoAccessPage({ searchParams }: { searchParams: Promise<{ menu?: string }> }) {
   const { menu } = await searchParams;
-  const label = isMenuSection(menu) ? MENU_SECTION_LABELS[menu] : null;
+  const label = isMenuKey(menu) ? MENU_LABELS[menu] : null;
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="max-w-md space-y-3 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-xs">

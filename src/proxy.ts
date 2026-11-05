@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { isMenuSection, menuSectionForPath, type MenuSection } from '@/domain/menu';
+import { blockedMenuFor, isMenuKey, menuKeysForPath, type MenuKey } from '@/domain/menu';
 import { loginUrlFor, RETURN_PATH_HEADER } from '@/lib/return-path';
 import { SESSION_COOKIE_NAME } from '@/server/auth/session';
 
@@ -10,7 +10,7 @@ const MENU_CHECK_TIMEOUT_MS = 3000;
  * development that would mean a second copy of PGlite on the same files. Over loopback first, which stays off the
  * public network; through the site's own address if the server is not listening there.
  */
-async function hiddenMenusFor(req: NextRequest): Promise<MenuSection[]> {
+async function hiddenMenusFor(req: NextRequest): Promise<MenuKey[]> {
   const origins = [process.env.PORT ? `http://127.0.0.1:${process.env.PORT}` : null, req.nextUrl.origin].filter((o): o is string => o !== null);
   for (const origin of origins) {
     try {
@@ -20,7 +20,7 @@ async function hiddenMenusFor(req: NextRequest): Promise<MenuSection[]> {
       });
       if (!res.ok) continue;
       const { hiddenMenus } = (await res.json()) as { hiddenMenus: unknown[] };
-      return hiddenMenus.filter(isMenuSection);
+      return hiddenMenus.filter(isMenuKey);
     } catch {
       // Tried again below, or given up on
     }
@@ -51,13 +51,14 @@ export async function proxy(req: NextRequest) {
   }
 
   // Checked here because every request passes through: a layout does not run again when moving between pages
-  const section = menuSectionForPath(pathname);
-  if (section && (await hiddenMenusFor(req)).includes(section)) {
+  const tab = req.nextUrl.searchParams.get('tab');
+  const blocked = menuKeysForPath(pathname, tab).length > 0 ? blockedMenuFor(await hiddenMenusFor(req), pathname, tab) : null;
+  if (blocked) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'บัญชีนี้ไม่ได้เปิดใช้เมนูนี้', code: 'MENU_HIDDEN' }, { status: 403 });
     }
     // 303 so a blocked form post arrives as an ordinary page view
-    return NextResponse.redirect(new URL(`/no-access?menu=${section}`, req.url), 303);
+    return NextResponse.redirect(new URL(`/no-access?menu=${blocked}`, req.url), 303);
   }
 
   const headers = new Headers(req.headers);

@@ -105,8 +105,14 @@ describe('master service', () => {
     await upsertUser(db, f.users.admin, { ...base, id: created.id, hiddenMenus: [] });
     expect((await loadSessionUserById(db, created.id))?.hiddenMenus).toEqual([]);
 
+    // Sub-menus are kept one by one
+    await upsertUser(db, f.users.admin, { ...base, id: created.id, hiddenMenus: ['PUR_PO', 'STOCK_ALL'] });
+    expect((await loadSessionUserById(db, created.id))?.hiddenMenus).toEqual(['PUR_PO', 'STOCK_ALL']);
+
     // Only known sections, and only people who manage users
     await expect(upsertUser(db, f.users.admin, { ...base, id: created.id, hiddenMenus: ['NOPE' as never] })).rejects.toMatchObject({ code: 'INVALID_USER' });
+    await expect(upsertUser(db, f.users.owner, { ...base, id: created.id, hiddenMenus: [] })).rejects.toMatchObject({ status: 403 });
+    await expect(listUsersWithRoles(db, f.users.owner)).rejects.toMatchObject({ status: 403 });
     await expect(upsertUser(db, f.users.pm, { ...base, id: created.id, hiddenMenus: [] })).rejects.toMatchObject({ status: 403 });
   });
 

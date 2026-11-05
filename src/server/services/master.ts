@@ -26,7 +26,7 @@ import {
   type SessionUser,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { MENU_SECTIONS, type MenuSection } from '@/domain/menu';
+import { MENU_KEYS, type MenuKey } from '@/domain/menu';
 import { D, WHT_RATES } from '@/domain/money';
 import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
 import { hashPassword } from '@/server/auth/password';
@@ -641,11 +641,12 @@ const userSchema = z.object({
   projectIds: z.array(z.string().uuid()).default([]),
   active: z.boolean().default(true),
   /** Left out, an existing user's choice stays as it is */
-  hiddenMenus: z.array(z.enum(MENU_SECTIONS)).optional(),
+  hiddenMenus: z.array(z.enum(MENU_KEYS)).optional(),
 });
 export type UserInput = z.input<typeof userSchema>;
 
-const ADMIN_ROLES: Role[] = ['ADMIN', 'OWNER'];
+/** Only administrators manage users, so these are the accounts that must never run out. */
+const ADMIN_ROLES: Role[] = ['ADMIN'];
 
 /** At least one active user must keep the ability to manage users, or nobody can fix accounts. */
 async function assertUserManagerRemains(tx: Db, excludingUserId: string) {
@@ -656,7 +657,7 @@ async function assertUserManagerRemains(tx: Db, excludingUserId: string) {
     .where(and(eq(users.active, true), inArray(userRoles.role, ADMIN_ROLES), sql`${users.id} <> ${excludingUserId}`))
     .limit(1);
   if (!row) {
-    throw new DomainError('LAST_ADMIN', 'ต้องมีผู้ดูแลระบบหรือเจ้าของที่ใช้งานได้อย่างน้อย 1 คน', 409);
+    throw new DomainError('LAST_ADMIN', 'ต้องมีผู้ดูแลระบบที่ใช้งานได้อย่างน้อย 1 คน', 409);
   }
 }
 
@@ -775,7 +776,7 @@ export interface UserRowDto {
   active: boolean;
   roles: Role[];
   projectIds: string[];
-  hiddenMenus: MenuSection[];
+  hiddenMenus: MenuKey[];
 }
 
 /** User list for administrators; the password hash never leaves the server. */

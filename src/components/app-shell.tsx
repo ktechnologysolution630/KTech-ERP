@@ -31,7 +31,7 @@ import {
   Layers,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
-import type { MenuSection } from '@/domain/menu';
+import { isMenuVisible, type MenuKey } from '@/domain/menu';
 import { logoutAction } from '@/app/login/actions';
 
 interface AppShellProps {
@@ -47,13 +47,13 @@ interface AppShellProps {
 }
 
 /** Receivables (ฝั่งขาย) pages in the finance menu */
-const AR_LINKS = [
-  { href: '/ar/customers', label: 'ลูกค้า' },
-  { href: '/ar/invoices', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)' },
-  { href: '/ar/receivables', label: 'ลูกหนี้' },
-  { href: '/ar/output-vat', label: 'ภาษีขาย' },
-  { href: '/advances', label: 'เงินทดรองจ่าย' },
-  { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ' },
+const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
+  { href: '/ar/customers', label: 'ลูกค้า', menu: 'FIN_CUSTOMERS' },
+  { href: '/ar/invoices', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)', menu: 'FIN_AR_INVOICES' },
+  { href: '/ar/receivables', label: 'ลูกหนี้', menu: 'FIN_RECEIVABLES' },
+  { href: '/ar/output-vat', label: 'ภาษีขาย', menu: 'FIN_OUTPUT_VAT' },
+  { href: '/advances', label: 'เงินทดรองจ่าย', menu: 'FIN_ADVANCES' },
+  { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ', menu: 'FIN_RECEIPT_SUBSTITUTES' },
 ];
 
 export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {
@@ -87,7 +87,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
     return pathname === '/labor-payments' && (currentTab === tabKey || (!searchParams.get('tab') && tabKey === 'payment-milestones'));
   };
 
-  const canSee = (section: MenuSection) => !user.hiddenMenus.includes(section);
+  const canSee = (key: MenuKey) => isMenuVisible(user.hiddenMenus, key);
 
   const displayName = user.name;
   const displayEmail = user.email;
@@ -290,6 +290,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openStock && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {canSee('STOCK_OVERVIEW') && (
                     <Link
                       href="/stock?tab=overview"
                       prefetch={false}
@@ -302,7 +303,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
                       <span>ภาพรวมสต็อก</span>
                     </Link>
+                    )}
 
+                    {canSee('STOCK_MOVEMENTS') && (
                     <Link
                       href="/stock?tab=movements"
                       prefetch={false}
@@ -315,7 +318,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>รายการเคลื่อนไหวล่าสุด</span>
                     </Link>
+                    )}
 
+                    {canSee('STOCK_LOW') && (
                     <Link
                       href="/stock?tab=low-stock"
                       prefetch={false}
@@ -328,7 +333,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                       <span>แจ้งเตือนวัสดุใกล้หมด</span>
                     </Link>
+                    )}
 
+                    {canSee('STOCK_ISSUES') && (
                     <Link
                       href="/stock?tab=issues"
                       prefetch={false}
@@ -341,7 +348,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                       <span>รายงานความเคลื่อนไหวสินค้า</span>
                     </Link>
+                    )}
 
+                    {canSee('STOCK_USAGE') && (
                     <Link
                       href="/stock?tab=material-usage"
                       prefetch={false}
@@ -354,7 +363,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>บันทึกการใช้วัสดุ</span>
                     </Link>
+                    )}
 
+                    {canSee('STOCK_ALL') && (
                     <Link
                       href="/stock?tab=all-stock"
                       prefetch={false}
@@ -367,6 +378,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <Layers className="w-3.5 h-3.5 shrink-0" />
                       <span>สต็อกทั้งหมด</span>
                     </Link>
+                    )}
                   </div>
                 )}
               </div>
@@ -399,6 +411,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openPurchasing && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {canSee('PUR_OVERVIEW') && (
                     <Link
                       href="/purchasing"
                       prefetch={false}
@@ -411,6 +424,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                       <span>รายงานสรุปการจัดซื้อ...</span>
                     </Link>
+                    )}
+                    {canSee('PUR_OVERVIEW') && (
                     <Link
                       href="/purchasing"
                       prefetch={false}
@@ -423,6 +438,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
                       <span>ภาพรวมจัดซื้อ</span>
                     </Link>
+                    )}
+                    {canSee('PUR_PR') && (
                     <Link
                       href="/pr"
                       prefetch={false}
@@ -435,6 +452,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบขอซื้อ PR</span>
                     </Link>
+                    )}
+                    {canSee('PUR_PO') && (
                     <Link
                       href="/po"
                       prefetch={false}
@@ -447,6 +466,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบสั่งซื้อ PO</span>
                     </Link>
+                    )}
+                    {canSee('PUR_APPROVE') && (
                     <Link
                       href="/purchasing/approve"
                       prefetch={false}
@@ -459,6 +480,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                       <span>อนุมัติจัดซื้อ</span>
                     </Link>
+                    )}
+                    {canSee('PUR_AP') && (
                     <Link
                       href="/purchasing/ap"
                       prefetch={false}
@@ -471,6 +494,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <Receipt className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบ AP</span>
                     </Link>
+                    )}
+                    {canSee('PUR_VENDORS') && (
                     <Link
                       href="/purchasing/vendors"
                       prefetch={false}
@@ -483,6 +508,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <Users className="w-3.5 h-3.5 shrink-0" />
                       <span>ซัพพลายเออร์</span>
                     </Link>
+                    )}
+                    {canSee('PUR_RECEIVE') && (
                     <Link
                       href="/receive"
                       prefetch={false}
@@ -495,6 +522,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <Package className="w-3.5 h-3.5 shrink-0" />
                       <span>รอรับสินค้า</span>
                     </Link>
+                    )}
                   </div>
                 )}
               </div>
@@ -527,6 +555,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openLabor && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {canSee('LABOR_PAY') && (
                     <Link
                       href="/labor-payments?tab=payment-milestones"
                       prefetch={false}
@@ -539,7 +568,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
                       <span>แผนงวดงานจ่าย</span>
                     </Link>
+                    )}
 
+                    {canSee('LABOR_RECEIVE') && (
                     <Link
                       href="/labor-payments?tab=receive-milestones"
                       prefetch={false}
@@ -552,7 +583,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
                       <span>แผนงวดงานรับ</span>
                     </Link>
+                    )}
 
+                    {canSee('LABOR_REPORT') && (
                     <Link
                       href="/labor-payments?tab=milestones"
                       prefetch={false}
@@ -565,7 +598,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>รายงาน</span>
                     </Link>
+                    )}
 
+                    {canSee('LABOR_CONTRACTORS') && (
                     <Link
                       href="/labor-payments/contractors"
                       prefetch={false}
@@ -578,7 +613,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <Users className="w-3.5 h-3.5 shrink-0" />
                       <span>ผู้รับเหมาและทีมงาน</span>
                     </Link>
+                    )}
 
+                    {canSee('LABOR_PRV') && (
                     <Link
                       href="/prv"
                       prefetch={false}
@@ -591,7 +628,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบสั่งจ่ายเงิน (PRV)</span>
                     </Link>
+                    )}
 
+                    {canSee('LABOR_PAYABLES') && (
                     <Link
                       href="/payables"
                       prefetch={false}
@@ -604,6 +643,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <Receipt className="w-3.5 h-3.5 shrink-0" />
                       <span>คิวตั้งจ่าย</span>
                     </Link>
+                    )}
                   </div>
                 )}
               </div>
@@ -642,7 +682,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openFinance && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
-                    {AR_LINKS.map((l) => (
+                    {AR_LINKS.filter((l) => canSee(l.menu)).map((l) => (
                       <Link
                         key={l.href}
                         href={l.href}
@@ -657,6 +697,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                         <span>{l.label}</span>
                       </Link>
                     ))}
+                    {canSee('FIN_AP_INVOICES') && (
                     <Link
                       href="/invoices"
                       prefetch={false}
@@ -669,6 +710,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบแจ้งหนี้ผู้ขาย (AP)</span>
                     </Link>
+                    )}
+                    {canSee('FIN_PV') && (
                     <Link
                       href="/pv"
                       prefetch={false}
@@ -681,6 +724,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบสำคัญจ่าย (PV)</span>
                     </Link>
+                    )}
+                    {canSee('FIN_EXPORTS') && (
                     <Link
                       href="/exports"
                       prefetch={false}
@@ -693,6 +738,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                       <span>รายงาน/50 ทวิ</span>
                     </Link>
+                    )}
+                    {canSee('FIN_ASSETS') && (
                     <Link
                       href="/assets"
                       prefetch={false}
@@ -705,6 +752,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
                       <span>ตรวจเช็คทรัพย์สิน</span>
                     </Link>
+                    )}
                   </div>
                 )}
               </div>
@@ -737,6 +785,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openAfterService && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {canSee('AS_HANDOVER') && (
                     <Link
                       href="/handover"
                       prefetch={false}
@@ -745,6 +794,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ส่งมอบโครงการ</span>
                     </Link>
+                    )}
+                    {canSee('AS_WARRANTY') && (
                     <Link
                       href="/warranty"
                       prefetch={false}
@@ -753,6 +804,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบรับประกันผลงาน</span>
                     </Link>
+                    )}
                   </div>
                 )}
               </div>
