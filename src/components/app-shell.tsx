@@ -109,7 +109,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
       >
         {/* Brand / Logo Header */}
         <div className="h-14 border-b border-slate-200 px-3.5 flex items-center justify-between shrink-0">
-          <Link href="/dashboard" prefetch={false} className="flex items-center gap-2.5 overflow-hidden">
+          <Link href={canSee('DASHBOARD') ? '/dashboard' : '/inbox'} prefetch={false} className="flex items-center gap-2.5 overflow-hidden">
             <div className="w-8 h-8 rounded-lg bg-[#2453d4] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm shadow-blue-500/20">
               KT
             </div>

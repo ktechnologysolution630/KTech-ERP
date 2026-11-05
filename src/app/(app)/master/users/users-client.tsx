@@ -219,7 +219,7 @@ function UserDialog({
             </div>
           </div>
           <div>
-            <span className="block text-xs font-medium text-slate-700 mb-1">เมนูที่มองเห็น (ติ๊กออกเพื่อซ่อนจากแถบเมนูของผู้ใช้นี้)</span>
+            <span className="block text-xs font-medium text-slate-700 mb-1">เมนูที่ใช้งานได้ (ติ๊กออกเพื่อซ่อนเมนูและบล็อกหน้าของเมนูนั้นสำหรับผู้ใช้นี้)</span>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {MENU_SECTIONS.map((m) => (
                 <label key={m} className="inline-flex items-center gap-1.5 text-xs text-slate-700">
