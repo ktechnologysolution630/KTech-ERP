@@ -41,6 +41,8 @@ interface AppShellProps {
   companyName: string;
   /** Documents waiting on this user; null hides the menu from users who approve nothing */
   pendingApprovalCount?: number | null;
+  canManageUsers?: boolean;
+  canManageSettings?: boolean;
   children: React.ReactNode;
 }
 
@@ -54,7 +56,7 @@ const AR_LINKS = [
   { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ' },
 ];
 
-export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, children }: AppShellProps) {
+export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
@@ -757,6 +759,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
               )}
 
               {/* Master Data & Admin */}
+              {canManageUsers && (
               <Link
                 href="/master/users"
                 prefetch={false}
@@ -773,8 +776,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Users</span>}
               </Link>
+              )}
 
-
+              {canManageSettings && (
               <Link
                 href="/settings"
                 prefetch={false}
@@ -791,6 +795,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Settings</span>}
               </Link>
+              )}
 
             </div>
           </div>

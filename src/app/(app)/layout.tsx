@@ -1,5 +1,6 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { isApprover, listPendingApprovals } from '@/server/services/approvals';
 import { checkAssetsDueOncePerDay } from '@/server/services/assets';
 import { countUnreadNotifications } from '@/server/services/notifications';
@@ -22,7 +23,14 @@ export default async function AuthenticatedLayout({
   ]);
 
   return (
-    <AppShell user={user} unreadCount={unreadCount} companyName={settings.companyName} pendingApprovalCount={showApprovals ? pendingApprovals.length : null}>
+    <AppShell
+      user={user}
+      unreadCount={unreadCount}
+      companyName={settings.companyName}
+      pendingApprovalCount={showApprovals ? pendingApprovals.length : null}
+      canManageUsers={can(user, 'users.manage')}
+      canManageSettings={can(user, 'settings.manage')}
+    >
       {children}
     </AppShell>
   );
