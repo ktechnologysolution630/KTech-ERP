@@ -13,6 +13,7 @@ import {
   removeAdvanceExpenseAction,
   type AdvResult,
 } from '../actions';
+import { DateInput } from '@/components/date-input';
 
 const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
 
@@ -150,7 +151,7 @@ export function AdvanceActions({
             <fieldset disabled={isPending} className="grid grid-cols-2 gap-2">
               <label>
                 <span className="block text-slate-600">วันที่จ่าย</span>
-                <input type="date" value={expense.spentOn} onChange={(e) => setExpense({ ...expense, spentOn: e.target.value })} className={`${inputClass} font-mono`} />
+                <DateInput value={expense.spentOn} onChange={(e) => setExpense({ ...expense, spentOn: e.target.value })} className={`${inputClass} font-mono`} />
               </label>
               <label>
                 <span className="block text-slate-600">จำนวนเงิน</span>

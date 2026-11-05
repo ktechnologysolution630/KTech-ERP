@@ -21,6 +21,7 @@ import {
   rejectPvAction,
   submitPvAction,
 } from '../actions';
+import { DateInput } from '@/components/date-input';
 
 export default async function PvDetailPage({
   params,
@@ -230,8 +231,7 @@ export default async function PvDetailPage({
               <label className="block font-medium text-slate-700 mb-1">
                 วันที่จ่ายเงิน *
               </label>
-              <input
-                type="date"
+              <DateInput
                 name="paidAt"
                 defaultValue={today}
                 required

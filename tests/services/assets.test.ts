@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { assetCheckState, computeDepreciation, hasProblem, inspectionDue, nextInspectionDate, parseImportDate } from '@/domain/asset';
+import { assetCheckState, computeDepreciation, hasProblem, inspectionDue, nextInspectionDate } from '@/domain/asset';
 import { bangkokDateString } from '@/domain/thai';
 import { addAttachment } from '@/server/services/attachments';
 import { confirmAssetCheck, createAsset, listAssets, listInspections, notifyAssetsDue, recordInspection, updateAsset } from '@/server/services/assets';
@@ -59,16 +59,6 @@ describe('depreciation', () => {
   test('not depreciated without a useful life or a purchase date', () => {
     expect(computeDepreciation({ ...machine, usefulLifeYears: null }, '2026-01-01')).toBeNull();
     expect(computeDepreciation({ ...machine, purchaseDate: null }, '2026-01-01')).toBeNull();
-  });
-});
-
-describe('import dates', () => {
-  test('reads either format and either calendar, refusing impossible dates', () => {
-    expect(parseImportDate('2026-11-04')).toBe('2026-11-04');
-    expect(parseImportDate('4/11/2026')).toBe('2026-11-04');
-    expect(parseImportDate('4/11/2569')).toBe('2026-11-04');
-    expect(parseImportDate('31/2/2026')).toBeNull();
-    expect(parseImportDate('พฤศจิกายน')).toBeNull();
   });
 });
 

@@ -8,6 +8,7 @@ import { HANDOVER_STATUSES, HANDOVER_STATUS_LABELS, type HandoverStatus } from '
 import { PROJECT_STATUS_LABELS } from '@/domain/project';
 import type { HandoverRow } from '@/server/services/handover';
 import { saveHandoverAction } from './actions';
+import { DateInput } from '@/components/date-input';
 
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:border-blue-600 focus:outline-none';
 const thaiDate = (iso: string) => {
@@ -89,7 +90,7 @@ function HandoverDialog({ row, today, onClose }: { row: HandoverRow; today: stri
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-1">
               <span className="text-xs font-semibold text-slate-700">{status === 'SCHEDULED' ? 'วันนัดส่งมอบ' : 'วันที่ส่งมอบ'}</span>
-              <input type="date" required disabled={locked} value={handoverDate} onChange={(e) => setHandoverDate(e.target.value)} className={field} />
+              <DateInput required disabled={locked} value={handoverDate} onChange={(e) => setHandoverDate(e.target.value)} className={field} />
             </label>
             <label className="block space-y-1">
               <span className="text-xs font-semibold text-slate-700">ผู้ตรวจรับ (ลูกค้า){status === 'ACCEPTED' ? ' *' : ''}</span>

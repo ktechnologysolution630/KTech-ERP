@@ -3,6 +3,7 @@ import { bangkokDateString } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { listPos } from '@/server/services/po';
 import { createInvoiceAction } from '../actions';
+import { DateInput } from '@/components/date-input';
 
 export default async function NewInvoicePage({
   searchParams,
@@ -79,8 +80,7 @@ export default async function NewInvoicePage({
             <label className="block text-xs font-medium text-slate-700 mb-1">
               วันที่เอกสาร *
             </label>
-            <input
-              type="date"
+            <DateInput
               name="invoiceDate"
               defaultValue={today}
               required
@@ -122,8 +122,7 @@ export default async function NewInvoicePage({
             <label className="block text-xs font-medium text-slate-700 mb-1">
               วันครบกำหนดชำระ (เว้นว่างให้คำนวณตามเครดิต)
             </label>
-            <input
-              type="date"
+            <DateInput
               name="dueDate"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
             />

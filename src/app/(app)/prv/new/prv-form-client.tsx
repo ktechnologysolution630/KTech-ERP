@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Receipt, Trash2 } from 'lucide-react';
 import { computePrvTotals, PRV_CATEGORY_LABELS, PRV_NEW_CATEGORIES } from '@/domain/prv';
 import { bangkokDateString } from '@/domain/thai';
 import { createPrvAction } from '../actions';
+import { DateInput } from '@/components/date-input';
 
 interface LineItem {
   description: string;
@@ -146,7 +147,7 @@ export function PrvFormClient({
               )}
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">วันที่เอกสาร</span>
-                <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={field} />
+                <DateInput required value={date} onChange={(e) => setDate(e.target.value)} className={field} />
               </label>
             </div>
 

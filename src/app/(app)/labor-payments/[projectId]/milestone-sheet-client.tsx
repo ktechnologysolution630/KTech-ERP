@@ -22,6 +22,7 @@ import {
   type MilestoneActionResult,
 } from '../actions';
 import { invoiceFromMilestoneAction } from '@/app/(app)/ar/actions';
+import { DateInput } from '@/components/date-input';
 
 interface Props {
   sheet: MilestoneSheet;
@@ -440,9 +441,8 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
                 </div>
                 <div>
                   <label htmlFor="ms-date" className="block font-medium text-slate-700 mb-1">วันที่ตามแผน</label>
-                  <input
+                  <DateInput
                     id="ms-date"
-                    type="date"
                     value={dialog.form.plannedDate ?? ''}
                     onChange={(e) => setField('plannedDate', e.target.value || null)}
                     className={`${inputClass} font-mono`}

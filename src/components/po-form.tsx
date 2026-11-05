@@ -9,6 +9,7 @@ import {
   type InstallmentRowState,
 } from '@/components/installment-editor';
 import { createPoAction, updatePoAction } from '@/app/(app)/po/actions';
+import { DateInput } from '@/components/date-input';
 
 export interface OrderablePrLineOption {
   id: string;
@@ -542,8 +543,7 @@ export function PoForm({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">กำหนดส่งของ</label>
-          <input
-            type="date"
+          <DateInput
             value={deliveryDate}
             onChange={(e) => setDeliveryDate(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs"

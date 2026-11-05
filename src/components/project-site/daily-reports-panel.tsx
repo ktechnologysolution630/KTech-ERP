@@ -16,6 +16,7 @@ import {
 } from '@/app/(app)/projects/[id]/site-actions';
 import { A4Page, Band, Logo, PrintRoot, ReportPhoto } from './report-sheet';
 import { replacePhotoFile, uploadFile, useSiteLoader } from './use-site-loader';
+import { DateInput } from '@/components/date-input';
 
 const WEATHER: Record<DailyWeather, string> = { SUNNY: 'แดด', CLOUDY: 'เมฆครึ้ม', RAIN: 'ฝนตก', HEAVY_RAIN: 'ฝนตกหนัก', OTHER: 'อื่นๆ' };
 const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-[#2453d4] focus:outline-none bg-white disabled:bg-slate-50';
@@ -476,7 +477,7 @@ const duration = form ? projectDuration(project.startDate, project.endDate, form
               <section className="grid grid-cols-[110px_minmax(0,1fr)] border border-b-0 border-[#173a7a] sm:grid-cols-[140px_minmax(0,1fr)_140px_minmax(0,190px)]">
                 <div className="col-span-2 flex items-center justify-center bg-[#173a7a] px-2 py-2 font-bold text-white">รายละเอียดโครงการ (Project Detail)</div>
                 <DetailCells label="วันที่ (Date)">
-                  <input type="date" required max={today} aria-label="วันที่รายงาน" value={form.reportDate} onChange={(e) => set('reportDate', e.target.value)} className={plainInput} />
+                  <DateInput required max={today} aria-label="วันที่รายงาน" value={form.reportDate} onChange={(e) => set('reportDate', e.target.value)} className={plainInput} />
                 </DetailCells>
                 <DetailCells label="ชื่อโครงการ (Project Name)">{project.name}</DetailCells>
                 <DetailCells label="ผู้เขียนรายงาน (Prepared by)">{author}</DetailCells>

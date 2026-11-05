@@ -13,7 +13,6 @@ import {
   Printer,
   Trash2,
   Save,
-  Calendar,
   CheckCircle2,
   AlertCircle,
   X,
@@ -35,6 +34,7 @@ import {
   toRowInput,
   type BoqRow,
 } from '@/components/boq-line-grid';
+import { DateInput } from '@/components/date-input';
 
 export type { BoqRow };
 
@@ -616,16 +616,14 @@ export function BoqSheetEditor({
               <div className="grid grid-cols-12 items-center gap-2">
                 <span className="col-span-5 font-semibold text-slate-800">ประมาณการเมื่อวันที่</span>
                 <div className="col-span-7 relative flex items-center">
-                  <input
-                    type="date"
+                  <DateInput
                     value={meta.docDate}
                     onChange={(e) => {
                       setMeta({ ...meta, docDate: e.target.value });
                       markDirty();
                     }}
-                    className="w-full px-2 py-1 border border-slate-300 rounded font-mono focus:border-blue-600 focus:outline-hidden pr-7"
+                    className="w-full px-2 py-1 border border-slate-300 rounded font-mono focus:border-blue-600 focus:outline-hidden"
                   />
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
                 </div>
               </div>
 

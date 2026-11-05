@@ -11,6 +11,7 @@ import {
   submitReceiptSubstituteAction,
   type AdvResult,
 } from '../../advances/actions';
+import { DateInput } from '@/components/date-input';
 
 export interface SubstituteEditorData {
   id: string;
@@ -83,7 +84,7 @@ export function SubstituteEditor({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label>
             <span className="block text-slate-600">วันที่เอกสาร</span>
-            <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className={`${inputClass} font-mono`} />
+            <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={`${inputClass} font-mono`} />
           </label>
           <label>
             <span className="block text-slate-600">โครงการ</span>
@@ -123,7 +124,7 @@ export function SubstituteEditor({
             {lines.map((l, i) => (
               <tr key={i}>
                 <td className="py-1 pr-1">
-                  <input type="date" aria-label="วันที่จ่าย" value={l.spentOn} onChange={(e) => setLine(i, { spentOn: e.target.value })} className={`${inputClass} font-mono`} />
+                  <DateInput aria-label="วันที่จ่าย" value={l.spentOn} onChange={(e) => setLine(i, { spentOn: e.target.value })} className={`${inputClass} font-mono`} />
                 </td>
                 <td className="py-1 pr-1">
                   <input aria-label="รายละเอียด" value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} className={inputClass} />

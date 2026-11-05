@@ -8,6 +8,7 @@ import {
   updateProjectDetailsAction,
   type ProjectDetailsFormInput,
 } from '@/app/(app)/projects/[id]/actions';
+import { DateInput } from '@/components/date-input';
 
 interface ProjectDetailsFormProps {
   project: ProjectDetailDto;
@@ -220,9 +221,8 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
           </div>
           <div>
             <label htmlFor="pd-start" className="block font-medium text-slate-700 mb-1">วันเริ่มต้นสัญญา</label>
-            <input
+            <DateInput
               id="pd-start"
-              type="date"
               value={form.startDate ?? ''}
               onChange={(e) => set('startDate', e.target.value || null)}
               className={`${inputClass} font-mono`}
@@ -230,9 +230,8 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
           </div>
           <div>
             <label htmlFor="pd-end" className="block font-medium text-slate-700 mb-1">วันสิ้นสุดสัญญา</label>
-            <input
+            <DateInput
               id="pd-end"
-              type="date"
               value={form.endDate ?? ''}
               min={form.startDate ?? undefined}
               onChange={(e) => set('endDate', e.target.value || null)}

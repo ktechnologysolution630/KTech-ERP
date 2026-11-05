@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { resizeImage } from '@/lib/image-resize';
 import { createReceiptAction } from '@/app/(app)/receive/actions';
+import { DateInput } from '@/components/date-input';
 
 export function MobileReceiveForm({
   poId,
@@ -150,8 +151,7 @@ export function MobileReceiveForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">วันที่รับของ</label>
-            <input
-              type="date"
+            <DateInput
               value={receivedAt}
               onChange={(e) => setReceivedAt(e.target.value)}
               className="w-full min-h-[44px] rounded-lg border border-slate-300 px-3 text-sm"

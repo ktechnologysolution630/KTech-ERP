@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { createPrAction, updatePrAction } from '@/app/(app)/pr/actions';
+import { DateInput } from '@/components/date-input';
 
 export interface PrItemOption {
   id: string;
@@ -241,8 +242,7 @@ export function PrForm({
 
             <div className="sm:col-span-2">
               <label className="block text-[11px] text-slate-500 mb-0.5">วันที่ต้องการ</label>
-              <input
-                type="date"
+              <DateInput
                 value={line.neededDate}
                 onChange={(e) =>
                   setLines((prev) =>

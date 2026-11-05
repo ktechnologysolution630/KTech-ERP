@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react';
 import { createEventAction, deleteEventAction, loadCalendarAction } from '@/app/(app)/projects/[id]/site-actions';
 import { useSiteLoader } from './use-site-loader';
+import { DateInput } from '@/components/date-input';
 
 const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 const WEEKDAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
@@ -213,7 +214,7 @@ function EventDialog({ projectId, date, onClose, onSaved }: { projectId: string;
           </label>
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">วันที่ *</span>
-            <input type="date" required value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} className={field} />
+            <DateInput required value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} className={field} />
           </label>
           <label className="inline-flex items-center gap-2">
             <input type="checkbox" checked={form.allDay} onChange={(e) => setForm({ ...form, allDay: e.target.checked })} /> ทั้งวัน

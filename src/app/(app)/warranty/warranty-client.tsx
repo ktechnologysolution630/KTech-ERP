@@ -13,6 +13,7 @@ import {
 } from '@/domain/handover';
 import type { DefectRow, WarrantyRow } from '@/server/services/handover';
 import { createDefectAction, loadDefectsAction, updateDefectAction } from '../handover/actions';
+import { DateInput } from '@/components/date-input';
 
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:border-blue-600 focus:outline-none';
 const thaiDate = (iso: string) => {
@@ -94,7 +95,7 @@ function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: strin
           <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="อาการ / รายการที่แจ้งซ่อม *" className={`${field} md:col-span-4`} />
           <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="ตำแหน่ง เช่น ห้องน้ำชั้น 2" className={`${field} md:col-span-3`} />
           <input value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} placeholder="ผู้แจ้ง" className={`${field} md:col-span-2`} />
-          <input type="date" required value={form.reportedDate} min={warranty.startDate} max={today} onChange={(e) => setForm({ ...form, reportedDate: e.target.value })} className={`${field} md:col-span-2`} />
+          <DateInput required value={form.reportedDate} min={warranty.startDate} max={today} onChange={(e) => setForm({ ...form, reportedDate: e.target.value })} className={`${field} md:col-span-2`} />
           <button type="submit" disabled={isPending} className="md:col-span-1 inline-flex items-center justify-center gap-1 rounded-lg bg-[#2453d4] text-white text-sm font-semibold disabled:opacity-50">
             <Plus className="w-4 h-4" /> แจ้ง
           </button>

@@ -15,6 +15,7 @@ import {
 } from '@/domain/approvals';
 import { formatThaiDate } from '@/domain/thai';
 import { decideApprovalAction } from './actions';
+import { DateInput } from '@/components/date-input';
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const groupKey = (projectId: string | null) => projectId ?? NO_PROJECT_KEY;
@@ -131,11 +132,11 @@ export function ApprovalsClient({ items, projectKey }: { items: ApprovalItem[]; 
       </label>
       <label className="flex items-center gap-1.5 text-xs text-slate-600">
         วันที่ตั้งแต่
-        <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={fieldClass} />
+        <DateInput value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={fieldClass} />
       </label>
       <label className="flex items-center gap-1.5 text-xs text-slate-600">
         ถึงวันที่
-        <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={fieldClass} />
+        <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={fieldClass} />
       </label>
       <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">รออนุมัติ {filtered.length}</span>
     </div>

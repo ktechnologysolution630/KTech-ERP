@@ -148,17 +148,3 @@ export const ASSET_IMPORT_COLUMNS = {
   note: 'หมายเหตุ',
 } as const;
 
-/** Accepts 2026-11-04 or 4/11/2026, with the year in either calendar; null when it is not a real date. */
-export function parseImportDate(raw: string): string | null {
-  const text = raw.trim();
-  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
-  const dmy = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(text);
-  const parts = iso ? [iso[1], iso[2], iso[3]] : dmy ? [dmy[3], dmy[2], dmy[1]] : null;
-  if (!parts) return null;
-  const [rawYear, month, day] = parts.map(Number) as [number, number, number];
-  const year = rawYear >= 2400 ? rawYear - 543 : rawYear;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  // An impossible date such as 31 February rolls over into the next month
-  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
-  return date.toISOString().slice(0, 10);
-}

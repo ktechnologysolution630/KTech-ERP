@@ -26,6 +26,7 @@ import type { AssetPage, AssetRow, InspectionRow } from '@/server/services/asset
 import { AssetCheckDialog } from './asset-check-dialog';
 import { Dialog } from './asset-dialog';
 import { loadInspectionsAction, saveAssetAction } from './actions';
+import { DateInput } from '@/components/date-input';
 
 const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsDialog), { ssr: false });
 const ImportDialog = dynamic(() => import('./asset-tools').then((m) => m.ImportDialog), { ssr: false });
@@ -146,7 +147,7 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
           </label>
           <label className="block">
             <span className={labelClass}>วันที่ซื้อ</span>
-            <input type="date" value={form.purchaseDate} onChange={set('purchaseDate')} className={fieldClass} />
+            <DateInput value={form.purchaseDate} onChange={set('purchaseDate')} className={fieldClass} />
           </label>
           <label className="block">
             <span className={labelClass}>มูลค่า (บาท)</span>

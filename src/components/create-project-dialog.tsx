@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ImagePlus, Plus, X } from 'lucide-react';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from '@/domain/project';
 import { createProjectAction } from '@/app/(app)/projects/actions';
+import { DateInput } from '@/components/date-input';
 
 interface CreateProjectDialogProps {
   onClose: () => void;
@@ -172,20 +173,18 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             <h3 className="pt-2 text-base font-bold text-slate-900">งบประมาณและกำหนดการ</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="วันเริ่ม" htmlFor="cp-start">
-                <input
+                <DateInput
                   id="cp-start"
                   name="startDate"
-                  type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className={`${controlClass} font-mono`}
                 />
               </Field>
               <Field label="วันสิ้นสุด" htmlFor="cp-end">
-                <input
+                <DateInput
                   id="cp-end"
                   name="endDate"
-                  type="date"
                   min={startDate || undefined}
                   className={`${controlClass} font-mono`}
                 />

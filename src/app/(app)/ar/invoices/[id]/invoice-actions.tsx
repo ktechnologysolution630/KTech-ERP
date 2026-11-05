@@ -12,6 +12,7 @@ import {
   voidArReceiptAction,
   type ArResult,
 } from '../../actions';
+import { DateInput } from '@/components/date-input';
 
 const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -132,7 +133,7 @@ export function InvoiceActions({
             <fieldset disabled={isPending} className="grid grid-cols-2 gap-2">
               <label>
                 <span className="block text-slate-600">วันที่รับเงิน</span>
-                <input type="date" value={rc.receiptDate} onChange={(e) => setRc({ ...rc, receiptDate: e.target.value })} className={`${inputClass} font-mono`} />
+                <DateInput value={rc.receiptDate} onChange={(e) => setRc({ ...rc, receiptDate: e.target.value })} className={`${inputClass} font-mono`} />
               </label>
               <label>
                 <span className="block text-slate-600">วิธีรับเงิน</span>

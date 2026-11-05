@@ -30,6 +30,7 @@ import {
   toRowInput,
   type BoqRow,
 } from '@/components/boq-line-grid';
+import { DateInput } from '@/components/date-input';
 
 type VoForm = VoDocumentDto['input'];
 
@@ -306,7 +307,7 @@ function VoFormBody({
               </select>
             </Field>
             <Field label="วันที่ร้องขอ" htmlFor="vo-date">
-              <input id="vo-date" type="date" required value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={`${inputClass} font-mono`} />
+              <DateInput id="vo-date" required value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={`${inputClass} font-mono`} />
             </Field>
             <Field label="ผู้ร้องขอ" htmlFor="vo-requester">
               <input id="vo-requester" maxLength={200} value={form.requesterName} onChange={(e) => set('requesterName', e.target.value)} className={inputClass} />
@@ -409,12 +410,11 @@ function VoFormBody({
               <input id="vo-days-reduce" type="number" min={0} step={1} disabled={!form.scheduleImpact} value={form.daysReduced} onChange={(e) => set('daysReduced', Math.max(0, Math.trunc(num(e.target.value))))} className={`${inputClass} font-mono`} />
             </Field>
             <Field label="วันที่เริ่มกระทบ" htmlFor="vo-impact-start">
-              <input id="vo-impact-start" type="date" disabled={!form.scheduleImpact} value={form.impactStartDate ?? ''} onChange={(e) => set('impactStartDate', e.target.value || null)} className={`${inputClass} font-mono`} />
+              <DateInput id="vo-impact-start" disabled={!form.scheduleImpact} value={form.impactStartDate ?? ''} onChange={(e) => set('impactStartDate', e.target.value || null)} className={`${inputClass} font-mono`} />
             </Field>
             <Field label="วันที่สิ้นสุดคาดการณ์" htmlFor="vo-impact-end">
-              <input
+              <DateInput
                 id="vo-impact-end"
-                type="date"
                 disabled={!form.scheduleImpact}
                 min={form.impactStartDate ?? undefined}
                 value={form.impactEndDate ?? ''}

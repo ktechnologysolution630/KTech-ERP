@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import { assets, items, projects, vendors, type SessionUser, type VendorType } from '@/db/schema';
-import { ASSET_IMPORT_COLUMNS, parseImportDate } from '@/domain/asset';
+import { ASSET_IMPORT_COLUMNS } from '@/domain/asset';
 import { DomainError } from '@/domain/errors';
 import { parseDecimalInput } from '@/domain/money';
+import { parseDateText } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { createAsset } from './assets';
 import { upsertItem, upsertVendor } from './master';
@@ -49,7 +50,7 @@ export async function importAssets(db: Db, actor: SessionUser, rows: Record<stri
       const projectCode = text(columns.projectCode);
       const projectId = projectCode ? projectByCode.get(projectCode.toLowerCase()) : null;
       if (projectId === undefined) throw new DomainError('INVALID_ASSET', `ไม่พบรหัสโครงการ ${projectCode}`);
-      const purchaseDate = text(columns.purchaseDate) ? parseImportDate(text(columns.purchaseDate)) : null;
+      const purchaseDate = text(columns.purchaseDate) ? parseDateText(text(columns.purchaseDate)) : null;
       if (text(columns.purchaseDate) && !purchaseDate) throw new DomainError('INVALID_ASSET', `${columns.purchaseDate}ไม่ถูกต้อง ใช้รูปแบบ 2026-11-04 หรือ 4/11/2026`);
       const serialNo = text(columns.serialNo);
       if (serialNo && serials.has(serialNo.toLowerCase())) throw new DomainError('INVALID_ASSET', `หมายเลข ${serialNo} มีอยู่แล้ว`);

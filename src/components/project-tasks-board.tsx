@@ -19,6 +19,7 @@ import {
   updateTaskAction,
   type TaskActionResult,
 } from '@/app/(app)/projects/[id]/task-actions';
+import { DateInput } from '@/components/date-input';
 
 interface ProjectTasksBoardProps {
   projectId: string;
@@ -333,9 +334,8 @@ export function ProjectTasksBoard({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="tk-start" className="block font-medium text-slate-700 mb-1">วันเริ่มงาน</label>
-                    <input
+                    <DateInput
                       id="tk-start"
-                      type="date"
                       value={dialog.form.startDate ?? ''}
                       onChange={(e) => setField('startDate', e.target.value || null)}
                       className={`${inputClass} font-mono`}
@@ -343,9 +343,8 @@ export function ProjectTasksBoard({
                   </div>
                   <div>
                     <label htmlFor="tk-due" className="block font-medium text-slate-700 mb-1">กำหนดเสร็จ</label>
-                    <input
+                    <DateInput
                       id="tk-due"
-                      type="date"
                       min={dialog.form.startDate ?? undefined}
                       value={dialog.form.dueDate ?? ''}
                       onChange={(e) => setField('dueDate', e.target.value || null)}

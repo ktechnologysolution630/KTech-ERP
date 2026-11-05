@@ -6,6 +6,7 @@ import { computeArInvoiceTotals } from '@/domain/ar';
 import { bangkokDateString } from '@/domain/thai';
 import type { VatMode } from '@/domain/money';
 import { createArInvoiceAction } from '../../actions';
+import { DateInput } from '@/components/date-input';
 
 interface Option {
   id: string;
@@ -117,11 +118,11 @@ export function ArInvoiceForm({
           </label>
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">วันที่</span>
-            <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className={`${inputClass} font-mono`} />
+            <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={`${inputClass} font-mono`} />
           </label>
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">ครบกำหนด (เว้นว่าง = ตามเครดิตลูกค้า)</span>
-            <input type="date" min={docDate} value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${inputClass} font-mono`} />
+            <DateInput min={docDate} value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${inputClass} font-mono`} />
           </label>
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">หักประกันผลงาน (บาท)</span>

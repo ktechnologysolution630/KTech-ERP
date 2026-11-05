@@ -8,6 +8,7 @@ import { addDays, formatPeriod, monthOf, weekOf } from '@/domain/site-report';
 import type { PeriodicReport as Report, ReportKind } from '@/server/services/site-reports';
 import { A4Page, DataTable, InfoGrid, Logo, pct, points, PrintRoot, ProgressCurve, ReportPhoto, RibbonGroup, RibbonTool, Sheet, thaiShortDate } from './report-sheet';
 import { useSiteLoader } from './use-site-loader';
+import { DateInput } from '@/components/date-input';
 
 const OUTCOME = { COMPLETED: 'เสร็จ', DELAYED: 'ล่าช้า' } as const;
 const money = (n: number) => formatMoneyDisplay(n);
@@ -352,7 +353,7 @@ export function PeriodicReportView({ projectId, kind, today, typeTool }: { proje
             <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5">
               <span className="sr-only">เลือก{label}</span>
               {kind === 'WEEK' ? (
-                <input type="date" value={anchor} max={today} onChange={(e) => e.target.value && setAnchor(e.target.value)} className="bg-transparent focus:outline-none" />
+                <DateInput value={anchor} max={today} onChange={(e) => e.target.value && setAnchor(e.target.value)} className="bg-transparent focus:outline-none" />
               ) : (
                 <input type="month" value={anchor.slice(0, 7)} max={today.slice(0, 7)} onChange={(e) => e.target.value && setAnchor(`${e.target.value}-01`)} className="bg-transparent focus:outline-none" />
               )}
