@@ -5,10 +5,12 @@ import {
   boolean,
   timestamp,
   integer,
+  jsonb,
   numeric,
   primaryKey,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import type { MenuSection } from '@/domain/menu';
 
 export const ROLES = [
   'FOREMAN',
@@ -29,6 +31,7 @@ export type SessionUser = {
   email: string;
   roles: Role[];
   projectIds: string[];
+  hiddenMenus: MenuSection[];
 };
 
 export const appMeta = pgTable('app_meta', {
@@ -45,6 +48,8 @@ export const users = pgTable(
     name: text('name').notNull(),
     passwordHash: text('password_hash').notNull(),
     active: boolean('active').default(true).notNull(),
+    /** Stored as what is hidden, so everyone keeps seeing a menu added later until someone hides it */
+    hiddenMenus: jsonb('hidden_menus').$type<MenuSection[]>().default([]).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

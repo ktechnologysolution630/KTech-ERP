@@ -61,6 +61,7 @@ export async function loadSessionUserById(db: Db, userId: string): Promise<Sessi
     email: user.email,
     roles: rolesRows.map((r) => r.role),
     projectIds: memberRows.map((m) => m.projectId),
+    hiddenMenus: user.hiddenMenus,
   };
 }
 

@@ -161,6 +161,7 @@ export async function seedBasics(db: Db): Promise<SeededBasics> {
       name: u.name,
       roles: u.roles,
       projectIds: u.projectIds,
+      hiddenMenus: [],
     };
   }
 

@@ -11,7 +11,7 @@ import {
   listUsersWithRoles,
 } from '@/server/services/master';
 import { DomainError } from '@/domain/errors';
-import { authenticate } from '@/server/auth/session';
+import { authenticate, loadSessionUserById } from '@/server/auth/session';
 
 describe('master service', () => {
   const baseVendor = {
@@ -83,6 +83,31 @@ describe('master service', () => {
     await resetPassword(db, f.users.admin, newUser.id, 'NewPass456');
     const authUser = await authenticate(db, 'eng1@ktec.local', 'NewPass456');
     expect(authUser?.projectIds).toContain(proj.id);
+  });
+
+  test('menu visibility is kept per user and reaches their session', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const base = { email: 'menu@ktec.local', name: 'ทดสอบเมนู', roles: ['ENGINEER' as const], projectIds: [], active: true };
+
+    // A new user sees everything unless told otherwise
+    const created = await upsertUser(db, f.users.admin, { ...base, password: 'Passw0rd99' });
+    expect((await loadSessionUserById(db, created.id))?.hiddenMenus).toEqual([]);
+
+    await upsertUser(db, f.users.admin, { ...base, id: created.id, hiddenMenus: ['STOCK', 'FINANCE'] });
+    expect((await loadSessionUserById(db, created.id))?.hiddenMenus).toEqual(['STOCK', 'FINANCE']);
+    const listed = (await listUsersWithRoles(db, f.users.admin)).find((u) => u.id === created.id);
+    expect(listed?.hiddenMenus).toEqual(['STOCK', 'FINANCE']);
+
+    // A save that does not mention menus leaves the choice alone; an empty list shows everything again
+    await upsertUser(db, f.users.admin, { ...base, id: created.id, name: 'เปลี่ยนชื่อ' });
+    expect((await loadSessionUserById(db, created.id))?.hiddenMenus).toEqual(['STOCK', 'FINANCE']);
+    await upsertUser(db, f.users.admin, { ...base, id: created.id, hiddenMenus: [] });
+    expect((await loadSessionUserById(db, created.id))?.hiddenMenus).toEqual([]);
+
+    // Only known sections, and only people who manage users
+    await expect(upsertUser(db, f.users.admin, { ...base, id: created.id, hiddenMenus: ['NOPE' as never] })).rejects.toMatchObject({ code: 'INVALID_USER' });
+    await expect(upsertUser(db, f.users.pm, { ...base, id: created.id, hiddenMenus: [] })).rejects.toMatchObject({ status: 403 });
   });
 
   test('user management guards: passwords, duplicates, self-lockout, last admin', async () => {

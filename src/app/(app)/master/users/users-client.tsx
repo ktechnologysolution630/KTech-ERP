@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { KeyRound, Pencil, Plus, X } from 'lucide-react';
 import type { Role } from '@/db/schema';
+import { MENU_SECTION_LABELS, MENU_SECTIONS, type MenuSection } from '@/domain/menu';
 import type { UserRowDto } from '@/server/services/master';
 import { resetUserPasswordAction, saveUserAction } from '../actions';
 
@@ -144,7 +145,8 @@ function UserDialog({
   const [roles, setRoles] = useState<Role[]>(user?.roles ?? []);
   const [projectIds, setProjectIds] = useState<string[]>(user?.projectIds ?? []);
   const [active, setActive] = useState(user?.active ?? true);
-  const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const [hiddenMenus, setHiddenMenus] = useState<MenuSection[]>(user?.hiddenMenus ?? []);
+  const toggle =<T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const needsProjects = roles.some((r) => SITE_ROLES.includes(r));
 
   return (
@@ -154,7 +156,7 @@ function UserDialog({
           e.preventDefault();
           setError(null);
           startTransition(async () => {
-            const r = await saveUserAction({ id: user?.id, name, email, password: password || undefined, roles, projectIds, active });
+            const r = await saveUserAction({ id: user?.id, name, email, password: password || undefined, roles, projectIds, active, hiddenMenus });
             if (!r.ok) {
               setError(r.error);
               return;
@@ -212,6 +214,17 @@ function UserDialog({
                 <label key={p.id} className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                   <input type="checkbox" checked={projectIds.includes(p.id)} onChange={() => setProjectIds((prev) => toggle(prev, p.id))} className="rounded" />
                   {p.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="block text-xs font-medium text-slate-700 mb-1">เมนูที่มองเห็น (ติ๊กออกเพื่อซ่อนจากแถบเมนูของผู้ใช้นี้)</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {MENU_SECTIONS.map((m) => (
+                <label key={m} className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                  <input type="checkbox" checked={!hiddenMenus.includes(m)} onChange={() => setHiddenMenus((p) => toggle(p, m))} className="rounded" />
+                  {MENU_SECTION_LABELS[m]}
                 </label>
               ))}
             </div>

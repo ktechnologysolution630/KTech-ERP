@@ -31,6 +31,7 @@ import {
   Layers,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
+import type { MenuSection } from '@/domain/menu';
 import { logoutAction } from '@/app/login/actions';
 
 interface AppShellProps {
@@ -83,6 +84,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
   const isLaborActive = (tabKey: string) => {
     return pathname === '/labor-payments' && (currentTab === tabKey || (!searchParams.get('tab') && tabKey === 'payment-milestones'));
   };
+
+  const canSee = (section: MenuSection) => !user.hiddenMenus.includes(section);
 
   const displayName = user.name;
   const displayEmail = user.email;
@@ -167,6 +170,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 {!collapsed && <span className="text-[10px] text-slate-400">My Portal</span>}
               </Link>
 
+              {canSee('DASHBOARD') && (
               <Link
                 href="/dashboard"
                 prefetch={false}
@@ -183,8 +187,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Dashboard</span>}
               </Link>
+              )}
 
-              {pendingApprovalCount !== null && (
+              {pendingApprovalCount !== null && canSee('APPROVALS') && (
                 <Link
                   href="/approvals"
                   prefetch={false}
@@ -218,6 +223,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
             <div className="space-y-0.5">
               {/* โครงการ (Projects) */}
+              {canSee('PROJECTS') && (
               <Link
                 href="/projects"
                 prefetch={false}
@@ -234,8 +240,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Projects</span>}
               </Link>
+              )}
 
               {/* Timeline โครงการ */}
+              {canSee('TIMELINE') && (
               <Link
                 href="/timeline"
                 prefetch={false}
@@ -251,8 +259,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   {!collapsed && <span>Timeline โครงการ</span>}
                 </div>
               </Link>
+              )}
 
               {/* สต็อก (Accordion) */}
+              {canSee('STOCK') && (
               <div>
                 <button
                   type="button"
@@ -358,8 +368,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   </div>
                 )}
               </div>
+              )}
 
               {/* จัดซื้อ / สั่งซื้อ (Accordion) */}
+              {canSee('PURCHASING') && (
               <div>
                 <button
                   type="button"
@@ -484,8 +496,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   </div>
                 )}
               </div>
+              )}
 
               {/* ค่าแรง / งวดงาน (Accordion) */}
+              {canSee('LABOR') && (
               <div>
                 <button
                   type="button"
@@ -591,8 +605,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   </div>
                 )}
               </div>
+              )}
 
               {/* บัญชี / การเงิน (Accordion) */}
+              {canSee('FINANCE') && (
               <div>
                 <button
                   type="button"
@@ -690,8 +706,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   </div>
                 )}
               </div>
+              )}
 
               {/* บริการหลังก่อสร้าง (Accordion) */}
+              {canSee('AFTER_SERVICE') && (
               <div>
                 <button
                   type="button"
@@ -736,6 +754,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   </div>
                 )}
               </div>
+              )}
 
               {/* Master Data & Admin */}
               <Link

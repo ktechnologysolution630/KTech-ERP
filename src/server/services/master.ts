@@ -26,6 +26,7 @@ import {
   type SessionUser,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
+import { MENU_SECTIONS, type MenuSection } from '@/domain/menu';
 import { D, WHT_RATES } from '@/domain/money';
 import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
 import { hashPassword } from '@/server/auth/password';
@@ -639,6 +640,8 @@ const userSchema = z.object({
   roles: z.array(z.enum(ROLES)).min(1, 'ต้องเลือกอย่างน้อย 1 บทบาท'),
   projectIds: z.array(z.string().uuid()).default([]),
   active: z.boolean().default(true),
+  /** Left out, an existing user's choice stays as it is */
+  hiddenMenus: z.array(z.enum(MENU_SECTIONS)).optional(),
 });
 export type UserInput = z.input<typeof userSchema>;
 
@@ -690,6 +693,7 @@ export async function upsertUser(db: Db, actor: SessionUser, input: UserInput) {
           email,
           name: d.name,
           active: d.active,
+          ...(d.hiddenMenus ? { hiddenMenus: d.hiddenMenus } : {}),
           ...(d.password ? { passwordHash: await hashPassword(d.password) } : {}),
           updatedAt: new Date(),
         })
@@ -697,7 +701,7 @@ export async function upsertUser(db: Db, actor: SessionUser, input: UserInput) {
     } else {
       const [created] = await tx
         .insert(users)
-        .values({ email, name: d.name, passwordHash: await hashPassword(d.password!), active: d.active })
+        .values({ email, name: d.name, passwordHash: await hashPassword(d.password!), active: d.active, hiddenMenus: d.hiddenMenus ?? [] })
         .returning();
       userId = created.id;
     }
@@ -771,13 +775,14 @@ export interface UserRowDto {
   active: boolean;
   roles: Role[];
   projectIds: string[];
+  hiddenMenus: MenuSection[];
 }
 
 /** User list for administrators; the password hash never leaves the server. */
 export async function listUsersWithRoles(db: Db, actor: SessionUser): Promise<UserRowDto[]> {
   assertCan(actor, 'users.manage');
   const [allUsers, allRoles, allMembers] = await Promise.all([
-    db.select({ id: users.id, name: users.name, email: users.email, active: users.active }).from(users).orderBy(asc(users.name)),
+    db.select({ id: users.id, name: users.name, email: users.email, active: users.active, hiddenMenus: users.hiddenMenus }).from(users).orderBy(asc(users.name)),
     db.select().from(userRoles),
     db.select().from(projectMembers),
   ]);
