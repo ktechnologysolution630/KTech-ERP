@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { payables, projects } from '@/db/schema';
-import { D } from '@/domain/money';
+import { D, formatMoneyDisplay } from '@/domain/money';
 import { computeEvm, groupBoqBudget, lastMonthKeys, monthRange } from '@/domain/project-finance';
 import { bangkokDateString } from '@/domain/thai';
 import { createArInvoice, issueArInvoice, recordArReceipt, upsertCustomer } from '@/server/services/ar';
@@ -34,6 +34,16 @@ describe('project finance domain', () => {
     });
     // Money spent with nothing earned yet: no CPI, the overspend is added to the budget
     expect(computeEvm({ bac: 1_000, plannedPercent: 0, actualPercent: 0, ac: 300 })).toMatchObject({ cpi: null, spi: null, eac: 1_300 });
+  });
+
+  it('a budget added up from floats leaves no remainder in the variance', () => {
+    expect(computeEvm({ bac: 54_340_998.650000024, plannedPercent: 0, actualPercent: 0, ac: 0 })).toMatchObject({ bac: 54_340_998.65, eac: 54_340_998.65, vac: 0 });
+  });
+
+  it('shows a very small number as money, not in scientific notation', () => {
+    expect(formatMoneyDisplay(-2e-8)).toBe('-0.00');
+    expect(formatMoneyDisplay(1234.5)).toBe('1,234.50');
+    expect(formatMoneyDisplay('1,234.5')).toBe('1,234.50');
   });
 
   it('groups BOQ direct cost under category headers', () => {

@@ -70,7 +70,8 @@ export interface EvmResult {
 }
 
 export function computeEvm(input: EvmInput): EvmResult {
-  const bac = D(input.bac);
+  // The BOQ total arrives as a sum of floats; unrounded, it leaves a tiny remainder in the variance
+  const bac = round2(D(input.bac));
   const pv = round2(bac.times(input.plannedPercent).div(100));
   const ev = round2(bac.times(input.actualPercent).div(100));
   const ac = round2(D(input.ac));

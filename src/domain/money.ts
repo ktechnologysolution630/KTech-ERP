@@ -228,7 +228,8 @@ export function parseDecimalInput(s: string): Decimal | null {
 /** "1234567.5" → "1,234,567.50". Pure, so server pages and client components can both use it. */
 export function formatMoneyDisplay(value: string | number | undefined | null, decimals = 2): string {
   if (value === undefined || value === null || value === '') return '';
-  const d = parseDecimalInput(String(value));
+  // A very small number prints as 2e-8, which input parsing rightly refuses
+  const d = typeof value === 'number' && Number.isFinite(value) ? D(value) : parseDecimalInput(String(value));
   if (!d) return String(value);
   const parts = d.toFixed(decimals).split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
