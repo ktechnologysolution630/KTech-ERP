@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ImagePlus, Plus, X } from 'lucide-react';
-import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from '@/domain/project';
+import { FileUp, ImagePlus, Plus, X } from 'lucide-react';
+import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from '@/domain/project';
+import { PROJECT_PDF_FIELD_LABELS, ProjectDetailsCollector, type ProjectDetailsFromPdf, type ProjectPdfField } from '@/domain/project-pdf';
 import { createProjectAction } from '@/app/(app)/projects/actions';
 import { DateInput } from '@/components/date-input';
 
@@ -19,15 +20,18 @@ function Field({
   label,
   htmlFor,
   required,
+  fromPdf,
   children,
 }: {
   label: string;
   htmlFor: string;
   required?: boolean;
+  /** Filled from an imported PDF, marked so people check it before saving */
+  fromPdf?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 px-3 pt-2 pb-1.5 focus-within:border-[#2453d4] focus-within:ring-2 focus-within:ring-blue-100 transition bg-white">
+    <div className={`rounded-lg border px-3 pt-2 pb-1.5 focus-within:border-[#2453d4] focus-within:ring-2 focus-within:ring-blue-100 transition ${fromPdf ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white'}`}>
       <label htmlFor={htmlFor} className="block text-[11px] font-medium text-slate-600">
         {label}
         {required && <span className="text-red-500"> *</span>}
@@ -49,6 +53,81 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [startDate, setStartDate] = useState('');
+  const [code, setCode] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [projectGroup, setProjectGroup] = useState('');
+  const [location, setLocation] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [budget, setBudget] = useState('');
+  const [status, setStatus] = useState<ProjectStatus>('PLANNING');
+  const [pdfProgress, setPdfProgress] = useState<string | null>(null);
+  const [pdfResult, setPdfResult] = useState<string | null>(null);
+  const [fromPdf, setFromPdf] = useState<ReadonlySet<ProjectPdfField>>(new Set());
+  const pdfInput = useRef<HTMLInputElement>(null);
+  const pdfRead = useRef<AbortController | null>(null);
+
+  // Closing the dialog ends a read still running
+  useEffect(() => () => pdfRead.current?.abort(), []);
+
+  /** Fills only what is still empty: what someone already typed is never replaced. */
+  const applyPdfDetails = (found: ProjectDetailsFromPdf) => {
+    const current: Record<ProjectPdfField, string> = { name, code, clientName, projectGroup, location, startDate, endDate, budget, status: status === 'PLANNING' ? '' : status };
+    const setters: Record<ProjectPdfField, (value: string) => void> = {
+      name: setName,
+      code: setCode,
+      clientName: setClientName,
+      projectGroup: setProjectGroup,
+      location: setLocation,
+      startDate: setStartDate,
+      endDate: setEndDate,
+      budget: setBudget,
+      status: (value) => setStatus(value as ProjectStatus),
+    };
+    const filled = (Object.keys(found) as ProjectPdfField[]).filter((field) => found[field] && !current[field].trim());
+    filled.forEach((field) => setters[field](found[field]!));
+    setFromPdf(new Set(filled));
+    return filled;
+  };
+
+  const importPdf = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setPdfResult(null);
+    setFromPdf(new Set());
+    setPdfProgress('กำลังเปิดไฟล์...');
+    const read = new AbortController();
+    pdfRead.current = read;
+    const collector = new ProjectDetailsCollector();
+    let sawText = false;
+    try {
+      const { readPdfText } = await import('@/lib/read-pdf-text');
+      await readPdfText(
+        file,
+        (lines, page, pages) => {
+          sawText ||= lines.length > 0;
+          collector.addPage(lines);
+          setPdfProgress(`กำลังอ่านหน้า ${page.toLocaleString()} จาก ${pages.toLocaleString()}`);
+          return collector.canStop;
+        },
+        read.signal,
+      );
+      const filled = applyPdfDetails(collector.details);
+      if (filled.length > 0) {
+        setPdfResult(`กรอกให้ ${filled.length} ช่อง: ${filled.map((f) => PROJECT_PDF_FIELD_LABELS[f]).join(', ')} กรุณาตรวจสอบก่อนกดสร้าง${collector.toneMarksGuessed ? ' (ไฟล์นี้เก็บวรรณยุกต์บางตัวไม่ครบ ระบบเติมให้ตามคำที่พบบ่อย โปรดตรวจการสะกดด้วย)' : ''}`);
+      } else if (Object.keys(collector.details).length > 0) {
+        setPdfResult('พบข้อมูลในไฟล์ แต่ช่องเหล่านั้นกรอกไว้แล้ว จึงไม่ได้เปลี่ยน');
+      } else if (!read.signal.aborted) {
+        setError(sawText ? 'ไม่พบข้อมูลโครงการในไฟล์นี้ กรุณากรอกเอง' : 'ไฟล์นี้ไม่มีข้อความให้อ่าน อาจเป็นไฟล์สแกน กรุณากรอกเอง');
+      }
+    } catch (err) {
+      console.error(err);
+      const password = err instanceof Error && err.message === 'PASSWORD';
+      setError(password ? 'ไฟล์นี้ตั้งรหัสผ่านไว้ จึงอ่านไม่ได้' : 'เปิดไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็นไฟล์ PDF ที่สมบูรณ์');
+    } finally {
+      setPdfProgress(null);
+      pdfRead.current = null;
+    }
+  };
 
   // Release the preview URL when it changes or the dialog closes
   useEffect(() => {
@@ -132,7 +211,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
               <span className="text-[11px] text-[#2453d4]">* ข้อมูลที่จำเป็น</span>
             </div>
 
-            <Field label="ชื่อโครงการ" htmlFor="cp-name" required>
+            <Field label="ชื่อโครงการ" htmlFor="cp-name" required fromPdf={fromPdf.has('name')}>
               <input
                 id="cp-name"
                 name="name"
@@ -146,33 +225,37 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="รหัสโครงการ" htmlFor="cp-code">
+              <Field label="รหัสโครงการ" htmlFor="cp-code" fromPdf={fromPdf.has('code')}>
                 <input
                   id="cp-code"
                   name="code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
                   placeholder="เว้นว่างเพื่อสร้างอัตโนมัติ"
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="ลูกค้า" htmlFor="cp-client">
-                <input id="cp-client" name="clientName" placeholder="ชื่อลูกค้า" className={controlClass} />
+              <Field label="ลูกค้า" htmlFor="cp-client" fromPdf={fromPdf.has('clientName')}>
+                <input id="cp-client" name="clientName" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="ชื่อลูกค้า" className={controlClass} />
               </Field>
-              <Field label="กลุ่มโปรเจค" htmlFor="cp-group">
+              <Field label="กลุ่มโปรเจค" htmlFor="cp-group" fromPdf={fromPdf.has('projectGroup')}>
                 <input
                   id="cp-group"
                   name="projectGroup"
+                  value={projectGroup}
+                  onChange={(e) => setProjectGroup(e.target.value)}
                   placeholder="เช่น โครงการภาคตะวันออก"
                   className={controlClass}
                 />
               </Field>
-              <Field label="สถานที่" htmlFor="cp-location">
-                <input id="cp-location" name="location" placeholder="ที่ตั้งโครงการ" className={controlClass} />
+              <Field label="สถานที่" htmlFor="cp-location" fromPdf={fromPdf.has('location')}>
+                <input id="cp-location" name="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ที่ตั้งโครงการ" className={controlClass} />
               </Field>
             </div>
 
             <h3 className="pt-2 text-base font-bold text-slate-900">งบประมาณและกำหนดการ</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="วันเริ่ม" htmlFor="cp-start">
+              <Field label="วันเริ่ม" htmlFor="cp-start" fromPdf={fromPdf.has('startDate')}>
                 <DateInput
                   id="cp-start"
                   name="startDate"
@@ -181,18 +264,22 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="วันสิ้นสุด" htmlFor="cp-end">
+              <Field label="วันสิ้นสุด" htmlFor="cp-end" fromPdf={fromPdf.has('endDate')}>
                 <DateInput
                   id="cp-end"
                   name="endDate"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
                   min={startDate || undefined}
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="งบประมาณ" htmlFor="cp-budget">
+              <Field label="งบประมาณ" htmlFor="cp-budget" fromPdf={fromPdf.has('budget')}>
                 <input
                   id="cp-budget"
                   name="budget"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
                   type="number"
                   min={0}
                   step="0.01"
@@ -200,8 +287,8 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="สถานะ" htmlFor="cp-status">
-                <select id="cp-status" name="status" defaultValue="PLANNING" className={controlClass}>
+              <Field label="สถานะ" htmlFor="cp-status" fromPdf={fromPdf.has('status')}>
+                <select id="cp-status" name="status" value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className={controlClass}>
                   {PROJECT_STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {PROJECT_STATUS_LABELS[s]}
@@ -270,11 +357,52 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
         </fieldset>
 
         <div className="mt-5 pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:items-center gap-3">
-          {error && (
-            <p role="alert" className="text-xs text-red-600 font-medium sm:mr-auto">
-              {error}
-            </p>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={pdfInput}
+              type="file"
+              accept="application/pdf,.pdf"
+              aria-label="เลือกไฟล์ PDF"
+              className="hidden"
+              onChange={(e) => {
+                void importPdf(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+            {pdfProgress ? (
+              <>
+                <span role="status" className="text-xs text-slate-600">
+                  {pdfProgress}
+                </span>
+                <button type="button" onClick={() => pdfRead.current?.abort()} className="text-xs font-semibold text-[#2453d4] hover:underline">
+                  หยุด
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => pdfInput.current?.click()}
+                disabled={isPending}
+                title="ไฟล์ถูกอ่านในเครื่องนี้เท่านั้น ไม่มีการอัปโหลดหรือแก้ไขไฟล์"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <FileUp className="w-4 h-4" />
+                นำเข้าข้อมูล PDF
+              </button>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 text-xs font-medium">
+            {pdfResult && (
+              <p role="status" className="text-emerald-700">
+                {pdfResult}
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="text-red-600">
+                {error}
+              </p>
+            )}
+          </div>
           <div className="flex justify-end gap-2 sm:ml-auto">
             <button
               type="button"
