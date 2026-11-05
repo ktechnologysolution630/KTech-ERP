@@ -4,7 +4,9 @@ import React, { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileUp, ImagePlus, Plus, X } from 'lucide-react';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from '@/domain/project';
-import { PROJECT_PDF_FIELD_LABELS, ProjectDetailsCollector, type ProjectDetailsFromPdf, type ProjectPdfField } from '@/domain/project-pdf';
+import { formatMoneyDisplay } from '@/domain/money';
+import { PROJECT_PDF_FIELD_LABELS, ProjectDetailsCollector, reconcileReadings, type ReconciledDetails, type ProjectPdfField } from '@/domain/project-pdf';
+import { formatDateText } from '@/domain/thai';
 import { createProjectAction } from '@/app/(app)/projects/actions';
 import { DateInput } from '@/components/date-input';
 
@@ -15,7 +17,10 @@ interface CreateProjectDialogProps {
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_BYTES = 4 * 1024 * 1024;
 const TEXT_PAGES_WITHOUT_NEWS = 20;
-const SCAN_PAGES_WITHOUT_NEWS = 5;
+const SCAN_PAGES_WITHOUT_NEWS = 3;
+
+const readingText = (field: ProjectPdfField, value: string) =>
+  field === 'budget' ? formatMoneyDisplay(value) : field === 'startDate' || field === 'endDate' ? formatDateText(value) : value;
 
 /** Bordered box with the label inside, above the control. */
 function Field({
@@ -28,12 +33,12 @@ function Field({
   label: string;
   htmlFor: string;
   required?: boolean;
-  /** Filled from an imported PDF, marked so people check it before saving */
-  fromPdf?: boolean;
+  /** Filled from an imported PDF: green when the readings agree, amber when someone needs to look */
+  fromPdf?: 'confirmed' | 'check';
   children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-lg border px-3 pt-2 pb-1.5 focus-within:border-[#2453d4] focus-within:ring-2 focus-within:ring-blue-100 transition ${fromPdf ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white'}`}>
+    <div className={`rounded-lg border px-3 pt-2 pb-1.5 focus-within:border-[#2453d4] focus-within:ring-2 focus-within:ring-blue-100 transition ${fromPdf === 'confirmed' ? 'border-emerald-400 bg-emerald-50/50' : fromPdf === 'check' ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-white'}`}>
       <label htmlFor={htmlFor} className="block text-[11px] font-medium text-slate-600">
         {label}
         {required && <span className="text-red-500"> *</span>}
@@ -64,7 +69,8 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
   const [status, setStatus] = useState<ProjectStatus>('PLANNING');
   const [pdfProgress, setPdfProgress] = useState<string | null>(null);
   const [pdfResult, setPdfResult] = useState<string | null>(null);
-  const [fromPdf, setFromPdf] = useState<ReadonlySet<ProjectPdfField>>(new Set());
+  const [pdfWarning, setPdfWarning] = useState<string | null>(null);
+  const [fromPdf, setFromPdf] = useState<ReadonlyMap<ProjectPdfField, 'confirmed' | 'check'>>(new Map());
   const pdfInput = useRef<HTMLInputElement>(null);
   const pdfRead = useRef<AbortController | null>(null);
 
@@ -72,7 +78,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
   useEffect(() => () => pdfRead.current?.abort(), []);
 
   /** Fills only what is still empty: what someone already typed is never replaced. */
-  const applyPdfDetails = (found: ProjectDetailsFromPdf) => {
+  const applyPdfDetails = ({ details, confirmed, needsCheck, refused }: ReconciledDetails, guessedMarks: boolean, scanned: boolean) => {
     const current: Record<ProjectPdfField, string> = { name, code, clientName, projectGroup, location, startDate, endDate, budget, status: status === 'PLANNING' ? '' : status };
     const setters: Record<ProjectPdfField, (value: string) => void> = {
       name: setName,
@@ -85,43 +91,73 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
       budget: setBudget,
       status: (value) => setStatus(value as ProjectStatus),
     };
-    const filled = (Object.keys(found) as ProjectPdfField[]).filter((field) => found[field] && !current[field].trim());
-    filled.forEach((field) => setters[field](found[field]!));
-    setFromPdf(new Set(filled));
-    return filled;
+    const isEmpty = (field: ProjectPdfField) => !current[field].trim();
+    const filled = (Object.keys(details) as ProjectPdfField[]).filter(isEmpty);
+    filled.forEach((field) => setters[field](details[field]!));
+    const unrefused = refused.filter(({ field }) => isEmpty(field));
+    const needsLook = filled.filter((f) => needsCheck.includes(f));
+    const agreed = filled.filter((f) => confirmed.includes(f));
+    setFromPdf(new Map([...agreed.map((f) => [f, 'confirmed'] as const), ...needsLook.map((f) => [f, 'check'] as const), ...unrefused.map(({ field }) => [field, 'check'] as const)]));
+
+    const labels = (fields: ProjectPdfField[]) => fields.map((f) => PROJECT_PDF_FIELD_LABELS[f]).join(', ');
+    const parts = [
+      agreed.length > 0 && (scanned ? `อ่านตรงกัน 2 รอบ ${agreed.length} ช่อง: ${labels(agreed)}` : `กรอกให้ ${agreed.length} ช่อง: ${labels(agreed)}`),
+      scanned && agreed.length > 0 && 'โปรดเทียบกับเอกสารก่อนกดสร้าง',
+      !scanned && agreed.length > 0 && 'กรุณาตรวจสอบก่อนกดสร้าง',
+      guessedMarks && !scanned && 'ไฟล์นี้เก็บวรรณยุกต์บางตัวไม่ครบ ระบบเติมให้ตามคำที่พบบ่อย โปรดตรวจการสะกดด้วย',
+    ];
+    setPdfResult(parts.filter(Boolean).join(' ') || null);
+    const warnings = [
+      needsLook.length > 0 && `ช่องสีเหลืองต้องตรวจเป็นพิเศษ: ${labels(needsLook)}`,
+      unrefused.length > 0 &&
+        `ไม่ได้กรอกเพราะข้อมูลขัดกัน กรุณาดูจากเอกสาร: ${unrefused.map(({ field, readings }) => `${PROJECT_PDF_FIELD_LABELS[field]} (${readings.map((r) => readingText(field, r)).join(' หรือ ')})`).join(', ')}`,
+    ];
+    setPdfWarning(warnings.filter(Boolean).join(' · ') || null);
+    return filled.length + unrefused.length;
   };
 
   const importPdf = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
     setPdfResult(null);
-    setFromPdf(new Set());
+    setPdfWarning(null);
+    setFromPdf(new Map());
     setPdfProgress('กำลังเปิดไฟล์...');
     const read = new AbortController();
     pdfRead.current = read;
     const collector = new ProjectDetailsCollector();
+    const recheck = new ProjectDetailsCollector();
+    let rechecked = false;
     let sawText = false;
     let sawScan = false;
     try {
       const { readPdfText } = await import('@/lib/read-pdf-text');
       await readPdfText(
         file,
-        (lines, { page, pages, scanned }) => {
-          sawText ||= lines.length > 0;
-          sawScan ||= scanned;
-          collector.addPage(lines);
-          setPdfProgress(`${scanned ? 'กำลังอ่านภาพสแกน' : 'กำลังอ่าน'}หน้า ${page.toLocaleString()} จาก ${pages.toLocaleString()}`);
-          // Each scanned page takes seconds, so a scan is given up on sooner
-          return collector.canStop(sawScan ? SCAN_PAGES_WITHOUT_NEWS : TEXT_PAGES_WITHOUT_NEWS);
+        {
+          onPage: (lines, { page, pages, scanned }) => {
+            sawText ||= lines.length > 0;
+            sawScan ||= scanned;
+            collector.addPage(lines, { page, scanned });
+            if (!scanned) setPdfProgress(`กำลังอ่านหน้า ${page.toLocaleString()} จาก ${pages.toLocaleString()}`);
+            // Each scanned page takes seconds, so a scan stops as soon as it has what the form needs
+            return sawScan ? collector.hasEssentials || collector.canStop(SCAN_PAGES_WITHOUT_NEWS) : collector.canStop(TEXT_PAGES_WITHOUT_NEWS);
+          },
+          onScanning: (done, pages) => setPdfProgress(`กำลังอ่านภาพสแกน อ่านแล้ว ${done.toLocaleString()} จาก ${pages.toLocaleString()} หน้า`),
+          pagesToRecheck: () => collector.scannedSourcePages,
+          onRechecking: (count) => {
+            rechecked = true;
+            setPdfProgress(`กำลังอ่านทวนรอบสอง ${count.toLocaleString()} หน้า`);
+          },
+          onRecheckedPage: (lines, page) => recheck.addPage(lines, { page, scanned: true }),
         },
         read.signal,
       );
-      const filled = applyPdfDetails(collector.details);
-      if (filled.length > 0) {
-        setPdfResult(`กรอกให้ ${filled.length} ช่อง: ${filled.map((f) => PROJECT_PDF_FIELD_LABELS[f]).join(', ')} กรุณาตรวจสอบก่อนกดสร้าง${sawScan ? ' (อ่านจากภาพสแกน ตัวสะกดและตัวเลขอาจผิด โปรดเทียบกับเอกสาร)' : collector.toneMarksGuessed ? ' (ไฟล์นี้เก็บวรรณยุกต์บางตัวไม่ครบ ระบบเติมให้ตามคำที่พบบ่อย โปรดตรวจการสะกดด้วย)' : ''}`);
-      } else if (Object.keys(collector.details).length > 0) {
+      const reconciled = reconcileReadings(collector, rechecked && !read.signal.aborted ? recheck : null);
+      const touched = applyPdfDetails(reconciled, collector.toneMarksGuessed, sawScan);
+      if (touched === 0 && Object.keys(collector.details).length > 0) {
         setPdfResult('พบข้อมูลในไฟล์ แต่ช่องเหล่านั้นกรอกไว้แล้ว จึงไม่ได้เปลี่ยน');
-      } else if (!read.signal.aborted) {
+      } else if (Object.keys(collector.details).length === 0 && !read.signal.aborted) {
         setError(sawText ? 'ไม่พบข้อมูลโครงการในไฟล์นี้ กรุณากรอกเอง' : 'ไม่พบตัวอักษรในไฟล์นี้ กรุณากรอกเอง');
       }
     } catch (err) {
@@ -222,7 +258,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
               <span className="text-[11px] text-[#2453d4]">* ข้อมูลที่จำเป็น</span>
             </div>
 
-            <Field label="ชื่อโครงการ" htmlFor="cp-name" required fromPdf={fromPdf.has('name')}>
+            <Field label="ชื่อโครงการ" htmlFor="cp-name" required fromPdf={fromPdf.get('name')}>
               <input
                 id="cp-name"
                 name="name"
@@ -236,7 +272,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="รหัสโครงการ" htmlFor="cp-code" fromPdf={fromPdf.has('code')}>
+              <Field label="รหัสโครงการ" htmlFor="cp-code" fromPdf={fromPdf.get('code')}>
                 <input
                   id="cp-code"
                   name="code"
@@ -246,10 +282,10 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="ลูกค้า" htmlFor="cp-client" fromPdf={fromPdf.has('clientName')}>
+              <Field label="ลูกค้า" htmlFor="cp-client" fromPdf={fromPdf.get('clientName')}>
                 <input id="cp-client" name="clientName" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="ชื่อลูกค้า" className={controlClass} />
               </Field>
-              <Field label="กลุ่มโปรเจค" htmlFor="cp-group" fromPdf={fromPdf.has('projectGroup')}>
+              <Field label="กลุ่มโปรเจค" htmlFor="cp-group" fromPdf={fromPdf.get('projectGroup')}>
                 <input
                   id="cp-group"
                   name="projectGroup"
@@ -259,14 +295,14 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={controlClass}
                 />
               </Field>
-              <Field label="สถานที่" htmlFor="cp-location" fromPdf={fromPdf.has('location')}>
+              <Field label="สถานที่" htmlFor="cp-location" fromPdf={fromPdf.get('location')}>
                 <input id="cp-location" name="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ที่ตั้งโครงการ" className={controlClass} />
               </Field>
             </div>
 
             <h3 className="pt-2 text-base font-bold text-slate-900">งบประมาณและกำหนดการ</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="วันเริ่ม" htmlFor="cp-start" fromPdf={fromPdf.has('startDate')}>
+              <Field label="วันเริ่ม" htmlFor="cp-start" fromPdf={fromPdf.get('startDate')}>
                 <DateInput
                   id="cp-start"
                   name="startDate"
@@ -275,7 +311,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="วันสิ้นสุด" htmlFor="cp-end" fromPdf={fromPdf.has('endDate')}>
+              <Field label="วันสิ้นสุด" htmlFor="cp-end" fromPdf={fromPdf.get('endDate')}>
                 <DateInput
                   id="cp-end"
                   name="endDate"
@@ -285,7 +321,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="งบประมาณ" htmlFor="cp-budget" fromPdf={fromPdf.has('budget')}>
+              <Field label="งบประมาณ" htmlFor="cp-budget" fromPdf={fromPdf.get('budget')}>
                 <input
                   id="cp-budget"
                   name="budget"
@@ -298,7 +334,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                   className={`${controlClass} font-mono`}
                 />
               </Field>
-              <Field label="สถานะ" htmlFor="cp-status" fromPdf={fromPdf.has('status')}>
+              <Field label="สถานะ" htmlFor="cp-status" fromPdf={fromPdf.get('status')}>
                 <select id="cp-status" name="status" value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className={controlClass}>
                   {PROJECT_STATUSES.map((s) => (
                     <option key={s} value={s}>
@@ -406,6 +442,11 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             {pdfResult && (
               <p role="status" className="text-emerald-700">
                 {pdfResult}
+              </p>
+            )}
+            {pdfWarning && (
+              <p role="status" className="text-amber-700">
+                {pdfWarning}
               </p>
             )}
             {error && (

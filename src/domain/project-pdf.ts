@@ -1,4 +1,4 @@
-import { parseDecimalInput } from './money';
+import { bahtText, D, parseDecimalInput } from './money';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from './project';
 import { parseDateText } from './thai';
 
@@ -180,13 +180,31 @@ function valueAfter(lines: string[], index: number, afterLabel: string): string 
   return next && !STARTS_WITH_LABEL.test(next) ? next : '';
 }
 
+/** Contract amounts are usually also written out in words, which gives an independent check on the digits. */
+export function amountMatchesWords(amount: string, text: string): boolean {
+  const squeeze = (s: string) => s.replace(/\s/g, '').replace(/[\u0E48-\u0E4B]/g, '').replace(/\u0E4D\u0E32/g, '\u0E33');
+  return squeeze(text).includes(squeeze(bahtText(D(amount))).replace(/ถวน$/, ''));
+}
+
+interface FoundValue {
+  value: string;
+  rank: number;
+  page: number;
+  scanned: boolean;
+  /** A budget whose digits agree with the amount written in words beside them */
+  wordsAgree: boolean;
+}
+
+/** The fields needed to set up a project; once a scan has given these, reading further pages only costs time. */
+const ESSENTIAL_FIELDS: ProjectPdfField[] = ['name', 'clientName', 'location', 'startDate', 'endDate', 'budget'];
+
 export class ProjectDetailsCollector {
-  private readonly found = new Map<ProjectPdfField, { value: string; rank: number }>();
+  private readonly found = new Map<ProjectPdfField, FoundValue>();
   private pagesWithoutNews = 0;
   private marksGuessed = false;
 
   /** Keeps only what belongs in the form; the rest of the page is dropped here. */
-  addPage(lines: string[]): void {
+  addPage(lines: string[], source: { page: number; scanned: boolean } = { page: 0, scanned: false }): void {
     this.marksGuessed ||= lines.some((l) => LOST_MARK.test(l));
     const normalized = lines.map(normalizeLine).filter(Boolean);
     let news = false;
@@ -201,29 +219,43 @@ export class ProjectDetailsCollector {
           if (!m) return false;
           const value = cleanValue(field, valueAfter(normalized, index, line.slice(m.index + m[0].length)));
           if (!value) return false;
-          this.found.set(field, { value, rank });
+          const nearby = `${line} ${normalized[index + 1] ?? ''}`;
+          this.found.set(field, { value, rank, ...source, wordsAgree: field === 'budget' && amountMatchesWords(value, nearby) });
           news = true;
           return true;
         });
       }
-      this.addPeriod(line);
+      this.addPeriod(line, source);
     });
     this.pagesWithoutNews = news ? 0 : this.pagesWithoutNews + 1;
   }
 
   /** "ระยะเวลา 1 ม.ค. 2569 ถึง 31 ธ.ค. 2569" names both ends at once; a labelled date still takes priority. */
-  private addPeriod(line: string): void {
+  private addPeriod(line: string, source: { page: number; scanned: boolean }): void {
     if (!/(^|\s)(ระยะเวลา|ตั้งแต่)/.test(line)) return;
     const [start, end] = findDates(line);
     if (!start || !end) return;
     const lowest = Number.MAX_SAFE_INTEGER;
-    if (!this.found.has('startDate')) this.found.set('startDate', { value: start, rank: lowest });
-    if (!this.found.has('endDate')) this.found.set('endDate', { value: end, rank: lowest });
+    if (!this.found.has('startDate')) this.found.set('startDate', { value: start, rank: lowest, ...source, wordsAgree: false });
+    if (!this.found.has('endDate')) this.found.set('endDate', { value: end, rank: lowest, ...source, wordsAgree: false });
   }
 
   /** Project details sit together near the front; after that, a long file only offers false matches. */
   canStop(pagesWithoutNews: number): boolean {
     return this.found.size > 0 && this.pagesWithoutNews >= pagesWithoutNews;
+  }
+
+  get hasEssentials(): boolean {
+    return ESSENTIAL_FIELDS.every((f) => this.found.has(f));
+  }
+
+  /** The scanned pages that gave a value, which are the ones worth reading a second time. */
+  get scannedSourcePages(): number[] {
+    return [...new Set([...this.found.values()].filter((f) => f.scanned).map((f) => f.page))].sort((a, b) => a - b);
+  }
+
+  get(field: ProjectPdfField): Readonly<FoundValue> | undefined {
+    return this.found.get(field);
   }
 
   /** The file lost some tone marks and they were filled in by best guess, so names need a closer look. */
@@ -234,4 +266,61 @@ export class ProjectDetailsCollector {
   get details(): ProjectDetailsFromPdf {
     return Object.fromEntries([...this.found].map(([field, { value }]) => [field, value])) as ProjectDetailsFromPdf;
   }
+}
+
+/** A wrong one of these does real harm and is hard to spot, so two readings that disagree fill in nothing. */
+const MUST_AGREE_FIELDS: ProjectPdfField[] = ['code', 'budget', 'startDate', 'endDate'];
+
+export interface ReconciledDetails {
+  details: ProjectDetailsFromPdf;
+  /** Read the same both times, or came from real text in the file */
+  confirmed: ProjectPdfField[];
+  /** Filled in, but only one reading supports it, or the wording differs */
+  needsCheck: ProjectPdfField[];
+  /** Left empty because the readings contradict each other */
+  refused: { field: ProjectPdfField; readings: string[] }[];
+}
+
+const withoutMarks = (s: string) => s.replace(/\s/g, '').replace(/[\u0E48-\u0E4B]/g, '').toLowerCase();
+
+/** Compares two independent readings of the scanned pages. `second` is null if the check was stopped before it ran. */
+export function reconcileReadings(first: ProjectDetailsCollector, second: ProjectDetailsCollector | null): ReconciledDetails {
+  const result: ReconciledDetails = { details: {}, confirmed: [], needsCheck: [], refused: [] };
+  const take = (field: ProjectPdfField, value: string, into: 'confirmed' | 'needsCheck') => {
+    (result.details as Record<ProjectPdfField, string>)[field] = value;
+    result[into].push(field);
+  };
+
+  for (const field of FIELDS) {
+    const a = first.get(field);
+    const b = second?.get(field);
+    if (!a && !b) continue;
+    if (a && !a.scanned) {
+      take(field, a.value, 'confirmed');
+    } else if (a?.wordsAgree) {
+      take(field, a.value, 'confirmed');
+    } else if (b?.wordsAgree) {
+      take(field, b.value, 'confirmed');
+    } else if (!a || !b) {
+      take(field, (a ?? b)!.value, 'needsCheck');
+    } else if (withoutMarks(a.value) === withoutMarks(b.value)) {
+      // OCR drops tone marks more often than it invents them, so the fuller spelling is the better one
+      take(field, b.value.length > a.value.length ? b.value : a.value, 'confirmed');
+    } else if (MUST_AGREE_FIELDS.includes(field)) {
+      result.refused.push({ field, readings: [a.value, b.value] });
+    } else {
+      take(field, b.value, 'needsCheck');
+    }
+  }
+
+  const { startDate, endDate } = result.details;
+  if (startDate && endDate && startDate > endDate) {
+    for (const field of ['startDate', 'endDate'] as const) {
+      result.refused.push({ field, readings: [result.details[field]!] });
+      delete result.details[field];
+      result.confirmed = result.confirmed.filter((f) => f !== field);
+      result.needsCheck = result.needsCheck.filter((f) => f !== field);
+    }
+  }
+  return result;
 }

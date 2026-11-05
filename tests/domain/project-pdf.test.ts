@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { findDates, linesFromTextItems, normalizeLine, ProjectDetailsCollector } from '@/domain/project-pdf';
+import { amountMatchesWords, findDates, linesFromTextItems, normalizeLine, ProjectDetailsCollector, reconcileReadings } from '@/domain/project-pdf';
 
 const collect = (...pages: string[][]) => {
   const c = new ProjectDetailsCollector();
@@ -139,6 +139,90 @@ describe('project details from a PDF', () => {
     expect(c.canStop(20)).toBe(false);
     for (let i = 0; i < 20; i++) c.addPage(['แบบก่อสร้าง']);
     expect(c.canStop(20)).toBe(true);
+  });
+});
+
+describe('checking two readings of a scan', () => {
+  const scan = (...lines: string[]) => {
+    const c = new ProjectDetailsCollector();
+    c.addPage(lines, { page: 1, scanned: true });
+    return c;
+  };
+
+  test('values read the same twice are confirmed, ignoring tone marks and keeping the fuller spelling', () => {
+    const r = reconcileReadings(scan('ชื่อโครงการ: อาคารศูนย์ทีหนึ่ง', 'รหัสโครงการ: K69-777'), scan('ชื่อโครงการ: อาคารศูนย์ที่หนึ่ง', 'รหัสโครงการ: K69-777'));
+    expect(r.details).toEqual({ name: 'อาคารศูนย์ที่หนึ่ง', code: 'K69-777' });
+    expect(r.confirmed).toEqual(['name', 'code']);
+    expect(r.needsCheck).toEqual([]);
+    expect(r.refused).toEqual([]);
+  });
+
+  test('numbers, dates and codes that disagree fill in nothing and show both readings', () => {
+    const r = reconcileReadings(
+      scan('งบประมาณ 19,454,000.00', 'วันเริ่ม 04/11/2026', 'รหัสโครงการ: K69-777'),
+      scan('งบประมาณ 19,454,800.00', 'วันเริ่ม 04/11/2028', 'รหัสโครงการ: 69-777'),
+    );
+    expect(r.details).toEqual({});
+    expect(r.refused).toEqual([
+      { field: 'code', readings: ['K69-777', '69-777'] },
+      { field: 'startDate', readings: ['2026-11-04', '2028-11-04'] },
+      { field: 'budget', readings: ['19454000.00', '19454800.00'] },
+    ]);
+  });
+
+  test('the amount in words settles a budget, even when the two readings disagree', () => {
+    const words = '(สิบเก้าล้านสี่แสนห้าหมื่นสี่พันบาทถ้วน)';
+    const r = reconcileReadings(scan(`มูลค่าสัญญา 19,454,800.00 บาท`), scan(`มูลค่าสัญญา 19,454,000.00 บาท ${words}`));
+    expect(r.details.budget).toBe('19454000.00');
+    expect(r.confirmed).toEqual(['budget']);
+    // Words naming another amount confirm nothing
+    expect(amountMatchesWords('19454800.00', words)).toBe(false);
+    expect(amountMatchesWords('19454000.00', 'สิบเก้าล้านสี่แสนห้าหมื่นสี่พัน บาท ถ้วน')).toBe(true);
+    // OCR often drops tone marks; the amount named is still the same
+    expect(amountMatchesWords('19454000.00', 'สิบเกาลานสีแสนหาหมืนสีพันบาทถวน')).toBe(true);
+  });
+
+  test('wording that differs is filled in but marked to check', () => {
+    const r = reconcileReadings(scan('ชื่อโครงการ: อาคารสำนักงน'), scan('ชื่อโครงการ: อาคารสำนักงาน'));
+    expect(r.details.name).toBe('อาคารสำนักงาน');
+    expect(r.needsCheck).toEqual(['name']);
+  });
+
+  test('a value only one reading found is marked to check', () => {
+    const r = reconcileReadings(scan('งบประมาณ 100.00', 'ลูกค้า: คุณเอ'), scan('ลูกค้า: คุณเอ'));
+    expect(r.details).toEqual({ budget: '100.00', clientName: 'คุณเอ' });
+    expect(r.needsCheck).toEqual(['budget']);
+    expect(r.confirmed).toEqual(['clientName']);
+  });
+
+  test('stopped before the second reading, everything from the scan is marked to check', () => {
+    const r = reconcileReadings(scan('ลูกค้า: คุณเอ', 'งบประมาณ 100.00'), null);
+    expect(r.confirmed).toEqual([]);
+    expect(r.needsCheck).toEqual(['clientName', 'budget']);
+  });
+
+  test('a start after the end fills in neither date', () => {
+    const lines = ['วันเริ่ม 01/05/2027', 'วันสิ้นสุด 01/05/2026'];
+    const r = reconcileReadings(scan(...lines), scan(...lines));
+    expect(r.details).toEqual({});
+    expect(r.refused.map((f) => f.field)).toEqual(['startDate', 'endDate']);
+  });
+
+  test('real text in the file needs no second reading', () => {
+    const c = new ProjectDetailsCollector();
+    c.addPage(['ลูกค้า: คุณเอ'], { page: 1, scanned: false });
+    expect(c.scannedSourcePages).toEqual([]);
+    expect(reconcileReadings(c, null).confirmed).toEqual(['clientName']);
+  });
+
+  test('knows which scanned pages gave values, and when the essentials are all there', () => {
+    const c = new ProjectDetailsCollector();
+    c.addPage(['แบบก่อสร้าง'], { page: 1, scanned: true });
+    c.addPage(['ชื่อโครงการ: ก', 'ลูกค้า: ข', 'สถานที่: ค'], { page: 2, scanned: true });
+    expect(c.hasEssentials).toBe(false);
+    c.addPage(['วันเริ่ม 01/01/2026', 'วันสิ้นสุด 01/02/2026', 'งบประมาณ 100'], { page: 4, scanned: true });
+    expect(c.hasEssentials).toBe(true);
+    expect(c.scannedSourcePages).toEqual([2, 4]);
   });
 });
 
