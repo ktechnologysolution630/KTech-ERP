@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { Plus, X, Search, Phone, Building2, CreditCard, Shield, Percent, Trash2 } from 'lucide-react';
 import type { VendorDeleteResult } from '@/server/services/vendor-delete';
 import { createContractorAction, deleteContractorsAction } from './actions';
@@ -197,13 +198,25 @@ export function ContractorsClient({ initialContractors, canDelete }: Contractors
           {deleteResult.inUse.length > 0 && (
             <div className="mt-1 text-amber-800">
               ไม่ได้ลบ {deleteResult.inUse.length} รายการ เพราะมีเอกสารอ้างถึงแล้ว
-              <ul className="mt-1 list-disc pl-4">
-                {deleteResult.inUse.slice(0, 8).map((v) => (
+              <ul className="mt-1.5 space-y-1.5">
+                {deleteResult.inUse.map((v) => (
                   <li key={v.id}>
-                    {v.code} {v.name}
+                    <div className="font-medium">
+                      {v.code} {v.name}
+                    </div>
+                    <ul className="mt-0.5 list-disc pl-4 text-slate-700">
+                      {v.documents.map((doc, i) => (
+                        <li key={`${doc.href}-${i}`}>
+                          {doc.label}{' '}
+                          <Link href={doc.href} className="font-mono text-[#2453d4] underline">
+                            {doc.number}
+                          </Link>
+                          {doc.cancelled && <span className="text-slate-500"> (ยกเลิกแล้ว)</span>}
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
-                {deleteResult.inUse.length > 8 && <li>และอีก {deleteResult.inUse.length - 8} รายการ</li>}
               </ul>
             </div>
           )}

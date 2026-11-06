@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { milestones, prvs, vendors } from '@/db/schema';
+import { milestones, payables, prvs, vendors } from '@/db/schema';
 import { D } from '@/domain/money';
 import { listActivity } from '@/server/services/activity';
 import { createPo } from '@/server/services/po';
-import { createPrv } from '@/server/services/prv';
+import { createPrv, deletePrv, transitionPrv } from '@/server/services/prv';
+import { cancelPv, createPv } from '@/server/services/pv';
 import { deleteVendors } from '@/server/services/vendor-delete';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
@@ -62,6 +63,72 @@ describe('deleting vendors', () => {
     const left = await db.select({ code: vendors.code }).from(vendors).where(inArray(vendors.id, [withPo!, withClaim!, withMilestone!, free!]));
     expect(left.map((v) => v.code).sort()).toEqual(['U-MS', 'U-PO', 'U-PRV']);
     expect(await db.select().from(prvs).where(eq(prvs.vendorId, withClaim!))).toHaveLength(1);
+  });
+
+  test('says which documents hold a vendor, with a page to open each', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [withPo, withClaim, withMilestone] = await addVendors(db, 'U-PO', 'U-PRV', 'U-MS');
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: withPo!,
+      paymentType: 'CREDIT',
+      creditDays: 30,
+      vatMode: 'INCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ปูน', unitName: 'ถุง', qty: D(1), unitPrice: D(100), discount: D(0) }],
+    });
+    const claim = await createPrv(db, f.users.foreman, { projectId: f.projectA, vendorId: withClaim!, category: 'EXPENSE', items: [{ description: 'งาน', unitPrice: 100 }] });
+    await db.insert(milestones).values({ projectId: f.projectA, vendorId: withMilestone, kind: 'PAY', seq: 1, title: 'งวด 1', amount: '100.00', createdBy: f.users.admin.id });
+
+    const { inUse } = await deleteVendors(db, f.users.owner, [withPo!, withClaim!, withMilestone!]);
+    const docsOf = (code: string) => inUse.find((v) => v.code === code)?.documents;
+    expect(docsOf('U-PO')).toEqual([{ label: 'ใบสั่งซื้อ PO', number: po.number, href: `/po/${po.id}`, cancelled: false }]);
+    expect(docsOf('U-PRV')).toEqual([{ label: 'ใบขอเบิก PRV', number: claim.prvNumber, href: `/prv/${claim.id}`, cancelled: false }]);
+    expect(docsOf('U-MS')).toEqual([{ label: 'งวดงาน', number: 'งวด 1', href: `/labor-payments/${f.projectA}`, cancelled: false }]);
+  });
+
+  test('once its claim is deleted, the cancelled payable left behind does not hold the vendor', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'U-PRV');
+    const claim = await createPrv(db, f.users.foreman, { projectId: f.projectA, vendorId: id!, category: 'EXPENSE', items: [{ description: 'งาน', unitPrice: 100 }] });
+    await transitionPrv(db, f.users.foreman, claim.id, 'submit');
+    await transitionPrv(db, f.users.pm, claim.id, 'verify');
+    await transitionPrv(db, f.users.owner, claim.id, 'approve');
+
+    // The claim and its open payable both show until the claim goes
+    const held = await deleteVendors(db, f.users.owner, [id!]);
+    expect(held.inUse[0]!.documents.map((d) => d.label).sort()).toEqual(['รายการตั้งจ่าย', 'ใบขอเบิก PRV'].sort());
+    expect(held.inUse[0]!.documents.find((d) => d.label === 'รายการตั้งจ่าย')?.number).toBe(claim.prvNumber);
+
+    await deletePrv(db, f.users.owner, claim.id);
+    expect((await deleteVendors(db, f.users.owner, [id!])).deletedIds).toEqual([id]);
+    expect(await db.select().from(payables).where(eq(payables.vendorId, id!))).toEqual([]);
+  });
+
+  test('a cancelled document still holds the vendor, and says it is cancelled', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'U-PV');
+    const claim = await createPrv(db, f.users.foreman, { projectId: f.projectA, vendorId: id!, category: 'EXPENSE', items: [{ description: 'งาน', unitPrice: 100 }] });
+    await transitionPrv(db, f.users.foreman, claim.id, 'submit');
+    await transitionPrv(db, f.users.pm, claim.id, 'verify');
+    await transitionPrv(db, f.users.owner, claim.id, 'approve');
+    const [payable] = await db.select().from(payables).where(eq(payables.vendorId, id!));
+    const pv = await createPv(db, f.users.finance, { vendorId: id!, payableIds: [payable!.id], whtRates: { [payable!.id]: 0 } });
+    await cancelPv(db, f.users.finance, pv.id, 'ทำใหม่');
+    await deletePrv(db, f.users.owner, claim.id);
+
+    const { deletedIds, inUse } = await deleteVendors(db, f.users.owner, [id!]);
+    expect(deletedIds).toEqual([]);
+    expect(inUse[0]!.documents).toEqual(
+      expect.arrayContaining([
+        { label: 'ใบสำคัญจ่าย PV', number: pv.number, href: `/pv/${pv.id}`, cancelled: true },
+        expect.objectContaining({ label: 'รายการตั้งจ่าย', cancelled: true }),
+      ]),
+    );
   });
 
   test('nothing chosen, a bad id, or one already gone is reported', async () => {
