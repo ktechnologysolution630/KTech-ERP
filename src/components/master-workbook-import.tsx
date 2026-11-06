@@ -239,7 +239,6 @@ export function MasterWorkbookImport() {
                       <RowList rows={[...found.skippedVendors, ...found.skippedItems]} />
                     </div>
                   )}
-                  {found.vendorsWithUnkeptContact > 0 && <p className="text-slate-500">แฟกซ์และอีเมลของผู้ขาย {found.vendorsWithUnkeptContact.toLocaleString()} รายไม่ได้นำเข้า เพราะระบบยังไม่มีช่องเก็บ</p>}
                   <p className="text-slate-500">ผู้ขายและสินค้าที่มีอยู่แล้วจะไม่ถูกเขียนทับ ผู้ขายจะเติมเฉพาะข้อมูลที่ยังว่าง นำเข้าซ้ำได้ และไฟล์ต้นฉบับไม่ถูกแก้ไข</p>
                   {saveError && (
                     <p role="alert" className="font-medium text-red-600">

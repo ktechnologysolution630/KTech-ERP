@@ -8,7 +8,7 @@ import { importItemCatalog, importVendorDirectory, importVendors, importItems } 
 
 describe('importing the vendor and item lists of a workbook', () => {
   // Made-up ids
-  const row = (over: Partial<VendorImportRow> = {}): VendorImportRow => ({ name: 'ร้านใหม่ จำกัด', type: 'COMPANY', taxId: '0105551112223', branch: '00000', address: 'ที่อยู่ใหม่', phone: '02-111-1111', ...over });
+  const row = (over: Partial<VendorImportRow> = {}): VendorImportRow => ({ name: 'ร้านใหม่ จำกัด', type: 'COMPANY', taxId: '0105551112223', branch: '00000', address: 'ที่อยู่ใหม่', phone: '02-111-1111', email: '', fax: '', ...over });
 
   test('issues a code for each new vendor', async () => {
     const db = await createTestDb();
@@ -33,10 +33,10 @@ describe('importing the vendor and item lists of a workbook', () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
     await db.insert(vendors).values({ code: 'V-OLD', name: 'ร้านเดิม', taxId: null, address: '', phone: '099', bankName: 'กสิกรไทย', defaultCreditDays: 7, defaultWhtRate: 3 });
-    const r = await importVendorDirectory(db, f.users.buyer, [row({ name: 'ร้านเดิม', phone: '02-222-2222' })]);
+    const r = await importVendorDirectory(db, f.users.buyer, [row({ name: 'ร้านเดิม', phone: '02-222-2222', email: 'shop@example.com', fax: '02-333-3333' })]);
     expect(r).toMatchObject({ created: 0, updated: 1 });
     const [saved] = await db.select().from(vendors).where(eq(vendors.code, 'V-OLD'));
-    expect(saved).toMatchObject({ taxId: '0105551112223', address: 'ที่อยู่ใหม่', phone: '099', bankName: 'กสิกรไทย', defaultCreditDays: 7, defaultWhtRate: 3 });
+    expect(saved).toMatchObject({ taxId: '0105551112223', address: 'ที่อยู่ใหม่', phone: '099', email: 'shop@example.com', fax: '02-333-3333', bankName: 'กสิกรไทย', defaultCreditDays: 7, defaultWhtRate: 3 });
   });
 
   test('recognises a vendor by tax id even under another name', async () => {

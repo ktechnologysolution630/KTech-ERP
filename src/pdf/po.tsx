@@ -51,6 +51,20 @@ export function PoPdfDoc({
         <View style={pdfStyles.metaBox}>
           <Text style={{ fontWeight: 'bold' }}>ผู้ขาย: {po.vendorName}</Text>
           <Text>ที่อยู่: {po.vendorAddress || '-'}</Text>
+          {[
+            ['ที่อยู่สำรอง', po.vendorAltAddress],
+            ['ผู้ติดต่อ', po.vendorContactPerson],
+            ['เลขประจำตัวประชาชน/ผู้เสียภาษี', po.vendorTaxId],
+            ['MOBILE', po.vendorPhone],
+            ['E-Mail', po.vendorEmail],
+            ['FAX', po.vendorFax],
+          ]
+            .filter(([, value]) => value)
+            .map(([label, value]) => (
+              <Text key={label}>
+                {label}: {value}
+              </Text>
+            ))}
           <Text>
             โครงการ: {po.projectCode} - {po.projectName}
           </Text>

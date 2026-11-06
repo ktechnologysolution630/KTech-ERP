@@ -7,6 +7,8 @@ export interface VendorImportRow {
   branch: string;
   address: string;
   phone: string;
+  email: string;
+  fax: string;
 }
 
 export interface ItemImportRow {
@@ -23,8 +25,6 @@ export interface MasterWorkbookResult {
   invalidTaxIds: string[];
   skippedVendors: string[];
   skippedItems: string[];
-  /** Vendors whose fax or e-mail is left behind, because the system has nowhere to keep them */
-  vendorsWithUnkeptContact: number;
   itemsWithoutUnit: number;
   itemsWithSeveralUnits: number;
   poSheetsRead: number;
@@ -36,6 +36,8 @@ export const UNKNOWN_UNIT = 'ไม่ระบุ';
 const MAX_NAME = 300;
 const MAX_ITEM_CODE = 50;
 const MAX_ADDRESS = 500;
+const MAX_EMAIL = 200;
+const MAX_FAX = 100;
 const MAX_UNIT = 50;
 const MAX_LISTED_ROWS = 50;
 
@@ -98,7 +100,6 @@ function readVendors(sheet: BoqSheetGrid, result: MasterWorkbookResult): void {
     const addressLines = [at(row, 'ADDRESS 1'), at(row, 'ADDRESS 2')].filter(Boolean);
     const { id, invalid } = readTaxId(at(row, 'TAX ID'));
     if (invalid) result.invalidTaxIds.push(`แถว ${rowNumber}: ${name}`);
-    if (at(row, 'FAX') || at(row, 'E-MAIL')) result.vendorsWithUnkeptContact += 1;
     result.vendors.push({
       name,
       type: vendorType(name, id),
@@ -106,6 +107,8 @@ function readVendors(sheet: BoqSheetGrid, result: MasterWorkbookResult): void {
       branch: branchOf(`${name} ${addressLines.join(' ')}`),
       address: addressLines.join(' ').slice(0, MAX_ADDRESS),
       phone: [at(row, 'TEL'), at(row, 'MOBILE')].filter(Boolean).join(', '),
+      email: at(row, 'E-MAIL').slice(0, MAX_EMAIL),
+      fax: at(row, 'FAX').slice(0, MAX_FAX),
     });
   });
 }
@@ -181,7 +184,6 @@ export function parseMasterWorkbook(sheets: BoqSheetGrid[]): MasterWorkbookResul
     invalidTaxIds: [],
     skippedVendors: [],
     skippedItems: [],
-    vendorsWithUnkeptContact: 0,
     itemsWithoutUnit: 0,
     itemsWithSeveralUnits: 0,
     poSheetsRead: 0,

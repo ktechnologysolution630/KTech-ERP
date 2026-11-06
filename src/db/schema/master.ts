@@ -74,6 +74,10 @@ export const vendors = pgTable(
     defaultWhtRate: integer('default_wht_rate').default(0).notNull(),
     /** What this vendor sells, in the buyer's own words; not tied to the item list */
     suppliedItems: text('supplied_items').default('').notNull(),
+    contactPerson: text('contact_person').default('').notNull(),
+    altAddress: text('alt_address').default('').notNull(),
+    email: text('email').default('').notNull(),
+    fax: text('fax').default('').notNull(),
     active: boolean('active').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

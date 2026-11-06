@@ -5,8 +5,10 @@ import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { formatMoneyDisplay } from '@/domain/money';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listPos } from '@/server/services/po';
 import { getVendorDetail } from '@/server/services/vendor-detail';
+import { VendorEditButton } from './vendor-edit-button';
 
 const VENDOR_TYPE_LABELS = { COMPANY: 'นิติบุคคล (ภ.ง.ด.53)', INDIVIDUAL: 'บุคคลธรรมดา (ภ.ง.ด.3)' } as const;
 
@@ -57,12 +59,15 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
         กลับไปหน้าซัพพลายเออร์
       </Link>
 
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">{v.name}</h1>
-        <p className="mt-0.5 font-mono text-slate-500">
-          {v.code}
-          {!v.active && <span className="ml-2 font-sans font-semibold text-rose-600">ปิดใช้งาน</span>}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{v.name}</h1>
+          <p className="mt-0.5 font-mono text-slate-500">
+            {v.code}
+            {!v.active && <span className="ml-2 font-sans font-semibold text-rose-600">ปิดใช้งาน</span>}
+          </p>
+        </div>
+        {can(actor, 'master.manage') && <VendorEditButton vendor={v} />}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -76,11 +81,17 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
           <h2 className="mb-3 text-sm font-bold text-slate-900">ข้อมูลทั่วไป</h2>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="ประเภท">{VENDOR_TYPE_LABELS[v.type]}</Field>
-            <Field label="เลขผู้เสียภาษี">{v.taxId}</Field>
+            <Field label="ผู้ติดต่อ">{v.contactPerson}</Field>
+            <Field label="เลขประจำตัวประชาชน / ผู้เสียภาษี">{v.taxId}</Field>
             <Field label="สาขา">{v.branch}</Field>
-            <Field label="โทร">{v.phone}</Field>
+            <Field label="โทร / MOBILE">{v.phone}</Field>
+            <Field label="E-Mail">{v.email}</Field>
+            <Field label="FAX">{v.fax}</Field>
             <div className="sm:col-span-2">
               <Field label="ที่อยู่">{v.address}</Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label="ที่อยู่สำรอง">{v.altAddress}</Field>
             </div>
             <div className="sm:col-span-2">
               <Field label="รายการสินค้า">{v.suppliedItems}</Field>

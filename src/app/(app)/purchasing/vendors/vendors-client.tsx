@@ -175,7 +175,7 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
                 setIsSubmitting(false);
                 window.location.reload();
               }}
-              className="p-5 space-y-3.5 text-xs"
+              className="max-h-[80vh] overflow-y-auto p-5 space-y-3.5 text-xs"
             >
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
@@ -227,6 +227,35 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-slate-700 font-semibold">
+                  ผู้ติดต่อ
+                  <input name="contactPerson" maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
+                </label>
+                <label className="block text-slate-700 font-semibold">
+                  โทร / MOBILE
+                  <input name="phone" maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
+                </label>
+                <label className="block text-slate-700 font-semibold">
+                  E-Mail
+                  <input name="email" maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
+                </label>
+                <label className="block text-slate-700 font-semibold">
+                  FAX
+                  <input name="fax" maxLength={100} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
+                </label>
+              </div>
+
+              <label className="block text-slate-700 font-semibold">
+                ที่อยู่
+                <input name="address" maxLength={500} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
+              </label>
+
+              <label className="block text-slate-700 font-semibold">
+                ที่อยู่สำรอง
+                <input name="altAddress" maxLength={500} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
+              </label>
 
               <div>
                 <label htmlFor="vendor-supplied-items" className="block text-slate-700 font-semibold mb-1">

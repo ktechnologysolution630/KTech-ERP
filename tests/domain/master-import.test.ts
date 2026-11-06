@@ -46,7 +46,7 @@ describe('vendors', () => {
     const { vendors } = parseMasterWorkbook([
       vendorSheet([[1, 'นางสาวตัวอย่าง ทดสอบ', '1 หมู่ 2 ตำบลตัวอย่าง', '-', PERSON_VALID, '-', '081-111-1111', '-', '-', 'ซ้ำ']]),
     ]);
-    expect(vendors).toEqual([{ name: 'นางสาวตัวอย่าง ทดสอบ', type: 'INDIVIDUAL', taxId: PERSON_VALID, branch: '00000', address: '1 หมู่ 2 ตำบลตัวอย่าง', phone: '081-111-1111' }]);
+    expect(vendors).toEqual([{ name: 'นางสาวตัวอย่าง ทดสอบ', type: 'INDIVIDUAL', taxId: PERSON_VALID, branch: '00000', address: '1 หมู่ 2 ตำบลตัวอย่าง', phone: '081-111-1111', email: '', fax: '' }]);
   });
 
   test('joins both address lines, a postcode stored as a number included', () => {
@@ -82,7 +82,7 @@ describe('vendors', () => {
     const r = parseMasterWorkbook([vendorSheet([[1, 'ร้าน ก', '', '', '', '', '', '02-222-2222', 'a@example.com'], [2, ''], [3, 'ร้าน ก']])]);
     expect(r.vendors).toHaveLength(1);
     expect(r.skippedVendors).toEqual(['แถว 4: ร้าน ก ซ้ำกับแถวก่อนหน้า']);
-    expect(r.vendorsWithUnkeptContact).toBe(1);
+    expect(r.vendors[0]).toMatchObject({ fax: '02-222-2222', email: 'a@example.com' });
   });
 });
 

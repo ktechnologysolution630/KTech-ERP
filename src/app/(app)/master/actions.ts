@@ -69,6 +69,10 @@ export async function saveVendorAction(formData: FormData) {
     defaultCreditDays: Number(formData.get('defaultCreditDays') || 30),
     defaultWhtRate: Number(formData.get('defaultWhtRate') || 0),
     suppliedItems: optionalText(formData, 'suppliedItems'),
+    contactPerson: optionalText(formData, 'contactPerson'),
+    altAddress: optionalText(formData, 'altAddress'),
+    email: optionalText(formData, 'email'),
+    fax: optionalText(formData, 'fax'),
     active: formData.get('active') !== 'false',
   });
   revalidatePath('/master/vendors');

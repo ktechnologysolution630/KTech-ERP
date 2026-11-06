@@ -3,11 +3,12 @@ import { eq, inArray } from 'drizzle-orm';
 import { milestones, payables, prvs, vendors } from '@/db/schema';
 import { D } from '@/domain/money';
 import { listActivity } from '@/server/services/activity';
-import { createPo } from '@/server/services/po';
+import { upsertVendor } from '@/server/services/master';
+import { createPo, getPo } from '@/server/services/po';
 import { createPrv, deletePrv, transitionPrv } from '@/server/services/prv';
 import { cancelPv, createPv } from '@/server/services/pv';
 import { deleteVendors } from '@/server/services/vendor-delete';
-import { getVendorDetail } from '@/server/services/vendor-detail';
+import { getVendorDetail, updateVendor } from '@/server/services/vendor-detail';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 
@@ -41,6 +42,98 @@ describe('a vendor\'s detail', () => {
     const f = await seedBasics(db);
     await expect(getVendorDetail(db, f.users.buyer, 'nope')).rejects.toMatchObject({ status: 404 });
     await expect(getVendorDetail(db, f.users.buyer, '00000000-0000-0000-0000-000000000000')).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe('editing a vendor', () => {
+  const edit = {
+    name: 'ร้านแก้แล้ว',
+    type: 'INDIVIDUAL' as const,
+    taxId: null,
+    branch: '00000',
+    address: 'ที่อยู่หลัก',
+    altAddress: 'ที่อยู่สำรอง',
+    contactPerson: 'คุณผู้ติดต่อ',
+    phone: '081-000-0000',
+    email: 'shop@example.com',
+    fax: '02-000-0000',
+    suppliedItems: 'ปูน',
+    defaultCreditDays: 15,
+    defaultWhtRate: 3,
+    bankName: 'ธนาคารตัวอย่าง',
+    bankAccountNo: '123',
+    bankAccountName: 'ร้านแก้แล้ว',
+  };
+
+  test('saves every field, keeps the code and active state, and logs the fields changed', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'E-1');
+    await db.update(vendors).set({ active: false }).where(eq(vendors.id, id!));
+
+    const saved = await updateVendor(db, f.users.buyer, id!, edit);
+
+    expect(saved).toMatchObject({ ...edit, code: 'E-1', active: false });
+    const [log] = await listActivity(db, 'VENDOR', id!);
+    expect(log).toMatchObject({ action: 'UPDATE', userId: f.users.buyer.id });
+    expect(log!.note).toContain('bankAccountNo');
+    expect(log!.note).not.toContain('branch');
+  });
+
+  test('only those who manage master data may', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'E-1');
+    for (const u of [f.users.foreman, f.users.pm, f.users.finance]) {
+      await expect(updateVendor(db, u, id!, edit)).rejects.toMatchObject({ status: 403 });
+    }
+  });
+
+  test('a bad tax id is refused and an unknown vendor is not found', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'E-1');
+    await expect(updateVendor(db, f.users.buyer, id!, { ...edit, taxId: '123' })).rejects.toMatchObject({ code: 'INVALID_VENDOR' });
+    await expect(updateVendor(db, f.users.buyer, 'nope', edit)).rejects.toMatchObject({ status: 404 });
+  });
+
+  test('a form that does not show the new fields leaves them alone', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'E-1');
+    await updateVendor(db, f.users.buyer, id!, edit);
+
+    await upsertVendor(db, f.users.buyer, { code: 'E-1', name: 'ร้านแก้แล้ว' });
+    await upsertVendor(db, f.users.buyer, { id: id!, code: 'E-1', name: 'ร้านแก้แล้ว' });
+
+    const [saved] = await db.select().from(vendors).where(eq(vendors.id, id!));
+    expect(saved).toMatchObject({ contactPerson: 'คุณผู้ติดต่อ', altAddress: 'ที่อยู่สำรอง', email: 'shop@example.com', fax: '02-000-0000', suppliedItems: 'ปูน' });
+  });
+
+  test('a purchase order reads the details', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'E-1');
+    await updateVendor(db, f.users.buyer, id!, { ...edit, taxId: '0105551112223' });
+    const created = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: id!,
+      paymentType: 'CREDIT',
+      creditDays: 30,
+      vatMode: 'INCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ปูน', unitName: 'ถุง', qty: D(1), unitPrice: D(100), discount: D(0) }],
+    });
+
+    expect(await getPo(db, f.users.buyer, created.id)).toMatchObject({
+      vendorAltAddress: 'ที่อยู่สำรอง',
+      vendorContactPerson: 'คุณผู้ติดต่อ',
+      vendorTaxId: '0105551112223',
+      vendorPhone: '081-000-0000',
+      vendorEmail: 'shop@example.com',
+      vendorFax: '02-000-0000',
+    });
   });
 });
 

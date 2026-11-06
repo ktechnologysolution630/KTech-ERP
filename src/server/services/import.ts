@@ -169,6 +169,8 @@ const vendorRowSchema = z.array(
     branch: z.string().regex(/^\d{5}$/),
     address: z.string().max(500),
     phone: z.string().max(200),
+    email: z.string().max(200),
+    fax: z.string().max(100),
   }),
 ).max(DIRECTORY_IMPORT_LIMIT);
 
@@ -214,6 +216,8 @@ export async function importVendorDirectory(db: Db, actor: SessionUser, rows: Ve
         ...(!found.taxId && row.taxId ? { taxId: row.taxId, branch: row.branch } : {}),
         ...(!found.address && row.address ? { address: row.address } : {}),
         ...(!found.phone && row.phone ? { phone: row.phone } : {}),
+        ...(!found.email && row.email ? { email: row.email } : {}),
+        ...(!found.fax && row.fax ? { fax: row.fax } : {}),
       };
       if (Object.keys(blanks).length === 0) {
         result.unchanged += 1;
