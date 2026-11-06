@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, X, Users, Building2 } from 'lucide-react';
 import { saveVendorAction } from '@/app/(app)/master/actions';
+import { MasterWorkbookImport } from '@/components/master-workbook-import';
 
 interface VendorItem {
   id: string;
@@ -16,7 +17,7 @@ interface VendorItem {
   openPosCount: number;
 }
 
-export function PurchasingVendorsClient({ initialVendors }: { initialVendors: VendorItem[] }) {
+export function PurchasingVendorsClient({ initialVendors, canImport }: { initialVendors: VendorItem[]; canImport: boolean }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [code, setCode] = useState('');
@@ -42,7 +43,8 @@ export function PurchasingVendorsClient({ initialVendors }: { initialVendors: Ve
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-end gap-2.5">
+          {canImport && <MasterWorkbookImport />}
           {/* Search box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />

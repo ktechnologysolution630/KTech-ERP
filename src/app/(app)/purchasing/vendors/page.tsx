@@ -1,5 +1,6 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listVendors } from '@/server/services/master';
 import { listPos } from '@/server/services/po';
 import { PurchasingVendorsClient } from './vendors-client';
@@ -31,5 +32,5 @@ export default async function PurchasingVendorsPage() {
     };
   });
 
-  return <PurchasingVendorsClient initialVendors={vendorStats} />;
+  return <PurchasingVendorsClient initialVendors={vendorStats} canImport={can(actor, 'master.manage')} />;
 }

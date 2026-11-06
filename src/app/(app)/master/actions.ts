@@ -12,7 +12,8 @@ import {
   resetPassword,
   type UserInput,
 } from '@/server/services/master';
-import { importItems, importVendors } from '@/server/services/import';
+import type { ItemImportRow, VendorImportRow } from '@/domain/master-import';
+import { importItemCatalog, importItems, importVendorDirectory, importVendors, type DirectoryImportResult } from '@/server/services/import';
 import { updateSettings } from '@/server/services/settings';
 
 function optionalText(formData: FormData, key: string): string | undefined {
@@ -100,6 +101,34 @@ export async function importItemsAction(rows: Record<string, string>[]) {
   const res = await importItems(db, actor, rows);
   revalidatePath('/master/items');
   return res;
+}
+
+export type DirectoryImportReply = { ok: true; result: DirectoryImportResult } | { ok: false; error: string };
+
+async function directoryImport(fn: () => Promise<DirectoryImportResult>): Promise<DirectoryImportReply> {
+  try {
+    return { ok: true, result: await fn() };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+export async function importVendorDirectoryAction(rows: VendorImportRow[]): Promise<DirectoryImportReply> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const reply = await directoryImport(() => importVendorDirectory(db, actor, rows));
+  revalidatePath('/purchasing/vendors');
+  revalidatePath('/master/vendors');
+  return reply;
+}
+
+export async function importItemCatalogAction(rows: ItemImportRow[]): Promise<DirectoryImportReply> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const reply = await directoryImport(() => importItemCatalog(db, actor, rows));
+  revalidatePath('/master/items');
+  return reply;
 }
 
 export type UserActionResult = { ok: true } | { ok: false; error: string };

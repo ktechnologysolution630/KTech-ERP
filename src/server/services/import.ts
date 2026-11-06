@@ -1,13 +1,16 @@
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { type Db } from '@/db/client';
 import { assets, items, projects, vendors, type SessionUser, type VendorType } from '@/db/schema';
 import { ASSET_IMPORT_COLUMNS } from '@/domain/asset';
 import { DomainError } from '@/domain/errors';
+import { UNKNOWN_UNIT, type ItemImportRow, type VendorImportRow } from '@/domain/master-import';
 import { parseDecimalInput } from '@/domain/money';
 import { parseDateText } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { createAsset } from './assets';
 import { upsertItem, upsertVendor } from './master';
+import { nextDocNumber } from './numbering';
 
 export interface ImportResult {
   created: number;
@@ -145,6 +148,109 @@ export async function importVendors(
   }
 
   return { created, updated, errors };
+}
+
+export interface DirectoryImportResult {
+  created: number;
+  /** Already in the system and given details it lacked */
+  updated: number;
+  /** Already in the system with nothing to add */
+  unchanged: number;
+  errors: { row: number; message: string }[];
+}
+
+const DIRECTORY_IMPORT_LIMIT = 5000;
+
+const vendorRowSchema = z.array(
+  z.object({
+    name: z.string().trim().min(1).max(300),
+    type: z.enum(['COMPANY', 'INDIVIDUAL']),
+    taxId: z.string().regex(/^\d{13}$/).nullable(),
+    branch: z.string().regex(/^\d{5}$/),
+    address: z.string().max(500),
+    phone: z.string().max(200),
+  }),
+).max(DIRECTORY_IMPORT_LIMIT);
+
+const itemRowSchema = z.array(
+  z.object({
+    code: z.string().trim().min(1).max(50),
+    name: z.string().trim().min(1).max(300),
+    unitName: z.string().trim().min(1).max(50).nullable(),
+  }),
+).max(DIRECTORY_IMPORT_LIMIT);
+
+const parseRows = <T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, rows: unknown): T => {
+  const parsed = schema.safeParse(rows);
+  if (!parsed.success) throw new DomainError('INVALID_IMPORT', 'ข้อมูลที่นำเข้าไม่ถูกต้อง');
+  return parsed.data;
+};
+
+/**
+ * Adds vendors from a list that has no vendor codes, so the system issues them. A vendor already here, by tax id
+ * and branch or else by name, only has blanks filled in: credit terms and bank details people set are never replaced.
+ * Rows that fail are reported and the rest still go in, so the same file can safely be imported again.
+ */
+export async function importVendorDirectory(db: Db, actor: SessionUser, rows: VendorImportRow[]): Promise<DirectoryImportResult> {
+  assertCan(actor, 'master.manage');
+  const parsed = parseRows(vendorRowSchema, rows);
+  const existing = await db.select().from(vendors);
+  const byTaxId = new Map(existing.filter((v) => v.taxId).map((v) => [`${v.taxId}|${v.branch}`, v]));
+  const byName = new Map(existing.map((v) => [v.name.trim(), v]));
+  const result: DirectoryImportResult = { created: 0, updated: 0, unchanged: 0, errors: [] };
+
+  for (const [i, row] of parsed.entries()) {
+    try {
+      const found = (row.taxId && byTaxId.get(`${row.taxId}|${row.branch}`)) || byName.get(row.name);
+      if (!found) {
+        const saved = await upsertVendor(db, actor, { ...row, code: await nextDocNumber(db, 'V'), bankName: '', bankAccountNo: '', bankAccountName: '', defaultCreditDays: 30, defaultWhtRate: 0, active: true });
+        // The same vendor may appear again further down the list
+        if (saved.taxId) byTaxId.set(`${saved.taxId}|${saved.branch}`, saved);
+        byName.set(saved.name.trim(), saved);
+        result.created += 1;
+        continue;
+      }
+      const blanks = {
+        ...(!found.taxId && row.taxId ? { taxId: row.taxId, branch: row.branch } : {}),
+        ...(!found.address && row.address ? { address: row.address } : {}),
+        ...(!found.phone && row.phone ? { phone: row.phone } : {}),
+      };
+      if (Object.keys(blanks).length === 0) {
+        result.unchanged += 1;
+        continue;
+      }
+      await db.update(vendors).set({ ...blanks, updatedAt: new Date() }).where(eq(vendors.id, found.id));
+      result.updated += 1;
+    } catch (err) {
+      result.errors.push({ row: i + 1, message: err instanceof DomainError ? `${row.name}: ${err.message}` : `${row.name}: บันทึกไม่สำเร็จ` });
+      if (!(err instanceof DomainError)) console.error('Could not import a vendor', err);
+    }
+  }
+  return result;
+}
+
+/** Adds items that are not here yet. Items already here keep what people have set, including their unit. */
+export async function importItemCatalog(db: Db, actor: SessionUser, rows: ItemImportRow[]): Promise<DirectoryImportResult> {
+  assertCan(actor, 'master.manage');
+  const parsed = parseRows(itemRowSchema, rows);
+  const known = new Set((await db.select({ code: items.code }).from(items)).map((i) => i.code));
+  const result: DirectoryImportResult = { created: 0, updated: 0, unchanged: 0, errors: [] };
+
+  for (const [i, row] of parsed.entries()) {
+    if (known.has(row.code)) {
+      result.unchanged += 1;
+      continue;
+    }
+    try {
+      await upsertItem(db, actor, { code: row.code, name: row.name, unitName: row.unitName ?? UNKNOWN_UNIT, active: true });
+      known.add(row.code);
+      result.created += 1;
+    } catch (err) {
+      result.errors.push({ row: i + 1, message: err instanceof DomainError ? `${row.code}: ${err.message}` : `${row.code}: บันทึกไม่สำเร็จ` });
+      if (!(err instanceof DomainError)) console.error('Could not import an item', err);
+    }
+  }
+  return result;
 }
 
 export async function importItems(
