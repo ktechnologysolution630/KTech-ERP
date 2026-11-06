@@ -44,6 +44,21 @@ describe('master service', () => {
     expect(saved.code).toBe('V-NEW');
   });
 
+  test('what a vendor sells is kept, and a save that does not mention it leaves it alone', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const saved = await upsertVendor(db, f.users.buyer, { ...baseVendor, suppliedItems: ' ปูนซีเมนต์, เหล็กเส้น ' });
+    expect(saved.suppliedItems).toBe('ปูนซีเมนต์, เหล็กเส้น');
+
+    expect((await upsertVendor(db, f.users.buyer, { ...baseVendor, name: 'ชื่อใหม่' })).suppliedItems).toBe('ปูนซีเมนต์, เหล็กเส้น');
+    expect((await upsertVendor(db, f.users.buyer, { ...baseVendor, id: saved.id, name: 'ชื่อใหม่ 2' })).suppliedItems).toBe('ปูนซีเมนต์, เหล็กเส้น');
+    expect((await upsertVendor(db, f.users.buyer, { ...baseVendor, suppliedItems: '' })).suppliedItems).toBe('');
+
+    const none = await upsertVendor(db, f.users.buyer, { ...baseVendor, code: 'V-NONE' });
+    expect(none.suppliedItems).toBe('');
+    await expect(upsertVendor(db, f.users.buyer, { ...baseVendor, suppliedItems: 'ก'.repeat(2001) })).rejects.toMatchObject({ code: 'INVALID_VENDOR' });
+  });
+
   test('foreman cannot manage vendors', async () => {
     const db = await createTestDb();
     const f = await seedBasics(db);

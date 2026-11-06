@@ -10,6 +10,7 @@ interface VendorItem {
   code: string;
   name: string;
   contactPerson: string;
+  suppliedItems: string;
   creditDays: string;
   deliveryDays: string;
   totalPurchases: number;
@@ -23,13 +24,14 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [suppliedItems, setSuppliedItems] = useState('');
   const [creditDays, setCreditDays] = useState('30');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = initialVendors.filter((v) => {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
-    return v.name.toLowerCase().includes(q) || v.code.toLowerCase().includes(q);
+    return [v.name, v.code, v.suppliedItems].some((text) => text.toLowerCase().includes(q));
   });
 
   return (
@@ -50,7 +52,7 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="ค้นหา..."
+              placeholder="ค้นหาชื่อ รหัส หรือสินค้า..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#2453d4] w-48"
@@ -71,11 +73,12 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
       {/* Navy Table (Image 5) */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-xs">
+          <table className="w-full min-w-[1050px] text-xs">
             <thead className="bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0">
               <tr>
                 <th className="px-3.5 py-2.5 text-left font-medium">ซัพพลายเออร์</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ผู้ติดต่อ</th>
+                <th className="px-3.5 py-2.5 text-left font-medium">รายการสินค้า</th>
                 <th className="px-3.5 py-2.5 text-center font-medium">เงื่อนไขการชำระเงิน</th>
                 <th className="px-3.5 py-2.5 text-center font-medium">ระยะเวลาจัดส่ง</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">ยอดซื้อรวม</th>
@@ -86,7 +89,7 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="py-14 text-center text-slate-400 text-xs">
                     ยังไม่มีซัพพลายเออร์
                   </td>
                 </tr>
@@ -98,6 +101,11 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
                       <div className="text-[10px] text-slate-400 font-mono">{v.code}</div>
                     </td>
                     <td className="px-3.5 py-2.5 text-slate-600">{v.contactPerson}</td>
+                    <td className="max-w-[220px] px-3.5 py-2.5 text-slate-600">
+                      <div className="line-clamp-2 whitespace-pre-line" title={v.suppliedItems}>
+                        {v.suppliedItems || '-'}
+                      </div>
+                    </td>
                     <td className="px-3.5 py-2.5 text-center text-slate-700 font-medium">
                       {v.creditDays}
                     </td>
@@ -151,6 +159,7 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
                 formData.set('code', code);
                 formData.set('name', name);
                 formData.set('taxId', taxId);
+                formData.set('suppliedItems', suppliedItems);
                 formData.set('type', 'COMPANY');
                 formData.set('branch', '00000');
                 formData.set('defaultCreditDays', creditDays);
@@ -212,6 +221,21 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
                     className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="vendor-supplied-items" className="block text-slate-700 font-semibold mb-1">
+                  รายการสินค้า
+                </label>
+                <textarea
+                  id="vendor-supplied-items"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="สินค้าที่ร้านนี้ขาย เช่น ปูนซีเมนต์, เหล็กเส้น, ทราย"
+                  value={suppliedItems}
+                  onChange={(e) => setSuppliedItems(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

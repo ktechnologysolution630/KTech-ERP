@@ -397,6 +397,8 @@ const vendorSchema = z.object({
     .refine((v) => (WHT_RATES as readonly number[]).includes(v), {
       message: 'อัตราหัก ณ ที่จ่ายต้องเป็น 0, 1, 2, 3 หรือ 5%',
     }),
+  /** Left out by forms and imports that do not show it, which must not clear it */
+  suppliedItems: z.string().trim().max(2000, 'รายการสินค้าต้องไม่เกิน 2,000 ตัวอักษร').optional(),
   active: z.boolean().default(true),
 });
 
@@ -411,6 +413,7 @@ export async function upsertVendor(
     throw new DomainError('INVALID_VENDOR', parsed.error.issues[0].message);
   }
   const d = parsed.data;
+  const suppliedItems = d.suppliedItems === undefined ? {} : { suppliedItems: d.suppliedItems };
 
   if (d.id) {
     const [updated] = await db
@@ -428,6 +431,7 @@ export async function upsertVendor(
         bankAccountName: d.bankAccountName,
         defaultCreditDays: d.defaultCreditDays,
         defaultWhtRate: d.defaultWhtRate,
+        ...suppliedItems,
         active: d.active,
         updatedAt: new Date(),
       })
@@ -451,6 +455,7 @@ export async function upsertVendor(
       bankAccountName: d.bankAccountName,
       defaultCreditDays: d.defaultCreditDays,
       defaultWhtRate: d.defaultWhtRate,
+      ...suppliedItems,
       active: d.active,
     })
     .onConflictDoUpdate({
@@ -467,6 +472,7 @@ export async function upsertVendor(
         bankAccountName: d.bankAccountName,
         defaultCreditDays: d.defaultCreditDays,
         defaultWhtRate: d.defaultWhtRate,
+        ...suppliedItems,
         active: d.active,
         updatedAt: new Date(),
       },

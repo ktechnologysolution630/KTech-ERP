@@ -204,6 +204,13 @@
       "when": 1793869832166,
       "tag": "0028_remove_sample_data",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793939312743,
+      "tag": "0029_vendor_supplied_items",
+      "breakpoints": true
     }
   ]
 }

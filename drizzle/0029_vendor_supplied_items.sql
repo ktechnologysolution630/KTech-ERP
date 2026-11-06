@@ -1,0 +1,1 @@
+ALTER TABLE "vendors" ADD COLUMN "supplied_items" text DEFAULT '' NOT NULL;

@@ -24,6 +24,7 @@ export default async function PurchasingVendorsPage() {
       code: v.code,
       name: v.name,
       contactPerson: v.taxId ? `Tax ID: ${v.taxId}` : '-',
+      suppliedItems: v.suppliedItems,
       creditDays: v.defaultCreditDays ? `${v.defaultCreditDays} วัน` : 'เงินสด / ตามงวด',
       deliveryDays: '3-7 วัน',
       totalPurchases,

@@ -72,6 +72,8 @@ export const vendors = pgTable(
     bankAccountName: text('bank_account_name').default('').notNull(),
     defaultCreditDays: integer('default_credit_days').default(30).notNull(),
     defaultWhtRate: integer('default_wht_rate').default(0).notNull(),
+    /** What this vendor sells, in the buyer's own words; not tied to the item list */
+    suppliedItems: text('supplied_items').default('').notNull(),
     active: boolean('active').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

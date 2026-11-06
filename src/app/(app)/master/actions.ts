@@ -68,9 +68,11 @@ export async function saveVendorAction(formData: FormData) {
     bankAccountName: String(formData.get('bankAccountName') || ''),
     defaultCreditDays: Number(formData.get('defaultCreditDays') || 30),
     defaultWhtRate: Number(formData.get('defaultWhtRate') || 0),
+    suppliedItems: optionalText(formData, 'suppliedItems'),
     active: formData.get('active') !== 'false',
   });
   revalidatePath('/master/vendors');
+  revalidatePath('/purchasing/vendors');
 }
 
 export async function importVendorsAction(rows: Record<string, string>[]) {
