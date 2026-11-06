@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { getPrvs } from '@/server/services/prv';
+import { PrvDeleteButton } from './prv-delete-button';
 import { Receipt, Plus, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { GsapReveal } from '@/components/gsap-animator';
 import { PRV_CATEGORY_LABELS } from '@/domain/prv';
@@ -10,6 +12,7 @@ export default async function PrvListPage() {
   const actor = await requireUser();
   const db = await getDb();
   const prvsList = await getPrvs(db, actor);
+  const canDelete = can(actor, 'prv.delete');
 
   const pendingApprovalCount = prvsList.filter(
     (p) => p.status === 'SUBMITTED' || p.status === 'PM_VERIFIED',
@@ -101,7 +104,7 @@ export default async function PrvListPage() {
                 <th className="px-3.5 py-2.5 text-right font-medium">ยอดขอเบิก</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">ยอดจ่ายสุทธิ</th>
                 <th className="px-3.5 py-2.5 text-center font-medium">สถานะ</th>
-                <th className="px-3.5 py-2.5 text-center font-medium">ดูเอกสาร</th>
+                <th className="px-3.5 py-2.5 text-center font-medium">{canDelete ? 'ดูเอกสาร / ลบ' : 'ดูเอกสาร'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -147,6 +150,7 @@ export default async function PrvListPage() {
                           <FileText className="h-3 w-3" />
                           เปิดดู
                         </Link>
+                        {canDelete && <PrvDeleteButton id={p.id} number={p.prvNumber} payeeName={p.payeeName} approved={p.status === 'APPROVED'} />}
                       </td>
                     </tr>
                   );

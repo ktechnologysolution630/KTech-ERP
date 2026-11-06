@@ -43,7 +43,8 @@ export type Action =
   | 'stock.approveAdjust'
   | 'asset.manage'
   | 'asset.inspect'
-  | 'asset.delete';
+  | 'asset.delete'
+  | 'prv.delete';
 
 export interface PolicyContext {
   projectId?: string | null;
@@ -197,7 +198,8 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'project.delete':
-    case 'asset.delete': {
+    case 'asset.delete':
+    case 'prv.delete': {
       return hasRole(u, ['OWNER', 'ADMIN']);
     }
     case 'master.manage': {

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
-import { createPrv, transitionPrv, type CreatePrvInput, type PrvTransition } from '@/server/services/prv';
+import { createPrv, deletePrv, transitionPrv, type CreatePrvInput, type PrvTransition } from '@/server/services/prv';
 
 export type PrvActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -17,6 +17,20 @@ export async function createPrvAction(input: CreatePrvInput): Promise<PrvActionR
     return { ok: true, id: prv.id };
   } catch (err) {
     // Domain errors carry user-safe Thai messages; anything else is unexpected and rethrown
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+export async function deletePrvAction(id: string): Promise<PrvActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    await deletePrv(db, actor, id);
+    // The menu counts what is waiting for approval on every page
+    revalidatePath('/', 'layout');
+    return { ok: true };
+  } catch (err) {
     if (err instanceof DomainError) return { ok: false, error: err.message };
     throw err;
   }

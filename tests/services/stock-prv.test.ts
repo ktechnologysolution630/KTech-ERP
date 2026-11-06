@@ -10,8 +10,12 @@ import {
   upsertStockItem,
 } from '@/server/services/stock';
 import { eq } from 'drizzle-orm';
-import { payables } from '@/db/schema';
-import { createPrv, getPrvs, getPrvById, transitionPrv, type CreatePrvInput } from '@/server/services/prv';
+import { attachments, comments, payables, prvItems } from '@/db/schema';
+import { listActivity } from '@/server/services/activity';
+import { addAttachment, addComment, readStoredFile } from '@/server/services/attachments';
+import { listOpenPayables } from '@/server/services/payable';
+import { createPrv, deletePrv, getPrvs, getPrvById, transitionPrv, type CreatePrvInput } from '@/server/services/prv';
+import { approvePv, cancelPv, createPv, markPvPaid, submitPv } from '@/server/services/pv';
 
 describe('Stock & PRV Services', () => {
   let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -190,6 +194,87 @@ describe('Stock & PRV Services', () => {
     const [payable] = await db.select().from(payables).where(eq(payables.vendorId, f.vendorPerson));
     expect(payable).toMatchObject({ sourceType: 'CONTRACTOR_CLAIM', beforeVat: '95000.00', vat: '7000.00', gross: '102000.00', status: 'OPEN' });
     expect(payable.note).toContain(prv.prvNumber);
+  });
+
+  describe('deleting a PRV', () => {
+    const approved = async () => {
+      const prv = await createPrv(db, f.users.foreman, claim());
+      await transitionPrv(db, f.users.foreman, prv.id, 'submit');
+      await transitionPrv(db, f.users.pm, prv.id, 'verify');
+      await transitionPrv(db, f.users.owner, prv.id, 'approve');
+      const [payable] = await db.select().from(payables).where(eq(payables.vendorId, f.vendorPerson));
+      return { prv, payable: payable! };
+    };
+    const payableStatus = async (id: string) => (await db.select().from(payables).where(eq(payables.id, id)))[0]?.status;
+
+    it('only owner and admin may, and it leaves a record of who did', async () => {
+      const prv = await createPrv(db, f.users.foreman, claim());
+      for (const u of [f.users.foreman, f.users.pm, f.users.buyer, f.users.buyerHead, f.users.finance]) {
+        await expect(deletePrv(db, u, prv.id)).rejects.toMatchObject({ status: 403 });
+      }
+      await deletePrv(db, f.users.admin, prv.id);
+      expect(await getPrvById(db, f.users.admin, prv.id)).toBeNull();
+      const [log] = await listActivity(db, 'PRV', prv.id).then((rows) => rows.filter((r) => r.action === 'DELETE'));
+      expect(log).toMatchObject({ userId: f.users.admin.id });
+      expect(log!.note).toContain(prv.prvNumber);
+
+      await expect(deletePrv(db, f.users.owner, prv.id)).rejects.toMatchObject({ status: 404 });
+      await expect(deletePrv(db, f.users.owner, 'not-a-uuid')).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('takes its lines, files and comments, and no other PRV is touched', async () => {
+      const prv = await createPrv(db, f.users.foreman, claim());
+      const other = await createPrv(db, f.users.foreman, claim());
+      const file = await addAttachment(db, f.users.foreman, { entityType: 'PRV', entityId: prv.id, file: new File(['x'], 'a.pdf', { type: 'application/pdf' }) });
+      await addComment(db, f.users.foreman, { entityType: 'PRV', entityId: prv.id, body: 'ตรวจแล้ว' });
+
+      await deletePrv(db, f.users.owner, prv.id);
+
+      expect(await db.select().from(prvItems).where(eq(prvItems.prvId, prv.id))).toEqual([]);
+      expect(await db.select().from(attachments).where(eq(attachments.entityId, prv.id))).toEqual([]);
+      expect(await db.select().from(comments).where(eq(comments.entityId, prv.id))).toEqual([]);
+      expect(await readStoredFile(db, file.url.split('id=')[1]!)).toBeNull();
+      expect(await getPrvById(db, f.users.owner, other.id)).not.toBeNull();
+    });
+
+    it('an approved one takes its open payable out of the payment queue, and no other', async () => {
+      const { prv, payable } = await approved();
+      const before = await createPrv(db, f.users.foreman, claim());
+      await transitionPrv(db, f.users.foreman, before.id, 'submit');
+      await transitionPrv(db, f.users.pm, before.id, 'verify');
+      await transitionPrv(db, f.users.owner, before.id, 'approve');
+
+      await deletePrv(db, f.users.owner, prv.id);
+
+      expect(await payableStatus(payable.id)).toBe('CANCELLED');
+      const open = await listOpenPayables(db, f.users.finance, {});
+      expect(open.map((p) => p.id)).not.toContain(payable.id);
+      expect(open.some((p) => p.note.startsWith(before.prvNumber))).toBe(true);
+    });
+
+    it('is refused once on a PV or paid, and allowed again after the PV is cancelled', async () => {
+      const { prv, payable } = await approved();
+      const pv = await createPv(db, f.users.finance, { vendorId: f.vendorPerson, payableIds: [payable.id], whtRates: { [payable.id]: 3 } });
+      await expect(deletePrv(db, f.users.owner, prv.id)).rejects.toMatchObject({ code: 'PRV_IN_USE', status: 409 });
+      expect(await getPrvById(db, f.users.owner, prv.id)).not.toBeNull();
+      expect(await payableStatus(payable.id)).toBe('IN_PV');
+
+      await cancelPv(db, f.users.finance, pv.id, 'ทำใหม่');
+      await deletePrv(db, f.users.owner, prv.id);
+      expect(await getPrvById(db, f.users.owner, prv.id)).toBeNull();
+      expect(await payableStatus(payable.id)).toBe('CANCELLED');
+    });
+
+    it('is refused for good once paid', async () => {
+      const { prv, payable } = await approved();
+      const pv = await createPv(db, f.users.finance, { vendorId: f.vendorPerson, payableIds: [payable.id], whtRates: { [payable.id]: 3 } });
+      await submitPv(db, f.users.finance, pv.id);
+      await approvePv(db, f.users.owner, pv.id);
+      await markPvPaid(db, f.users.finance, pv.id, { paidAt: '2026-11-05', payMethod: 'TRANSFER' });
+
+      await expect(deletePrv(db, f.users.owner, prv.id)).rejects.toMatchObject({ code: 'PRV_IN_USE' });
+      expect(await payableStatus(payable.id)).toBe('PAID');
+    });
   });
 
   it('PRV: validates input, project access and visibility', async () => {

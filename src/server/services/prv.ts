@@ -1,7 +1,9 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
+  attachments,
+  comments,
   payables,
   pos,
   projectMembers,
@@ -20,6 +22,7 @@ import { computePrvTotals, PRV_BANK_ACCOUNTS, PRV_NEW_CATEGORIES, PRV_PAY_METHOD
 import { bangkokDateString } from '@/domain/thai';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
+import { removeStoredFile } from './attachments';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 
@@ -208,6 +211,45 @@ export async function transitionPrv(db: Db, actor: SessionUser, id: string, acti
       });
     }
     return rule.to;
+  });
+}
+
+/**
+ * Removes a claim for good. Once approved it has a payable, linked only by the number in its note: an open one is
+ * cancelled rather than removed, because a cancelled PV may still list it. Money already on a PV or paid stays on
+ * record, so the claim stays too. The activity log keeps who removed what.
+ */
+export async function deletePrv(db: Db, actor: SessionUser, id: string): Promise<void> {
+  assertCan(actor, 'prv.delete');
+  if (!z.string().uuid().safeParse(id).success) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอเบิก', 404);
+
+  await db.transaction(async (tx) => {
+    const [prv] = await tx.select().from(prvs).where(eq(prvs.id, id)).for('update');
+    if (!prv) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอเบิก อาจถูกลบไปแล้ว', 404);
+    if (prv.status === 'PV_CREATED') throw new DomainError('PRV_IN_USE', `${prv.prvNumber} ออก PV แล้ว จึงลบไม่ได้`, 409);
+
+    const [payable] = await tx
+      .select({ id: payables.id, status: payables.status })
+      .from(payables)
+      .where(
+        and(
+          eq(payables.projectId, prv.projectId),
+          ne(payables.status, 'CANCELLED'),
+          or(eq(payables.note, prv.prvNumber), like(payables.note, `${prv.prvNumber} ·%`)),
+        ),
+      )
+      .for('update');
+    if (payable?.status === 'PAID') throw new DomainError('PRV_IN_USE', `${prv.prvNumber} จ่ายเงินแล้ว จึงลบไม่ได้`, 409);
+    if (payable?.status === 'IN_PV') throw new DomainError('PRV_IN_USE', `${prv.prvNumber} อยู่ในใบสำคัญจ่ายแล้ว กรุณายกเลิกใบสำคัญจ่ายก่อน`, 409);
+    if (payable) await tx.update(payables).set({ status: 'CANCELLED', updatedAt: new Date() }).where(eq(payables.id, payable.id));
+
+    const files = await tx.select({ url: attachments.url }).from(attachments).where(and(eq(attachments.entityType, 'PRV'), eq(attachments.entityId, id)));
+    await tx.delete(attachments).where(and(eq(attachments.entityType, 'PRV'), eq(attachments.entityId, id)));
+    await tx.delete(comments).where(and(eq(comments.entityType, 'PRV'), eq(comments.entityId, id)));
+    for (const file of files) await removeStoredFile(tx, file.url);
+
+    await tx.delete(prvs).where(eq(prvs.id, id));
+    await logActivity(tx, { entityType: 'PRV', entityId: id, action: 'DELETE', userId: actor.id, note: `${prv.prvNumber} ${prv.payeeName} ${prv.netAmount} บาท` });
   });
 }
 
