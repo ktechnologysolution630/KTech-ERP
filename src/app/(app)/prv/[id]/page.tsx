@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { getDb } from '@/db/client';
 import { bahtText, D } from '@/domain/money';
-import { PRV_CATEGORY_LABELS } from '@/domain/prv';
+import { PRV_BANK_ACCOUNTS, PRV_CATEGORY_LABELS, PRV_PAY_METHOD_LABELS, PRV_PAY_METHODS } from '@/domain/prv';
 import { requireUser } from '@/server/auth/current-user';
 import { getPrvById } from '@/server/services/prv';
 import { getSettings } from '@/server/services/settings';
@@ -87,8 +87,8 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
               <tr>
                 <th className="px-3.5 py-2.5 text-left font-medium">ลำดับ</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">รายละเอียดงานที่ขอเบิก</th>
-                <th className="px-3.5 py-2.5 text-right font-medium">จำนวน</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">หน่วย</th>
+                <th className="px-3.5 py-2.5 text-left font-medium">เลขที่เอกสาร</th>
+                <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ PO</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">ราคา/หน่วย</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">ผลงาน (%)</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">จำนวนเงิน (บาท)</th>
@@ -98,9 +98,17 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
               {prv.items.map((it, idx) => (
                 <tr key={it.id}>
                   <td className="px-3.5 py-2 text-slate-400 font-mono">{idx + 1}</td>
-                  <td className="px-3.5 py-2 font-medium text-slate-900">{it.description}</td>
-                  <td className="px-3.5 py-2 text-right text-slate-700">{Number(it.quantity).toLocaleString()}</td>
-                  <td className="px-3.5 py-2 text-slate-500">{it.unit}</td>
+                  <td className="px-3.5 py-2 font-medium text-slate-900">
+                    {it.description}
+                    {/* Requests from before these columns may be for several units; without this the amount would not add up */}
+                    {Number(it.quantity) !== 1 && (
+                      <div className="text-[11px] font-normal text-slate-500">
+                        จำนวน {Number(it.quantity).toLocaleString()} {it.unit}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3.5 py-2 text-slate-700">{it.documentNo || '-'}</td>
+                  <td className="px-3.5 py-2 font-mono text-slate-700">{it.poNumber || '-'}</td>
                   <td className="px-3.5 py-2 text-right text-slate-700">
                     ฿{Number(it.unitPrice).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                   </td>
@@ -112,6 +120,22 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* How payment was requested, laid out like the paper form */}
+        <div role="group" aria-label="การชำระเงิน" className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 rounded-xl border border-slate-200 p-3 text-slate-700">
+          <span className="font-medium text-slate-500">การชำระเงิน</span>
+          {PRV_PAY_METHODS.map((m) => (
+            <span key={m}>
+              {prv.payMethod === m ? '☑' : '☐'} {PRV_PAY_METHOD_LABELS[m]}
+            </span>
+          ))}
+          <span className="row-span-2 font-medium text-slate-500">ธนาคาร</span>
+          {PRV_BANK_ACCOUNTS.map((b) => (
+            <span key={b}>
+              {prv.payBank === b ? '☑' : '☐'} {b}
+            </span>
+          ))}
         </div>
 
         {/* Calculations & Net Summary */}

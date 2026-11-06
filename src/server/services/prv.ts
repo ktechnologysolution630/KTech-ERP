@@ -16,7 +16,7 @@ import {
   type SessionUser,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { computePrvTotals, PRV_NEW_CATEGORIES } from '@/domain/prv';
+import { computePrvTotals, PRV_BANK_ACCOUNTS, PRV_NEW_CATEGORIES, PRV_PAY_METHODS } from '@/domain/prv';
 import { bangkokDateString } from '@/domain/thai';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
@@ -37,12 +37,16 @@ const createSchema = z.object({
   retentionPercent: percent('เงินประกันผลงาน').default(0),
   whtRate: percent('อัตราหัก ณ ที่จ่าย').default(0),
   vatRate: percent('อัตรา VAT').default(0),
+  payMethod: z.enum(PRV_PAY_METHODS).nullable().default(null),
+  payBank: z.enum(PRV_BANK_ACCOUNTS).nullable().default(null),
   notes: z.string().trim().max(2000).default(''),
   items: z
     .array(
       z.object({
         description: z.string().trim().min(1, 'กรุณาระบุรายละเอียดรายการ').max(500),
-        quantity: z.number().finite().positive('จำนวนต้องมากกว่า 0').max(1_000_000_000),
+        documentNo: z.string().trim().max(100, 'เลขที่เอกสารยาวเกินไป').default(''),
+        poNumber: z.string().trim().max(100, 'เลขที่ PO ยาวเกินไป').default(''),
+        quantity: z.number().finite().positive('จำนวนต้องมากกว่า 0').max(1_000_000_000).default(1),
         unit: z.string().trim().max(30).default('งาน'),
         unitPrice: z.number().finite().min(0, 'ราคาต้องไม่ติดลบ').max(10_000_000_000),
         progressPercent: percent('ผลงาน (%) ').default(100),
@@ -91,6 +95,8 @@ export async function createPrv(db: Db, actor: SessionUser, input: CreatePrvInpu
         netAmount: totals.net.toFixed(2),
         status: 'DRAFT',
         requestedBy: actor.id,
+        payMethod: data.payMethod,
+        payBank: data.payBank,
         notes: data.notes,
       })
       .returning();
@@ -98,6 +104,8 @@ export async function createPrv(db: Db, actor: SessionUser, input: CreatePrvInpu
       data.items.map((it, i) => ({
         prvId: prv.id,
         description: it.description,
+        documentNo: it.documentNo,
+        poNumber: it.poNumber,
         quantity: it.quantity.toFixed(3),
         unit: it.unit || 'งาน',
         unitPrice: it.unitPrice.toFixed(2),

@@ -4,18 +4,31 @@ import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Receipt, Trash2 } from 'lucide-react';
-import { computePrvTotals, PRV_CATEGORY_LABELS, PRV_NEW_CATEGORIES } from '@/domain/prv';
+import {
+  computePrvTotals,
+  PRV_BANK_ACCOUNTS,
+  PRV_CATEGORY_LABELS,
+  PRV_NEW_CATEGORIES,
+  PRV_PAY_METHOD_LABELS,
+  PRV_PAY_METHODS,
+  type PrvBankAccount,
+  type PrvPayMethod,
+} from '@/domain/prv';
 import { bangkokDateString } from '@/domain/thai';
 import { createPrvAction } from '../actions';
 import { DateInput } from '@/components/date-input';
 
 interface LineItem {
   description: string;
+  documentNo: string;
+  poNumber: string;
   quantity: number;
   unit: string;
   unitPrice: number;
   progressPercent: number;
 }
+
+const newLine = (): LineItem => ({ description: '', documentNo: '', poNumber: '', quantity: 1, unit: 'งวด', unitPrice: 0, progressPercent: 100 });
 
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-slate-900 focus:border-blue-600 focus:outline-none';
 const cellInput = 'w-full border-b border-slate-200 py-1 focus:border-blue-600 focus:outline-none bg-transparent';
@@ -42,7 +55,9 @@ export function PrvFormClient({
   const [whtRate, setWhtRate] = useState(3);
   const [vatRate, setVatRate] = useState(7);
   const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit: 'งวด', unitPrice: 0, progressPercent: 100 }]);
+  const [payMethod, setPayMethod] = useState<PrvPayMethod | null>(null);
+  const [payBank, setPayBank] = useState<PrvBankAccount | null>(null);
+  const [items, setItems] = useState<LineItem[]>([newLine()]);
 
   const updateItem = <K extends keyof LineItem>(idx: number, key: K, value: LineItem[K]) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [key]: value } : it)));
@@ -91,6 +106,8 @@ export function PrvFormClient({
                 retentionPercent,
                 whtRate,
                 vatRate,
+                payMethod,
+                payBank,
                 notes,
                 items,
               });
@@ -156,7 +173,7 @@ export function PrvFormClient({
                 <span className="font-bold text-slate-900 text-sm">รายการขอเบิก / งวดงาน</span>
                 <button
                   type="button"
-                  onClick={() => setItems((p) => [...p, { description: '', quantity: 1, unit: 'งวด', unitPrice: 0, progressPercent: 100 }])}
+                  onClick={() => setItems((p) => [...p, newLine()])}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -169,8 +186,8 @@ export function PrvFormClient({
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">ลำดับ</th>
                       <th className="px-3 py-2 text-left font-medium">รายละเอียดงาน</th>
-                      <th className="px-3 py-2 text-right font-medium w-20">จำนวน</th>
-                      <th className="px-3 py-2 text-left font-medium w-20">หน่วย</th>
+                      <th className="px-3 py-2 text-left font-medium w-32">เลขที่เอกสาร</th>
+                      <th className="px-3 py-2 text-left font-medium w-32">เลขที่ PO</th>
                       <th className="px-3 py-2 text-right font-medium w-28">ราคาต่อหน่วย</th>
                       <th className="px-3 py-2 text-right font-medium w-24">ผลงานงวดนี้ (%)</th>
                       <th className="px-3 py-2 text-right font-medium w-28">ขอเบิก (บาท)</th>
@@ -185,10 +202,10 @@ export function PrvFormClient({
                           <input required value={it.description} onChange={(e) => updateItem(idx, 'description', e.target.value)} placeholder="เช่น งานฐานรากและคานคอดิน" className={cellInput} />
                         </td>
                         <td className="px-3 py-2">
-                          <input type="number" step="0.001" min={0.001} required value={it.quantity} onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))} className={`${cellInput} text-right`} />
+                          <input maxLength={100} value={it.documentNo} onChange={(e) => updateItem(idx, 'documentNo', e.target.value)} aria-label={`เลขที่เอกสาร แถว ${idx + 1}`} className={cellInput} />
                         </td>
                         <td className="px-3 py-2">
-                          <input value={it.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className={cellInput} />
+                          <input maxLength={100} value={it.poNumber} onChange={(e) => updateItem(idx, 'poNumber', e.target.value)} aria-label={`เลขที่ PO แถว ${idx + 1}`} className={cellInput} />
                         </td>
                         <td className="px-3 py-2">
                           <input type="number" step="0.01" min={0} required value={it.unitPrice} onChange={(e) => updateItem(idx, 'unitPrice', Number(e.target.value))} className={`${cellInput} text-right`} />
@@ -216,10 +233,28 @@ export function PrvFormClient({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-200">
-              <label className="block">
-                <span className="block font-medium text-slate-700 mb-1">หมายเหตุ / บันทึกเพิ่มเติม</span>
-                <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ผลงานที่ส่งมอบ เงื่อนไขการเบิก" className="w-full rounded-lg border border-slate-300 p-2.5 focus:border-blue-600 focus:outline-none" />
-              </label>
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="block font-medium text-slate-700 mb-1">หมายเหตุ / บันทึกเพิ่มเติม</span>
+                  <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ผลงานที่ส่งมอบ เงื่อนไขการเบิก" className="w-full rounded-lg border border-slate-300 p-2.5 focus:border-blue-600 focus:outline-none" />
+                </label>
+                <div role="group" aria-label="การชำระเงิน" className="grid grid-cols-[auto_1fr_1fr] items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 p-3">
+                  <span className="font-medium text-slate-700">การชำระเงิน</span>
+                  {PRV_PAY_METHODS.map((m) => (
+                    <label key={m} className="inline-flex items-center gap-1.5 text-slate-700">
+                      <input type="checkbox" checked={payMethod === m} onChange={(e) => setPayMethod(e.target.checked ? m : null)} className="rounded" />
+                      {PRV_PAY_METHOD_LABELS[m]}
+                    </label>
+                  ))}
+                  <span className="row-span-2 self-start font-medium text-slate-700">ธนาคาร</span>
+                  {PRV_BANK_ACCOUNTS.map((b) => (
+                    <label key={b} className="inline-flex items-center gap-1.5 text-slate-700">
+                      <input type="checkbox" checked={payBank === b} onChange={(e) => setPayBank(e.target.checked ? b : null)} className="rounded" />
+                      {b}
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2.5">
                 <div className="flex justify-between font-medium text-slate-700">
                   <span>มูลค่างานที่ขอเบิก</span>

@@ -7,6 +7,7 @@ import {
   numeric,
   date,
 } from 'drizzle-orm/pg-core';
+import { type PrvBankAccount, type PrvPayMethod } from '@/domain/prv';
 import { users } from './core';
 import { projects, vendors } from './master';
 import { pos } from './po';
@@ -54,6 +55,9 @@ export const prvs = pgTable('prvs', {
   approvedBy: uuid('approved_by').references(() => users.id),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
   pvId: text('pv_id'),
+  /** How the requester asks for it to be paid; finance records what actually happened on the PV */
+  payMethod: text('pay_method').$type<PrvPayMethod>(),
+  payBank: text('pay_bank').$type<PrvBankAccount>(),
   notes: text('notes').default(''),
   attachments: text('attachments').default('[]'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -66,6 +70,8 @@ export const prvItems = pgTable('prv_items', {
     .notNull()
     .references(() => prvs.id, { onDelete: 'cascade' }),
   description: text('description').notNull(),
+  documentNo: text('document_no').default('').notNull(),
+  poNumber: text('po_number').default('').notNull(),
   quantity: numeric('quantity', { precision: 14, scale: 3 }).default('1').notNull(),
   unit: text('unit').default('งาน').notNull(),
   unitPrice: numeric('unit_price', { precision: 14, scale: 2 }).notNull(),

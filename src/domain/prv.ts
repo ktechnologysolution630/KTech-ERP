@@ -47,5 +47,17 @@ export const PRV_CATEGORY_LABELS: Record<string, string> = {
   PO_CREDIT: 'ค่าของเครดิต PO',
 };
 
+export const PRV_PAY_METHODS = ['CHEQUE', 'TRANSFER'] as const;
+export type PrvPayMethod = (typeof PRV_PAY_METHODS)[number];
+
+export const PRV_PAY_METHOD_LABELS: Record<PrvPayMethod, string> = {
+  CHEQUE: 'เช็ค',
+  TRANSFER: 'โอนเงิน',
+};
+
+/** The company's accounts, as named on the paper form. */
+export const PRV_BANK_ACCOUNTS = ['SCB/Khukot', 'KBANK/สาขาเทียมร่วมมิตร', 'SCB/เดอะพรอมานาด', 'KBANK/สาขาซอยวัชรพล'] as const;
+export type PrvBankAccount = (typeof PRV_BANK_ACCOUNTS)[number];
+
 /** Categories that can be raised now; PO-related payments are handled by the PO flow. */
 export const PRV_NEW_CATEGORIES = ['CONTRACTOR_PROGRESS', 'EXPENSE', 'PETTY_CASH'] as const;

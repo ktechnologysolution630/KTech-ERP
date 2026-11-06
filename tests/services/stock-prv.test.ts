@@ -139,6 +139,25 @@ describe('Stock & PRV Services', () => {
     ...overrides,
   });
 
+  it('PRV: keeps each line\'s document and PO numbers, and how payment is asked for', async () => {
+    const saved = await createPrv(db, f.users.foreman, claim({
+      payMethod: 'TRANSFER',
+      payBank: 'KBANK/สาขาซอยวัชรพล',
+      items: [{ description: 'งานเทเสาเข็ม', documentNo: ' INV-1 ', poNumber: 'K69-001-260001', unitPrice: 200000, progressPercent: 50 }],
+    }));
+    // Without a quantity the line is one lot, so the amount is price × progress
+    expect(saved).toMatchObject({ totalAmount: '100000.00', payMethod: 'TRANSFER', payBank: 'KBANK/สาขาซอยวัชรพล' });
+    const detail = await getPrvById(db, f.users.foreman, saved.id);
+    expect(detail?.items[0]).toMatchObject({ documentNo: 'INV-1', poNumber: 'K69-001-260001', quantity: '1.000', amount: '100000.00' });
+
+    // Optional, and only the accounts on the form
+    const plain = await createPrv(db, f.users.foreman, claim());
+    expect(plain).toMatchObject({ payMethod: null, payBank: null });
+    expect((await getPrvById(db, f.users.foreman, plain.id))?.items[0]).toMatchObject({ documentNo: '', poNumber: '' });
+    await expect(createPrv(db, f.users.foreman, claim({ payBank: 'ธนาคารอื่น' as never }))).rejects.toMatchObject({ code: 'INVALID_PRV' });
+    await expect(createPrv(db, f.users.foreman, claim({ payMethod: 'CASH' as never }))).rejects.toMatchObject({ code: 'INVALID_PRV' });
+  });
+
   it('PRV: computes the certificate, enforces the approval chain and raises a payable', async () => {
     const prv = await createPrv(db, f.users.foreman, claim());
     expect(prv.prvNumber).toContain('PRV-');
