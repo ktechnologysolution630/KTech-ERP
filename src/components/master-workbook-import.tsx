@@ -4,12 +4,16 @@ import React, { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, FileUp, X } from 'lucide-react';
-import { importItemCatalogAction, importVendorDirectoryAction } from '@/app/(app)/master/actions';
+import { importItemCatalogAction, importVendorDirectoryAction, type DirectoryImportReply } from '@/app/(app)/master/actions';
 import { parseMasterWorkbook, UNKNOWN_UNIT, type MasterWorkbookResult } from '@/domain/master-import';
 import { EXCEL_LOCK_FILE_MESSAGE, isExcelLockFile, readWorkbook } from '@/lib/read-workbook';
 import type { DirectoryImportResult } from '@/server/services/import';
 
 const MAX_LISTED = 8;
+const IMPORT_BATCH_SIZE = 50;
+
+const hasFailures = (outcome: { vendors: DirectoryImportResult | null; items: DirectoryImportResult | null }) =>
+  [outcome.vendors, outcome.items].some((r) => r && r.errors.length > 0);
 
 function RowList({ rows }: { rows: string[] }) {
   return (
@@ -55,6 +59,7 @@ export function MasterWorkbookImport() {
   const [withItems, setWithItems] = useState(true);
   const [outcome, setOutcome] = useState<{ vendors: DirectoryImportResult | null; items: DirectoryImportResult | null } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
 
   const handleFile = async (file: File) => {
@@ -84,22 +89,36 @@ export function MasterWorkbookImport() {
     }
   };
 
+  /** Sends a list in small batches: one long request could be cut off by the host partway through, and rows already in are skipped on a retry. */
+  const inBatches = async <T,>(rows: T[], label: string, send: (batch: T[]) => Promise<DirectoryImportReply>): Promise<DirectoryImportResult> => {
+    const total: DirectoryImportResult = { created: 0, updated: 0, unchanged: 0, errors: [] };
+    for (let start = 0; start < rows.length; start += IMPORT_BATCH_SIZE) {
+      setProgress(`${label} ${start.toLocaleString()} / ${rows.length.toLocaleString()}`);
+      const reply = await send(rows.slice(start, start + IMPORT_BATCH_SIZE));
+      if (!reply.ok) throw new Error(reply.error);
+      total.created += reply.result.created;
+      total.updated += reply.result.updated;
+      total.unchanged += reply.result.unchanged;
+      total.errors.push(...reply.result.errors);
+    }
+    return total;
+  };
+
   const save = () => {
     if (!review) return;
     setSaveError(null);
     startSaving(async () => {
-      const vendors = withVendors ? await importVendorDirectoryAction(review.found.vendors) : null;
-      if (vendors && !vendors.ok) {
-        setSaveError(vendors.error);
-        return;
+      let vendors: DirectoryImportResult | null = null;
+      let items: DirectoryImportResult | null = null;
+      try {
+        if (withVendors) vendors = await inBatches(review.found.vendors, 'กำลังนำเข้าผู้ขาย', importVendorDirectoryAction);
+        if (withItems) items = await inBatches(review.found.items, 'กำลังนำเข้าสินค้า', importItemCatalogAction);
+      } catch (err) {
+        console.error(err);
+        setSaveError(`นำเข้าไม่ครบ: ${err instanceof Error && err.message ? err.message : 'เชื่อมต่อไม่สำเร็จ'} รายการที่เข้าแล้วยังอยู่ กดนำเข้าไฟล์เดิมซ้ำเพื่อทำต่อได้ ไม่เกิดรายการซ้ำ`);
       }
-      const items = withItems ? await importItemCatalogAction(review.found.items) : null;
-      if (items && !items.ok) {
-        setSaveError(items.error);
-        setOutcome({ vendors: vendors?.result ?? null, items: null });
-        return;
-      }
-      setOutcome({ vendors: vendors?.result ?? null, items: items?.result ?? null });
+      setProgress(null);
+      setOutcome({ vendors, items });
       router.refresh();
     });
   };
@@ -152,9 +171,15 @@ export function MasterWorkbookImport() {
             <div className="min-h-0 space-y-3 overflow-y-auto p-5">
               {outcome ? (
                 <>
-                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-semibold text-emerald-800">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" /> นำเข้าเรียบร้อยแล้ว
-                  </div>
+                  {!saveError && !hasFailures(outcome) ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-semibold text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" /> นำเข้าเรียบร้อยแล้ว
+                    </div>
+                  ) : (
+                    <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-semibold text-red-700">
+                      <AlertCircle className="h-4 w-4 shrink-0" /> นำเข้าไม่ครบ กรุณาดูรายละเอียดด้านล่าง
+                    </div>
+                  )}
                   {outcome.vendors && <Outcome label="ผู้ขาย" result={outcome.vendors} link="/purchasing/vendors" />}
                   {outcome.items && <Outcome label="สินค้า" result={outcome.items} link="/master/items" />}
                   {saveError && (
@@ -236,7 +261,7 @@ export function MasterWorkbookImport() {
                     ยกเลิก
                   </button>
                   <button type="button" onClick={save} disabled={isSaving || (!withVendors && !withItems)} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-                    {isSaving ? 'กำลังนำเข้า อาจใช้เวลาสักครู่...' : 'นำเข้า'}
+                    {isSaving ? (progress ?? 'กำลังนำเข้า...') : 'นำเข้า'}
                   </button>
                 </>
               )}

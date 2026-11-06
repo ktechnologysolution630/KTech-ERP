@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import type { PoPaymentType } from '@/db/schema';
 import { computeDocTotals, D, type VatMode } from '@/domain/money';
 import { formatMoneyDisplay } from '@/domain/money';
@@ -80,12 +80,14 @@ export function PoForm({
       ? 'OFFICE'
       : initialProjectId || projects[0]?.id || 'OFFICE',
   );
-  const [vendorId, setVendorId] = useState(existing?.vendorId ?? (vendors[0]?.id || ''));
+  // No vendor is picked for the user: with a long list, the first one would slip through unnoticed
+  const [vendorId, setVendorId] = useState(existing?.vendorId ?? '');
+  const vendorsByName = useMemo(() => [...vendors].sort((a, b) => a.name.localeCompare(b.name, 'th')), [vendors]);
   const [paymentType, setPaymentType] = useState<PoPaymentType>(
     existing?.paymentType ?? 'CREDIT',
   );
   const [creditDays, setCreditDays] = useState<number>(
-    existing?.creditDays ?? vendors[0]?.defaultCreditDays ?? 30,
+    existing?.creditDays ?? 30,
   );
   const [vatMode, setVatMode] = useState<VatMode>(existing?.vatMode ?? 'EXCLUSIVE');
   const [billDiscount, setBillDiscount] = useState(existing?.billDiscount ?? '0');
@@ -187,6 +189,10 @@ export function PoForm({
   }
 
   function handleSave(submitNow: boolean) {
+    if (!vendorId) {
+      setError('กรุณาเลือกผู้ขาย / ร้านค้า');
+      return;
+    }
     setError(null);
     startTransition(async () => {
       try {
@@ -272,9 +278,10 @@ export function PoForm({
             }}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
-            {vendors.map((v) => (
+            <option value="">— เลือกผู้ขาย ({vendors.length.toLocaleString()} ราย) —</option>
+            {vendorsByName.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.code} - {v.name}
+                {v.name} ({v.code})
               </option>
             ))}
           </select>
