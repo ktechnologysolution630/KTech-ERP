@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, FileUp, X } from 'lucide-react';
 import { importItemCatalogAction, importVendorDirectoryAction } from '@/app/(app)/master/actions';
 import { parseMasterWorkbook, UNKNOWN_UNIT, type MasterWorkbookResult } from '@/domain/master-import';
+import { EXCEL_LOCK_FILE_MESSAGE, isExcelLockFile, readWorkbook } from '@/lib/read-workbook';
 import type { DirectoryImportResult } from '@/server/services/import';
 
 const MAX_LISTED = 8;
@@ -60,10 +61,14 @@ export function MasterWorkbookImport() {
     setReadError(null);
     setIsReading(true);
     try {
-      const { readWorkbook } = await import('@/lib/read-workbook');
-      const found = parseMasterWorkbook(await readWorkbook(file));
+      if (isExcelLockFile(file.name)) {
+        setReadError(EXCEL_LOCK_FILE_MESSAGE);
+        return;
+      }
+      const sheets = await readWorkbook(file);
+      const found = parseMasterWorkbook(sheets);
       if (found.vendors.length === 0 && found.items.length === 0) {
-        setReadError('ไม่พบรายชื่อผู้ขายหรือรายการสินค้าในไฟล์ ต้องมีหัวตาราง VENDOR กับ TAX ID หรือ รหัสสินค้า กับ รายการสินค้า');
+        setReadError(`ไม่พบรายชื่อผู้ขายหรือรายการสินค้าใน "${file.name}" (อ่านได้ ${sheets.length.toLocaleString()} ชีต) ต้องมีหัวตาราง VENDOR กับ TAX ID หรือ รหัสสินค้า กับ รายการสินค้า`);
         return;
       }
       setWithVendors(found.vendors.length > 0);

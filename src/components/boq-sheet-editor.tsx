@@ -249,7 +249,11 @@ export function BoqSheetEditor({
     setSaveError(null);
     setIsReadingFile(true);
     try {
-      const { readWorkbook } = await import('@/lib/read-workbook');
+      const { EXCEL_LOCK_FILE_MESSAGE, isExcelLockFile, readWorkbook } = await import('@/lib/read-workbook');
+      if (isExcelLockFile(file.name)) {
+        setSaveError(EXCEL_LOCK_FILE_MESSAGE);
+        return;
+      }
       const result = parseBoqWorkbook(await readWorkbook(file));
       if (result.lines.length === 0) {
         setSaveError('ไม่พบตาราง BOQ ในไฟล์ ต้องมีหัวตาราง ลำดับ จำนวนหรือปริมาณ หน่วย และราคา');
