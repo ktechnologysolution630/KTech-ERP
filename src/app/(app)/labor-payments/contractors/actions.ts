@@ -2,8 +2,24 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
+import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { upsertVendor } from '@/server/services/master';
+import { deleteVendors, type VendorDeleteResult } from '@/server/services/vendor-delete';
+
+export async function deleteContractorsAction(ids: string[]): Promise<{ ok: true; result: VendorDeleteResult } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    const result = await deleteVendors(db, actor, ids);
+    revalidatePath('/labor-payments/contractors');
+    revalidatePath('/purchasing/vendors');
+    return { ok: true, result };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
 
 export async function createContractorAction(formData: FormData) {
   const actor = await requireUser();

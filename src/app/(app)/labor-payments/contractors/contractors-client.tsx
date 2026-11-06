@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, X, Search, Phone, Building2, CreditCard, Shield, Percent } from 'lucide-react';
-import { createContractorAction } from './actions';
+import React, { useState, useTransition } from 'react';
+import { Plus, X, Search, Phone, Building2, CreditCard, Shield, Percent, Trash2 } from 'lucide-react';
+import type { VendorDeleteResult } from '@/server/services/vendor-delete';
+import { createContractorAction, deleteContractorsAction } from './actions';
 
 export interface ContractorItem {
   id: string;
@@ -21,10 +22,77 @@ export interface ContractorItem {
 
 interface ContractorsClientProps {
   initialContractors: ContractorItem[];
+  canDelete: boolean;
 }
 
-export function ContractorsClient({ initialContractors }: ContractorsClientProps) {
+const DELETE_WORD = 'ลบ';
+
+function DeleteContractorsDialog({ targets, onDeleted, onClose }: { targets: ContractorItem[]; onDeleted: (result: VendorDeleteResult) => void; onClose: () => void }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [typed, setTyped] = useState('');
+
+  const confirm = () => {
+    setError(null);
+    startTransition(async () => {
+      const r = await deleteContractorsAction(targets.map((t) => t.id));
+      if (r.ok) onDeleted(r.result);
+      else setError(r.error);
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label={`ลบ ${targets.length} รายการ`}>
+      <div className="flex max-h-full w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white text-xs shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-3">
+          <h3 className="text-sm font-bold text-slate-900">ลบผู้รับเหมาและผู้ขาย {targets.length} รายการ</h3>
+          <button type="button" onClick={onClose} disabled={isPending} className="text-slate-400 hover:text-slate-600" title="ปิด">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="min-h-0 space-y-3 overflow-y-auto p-5">
+          <ul className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+            {targets.map((t) => (
+              <li key={t.id} className="flex items-baseline gap-2 px-3 py-1.5">
+                <span className="shrink-0 font-mono text-[11px] text-slate-500">{t.code}</span>
+                <span className="truncate text-slate-800" title={t.name}>
+                  {t.name}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
+            <p className="font-bold">ลบถาวร กู้คืนไม่ได้</p>
+            <p className="mt-1">รายชื่อนี้ใช้ร่วมกับหน้าซัพพลายเออร์ จึงจะหายจากทั้งสองหน้า ใบขอเบิก และใบสั่งซื้อ ส่วนรายที่มีเอกสารแล้วระบบจะไม่ลบ และแจ้งให้ทราบ</p>
+          </div>
+          <label className="block">
+            <span className="mb-1 block font-medium text-slate-700">พิมพ์คำว่า &quot;{DELETE_WORD}&quot; เพื่อยืนยัน</span>
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-red-500 focus:outline-none" />
+          </label>
+          {error && (
+            <p role="alert" className="font-medium text-red-600">
+              {error}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-5 py-3">
+          <button type="button" onClick={onClose} disabled={isPending} className="rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50">
+            ยกเลิก
+          </button>
+          <button type="button" onClick={confirm} disabled={isPending || typed.trim() !== DELETE_WORD} className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+            {isPending ? 'กำลังลบ...' : `ลบ ${targets.length} รายการ`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ContractorsClient({ initialContractors, canDelete }: ContractorsClientProps) {
   const [contractors, setContractors] = useState<ContractorItem[]>(initialContractors);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ deleted: number; inUse: VendorDeleteResult['inUse'] } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,6 +105,16 @@ export function ContractorsClient({ initialContractors }: ContractorsClientProps
       c.workType.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.phone.includes(searchTerm),
   );
+
+  const selectedRows = contractors.filter((c) => selected.has(c.id));
+  const allShownSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id));
+  const toggleShown = () => setSelected(allShownSelected ? new Set() : new Set(filtered.map((c) => c.id)));
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -68,6 +146,7 @@ export function ContractorsClient({ initialContractors }: ContractorsClientProps
           </p>
         </div>
 
+        <div className="flex flex-col items-end gap-2">
         <div className="flex items-center gap-3">
           <div className="relative w-48 sm:w-60">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -89,7 +168,47 @@ export function ContractorsClient({ initialContractors }: ContractorsClientProps
             <span>เพิ่มผู้รับเหมา</span>
           </button>
         </div>
+          {canDelete && (
+            <button
+              type="button"
+              disabled={selectedRows.length === 0}
+              onClick={() => {
+                setDeleteResult(null);
+                setDeleting(true);
+              }}
+              title={selectedRows.length === 0 ? 'ติ๊กเลือกรายการที่จะลบก่อน' : undefined}
+              className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>ลบ{selectedRows.length > 0 && ` (${selectedRows.length})`}</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {deleteResult && (
+        <div role="status" className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700">
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-semibold">ลบแล้ว {deleteResult.deleted} รายการ</p>
+            <button type="button" onClick={() => setDeleteResult(null)} className="text-slate-400 hover:text-slate-600" title="ปิด">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {deleteResult.inUse.length > 0 && (
+            <div className="mt-1 text-amber-800">
+              ไม่ได้ลบ {deleteResult.inUse.length} รายการ เพราะมีเอกสารอ้างถึงแล้ว
+              <ul className="mt-1 list-disc pl-4">
+                {deleteResult.inUse.slice(0, 8).map((v) => (
+                  <li key={v.id}>
+                    {v.code} {v.name}
+                  </li>
+                ))}
+                {deleteResult.inUse.length > 8 && <li>และอีก {deleteResult.inUse.length - 8} รายการ</li>}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Table Container matching reference Navy header */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -97,6 +216,11 @@ export function ContractorsClient({ initialContractors }: ContractorsClientProps
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-[#102d72] text-white">
+                {canDelete && (
+                  <th className="w-8 py-3 pl-4">
+                    <input type="checkbox" checked={allShownSelected} onChange={toggleShown} aria-label="เลือกทั้งหมดที่แสดง" className="align-middle" />
+                  </th>
+                )}
                 <th className="py-3 px-4 font-medium">ผู้รับเหมา</th>
                 <th className="py-3 px-4 font-medium">ผู้ติดต่อ</th>
                 <th className="py-3 px-4 font-medium">ประเภทงาน</th>
@@ -109,13 +233,18 @@ export function ContractorsClient({ initialContractors }: ContractorsClientProps
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-20 text-center text-slate-400 text-sm">
+                  <td colSpan={canDelete ? 8 : 7} className="py-20 text-center text-slate-400 text-sm">
                     ยังไม่มีข้อมูลผู้รับเหมา
                   </td>
                 </tr>
               ) : (
                 filtered.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50 transition">
+                    {canDelete && (
+                      <td className="py-3 pl-4">
+                        <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleOne(item.id)} aria-label={`เลือก ${item.name}`} className="align-middle" />
+                      </td>
+                    )}
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-800">{item.name}</div>
                       <div className="text-[10px] text-slate-400 font-mono">{item.code}</div>
@@ -149,6 +278,21 @@ export function ContractorsClient({ initialContractors }: ContractorsClientProps
           </table>
         </div>
       </div>
+
+      {deleting && selectedRows.length > 0 && (
+        <DeleteContractorsDialog
+          targets={selectedRows}
+          onClose={() => setDeleting(false)}
+          onDeleted={({ deletedIds, inUse }) => {
+            const gone = new Set(deletedIds);
+            setContractors((prev) => prev.filter((c) => !gone.has(c.id)));
+            // What could not go stays ticked for nothing; start clean
+            setSelected(new Set());
+            setDeleteResult({ deleted: deletedIds.length, inUse });
+            setDeleting(false);
+          }}
+        />
+      )}
 
       {/* Modal: เพิ่มผู้รับเหมา */}
       {showModal && (

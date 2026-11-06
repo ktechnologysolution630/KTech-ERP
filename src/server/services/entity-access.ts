@@ -22,6 +22,7 @@ import {
   receiptSubstitutes,
   stockAdjustRequests,
   variationOrders,
+  vendors,
   type EntityType,
   type SessionUser,
 } from '@/db/schema';
@@ -57,6 +58,7 @@ const LOOKUPS: Record<EntityType, Lookup> = {
     id: assetInspections.id,
     project: sql<string | null>`(select ${assets.projectId} from ${assets} where ${assets.id} = ${assetInspections.assetId})`,
   },
+  VENDOR: { table: vendors, id: vendors.id, project: sql<null>`null` },
 };
 
 export const ENTITY_TYPES = Object.keys(LOOKUPS) as EntityType[];

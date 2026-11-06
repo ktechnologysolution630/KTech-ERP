@@ -1,5 +1,6 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listVendors } from '@/server/services/master';
 import { ContractorsClient, type ContractorItem } from './contractors-client';
 
@@ -24,5 +25,5 @@ export default async function ContractorsPage() {
     whtRate: `${v.defaultWhtRate}%`,
   }));
 
-  return <ContractorsClient initialContractors={contractors} />;
+  return <ContractorsClient initialContractors={contractors} canDelete={can(actor, 'vendor.delete')} />;
 }
