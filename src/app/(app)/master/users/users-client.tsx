@@ -12,16 +12,18 @@ import { resetUserPasswordAction, saveUserAction } from '../actions';
 const ROLE_LABELS: Record<Role, string> = {
   FOREMAN: 'โฟร์แมน',
   ENGINEER: 'วิศวกร',
+  ARCHITECT: 'สถาปนิกโครงการ',
   PM: 'ผู้จัดการโครงการ (PM)',
   PURCHASING: 'จัดซื้อ',
   PURCHASING_HEAD: 'หัวหน้าจัดซื้อ',
   FINANCE: 'การเงิน/บัญชี',
+  GENERAL_MANAGER: 'ผู้จัดการทั่วไป',
   OWNER: 'เจ้าของ',
   ADMIN: 'ผู้ดูแลระบบ',
 };
 // Record<Role, …> above guarantees every role is listed
 const ROLES = Object.keys(ROLE_LABELS) as Role[];
-const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'PM'];
+const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PM'];
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none';
 
 type Dialog = { kind: 'edit'; user: UserRowDto | null } | { kind: 'password'; user: UserRowDto };
@@ -283,7 +285,7 @@ function UserDialog({
           </div>
           <div>
             <span className="block text-xs font-medium text-slate-700 mb-1">
-              โครงการที่สังกัด {needsProjects ? '(โฟร์แมน/วิศวกร/PM เห็นเฉพาะโครงการที่เลือก)' : ''}
+              โครงการที่สังกัด {needsProjects ? '(โฟร์แมน/วิศวกร/สถาปนิก/PM เห็นเฉพาะโครงการที่เลือก)' : ''}
             </span>
             <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2">
               {projects.length === 0 && <span className="text-xs text-slate-400">ยังไม่มีโครงการ</span>}

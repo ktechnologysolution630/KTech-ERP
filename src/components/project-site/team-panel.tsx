@@ -9,10 +9,12 @@ import { useSiteLoader } from './use-site-loader';
 const ROLE_LABELS: Record<Role, string> = {
   FOREMAN: 'โฟร์แมน',
   ENGINEER: 'วิศวกร',
+  ARCHITECT: 'สถาปนิกโครงการ',
   PM: 'ผู้จัดการโครงการ',
   PURCHASING: 'จัดซื้อ',
   PURCHASING_HEAD: 'หัวหน้าจัดซื้อ',
   FINANCE: 'การเงิน',
+  GENERAL_MANAGER: 'ผู้จัดการทั่วไป',
   OWNER: 'เจ้าของ',
   ADMIN: 'ผู้ดูแลระบบ',
 };

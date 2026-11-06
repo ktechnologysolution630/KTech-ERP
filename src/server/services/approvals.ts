@@ -38,7 +38,7 @@ import { getSettings } from './settings';
 import { decideStockAdjust } from './stock';
 import { decideVo } from './variation-orders';
 
-const APPROVER_ROLES: Role[] = ['OWNER', 'ADMIN', 'PM', 'PURCHASING_HEAD', 'FINANCE'];
+const APPROVER_ROLES: Role[] = ['OWNER', 'GENERAL_MANAGER', 'ADMIN', 'PM', 'PURCHASING_HEAD', 'FINANCE'];
 
 /** Whether the approval centre is worth showing; each document is still checked against its own rule. */
 export const isApprover = (actor: SessionUser): boolean => actor.roles.some((r) => APPROVER_ROLES.includes(r));

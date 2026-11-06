@@ -9,7 +9,7 @@ import {
   type SessionUser,
 } from '@/db/schema';
 
-const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'PM'];
+const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PM'];
 
 export async function notify(
   tx: Db,

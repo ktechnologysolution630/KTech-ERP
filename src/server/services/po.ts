@@ -631,7 +631,7 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
       const roleNeeded = requiredPoApprover(totals.gross, limit);
       const approvers = await usersWithRole(
         tx,
-        roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'OWNER'] : ['OWNER'],
+        roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'] : ['OWNER'],
       );
       await notify(tx, approvers, {
         title: `PO ${po.number} (แก้ไขครั้งที่ ${po.currentRevision}) รออนุมัติ`,
@@ -663,7 +663,7 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
     const roleNeeded = requiredPoApprover(D(po.gross), limit);
     const approvers = await usersWithRole(
       tx,
-      roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'OWNER'] : ['OWNER'],
+      roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'] : ['OWNER'],
     );
     await notify(tx, approvers, {
       title: `ใบสั่งซื้อ ${po.number} รออนุมัติ`,

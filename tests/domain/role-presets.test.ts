@@ -34,6 +34,10 @@ const NEEDS: [Action, MenuKey[]][] = [
   ['stock.move', ['STOCK_USAGE']],
   ['asset.inspect', ['FIN_ASSETS']],
   ['project.manage', ['AS_HANDOVER']],
+  ['prv.verify', ['LABOR_PRV', 'APPROVALS']],
+  ['advance.approve', ['FIN_ADVANCES', 'APPROVALS']],
+  ['milestone.approve', ['LABOR_PAY', 'APPROVALS']],
+  ['stock.approveAdjust', ['APPROVALS']],
 ];
 
 /** Pages that refuse or redirect anyone without the permission, so showing the menu would only lead to an error. */
@@ -82,7 +86,7 @@ describe('menu presets per role', () => {
   });
 
   test('site roles keep what they do on site, without the office money pages', () => {
-    for (const role of ['FOREMAN', 'ENGINEER'] as const) {
+    for (const role of ['FOREMAN', 'ENGINEER', 'ARCHITECT'] as const) {
       const { hiddenMenus } = person(role);
       for (const menu of ['PUR_PR', 'PUR_RECEIVE', 'STOCK_USAGE', 'LABOR_PRV', 'FIN_ADVANCES', 'FIN_ASSETS'] as const) expect(isMenuVisible(hiddenMenus, menu)).toBe(true);
       for (const menu of ['DASHBOARD', 'PUR_PO', 'PUR_VENDORS', 'LABOR_RECEIVE', 'FIN_PV'] as const) expect(isMenuVisible(hiddenMenus, menu)).toBe(false);

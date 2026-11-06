@@ -15,10 +15,12 @@ import type { MenuKey } from '@/domain/menu';
 export const ROLES = [
   'FOREMAN',
   'ENGINEER',
+  'ARCHITECT',
   'PM',
   'PURCHASING',
   'PURCHASING_HEAD',
   'FINANCE',
+  'GENERAL_MANAGER',
   'OWNER',
   'ADMIN',
 ] as const;

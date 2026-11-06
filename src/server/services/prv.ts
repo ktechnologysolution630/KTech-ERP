@@ -186,7 +186,7 @@ export async function transitionPrv(db: Db, actor: SessionUser, id: string, acti
         .from(projectMembers)
         .innerJoin(userRoles, and(eq(userRoles.userId, projectMembers.userId), eq(userRoles.role, 'PM')))
         .where(eq(projectMembers.projectId, prv.projectId));
-      await notify(tx, [...pms.map((p) => p.id), ...(await usersWithRole(tx, ['OWNER']))].filter((u) => u !== actor.id), {
+      await notify(tx, [...pms.map((p) => p.id), ...(await usersWithRole(tx, ['GENERAL_MANAGER', 'OWNER']))].filter((u) => u !== actor.id), {
         title: `${prv.prvNumber} รอตรวจรับรองผลงาน`,
         href,
       });

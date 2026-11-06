@@ -52,11 +52,12 @@ export interface PolicyContext {
   poApprovalLimit?: Decimal;
 }
 
-const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'PM'];
+const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PM'];
 const GLOBAL_PROJECT_VIEW_ROLES: Role[] = [
   'PURCHASING',
   'PURCHASING_HEAD',
   'FINANCE',
+  'GENERAL_MANAGER',
   'OWNER',
   'ADMIN',
 ];
@@ -85,7 +86,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     }
     case 'project.finance': {
       // Income, payments and cost performance: management, office money roles and the project's PM
-      if (hasRole(u, ['FINANCE', 'PURCHASING', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'])) return true;
+      if (hasRole(u, ['FINANCE', 'PURCHASING', 'PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER', 'ADMIN'])) return true;
       return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
     }
     case 'pr.create': {
@@ -93,7 +94,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'pr.approve': {
-      if (hasRole(u, ['OWNER'])) return true;
+      if (hasRole(u, ['OWNER', 'GENERAL_MANAGER'])) return true;
       return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
     }
     case 'po.manage':
@@ -102,7 +103,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     }
     case 'po.approve': {
       if (hasRole(u, ['OWNER'])) return true;
-      if (!hasRole(u, ['PURCHASING_HEAD'])) return false;
+      if (!hasRole(u, ['PURCHASING_HEAD', 'GENERAL_MANAGER'])) return false;
       if (ctx.createdBy && ctx.createdBy === u.id) return false;
       if (!ctx.gross || !ctx.poApprovalLimit) return false;
       return ctx.gross.lt(ctx.poApprovalLimit);
@@ -124,7 +125,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'prv.verify': {
-      if (hasRole(u, ['OWNER'])) return true;
+      if (hasRole(u, ['OWNER', 'GENERAL_MANAGER'])) return true;
       return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
     }
     case 'prv.approve': {
@@ -140,10 +141,10 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'stock.approveAdjust': {
-      return hasRole(u, ['PURCHASING_HEAD', 'OWNER', 'ADMIN']);
+      return hasRole(u, ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER', 'ADMIN']);
     }
     case 'advance.approve': {
-      return hasRole(u, ['OWNER', 'ADMIN']);
+      return hasRole(u, ['GENERAL_MANAGER', 'OWNER', 'ADMIN']);
     }
     case 'advance.pay': {
       return hasRole(u, ['FINANCE', 'OWNER']);
@@ -166,7 +167,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, ['OWNER']);
     }
     case 'milestone.approve': {
-      return hasRole(u, ['OWNER', 'ADMIN']);
+      return hasRole(u, ['GENERAL_MANAGER', 'OWNER', 'ADMIN']);
     }
     case 'milestone.pay': {
       return hasRole(u, ['FINANCE', 'OWNER']);
@@ -174,18 +175,18 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'vo.manage':
     case 'milestone.manage':
     case 'project.manage': {
-      if (hasRole(u, ['OWNER', 'ADMIN'])) return true;
+      if (hasRole(u, ['GENERAL_MANAGER', 'OWNER', 'ADMIN'])) return true;
       return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
     }
     case 'task.progress': {
       // Site staff report progress on tasks of their own projects
-      if (hasRole(u, ['OWNER', 'ADMIN'])) return true;
+      if (hasRole(u, ['GENERAL_MANAGER', 'OWNER', 'ADMIN'])) return true;
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'task.manage':
     case 'boq.manage': {
-      if (hasRole(u, ['OWNER', 'ADMIN'])) return true;
-      return hasRole(u, ['PM', 'ENGINEER']) && isProjectMember(u, ctx.projectId);
+      if (hasRole(u, ['GENERAL_MANAGER', 'OWNER', 'ADMIN'])) return true;
+      return hasRole(u, ['PM', 'ENGINEER', 'ARCHITECT']) && isProjectMember(u, ctx.projectId);
     }
     case 'asset.manage': {
       return hasRole(u, ASSET_OFFICE_ROLES);
@@ -200,7 +201,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, ['OWNER', 'ADMIN']);
     }
     case 'master.manage': {
-      return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'ADMIN', 'OWNER']);
+      return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'GENERAL_MANAGER', 'ADMIN', 'OWNER']);
     }
     case 'users.manage': {
       return hasRole(u, ['ADMIN']);
@@ -209,7 +210,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, ['ADMIN', 'OWNER']);
     }
     case 'export.view': {
-      return hasRole(u, ['FINANCE', 'OWNER', 'ADMIN']);
+      return hasRole(u, ['FINANCE', 'GENERAL_MANAGER', 'OWNER', 'ADMIN']);
     }
     default:
       return false;

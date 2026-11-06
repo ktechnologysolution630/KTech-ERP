@@ -349,7 +349,7 @@ export async function requestStockAdjust(db: Db, actor: SessionUser, input: Stoc
       })
       .returning();
     await logActivity(tx, { entityType: 'STOCK_ADJUST', entityId: req.id, action: 'REQUEST', userId: actor.id });
-    const approvers = (await usersWithRole(tx, ['PURCHASING_HEAD', 'OWNER'])).filter((id) => id !== actor.id);
+    const approvers = (await usersWithRole(tx, ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'])).filter((id) => id !== actor.id);
     await notify(tx, approvers, { title: `${requestNumber} ขอปรับยอดสต็อก ${item.name}`, href: '/stock?tab=document-history' });
     return req;
   });

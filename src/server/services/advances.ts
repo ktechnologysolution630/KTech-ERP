@@ -75,7 +75,7 @@ export async function requestAdvance(db: Db, actor: SessionUser, input: AdvanceI
       })
       .returning();
     await logActivity(tx, { entityType: 'ADVANCE', entityId: row.id, action: 'REQUEST', userId: actor.id });
-    const approvers = await usersWithRole(tx, ['OWNER', 'ADMIN']);
+    const approvers = await usersWithRole(tx, ['GENERAL_MANAGER', 'OWNER', 'ADMIN']);
     await notify(tx, approvers, { title: `${number} ขอเงินทดรองจ่าย ${D(d.amount).toFixed(2)} บาท`, href: '/advances' });
     return { id: row.id, number };
   });
