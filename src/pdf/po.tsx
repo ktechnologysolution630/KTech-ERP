@@ -6,6 +6,15 @@ import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
 import { PdfShell, pdfStyles } from './layout';
 
+const PO_CONDITIONS = [
+  { text: '1.โปรดระบุเลขที่ใบสั่งซื้อข้างต้น ในใบส่งของทุกฉบับ' },
+  { text: '2. การวางบิลและการรับเช็ค เป็นไปตามกำหนดเวลาที่บริษัทฯ กำหนดไว้' },
+  { text: '2.1 วางบิลวันที่ 20 - 25 ของเดือน', indented: true },
+  { text: '2.2 รับเช็ค สำหรับ Supplier วันที่ 30 ของเดือน', indented: true },
+  { text: '2.3 รับเช็ค สำหรับผู้รับเหมา วันที่ 15 และ 30 ของเดือน', indented: true },
+  { text: '3. การวางบิลเพื่อเรียกเก็บเงิน ให้แนบสำเนาใบสั่งซื้อกำกับมาด้วย' },
+];
+
 export function PoPdfDoc({
   po,
   settings,
@@ -27,10 +36,21 @@ export function PoPdfDoc({
       docDate={formatThaiDate(po.createdAt)}
       isDraft={isDraft}
       signatures={['ผู้จัดทำ', 'ผู้อนุมัติ']}
+      footer={
+        <View style={{ fontSize: 10 }}>
+          <Text style={{ fontWeight: 'bold' }}>เงื่อนไข/CONDITION:</Text>
+          {PO_CONDITIONS.map((c) => (
+            <Text key={c.text} style={c.indented ? { paddingLeft: 12 } : undefined}>
+              {c.text}
+            </Text>
+          ))}
+        </View>
+      }
     >
       <View style={pdfStyles.metaGrid}>
         <View style={pdfStyles.metaBox}>
           <Text style={{ fontWeight: 'bold' }}>ผู้ขาย: {po.vendorName}</Text>
+          <Text>ที่อยู่: {po.vendorAddress || '-'}</Text>
           <Text>
             โครงการ: {po.projectCode} - {po.projectName}
           </Text>
@@ -70,7 +90,8 @@ export function PoPdfDoc({
         </View>
       ))}
 
-      <View style={pdfStyles.totalsBox}>
+      {/* Kept whole: split across pages, the figures lose their place beside the amount in words */}
+      <View wrap={false} style={pdfStyles.totalsBox}>
         <View style={pdfStyles.bahtTextBox}>
           <Text style={{ fontWeight: 'bold' }}>
             ตัวอักษร: ({bahtText(D(po.gross))})

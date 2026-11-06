@@ -149,6 +149,7 @@ export function PdfShell({
   isDraft,
   signatures,
   children,
+  footer,
 }: {
   settings: Settings;
   titleTh: string;
@@ -158,6 +159,8 @@ export function PdfShell({
   isDraft?: boolean;
   signatures: string[];
   children: React.ReactNode;
+  /** Sits at the bottom of the last page, or on a page of its own if it does not fit */
+  footer?: React.ReactNode;
 }) {
   return (
     <Document>
@@ -192,6 +195,12 @@ export function PdfShell({
             </View>
           ))}
         </View>
+
+        {footer && (
+          <View wrap={false} style={{ marginTop: 'auto', paddingTop: 16 }}>
+            {footer}
+          </View>
+        )}
       </Page>
     </Document>
   );

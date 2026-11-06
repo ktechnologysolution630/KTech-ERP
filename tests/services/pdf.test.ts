@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { createPo, submitPo, approvePo } from '@/server/services/po';
+import { createPo, getPo, submitPo, approvePo } from '@/server/services/po';
 import { createPr } from '@/server/services/pr';
 import { createInvoice } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
@@ -46,6 +46,8 @@ describe('pdf service', () => {
     const poBuf = await renderDocPdf(db, f.users.buyer, 'po', po.id);
     expect(poBuf.subarray(0, 4).toString()).toBe('%PDF');
     expect(poBuf.length).toBeGreaterThan(2000);
+    // The PDF prints this under the vendor's name
+    expect((await getPo(db, f.users.buyer, po.id)).vendorAddress).toBe('123 ถนนพระราม 2 กรุงเทพฯ');
 
     await createInvoice(db, f.users.finance, {
       poId: po.id,

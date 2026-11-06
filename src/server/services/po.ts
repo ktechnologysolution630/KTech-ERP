@@ -1043,6 +1043,7 @@ export async function getPo(db: Db, actor: SessionUser, id: string) {
       vendorId: pos.vendorId,
       vendorCode: vendors.code,
       vendorName: vendors.name,
+      vendorAddress: vendors.address,
       createdBy: pos.createdBy,
       creatorName: users.name,
       status: pos.status,
