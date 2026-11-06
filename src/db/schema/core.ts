@@ -16,6 +16,7 @@ export const ROLES = [
   'FOREMAN',
   'ENGINEER',
   'ARCHITECT',
+  'PROJECT_CLERK',
   'PM',
   'PURCHASING',
   'PURCHASING_HEAD',

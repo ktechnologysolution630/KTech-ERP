@@ -86,7 +86,7 @@ describe('menu presets per role', () => {
   });
 
   test('site roles keep what they do on site, without the office money pages', () => {
-    for (const role of ['FOREMAN', 'ENGINEER', 'ARCHITECT'] as const) {
+    for (const role of ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK'] as const) {
       const { hiddenMenus } = person(role);
       for (const menu of ['PUR_PR', 'PUR_RECEIVE', 'STOCK_USAGE', 'LABOR_PRV', 'FIN_ADVANCES', 'FIN_ASSETS'] as const) expect(isMenuVisible(hiddenMenus, menu)).toBe(true);
       for (const menu of ['DASHBOARD', 'PUR_PO', 'PUR_VENDORS', 'LABOR_RECEIVE', 'FIN_PV'] as const) expect(isMenuVisible(hiddenMenus, menu)).toBe(false);

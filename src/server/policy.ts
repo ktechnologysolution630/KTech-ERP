@@ -52,7 +52,7 @@ export interface PolicyContext {
   poApprovalLimit?: Decimal;
 }
 
-const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PM'];
+const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK', 'PM'];
 const GLOBAL_PROJECT_VIEW_ROLES: Role[] = [
   'PURCHASING',
   'PURCHASING_HEAD',

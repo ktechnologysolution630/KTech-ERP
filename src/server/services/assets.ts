@@ -315,7 +315,7 @@ export async function confirmAssetCheck(db: Db, actor: SessionUser, assetId: str
   });
 }
 
-const SITE_INSPECTOR_ROLES = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PM'] as const;
+const SITE_INSPECTOR_ROLES = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK', 'PM'] as const;
 
 /**
  * Tells everyone who may check an asset that it needs checking, once per due period.

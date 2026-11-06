@@ -30,6 +30,24 @@ describe('project architect', () => {
   });
 });
 
+describe('project clerk', () => {
+  const clerk = person('PROJECT_CLERK', [PROJECT]);
+
+  test('does the paperwork of their own projects', () => {
+    for (const action of ['project.view', 'task.progress', 'pr.create', 'receipt.create', 'prv.create', 'stock.move', 'asset.inspect'] as const) {
+      expect(can(clerk, action, { projectId: PROJECT }), action).toBe(true);
+      expect(can(clerk, action, { projectId: OTHER_PROJECT }), action).toBe(false);
+    }
+    expect(isSiteScopedOnly(clerk)).toBe(true);
+  });
+
+  test('does not change the plan or the BOQ, see the money, or approve', () => {
+    for (const action of ['boq.manage', 'task.manage', 'project.manage', 'project.finance', 'pr.approve', 'prv.verify', 'milestone.manage', 'po.manage', 'export.view', 'project.delete', 'asset.delete'] as const) {
+      expect(can(clerk, action, { projectId: PROJECT }), action).toBe(false);
+    }
+  });
+});
+
 describe('general manager', () => {
   const manager = person('GENERAL_MANAGER');
 

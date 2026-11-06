@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<Role, string> = {
   FOREMAN: 'โฟร์แมน',
   ENGINEER: 'วิศวกร',
   ARCHITECT: 'สถาปนิกโครงการ',
+  PROJECT_CLERK: 'ธุรการโครงการ',
   PM: 'ผู้จัดการโครงการ',
   PURCHASING: 'จัดซื้อ',
   PURCHASING_HEAD: 'หัวหน้าจัดซื้อ',
