@@ -14,6 +14,7 @@ describe('which menu entry a URL belongs to', () => {
     ['/purchasing/approve', 'PUR_APPROVE'],
     ['/purchasing/ap', 'PUR_AP'],
     ['/purchasing/vendors', 'PUR_VENDORS'],
+    ['/purchasing/vendors/abc', 'PUR_VENDORS'],
     ['/pr', 'PUR_PR'],
     ['/pr/new', 'PUR_PR'],
     ['/po/abc/edit', 'PUR_PO'],

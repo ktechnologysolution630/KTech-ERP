@@ -23,7 +23,7 @@ export interface VendorDeleteResult {
 }
 
 /** Every document naming these vendors, by vendor. A payable already cancelled and on no PV is left out: nothing depends on it. */
-async function documentsOf(tx: Db, vendorIds: string[]): Promise<Map<string, VendorDocument[]>> {
+export async function documentsOf(tx: Db, vendorIds: string[]): Promise<Map<string, VendorDocument[]>> {
   const [poRows, invoiceRows, pvRows, whtRows, prvRows, milestoneRows, payableRows] = await Promise.all([
     tx.select({ vendorId: pos.vendorId, id: pos.id, number: pos.number, status: pos.status }).from(pos).where(inArray(pos.vendorId, vendorIds)),
     tx.select({ vendorId: invoices.vendorId, id: invoices.id, number: invoices.invoiceNo, status: invoices.status }).from(invoices).where(inArray(invoices.vendorId, vendorIds)),

@@ -7,11 +7,42 @@ import { createPo } from '@/server/services/po';
 import { createPrv, deletePrv, transitionPrv } from '@/server/services/prv';
 import { cancelPv, createPv } from '@/server/services/pv';
 import { deleteVendors } from '@/server/services/vendor-delete';
+import { getVendorDetail } from '@/server/services/vendor-detail';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 
 const addVendors = async (db: Awaited<ReturnType<typeof createTestDb>>, ...codes: string[]) =>
   (await db.insert(vendors).values(codes.map((code) => ({ code, name: `ร้าน ${code}`, type: 'COMPANY' as const }))).returning()).map((v) => v.id);
+
+describe('a vendor\'s detail', () => {
+  test('shows the vendor and its documents to office roles', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const [id] = await addVendors(db, 'D-1');
+    expect((await getVendorDetail(db, f.users.buyer, id!)).documents).toEqual([]);
+
+    const claim = await createPrv(db, f.users.foreman, { projectId: f.projectA, vendorId: id!, category: 'EXPENSE', items: [{ description: 'งาน', unitPrice: 100 }] });
+    for (const u of [f.users.buyer, f.users.buyerHead, f.users.finance, f.users.owner, f.users.admin]) {
+      const { vendor, documents } = await getVendorDetail(db, u, id!);
+      expect(vendor.code).toBe('D-1');
+      expect(documents).toEqual([{ label: 'ใบขอเบิก PRV', number: claim.prvNumber, href: `/prv/${claim.id}`, cancelled: false }]);
+    }
+  });
+
+  test('site staff are refused, since it shows bank details across projects', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await expect(getVendorDetail(db, f.users.foreman, f.vendorCo)).rejects.toMatchObject({ status: 403 });
+    await expect(getVendorDetail(db, f.users.pm, f.vendorCo)).rejects.toMatchObject({ status: 403 });
+  });
+
+  test('an unknown or malformed id is not found', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await expect(getVendorDetail(db, f.users.buyer, 'nope')).rejects.toMatchObject({ status: 404 });
+    await expect(getVendorDetail(db, f.users.buyer, '00000000-0000-0000-0000-000000000000')).rejects.toMatchObject({ status: 404 });
+  });
+});
 
 describe('deleting vendors', () => {
   test('only owner and admin may', async () => {

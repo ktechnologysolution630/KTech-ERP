@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Plus, X, Users, Building2 } from 'lucide-react';
 import { saveVendorAction } from '@/app/(app)/master/actions';
 import { MasterWorkbookImport } from '@/components/master-workbook-import';
@@ -19,6 +21,7 @@ interface VendorItem {
 }
 
 export function PurchasingVendorsClient({ initialVendors, canImport }: { initialVendors: VendorItem[]; canImport: boolean }) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [code, setCode] = useState('');
@@ -95,9 +98,11 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
                 </tr>
               ) : (
                 filtered.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-50 transition">
+                  <tr key={v.id} onClick={() => router.push(`/purchasing/vendors/${v.id}`)} className="cursor-pointer hover:bg-slate-50 transition">
                     <td className="px-3.5 py-2.5">
-                      <div className="font-bold text-slate-900">{v.name}</div>
+                      <Link href={`/purchasing/vendors/${v.id}`} onClick={(e) => e.stopPropagation()} className="font-bold text-slate-900 hover:text-[#2453d4] hover:underline">
+                        {v.name}
+                      </Link>
                       <div className="text-[10px] text-slate-400 font-mono">{v.code}</div>
                     </td>
                     <td className="px-3.5 py-2.5 text-slate-600">{v.contactPerson}</td>
