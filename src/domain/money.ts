@@ -44,7 +44,7 @@ export function allocate(amount: Decimal, weights: Decimal[]): Decimal[] {
     rem: x.minus(floored[idx]),
   }));
 
-  let leftover = absCents - floored.reduce((a, b) => a + b, 0);
+  const leftover = absCents - floored.reduce((a, b) => a + b, 0);
   remainders.sort((a, b) => {
     const cmp = b.rem.comparedTo(a.rem);
     return cmp !== 0 ? cmp : a.idx - b.idx;

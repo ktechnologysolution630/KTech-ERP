@@ -7,6 +7,7 @@ import {
   items,
   projectMembers,
   projects,
+  projectTasks,
   ROLES,
   units,
   userRoles,
@@ -19,6 +20,7 @@ import { DomainError } from '@/domain/errors';
 import { MENU_KEYS, type MenuKey } from '@/domain/menu';
 import { D, WHT_RATES } from '@/domain/money';
 import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
+import { computeProjectProgress, type ScheduleTask } from '@/domain/schedule';
 import { hashPassword } from '@/server/auth/password';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { removeStoredFile, storeFile } from './attachments';
@@ -361,6 +363,30 @@ export async function listProjects(db: Db, actor: SessionUser) {
     return all.filter((p) => actor.projectIds.includes(p.id));
   }
   return all;
+}
+
+/** Weighted actual progress (0–100) per project, fetched in one query for the project list. */
+export async function listProjectProgress(db: Db, projectIds: string[]): Promise<Map<string, number>> {
+  const byProject = new Map<string, ScheduleTask[]>(projectIds.map((id) => [id, []]));
+  if (projectIds.length > 0) {
+    const rows = await db
+      .select({
+        id: projectTasks.id,
+        projectId: projectTasks.projectId,
+        parentId: projectTasks.parentId,
+        startDate: projectTasks.startDate,
+        dueDate: projectTasks.dueDate,
+        progress: projectTasks.progress,
+        value: projectTasks.value,
+        status: projectTasks.status,
+      })
+      .from(projectTasks)
+      .where(inArray(projectTasks.projectId, projectIds));
+    for (const { projectId, ...task } of rows) {
+      byProject.get(projectId)?.push({ ...task, value: Number(task.value) });
+    }
+  }
+  return new Map([...byProject].map(([id, tasks]) => [id, computeProjectProgress(tasks)]));
 }
 
 const vendorSchema = z.object({

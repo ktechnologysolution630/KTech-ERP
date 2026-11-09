@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type { CurvePoint } from '@/domain/site-report';
 
@@ -16,10 +16,12 @@ export const thaiShortDate = (iso: string | null | undefined) => {
 export const pct = (n: number) => `${n}%`;
 export const points = (n: number) => `${n > 0 ? '+' : ''}${n} pp`;
 
+const noSubscribe = () => () => {};
+
 /** Copies the report into a body-level node that is the only thing shown when printing. */
 export function PrintRoot({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // false on the server and during hydration, true once running in the browser
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   if (!mounted) return null;
   return createPortal(<div className="print-root">{children}</div>, document.body);
 }

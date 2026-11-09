@@ -114,8 +114,8 @@ async function main() {
         console.error(`❌ [${res.status} ${location}] ${route}`);
         failed++;
       }
-    } catch (err: any) {
-      console.error(`❌ [ERROR] ${route} -> ${err.message}`);
+    } catch (err) {
+      console.error(`❌ [ERROR] ${route} -> ${err instanceof Error ? err.message : String(err)}`);
       failed++;
     }
   }

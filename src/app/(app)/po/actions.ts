@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
+import { deletePo } from '@/server/services/po-delete';
 import {
   approvePo,
   cancelPo,
@@ -45,6 +47,20 @@ export async function updatePoAction(
   revalidatePath(`/po/${id}`);
   revalidatePath('/po');
   redirect(`/po/${id}`);
+}
+
+export async function deletePoAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    await deletePo(db, actor, id);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+  revalidatePath('/po');
+  revalidatePath('/purchasing/vendors');
+  return { ok: true };
 }
 
 export async function submitPoAction(id: string) {

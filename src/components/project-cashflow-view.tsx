@@ -62,7 +62,12 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
 
   const expenseTotal = data.expenseGroups.reduce((a, g) => a + g.amount, 0);
   const CIRC = 2 * Math.PI * 14;
-  let offset = 0;
+  // Each donut slice starts where the slices before it end
+  const donutSlices = data.expenseGroups.reduce<{ len: number; offset: number }[]>((acc, g) => {
+    const prev = acc[acc.length - 1];
+    acc.push({ len: expenseTotal > 0 ? (g.amount / expenseTotal) * CIRC : 0, offset: prev ? prev.offset + prev.len : 0 });
+    return acc;
+  }, []);
 
   const margin = data.received > 0 ? ((data.net / data.received) * 100).toFixed(1) : null;
 
@@ -215,8 +220,8 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
                 <svg className="w-32 h-32 -rotate-90" viewBox="0 0 36 36">
                   <circle cx="18" cy="18" r="14" fill="none" stroke="#f1f5f9" strokeWidth="5" />
                   {data.expenseGroups.map((g, i) => {
-                    const len = (g.amount / expenseTotal) * CIRC;
-                    const el = (
+                    const { len, offset } = donutSlices[i];
+                    return (
                       <circle
                         key={g.label}
                         cx="18"
@@ -229,8 +234,6 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
                         strokeDashoffset={-offset}
                       />
                     );
-                    offset += len;
-                    return el;
                   })}
                 </svg>
               </div>

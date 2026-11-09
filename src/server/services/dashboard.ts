@@ -362,6 +362,15 @@ export async function getOwnerDashboard(
     .leftJoin(projects, eq(projects.id, pos.projectId))
     .where(and(ne(pos.status, 'CANCELLED'), ne(pos.status, 'DRAFT')));
 
+  // paidNotReceived ต้องมี paidGross > 0 เสมอ จึงโหลด PO ที่มี PV สถานะ PAID ครั้งเดียว
+  // แล้วเรียก getPoSummary เฉพาะ PO เหล่านั้น แทนการเรียกทุก PO
+  const paidPoRows = await db
+    .selectDistinct({ poId: payables.poId })
+    .from(pvLines)
+    .innerJoin(payables, eq(payables.id, pvLines.payableId))
+    .innerJoin(pvs, and(eq(pvs.id, pvLines.pvId), eq(pvs.status, 'PAID')));
+  const paidPoIds = new Set(paidPoRows.map((row) => row.poId));
+
   const paidNotReceived: {
     poId: string;
     number: string;
@@ -370,6 +379,7 @@ export async function getOwnerDashboard(
   }[] = [];
 
   for (const r of activePos) {
+    if (!paidPoIds.has(r.po.id)) continue;
     const summary = await getPoSummary(db, r.po.id);
     if (summary.paidNotReceived) {
       paidNotReceived.push({

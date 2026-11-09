@@ -1,7 +1,7 @@
 import { getDb } from '@/db/client';
 import { bangkokDateString } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
-import { getPo } from '@/server/services/po';
+import { getPoOrNotFound } from '@/app/(app)/po/get-po-or-not-found';
 import { MobileReceiveForm } from '@/components/mobile-receive-form';
 
 export default async function ReceivePoPage({
@@ -12,7 +12,7 @@ export default async function ReceivePoPage({
   const { poId } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const po = await getPo(db, actor, poId);
+  const po = await getPoOrNotFound(db, actor, poId);
   const remainingLines = po.lines
     .filter((l) => l.remainingQty.gt(0))
     .map((l) => ({

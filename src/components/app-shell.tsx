@@ -421,20 +421,6 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
-                      <BarChart2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>รายงานสรุปการจัดซื้อ...</span>
-                    </Link>
-                    )}
-                    {canSee('PUR_OVERVIEW') && (
-                    <Link
-                      href="/purchasing"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        pathname === '/purchasing'
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
                       <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
                       <span>ภาพรวมจัดซื้อ</span>
                     </Link>

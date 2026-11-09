@@ -12,7 +12,10 @@ export function useSiteLoader<T>(load: () => Promise<SiteResult<T>>, deps: unkno
   const [error, setError] = useState<string | null>(null);
   const seq = useRef(0);
   const loadRef = useRef(load);
-  loadRef.current = load;
+  // Declared before the loading effect, so it always runs first and reload() sees the latest load
+  useEffect(() => {
+    loadRef.current = load;
+  });
 
   const reload = useCallback(async () => {
     const mine = ++seq.current;

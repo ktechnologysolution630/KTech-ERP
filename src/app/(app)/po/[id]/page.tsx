@@ -7,7 +7,7 @@ import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
-import { getPo, type SerializedPoRevisionPayload } from '@/server/services/po';
+import { type SerializedPoRevisionPayload } from '@/server/services/po';
 import { getCloseShortRequestsForPo } from '@/server/services/close-short';
 import { getPoSummary } from '@/server/services/invoice';
 import { listPoReceipts } from '@/server/services/receipt';
@@ -21,6 +21,9 @@ import { formatMoneyDisplay } from '@/domain/money';
 import { PoSummaryCard } from '@/components/po-summary-card';
 import { BoqOverrunPanel } from '@/components/boq-overrun-panel';
 import { getPoBoqCheck } from '@/server/services/boq-overrun';
+import { previewPoDeletion } from '@/server/services/po-delete';
+import { getPoOrNotFound } from '../get-po-or-not-found';
+import { PoDeleteButton } from './po-delete-button';
 import {
   addPoCommentAction,
   approveCloseShortAction,
@@ -47,7 +50,7 @@ export default async function PoDetailPage({
   const db = await getDb();
   const [po, settings, activities, attachments, comments, receipts, closeShortReqs, summary] =
     await Promise.all([
-      getPo(db, actor, id),
+      getPoOrNotFound(db, actor, id),
       getSettings(db),
       listActivity(db, 'PO', id),
       listAttachments(db, 'PO', id),
@@ -57,6 +60,7 @@ export default async function PoDetailPage({
       getPoSummary(db, id),
     ]);
   const boqCheck = po.projectId ? await getPoBoqCheck(db, actor, id) : null;
+  const deletion = can(actor, 'po.delete') ? await previewPoDeletion(db, actor, id) : null;
   const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
   const hasSomeReceipt = receipts.length > 0;
   const hasRemainingQty = po.lines.some((l) => l.remainingQty.gt(0));
@@ -461,6 +465,16 @@ export default async function PoDetailPage({
               </button>
             </form>
           )}
+
+        {deletion && (
+          <PoDeleteButton
+            id={po.id}
+            number={po.number}
+            vendorName={po.vendorName}
+            approved={po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'COMPLETED'}
+            preview={deletion}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

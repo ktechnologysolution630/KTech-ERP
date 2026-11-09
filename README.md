@@ -26,7 +26,7 @@
    ```bash
    cp .env.example .env
    ```
-   *(ในโหมดพัฒนา หากเว้น `DATABASE_URL` ว่าง ระบบจะใช้ฐานข้อมูล PGlite ในโฟลเดอร์ `.data/pglite` และเก็บไฟล์แนบใน `.data/uploads` อัตโนมัติ)*
+   *(ในโหมดพัฒนา หากเว้น `DATABASE_URL` ว่าง ระบบจะใช้ฐานข้อมูล PGlite ในโฟลเดอร์ `.pglite` และเก็บไฟล์แนบใน `.uploads` อัตโนมัติ)*
 
 3. **รัน Migration และ Seed ข้อมูลเริ่มต้น**
    ```bash

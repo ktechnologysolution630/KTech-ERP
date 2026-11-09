@@ -1,7 +1,7 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listProjects, listVendors } from '@/server/services/master';
-import { getPo } from '@/server/services/po';
+import { getPoOrNotFound } from '../../get-po-or-not-found';
 import { listOrderablePrLines } from '@/server/services/pr';
 import { listBoqMaterialOptions } from '@/server/services/boq-overrun';
 import { PoForm } from '@/components/po-form';
@@ -15,7 +15,7 @@ export default async function EditPoPage({
   const actor = await requireUser();
   const db = await getDb();
   const [po, projects, vendors, orderable, boqMaterials] = await Promise.all([
-    getPo(db, actor, id),
+    getPoOrNotFound(db, actor, id),
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),

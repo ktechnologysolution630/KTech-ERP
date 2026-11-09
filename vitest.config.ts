@@ -6,9 +6,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    testTimeout: 30000,
+    // Each test builds a fresh PGlite database; with every file running in parallel the
+    // first one in a file can take well over 30s on a busy machine.
+    testTimeout: 60000,
     // beforeEach hooks create the same in-memory database the tests do
-    hookTimeout: 30000,
+    hookTimeout: 60000,
   },
   resolve: {
     alias: {

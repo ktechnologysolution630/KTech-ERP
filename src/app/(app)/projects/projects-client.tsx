@@ -14,6 +14,8 @@ interface Project {
   clientName: string;
   location: string;
   budget: number;
+  /** Weighted actual progress from leaf tasks, 0–100 */
+  progress: number;
   startDate: string | null;
   endDate: string | null;
   createdAt: Date;
@@ -167,6 +169,7 @@ export function ProjectsClient({
                 <th className="px-4 py-3 text-left font-medium">ชื่อโครงการ</th>
                 <th className="px-4 py-3 text-left font-medium">ลูกค้า</th>
                 <th className="px-4 py-3 text-right font-medium">งบประมาณ</th>
+                <th className="px-4 py-3 text-left font-medium">ความคืบหน้า</th>
                 <th className="px-4 py-3 text-left font-medium">สถานะ</th>
                 <th className="px-4 py-3 text-left font-medium">วันที่บันทึก</th>
               </tr>
@@ -176,7 +179,7 @@ export function ProjectsClient({
                 <tr
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  className="hover:bg-blue-50/50 cursor-pointer transition select-none"
+                  className="group hover:bg-blue-50/50 cursor-pointer transition select-none"
                 >
                   <td className="px-4 py-3 font-mono font-semibold text-[#2453d4]">
                     <div className="flex items-center gap-1.5">
@@ -188,6 +191,14 @@ export function ProjectsClient({
                   <td className="px-4 py-3 text-slate-600">{p.clientName || '-'}</td>
                   <td className="px-4 py-3 text-right font-mono text-slate-700">
                     {p.budget > 0 ? p.budget.toLocaleString('th-TH') : '-'}
+                  </td>
+                  <td className="px-4 py-3 min-w-[140px]">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-[#2453d4]" style={{ width: `${p.progress}%` }} />
+                      </div>
+                      <span className="w-12 text-right font-mono text-slate-700">{p.progress}%</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span

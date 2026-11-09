@@ -57,7 +57,7 @@ export async function createContractorAction(formData: FormData) {
     revalidatePath('/labor-payments/contractors');
     revalidatePath('/purchasing/vendors');
     return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' };
+  } catch (err) {
+    return { ok: false, error: (err instanceof Error && err.message) || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' };
   }
 }
