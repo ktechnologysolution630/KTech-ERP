@@ -114,7 +114,7 @@ export async function addProjectMember(db: Db, actor: SessionUser, projectId: st
   const [u] = await db.select({ id: users.id, active: users.active }).from(users).where(eq(users.id, userId)).limit(1);
   if (!u || !u.active) throw new DomainError('NOT_FOUND', 'ไม่พบผู้ใช้งาน', 404);
   await db.insert(projectMembers).values({ projectId, userId }).onConflictDoNothing();
-  await notify(db, [userId], { title: `คุณได้รับมอบหมายให้อยู่ในทีมโครงการ ${project.code}`, href: `/projects/${projectId}` });
+  await notify(db, [userId], { title: `คุณได้รับมอบหมายให้อยู่ในทีมโครงการ ${project.code}`, href: `/projects/${projectId}`, category: 'PROJECT', projectId });
 }
 
 export async function removeProjectMember(db: Db, actor: SessionUser, projectId: string, userId: string) {

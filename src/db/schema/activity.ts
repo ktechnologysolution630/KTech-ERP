@@ -1,5 +1,6 @@
 import { customType, pgTable, uuid, text, timestamp, integer, jsonb, index } from 'drizzle-orm/pg-core';
 import { users } from './core';
+import { projects } from './master';
 
 export type EntityType =
   | 'PR'
@@ -82,6 +83,16 @@ export const storedFiles = pgTable('stored_files', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Topic a notification belongs to; the bell groups notifications by it. */
+export const NOTIFICATION_CATEGORIES = ['BOQ', 'PO', 'PR', 'RECEIPT', 'FINANCE', 'PROJECT', 'GENERAL'] as const;
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+/**
+ * Severity of a notification. BOQ usage alerts map 50% → NOTICE, 80% → WARNING, 100% → CRITICAL
+ * and over budget → OVER; everything else is INFO unless it needs attention.
+ */
+export type NotificationLevel = 'INFO' | 'NOTICE' | 'WARNING' | 'CRITICAL' | 'OVER';
+
 export const notifications = pgTable('notifications', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id')
@@ -89,6 +100,10 @@ export const notifications = pgTable('notifications', {
     .references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   href: text('href').notNull(),
+  category: text('category').$type<NotificationCategory>().default('GENERAL').notNull(),
+  level: text('level').$type<NotificationLevel>().default('INFO').notNull(),
+  // Notifications about a project link into it, so they go when the project is deleted
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
   readAt: timestamp('read_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

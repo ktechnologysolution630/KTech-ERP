@@ -81,6 +81,8 @@ export const boqLines = pgTable(
     materialRate: numeric('material_rate', { precision: 14, scale: 2 }),
     laborRate: numeric('labor_rate', { precision: 14, scale: 2 }),
     note: text('note').default('').notNull(),
+    /** Highest material-usage alert already sent to the owner and PM: 0, 50, 80, 100 or 101 (over budget) */
+    usageAlertLevel: integer('usage_alert_level').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index('boq_lines_boq_sort_idx').on(t.boqId, t.sort)],

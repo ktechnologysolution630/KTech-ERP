@@ -1,21 +1,27 @@
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, inArray } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
   notifications,
   projectMembers,
   userRoles,
   users,
+  type NotificationCategory,
+  type NotificationLevel,
   type Role,
   type SessionUser,
 } from '@/db/schema';
 
 const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK', 'PM'];
 
-export async function notify(
-  tx: Db,
-  userIds: string[],
-  n: { title: string; href: string },
-): Promise<void> {
+export interface NotificationInput {
+  title: string;
+  href: string;
+  category?: NotificationCategory;
+  level?: NotificationLevel;
+  projectId?: string | null;
+}
+
+export async function notify(tx: Db, userIds: string[], n: NotificationInput): Promise<void> {
   const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
   if (uniqueIds.length === 0) return;
   await tx.insert(notifications).values(
@@ -23,6 +29,9 @@ export async function notify(
       userId,
       title: n.title,
       href: n.href,
+      category: n.category ?? 'GENERAL',
+      level: n.level ?? 'INFO',
+      projectId: n.projectId ?? null,
     })),
   );
 }
@@ -67,13 +76,27 @@ export async function countUnreadNotifications(db: Db, userId: string): Promise<
   return rows.length;
 }
 
-export async function listNotifications(db: Db, actor: SessionUser) {
+export async function listNotifications(db: Db, actor: SessionUser, category?: NotificationCategory) {
   return db
-    .select()
+    .select({
+      id: notifications.id,
+      title: notifications.title,
+      href: notifications.href,
+      category: notifications.category,
+      level: notifications.level,
+      projectId: notifications.projectId,
+      readAt: notifications.readAt,
+      createdAt: notifications.createdAt,
+    })
     .from(notifications)
-    .where(eq(notifications.userId, actor.id))
+    .where(
+      and(
+        eq(notifications.userId, actor.id),
+        category ? eq(notifications.category, category) : undefined,
+      ),
+    )
     .orderBy(desc(notifications.createdAt))
-    .limit(30);
+    .limit(category ? 30 : 50);
 }
 
 export async function markAllRead(db: Db, actor: SessionUser) {

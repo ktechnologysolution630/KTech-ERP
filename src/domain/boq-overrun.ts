@@ -25,6 +25,22 @@ export function boqMaterialBudget(line: Pick<BoqBudgetLine, 'qty' | 'materialRat
   return round2(D(line.qty).times(line.materialRate));
 }
 
+/** Usage alert thresholds in percent of the material budget; 101 stands for "over budget". */
+export type BoqUsageLevel = 0 | 50 | 80 | 100 | 101;
+
+/** Highest alert threshold that `used` has reached against `budget`. */
+export function boqUsageLevel(used: Decimal.Value, budget: Decimal.Value): BoqUsageLevel {
+  const b = D(budget);
+  if (b.lte(0)) return 0;
+  const u = D(used);
+  if (u.gt(b)) return 101;
+  const percent = u.div(b).times(100);
+  if (percent.gte(100)) return 100;
+  if (percent.gte(80)) return 80;
+  if (percent.gte(50)) return 50;
+  return 0;
+}
+
 /**
  * Compares this PO's lines with each referenced BOQ line's material budget, counting what other
  * live POs already commit. Only lines that end up over budget are returned.

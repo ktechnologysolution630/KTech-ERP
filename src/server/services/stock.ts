@@ -350,7 +350,7 @@ export async function requestStockAdjust(db: Db, actor: SessionUser, input: Stoc
       .returning();
     await logActivity(tx, { entityType: 'STOCK_ADJUST', entityId: req.id, action: 'REQUEST', userId: actor.id });
     const approvers = (await usersWithRole(tx, ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'])).filter((id) => id !== actor.id);
-    await notify(tx, approvers, { title: `${requestNumber} ขอปรับยอดสต็อก ${item.name}`, href: '/stock?tab=document-history' });
+    await notify(tx, approvers, { title: `${requestNumber} ขอปรับยอดสต็อก ${item.name}`, href: '/stock?tab=document-history', category: 'RECEIPT' });
     return req;
   });
 }
@@ -392,6 +392,7 @@ export async function decideStockAdjust(
     await notify(tx, [req.requestedBy], {
       title: `${req.requestNumber} ${approve ? 'อนุมัติปรับยอดแล้ว' : 'ไม่อนุมัติปรับยอด'}`,
       href: '/stock?tab=document-history',
+      category: 'RECEIPT',
     });
     return status;
   });

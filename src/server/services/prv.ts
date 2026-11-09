@@ -200,14 +200,23 @@ export async function transitionPrv(db: Db, actor: SessionUser, id: string, acti
       await notify(tx, [...pms.map((p) => p.id), ...(await usersWithRole(tx, ['GENERAL_MANAGER', 'OWNER']))].filter((u) => u !== actor.id), {
         title: `${prv.prvNumber} รอตรวจรับรองผลงาน`,
         href,
+        category: 'FINANCE',
+        projectId: prv.projectId,
       });
     } else if (action === 'verify') {
-      await notify(tx, (await usersWithRole(tx, ['OWNER'])).filter((u) => u !== actor.id), { title: `${prv.prvNumber} รออนุมัติจ่าย`, href });
+      await notify(tx, (await usersWithRole(tx, ['OWNER'])).filter((u) => u !== actor.id), {
+        title: `${prv.prvNumber} รออนุมัติจ่าย`,
+        href,
+        category: 'FINANCE',
+        projectId: prv.projectId,
+      });
     } else {
       const finance = action === 'approve' ? await usersWithRole(tx, ['FINANCE']) : [];
       await notify(tx, [prv.requestedBy, ...finance], {
         title: `${prv.prvNumber} ${action === 'approve' ? 'อนุมัติแล้ว รอทำจ่าย' : 'ไม่อนุมัติ'}`,
         href,
+        category: 'FINANCE',
+        projectId: prv.projectId,
       });
     }
     return rule.to;

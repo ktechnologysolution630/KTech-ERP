@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, Check, CheckCircle2, LocateFixed, MapPin, RefreshCw, TriangleAlert } from 'lucide-react';
-import { INSPECTION_RESULT_LABELS, mapEmbedUrl, type CheckLocation, type InspectionResult } from '@/domain/asset';
+import { accuracyText, INSPECTION_RESULT_LABELS, mapEmbedUrl, type CheckLocation, type InspectionResult } from '@/domain/asset';
 import { shrinkPhoto } from '@/lib/shrink-photo';
 import type { AssetRow } from '@/server/services/assets';
 import { Dialog } from './asset-dialog';
@@ -95,7 +95,7 @@ function MapStep({ location, locating, error, onLocate, onConfirm, onBack }: { l
               <span className="font-mono">
                 {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
               </span>{' '}
-              (คลาดเคลื่อนประมาณ {Math.round(location.accuracyMeters)} เมตร)
+              (คลาดเคลื่อนประมาณ {accuracyText(location.accuracyMeters)})
             </span>
           </p>
         </>

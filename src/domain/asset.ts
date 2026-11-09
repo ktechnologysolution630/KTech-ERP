@@ -79,15 +79,23 @@ export interface CheckLocation {
   accuracyMeters: number;
 }
 
-/** OpenStreetMap needs no API key, so the map works without any account being set up. */
-export function mapEmbedUrl({ latitude, longitude }: Pick<CheckLocation, 'latitude' | 'longitude'>): string {
-  const span = 0.003;
-  const bbox = [longitude - span, latitude - span, longitude + span, latitude + span].map((n) => n.toFixed(6)).join(',');
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+const latLng = ({ latitude, longitude }: Pick<CheckLocation, 'latitude' | 'longitude'>) =>
+  `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+
+/** Google Maps embed with a pin; this form needs no API key. */
+export function mapEmbedUrl(location: Pick<CheckLocation, 'latitude' | 'longitude'>): string {
+  return `https://maps.google.com/maps?q=${latLng(location)}&z=17&output=embed`;
 }
 
-export function mapLinkUrl({ latitude, longitude }: Pick<CheckLocation, 'latitude' | 'longitude'>): string {
-  return `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=18/${latitude.toFixed(6)}/${longitude.toFixed(6)}`;
+/** Opens Google Maps (the app on phones) pinned at the check location. */
+export function mapLinkUrl(location: Pick<CheckLocation, 'latitude' | 'longitude'>): string {
+  return `https://www.google.com/maps/search/?api=1&query=${latLng(location)}`;
+}
+
+/** Location accuracy for people: metres with separators, kilometres once it is that far off. */
+export function accuracyText(meters: number): string {
+  if (meters >= 1000) return `${(meters / 1000).toLocaleString('th-TH', { maximumFractionDigits: 1 })} กม.`;
+  return `${Math.round(meters).toLocaleString('th-TH')} เมตร`;
 }
 
 /** Identifies one due period; moving from "coming up" to "overdue" is a new one, so people are reminded once more. */

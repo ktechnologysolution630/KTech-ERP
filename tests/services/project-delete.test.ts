@@ -325,7 +325,7 @@ describe('deleting a project', () => {
       ['advances', 'ar_invoices', 'assets', 'boq_overrun_requests', 'payables', 'pos', 'prs', 'prvs', 'receipt_substitutes', 'stock_adjust_requests', 'stock_movements'].sort(),
     );
     expect(rows.filter((r) => r.on_delete === 'c').map((r) => r.table_name).sort()).toEqual(
-      ['boqs', 'daily_reports', 'milestones', 'project_events', 'project_handovers', 'project_members', 'project_tasks', 'stock_balances', 'variation_orders', 'warranty_defects'].sort(),
+      ['boqs', 'daily_reports', 'milestones', 'notifications', 'project_events', 'project_handovers', 'project_members', 'project_tasks', 'stock_balances', 'variation_orders', 'warranty_defects'].sort(),
     );
   });
 });

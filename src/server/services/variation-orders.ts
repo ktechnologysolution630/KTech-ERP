@@ -492,6 +492,8 @@ export async function submitVo(db: Db, actor: SessionUser, voId: string): Promis
     await notify(tx, owners, {
       title: `${vo.number} งานเพิ่ม-ลดรออนุมัติ`,
       href: `/projects/${vo.projectId}?tab=vo`,
+      category: 'PROJECT',
+      projectId: vo.projectId,
     });
   });
 }
@@ -529,6 +531,8 @@ export async function decideVo(
     await notify(tx, [vo.requestedBy], {
       title: `${vo.number} ${approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`,
       href: `/projects/${vo.projectId}?tab=vo`,
+      category: 'PROJECT',
+      projectId: vo.projectId,
     });
   });
 }

@@ -110,6 +110,8 @@ export async function requestPrepaid(
     await notify(tx, financeUsers, {
       title: `มีคำขอเบิกเงินล่วงหน้า ${po.number} (฿${gross.toFixed(2)})`,
       href: `/po/${po.id}`,
+      category: 'FINANCE',
+      projectId: po.projectId,
     });
 
     return created!.id;
@@ -195,6 +197,8 @@ export async function requestInstallment(
     await notify(tx, financeUsers, {
       title: `มีคำขอเบิกงวด ${inst.name} ของ ${po.number} (฿${gross.toFixed(2)})`,
       href: `/po/${po.id}`,
+      category: 'FINANCE',
+      projectId: po.projectId,
     });
 
     return created!.id;

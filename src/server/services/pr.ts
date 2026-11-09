@@ -218,6 +218,8 @@ export async function submitPr(db: Db, actor: SessionUser, id: string): Promise<
     await notify(tx, pms, {
       title: `มีใบขอซื้อรออนุมัติ ${pr.number}`,
       href: `/pr/${pr.id}`,
+      category: 'PR',
+      projectId: pr.projectId,
     });
   });
 }
@@ -252,6 +254,8 @@ export async function approvePr(db: Db, actor: SessionUser, id: string): Promise
     await notify(tx, [pr.requestedBy, ...buyers], {
       title: `ใบขอซื้อ ${pr.number} อนุมัติแล้ว`,
       href: `/pr/${pr.id}`,
+      category: 'PR',
+      projectId: pr.projectId,
     });
   });
 }
@@ -295,6 +299,8 @@ export async function rejectPr(
     await notify(tx, [pr.requestedBy], {
       title: `ใบขอซื้อ ${pr.number} ถูกตีกลับ: ${cleanReason}`,
       href: `/pr/${pr.id}`,
+      category: 'PR',
+      projectId: pr.projectId,
     });
   });
 }

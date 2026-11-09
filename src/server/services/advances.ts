@@ -76,7 +76,7 @@ export async function requestAdvance(db: Db, actor: SessionUser, input: AdvanceI
       .returning();
     await logActivity(tx, { entityType: 'ADVANCE', entityId: row.id, action: 'REQUEST', userId: actor.id });
     const approvers = await usersWithRole(tx, ['GENERAL_MANAGER', 'OWNER', 'ADMIN']);
-    await notify(tx, approvers, { title: `${number} ขอเงินทดรองจ่าย ${D(d.amount).toFixed(2)} บาท`, href: '/advances' });
+    await notify(tx, approvers, { title: `${number} ขอเงินทดรองจ่าย ${D(d.amount).toFixed(2)} บาท`, href: '/advances', category: 'FINANCE' });
     return { id: row.id, number };
   });
 }
@@ -101,7 +101,7 @@ export async function decideAdvance(db: Db, actor: SessionUser, id: string, appr
       .set({ status: approve ? 'APPROVED' : 'REJECTED', decidedBy: actor.id, decidedAt: new Date(), decisionNote: note, updatedAt: new Date() })
       .where(eq(advances.id, id));
     await logActivity(tx, { entityType: 'ADVANCE', entityId: id, action: approve ? 'APPROVE' : 'REJECT', userId: actor.id, note: note || undefined });
-    await notify(tx, [a.payeeId], { title: `${a.number} ${approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`, href: '/advances' });
+    await notify(tx, [a.payeeId], { title: `${a.number} ${approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`, href: '/advances', category: 'FINANCE' });
   });
 }
 
@@ -113,7 +113,7 @@ export async function payAdvance(db: Db, actor: SessionUser, id: string, paidOn?
     if (a.status !== 'APPROVED') throw new DomainError('INVALID_STATE', 'จ่ายได้เฉพาะใบที่อนุมัติแล้ว', 409);
     await tx.update(advances).set({ status: 'PAID', paidAt: date, paidBy: actor.id, updatedAt: new Date() }).where(eq(advances.id, id));
     await logActivity(tx, { entityType: 'ADVANCE', entityId: id, action: 'PAY', userId: actor.id });
-    await notify(tx, [a.payeeId], { title: `${a.number} จ่ายเงินแล้ว กรุณาเคลียร์เมื่อใช้จ่ายเสร็จ`, href: '/advances' });
+    await notify(tx, [a.payeeId], { title: `${a.number} จ่ายเงินแล้ว กรุณาเคลียร์เมื่อใช้จ่ายเสร็จ`, href: '/advances', category: 'FINANCE' });
   });
 }
 
@@ -388,7 +388,7 @@ export async function submitReceiptSubstitute(db: Db, actor: SessionUser, id: st
     await tx.update(receiptSubstitutes).set({ number, status: 'PENDING', decisionNote: '', updatedAt: new Date() }).where(eq(receiptSubstitutes.id, id));
     await logActivity(tx, { entityType: 'RECEIPT_SUBSTITUTE', entityId: id, action: 'SUBMIT', userId: actor.id });
     const approvers = await usersWithRole(tx, ['FINANCE', 'OWNER']);
-    await notify(tx, approvers, { title: `${number} ใบรับรองแทนใบเสร็จรออนุมัติ`, href: '/receipt-substitutes' });
+    await notify(tx, approvers, { title: `${number} ใบรับรองแทนใบเสร็จรออนุมัติ`, href: '/receipt-substitutes', category: 'FINANCE' });
     return number;
   });
 }
@@ -407,7 +407,7 @@ export async function decideReceiptSubstitute(db: Db, actor: SessionUser, id: st
       .set({ status: approve ? 'APPROVED' : 'REJECTED', decidedBy: actor.id, decisionNote: note, updatedAt: new Date() })
       .where(eq(receiptSubstitutes.id, id));
     await logActivity(tx, { entityType: 'RECEIPT_SUBSTITUTE', entityId: id, action: approve ? 'APPROVE' : 'REJECT', userId: actor.id, note: note || undefined });
-    await notify(tx, [rs.payerId], { title: `${rs.number} ${approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`, href: '/receipt-substitutes' });
+    await notify(tx, [rs.payerId], { title: `${rs.number} ${approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`, href: '/receipt-substitutes', category: 'FINANCE' });
   });
 }
 

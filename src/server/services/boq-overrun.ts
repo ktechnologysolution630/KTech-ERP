@@ -26,6 +26,21 @@ import { nextDocNumber } from './numbering';
 /** POs whose lines already commit BOQ budget. Drafts, rejected and cancelled POs do not. */
 const COMMITTING_STATUSES: PoStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'];
 
+/** Amount before VAT that live POs commit to each of the given BOQ lines. */
+export async function committedByBoqLine(tx: Db, boqLineIds: string[]): Promise<Map<string, Decimal>> {
+  const committed = new Map<string, Decimal>();
+  if (boqLineIds.length === 0) return committed;
+  const rows = await tx
+    .select({ boqLineId: poLines.boqLineId, netBeforeVat: poLines.allocatedBeforeVat })
+    .from(poLines)
+    .innerJoin(pos, eq(pos.id, poLines.poId))
+    .where(and(inArray(poLines.boqLineId, boqLineIds), inArray(pos.status, COMMITTING_STATUSES)));
+  for (const r of rows) {
+    if (r.boqLineId) committed.set(r.boqLineId, (committed.get(r.boqLineId) ?? D(0)).plus(r.netBeforeVat));
+  }
+  return committed;
+}
+
 export interface PoLineForBoq {
   boqLineId?: string | null;
   /** Line amount before VAT after bill discount and shipping allocation (po_lines.allocated_before_vat) */
@@ -248,15 +263,7 @@ export async function listBoqMaterialOptions(db: Db, actor: SessionUser): Promis
   const visible = isSiteScopedOnly(actor) ? rows.filter((r) => actor.projectIds.includes(r.projectId)) : rows;
   if (visible.length === 0) return [];
 
-  const committedRows = await db
-    .select({ boqLineId: poLines.boqLineId, netBeforeVat: poLines.allocatedBeforeVat })
-    .from(poLines)
-    .innerJoin(pos, eq(pos.id, poLines.poId))
-    .where(and(inArray(poLines.boqLineId, visible.map((r) => r.line.id)), inArray(pos.status, COMMITTING_STATUSES)));
-  const committed = new Map<string, Decimal>();
-  for (const c of committedRows) {
-    if (c.boqLineId) committed.set(c.boqLineId, (committed.get(c.boqLineId) ?? D(0)).plus(c.netBeforeVat));
-  }
+  const committed = await committedByBoqLine(db, visible.map((r) => r.line.id));
 
   return visible
     .map(({ line, projectId, kind, voNumber }) => {
@@ -338,7 +345,13 @@ export async function requestBoqOverrun(
       note: `${number}: ซื้อเกิน BOQ ${overrun.overAmount.toFixed(2)} บาท`,
     });
     const owners = await usersWithRole(tx, ['OWNER']);
-    await notify(tx, owners, { title: `${number} ขออนุมัติซื้อเกิน BOQ (PO ${po.number})`, href: `/po/${po.id}` });
+    await notify(tx, owners, {
+      title: `${number} ขออนุมัติซื้อเกิน BOQ (PO ${po.number})`,
+      href: `/po/${po.id}`,
+      category: 'BOQ',
+      level: 'OVER',
+      projectId: po.projectId,
+    });
     return { id: row.id, number };
   });
 }
@@ -379,6 +392,7 @@ export async function decideBoqOverrun(
     await notify(tx, [r.requestedBy], {
       title: `${r.number} ${approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}`,
       href: `/po/${r.poId}`,
+      category: 'BOQ',
     });
   });
 }

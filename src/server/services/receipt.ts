@@ -161,6 +161,8 @@ export async function createReceipt(
     await notify(tx, [po.createdBy, ...financeUsers], {
       title: `มีการรับของตาม PO ${po.number}`,
       href: `/po/${po.id}`,
+      category: 'RECEIPT',
+      projectId: po.projectId,
     });
 
     return { id: created.id };

@@ -111,6 +111,8 @@ export async function requestCloseShort(
     await notify(tx, owners, {
       title: `มีคำขอปิดยอดค้างรับ ${po.number}`,
       href: `/po/${po.id}`,
+      category: 'RECEIPT',
+      projectId: po.projectId,
     });
 
     return { id: created!.id };
@@ -254,6 +256,8 @@ export async function approveCloseShort(
     await notify(tx, [req.requestedBy], {
       title: `คำขอปิดยอดค้างรับ ${po.number} ได้รับอนุมัติแล้ว`,
       href: `/po/${po.id}`,
+      category: 'RECEIPT',
+      projectId: po.projectId,
     });
 
     await triggerPoAutoComplete(tx, po.id);
@@ -306,6 +310,8 @@ export async function rejectCloseShort(
     await notify(tx, [req.requestedBy], {
       title: `คำขอปิดยอดค้างรับ ${po.number} ถูกตีกลับ: ${reason.trim()}`,
       href: `/po/${po.id}`,
+      category: 'RECEIPT',
+      projectId: po.projectId,
     });
   });
 }

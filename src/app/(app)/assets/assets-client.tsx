@@ -13,6 +13,7 @@ import {
   hasProblem,
   INSPECTION_DUE_LABELS,
   INSPECTION_RESULT_LABELS,
+  accuracyText,
   mapLinkUrl,
   needsInspection,
   type AssetCheckState,
@@ -238,7 +239,7 @@ function HistoryDialog({ asset, onClose }: { asset: AssetRow; onClose: () => voi
               <p className="text-[11px] text-slate-500">ผู้ตรวจ: {r.inspectorName}</p>
               {r.location && (
                 <a href={mapLinkUrl(r.location)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-[#2453d4] hover:underline">
-                  <MapPin className="h-3 w-3" /> ดูตำแหน่งบนแผนที่ (คลาดเคลื่อนประมาณ {r.location.accuracyMeters} เมตร)
+                  <MapPin className="h-3 w-3" /> ดูตำแหน่งบน Google Maps (คลาดเคลื่อนประมาณ {accuracyText(r.location.accuracyMeters)})
                 </a>
               )}
               {r.photos.length > 0 && (

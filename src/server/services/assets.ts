@@ -356,8 +356,8 @@ export async function notifyAssetsDue(db: Db, today = bangkokDateString()): Prom
         tx,
         [userId],
         items.length === 1 && only
-          ? { title: `${only.asset.code} ${only.asset.name}: ${INSPECTION_DUE_LABELS[only.state]}`, href: `/assets?asset=${only.asset.id}` }
-          : { title: `ทรัพย์สิน ${items.length} รายการต้องตรวจเช็ค`, href: '/assets?view=NEEDS_CHECK' },
+          ? { title: `${only.asset.code} ${only.asset.name}: ${INSPECTION_DUE_LABELS[only.state]}`, href: `/assets?asset=${only.asset.id}`, category: 'PROJECT', level: 'NOTICE' }
+          : { title: `ทรัพย์สิน ${items.length} รายการต้องตรวจเช็ค`, href: '/assets?view=NEEDS_CHECK', category: 'PROJECT', level: 'NOTICE' },
       );
     }
     return announced;

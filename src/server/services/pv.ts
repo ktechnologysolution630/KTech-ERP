@@ -349,6 +349,7 @@ export async function submitPv(db: Db, actor: SessionUser, id: string) {
     await notify(tx, owners, {
       title: `ใบสำคัญจ่าย ${pv.number} รออนุมัติ (สุทธิ ฿${pv.net})`,
       href: `/pv/${pv.id}`,
+      category: 'FINANCE',
     });
   });
 }
@@ -429,6 +430,7 @@ export async function approvePv(
     await notify(tx, financeUsers, {
       title: `ใบสำคัญจ่าย ${pv.number} อนุมัติแล้ว พร้อมโอนจ่าย`,
       href: `/pv/${pv.id}`,
+      category: 'FINANCE',
     });
   });
 }
@@ -470,6 +472,7 @@ export async function rejectPv(
     await notify(tx, [pv.createdBy], {
       title: `ใบสำคัญจ่าย ${pv.number} ถูกตีกลับ: ${reason.trim()}`,
       href: `/pv/${pv.id}`,
+      category: 'FINANCE',
     });
   });
 }

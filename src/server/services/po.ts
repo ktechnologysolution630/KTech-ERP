@@ -35,6 +35,7 @@ import { requiredPoApprover } from '@/domain/po-approval';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { assertOverrunApproved } from './boq-overrun';
+import { checkBoqUsageAlerts } from './boq-usage-alerts';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 import { orderedQtyByPrLine, registerOrderedQtyResolver } from './pr';
@@ -636,6 +637,8 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
       await notify(tx, approvers, {
         title: `PO ${po.number} (แก้ไขครั้งที่ ${po.currentRevision}) รออนุมัติ`,
         href: `/po/${po.id}`,
+        category: 'PO',
+        projectId: payload.projectId ?? po.projectId,
       });
       await logActivity(tx, {
         entityType: 'PO',
@@ -668,6 +671,8 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
     await notify(tx, approvers, {
       title: `ใบสั่งซื้อ ${po.number} รออนุมัติ`,
       href: `/po/${po.id}`,
+      category: 'PO',
+      projectId: po.projectId,
     });
 
     await logActivity(tx, {
@@ -676,7 +681,15 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
       action: 'submit',
       userId: actor.id,
     });
+
+    // The PO now commits its BOQ budget
+    await checkBoqUsageAlerts(tx, await boqLineIdsOfPo(tx, id));
   });
+}
+
+async function boqLineIdsOfPo(tx: Db, poId: string): Promise<(string | null)[]> {
+  const rows = await tx.select({ boqLineId: poLines.boqLineId }).from(poLines).where(eq(poLines.poId, poId));
+  return rows.map((r) => r.boqLineId);
 }
 
 export async function approvePo(db: Db, actor: SessionUser, id: string): Promise<void> {
@@ -715,6 +728,11 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
         .orderBy(asc(poLines.sort));
       const existingIds = new Set(existingLines.map((l) => l.id));
       const keptIds = new Set<string>();
+      // BOQ lines whose committed amount this revision changes: those it leaves and those it adds
+      const touchedBoqLineIds = [
+        ...existingLines.map((l) => l.boqLineId),
+        ...payload.lines.map((l) => l.boqLineId ?? null),
+      ];
 
       for (let idx = 0; idx < payload.lines.length; idx++) {
         const nl = payload.lines[idx];
@@ -831,6 +849,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
         userId: actor.id,
         note: `อนุมัติฉบับแก้ไขครั้งที่ ${po.currentRevision}`,
       });
+      await checkBoqUsageAlerts(tx, touchedBoqLineIds);
       return;
     }
 
@@ -873,6 +892,8 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
     await notify(tx, [po.createdBy], {
       title: `ใบสั่งซื้อ ${po.number} อนุมัติแล้ว`,
       href: `/po/${po.id}`,
+      category: 'PO',
+      projectId: po.projectId,
     });
   });
 }
@@ -960,7 +981,13 @@ export async function rejectPo(
     await notify(tx, [po.createdBy], {
       title: `ใบสั่งซื้อ ${po.number} ถูกตีกลับ: ${cleanReason}`,
       href: `/po/${po.id}`,
+      category: 'PO',
+      level: 'WARNING',
+      projectId: po.projectId,
     });
+
+    // A rejected PO no longer commits BOQ budget
+    await checkBoqUsageAlerts(tx, await boqLineIdsOfPo(tx, id));
   });
 }
 
@@ -1031,6 +1058,8 @@ export async function cancelPo(
       userId: actor.id,
       note: cleanReason,
     });
+
+    await checkBoqUsageAlerts(tx, await boqLineIdsOfPo(tx, id));
   });
 }
 
