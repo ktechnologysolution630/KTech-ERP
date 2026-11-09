@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Briefcase,
   LayoutGrid,
@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   LogOut,
   Building2,
-  Bell,
   Menu,
   X,
   FileText,
@@ -33,6 +32,12 @@ import {
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
 import { logoutAction } from '@/app/login/actions';
+import {
+  listMyNotificationsAction,
+  markAllMyNotificationsReadAction,
+  markMyNotificationReadAction,
+} from '@/app/(app)/notification-actions';
+import { NotificationBell } from './notification-bell';
 
 interface AppShellProps {
   user: SessionUser;
@@ -58,6 +63,7 @@ const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
 
 export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
 
@@ -883,16 +889,13 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
           {/* Right Header: Notification, Avatar & Exit */}
           <div className="flex items-center gap-3">
-            <Link
-              href="/inbox"
-              className="relative p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
-              title="การแจ้งเตือน"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
-              )}
-            </Link>
+            <NotificationBell
+              initialUnread={unreadCount}
+              onPoll={listMyNotificationsAction}
+              onMarkRead={markMyNotificationReadAction}
+              onMarkAllRead={markAllMyNotificationsReadAction}
+              onChanged={router.refresh}
+            />
 
             {/* User Avatar Circle */}
             <div className="w-8 h-8 rounded-full bg-emerald-600 ring-2 ring-emerald-100 overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">

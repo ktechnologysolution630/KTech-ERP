@@ -99,6 +99,14 @@ export async function listNotifications(db: Db, actor: SessionUser, category?: N
     .limit(category ? 30 : 50);
 }
 
+/** Marks one of the actor's own notifications read; someone else's id changes nothing. */
+export async function markNotificationRead(db: Db, actor: SessionUser, id: string) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(eq(notifications.id, id), eq(notifications.userId, actor.id), isNull(notifications.readAt)));
+}
+
 export async function markAllRead(db: Db, actor: SessionUser) {
   await db
     .update(notifications)

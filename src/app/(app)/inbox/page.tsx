@@ -2,12 +2,7 @@ import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { getInbox } from '@/server/services/inbox';
-import {
-  listNotifications,
-  markAllRead,
-} from '@/server/services/notifications';
 import { formatMoneyDisplay } from '@/domain/money';
-import { NotificationBell } from '@/components/notification-bell';
 import { canManageNews, listNews } from '@/server/services/news';
 import { getPortalProjects } from '@/server/services/portal';
 import { NewsSection } from './news-section';
@@ -16,9 +11,8 @@ import { PortalProjects } from './portal-projects';
 export default async function InboxPage() {
   const actor = await requireUser();
   const db = await getDb();
-  const [groups, notifications, news, portal] = await Promise.all([
+  const [groups, news, portal] = await Promise.all([
     getInbox(db, actor),
-    listNotifications(db, actor),
     listNews(db),
     getPortalProjects(db, actor),
   ]);
@@ -34,31 +28,14 @@ export default async function InboxPage() {
 
       <PortalProjects projects={portal.projects} scope={portal.scope} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">
-            กล่องงานของฉัน (Action Inbox)
-          </h2>
-          <p className="text-xs text-slate-600">
-            รายการงานที่รอการอนุมัติ สั่งซื้อ รับของ หรือทำจ่ายตามบทบาทของคุณ
-          </p>
-        </div>
-
-        <NotificationBell
-          initialItems={notifications}
-          onPoll={async () => {
-            'use server';
-            const u = await requireUser();
-            const d = await getDb();
-            return listNotifications(d, u);
-          }}
-          onMarkAllRead={async () => {
-            'use server';
-            const u = await requireUser();
-            const d = await getDb();
-            await markAllRead(d, u);
-          }}
-        />
+      {/* Notifications live in the header bell only */}
+      <div className="pt-2">
+        <h2 className="text-base font-bold text-slate-900">
+          กล่องงานของฉัน (Action Inbox)
+        </h2>
+        <p className="text-xs text-slate-600">
+          รายการงานที่รอการอนุมัติ สั่งซื้อ รับของ หรือทำจ่ายตามบทบาทของคุณ
+        </p>
       </div>
 
       {groups.length === 0 ? (
