@@ -496,8 +496,15 @@ function LowStockTab({
 
 /** Stock card: every movement of one item with a running balance, optionally per location. */
 function LedgerTab({ data }: { data: StockPageData }) {
-  const [itemId, setItemId] = useState(data.items[0]?.id ?? '');
+  const [chosenItemId, setItemId] = useState(data.items[0]?.id ?? '');
   const [loc, setLoc] = useState('All');
+  const [search, setSearch] = useState('');
+  const q = search.trim().toLowerCase();
+
+  // Text that names an item (name / SKU / category) narrows the item list and shows that item's card
+  const itemMatches = q ? data.items.filter((i) => `${i.sku} ${i.name} ${i.category}`.toLowerCase().includes(q)) : [];
+  const itemOptions = itemMatches.length > 0 ? itemMatches : data.items;
+  const itemId = itemMatches.length > 0 && !itemMatches.some((i) => i.id === chosenItemId) ? itemMatches[0]!.id : chosenItemId;
   const item = data.items.find((i) => i.id === itemId);
   const key = loc === 'All' ? undefined : loc;
 
@@ -518,6 +525,16 @@ function LedgerTab({ data }: { data: StockPageData }) {
     return [{ opening }, ...list.reverse()];
   }, [data.movements, item, key]);
 
+  // Otherwise the text filters the card's lines (document, reference, from/to, recorded by, note);
+  // balances stay those of the full card
+  const filterLines = q !== '' && itemMatches.length === 0;
+  const lineMatches = (m: StockMovementDto) =>
+    [m.movementNumber, m.referenceNumber ?? '', m.fromName, m.toName, m.performedByName, m.notes, TYPE_LABEL[m.type]]
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  const shownLines = rows.filter((r): r is Exclude<(typeof rows)[number], { opening: number }> => !('opening' in r) && (!filterLines || lineMatches(r.m)));
+
   return (
     <GsapReveal>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -529,7 +546,7 @@ function LedgerTab({ data }: { data: StockPageData }) {
           <div className="flex flex-wrap items-center gap-2">
             <select value={itemId} onChange={(e) => setItemId(e.target.value)} className="py-1.5 px-3 text-xs border border-slate-200 rounded-lg bg-white max-w-[280px]">
               {data.items.length === 0 && <option value="">ยังไม่มีรายการวัสดุ</option>}
-              {data.items.map((it) => (
+              {itemOptions.map((it) => (
                 <option key={it.id} value={it.id}>
                   [{it.sku}] {it.name}
                 </option>
@@ -547,6 +564,26 @@ function LedgerTab({ data }: { data: StockPageData }) {
               <FileText className="w-3.5 h-3.5" /> พิมพ์
             </button>
           </div>
+        </div>
+        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาสินค้า, SKU, เอกสาร, ต้นทาง, ปลายทาง..."
+              aria-label="ค้นหาในรายงานความเคลื่อนไหวสินค้า"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#2453d4]"
+            />
+          </div>
+          {q && (
+            <p className="mt-1.5 text-[11px] text-slate-500" role="status">
+              {itemMatches.length > 0
+                ? `พบสินค้า ${itemMatches.length} รายการที่ตรงกับ “${search.trim()}” — เลือกได้จากช่องด้านบน`
+                : `ไม่พบชื่อสินค้า — แสดงเฉพาะรายการเคลื่อนไหวที่ตรงกับ “${search.trim()}” (${shownLines.length} รายการ)`}
+            </p>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-xs">
@@ -569,9 +606,15 @@ function LedgerTab({ data }: { data: StockPageData }) {
                     เลือกสินค้าเพื่อดูความเคลื่อนไหว
                   </td>
                 </tr>
+              ) : filterLines && shownLines.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    ไม่พบรายการเคลื่อนไหวที่ตรงกับ “{search.trim()}”
+                  </td>
+                </tr>
               ) : (
-                rows.map((r) =>
-                  'opening' in r ? null : (
+                shownLines.map((r) =>
+                  (
                     <tr key={r.m.id} className="hover:bg-slate-50">
                       <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap">{dateText(r.m.date)}</td>
                       <td className="px-3.5 py-2.5">
