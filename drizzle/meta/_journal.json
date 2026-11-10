@@ -288,6 +288,13 @@
       "when": 1794299082718,
       "tag": "0040_stock_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794303404584,
+      "tag": "0041_sales_documents",
+      "breakpoints": true
     }
   ]
 }

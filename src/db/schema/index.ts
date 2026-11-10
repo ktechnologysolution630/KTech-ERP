@@ -6,6 +6,7 @@ export * from './po';
 export * from './receipt';
 export * from './finance';
 export * from './stock';
+export * from './sales';
 export * from './prv';
 export * from './boq';
 export * from './tasks';

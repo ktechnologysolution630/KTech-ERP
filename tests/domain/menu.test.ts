@@ -141,7 +141,7 @@ describe('every page and entry is accounted for', () => {
       ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'],
       ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/purchasing/items'], ['/receive'],
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],
-      ['/ar/customers'], ['/ar/invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],
+      ['/ar/customers'], ['/ar/invoices'], ['/sales/quotations'], ['/sales/receipts'], ['/sales/tax-invoices'], ['/sales/debit-notes'], ['/sales/abbreviated-tax-invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],
       ['/handover'], ['/warranty'],
     ];
     const controlled = new Set(urls.flatMap(([path, tab]) => menuKeysForPath(path, tab ?? null)));

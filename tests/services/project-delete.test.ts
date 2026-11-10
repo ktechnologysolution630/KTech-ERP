@@ -324,7 +324,7 @@ describe('deleting a project', () => {
     `);
     const rows = result.rows as { table_name: string; on_delete: string }[];
     expect(rows.filter((r) => r.on_delete !== 'c').map((r) => r.table_name).sort()).toEqual(
-      ['advances', 'ar_invoices', 'assets', 'boq_overrun_requests', 'payables', 'pos', 'prs', 'prvs', 'receipt_substitutes', 'stock_adjust_requests', 'stock_docs', 'stock_movements'].sort(),
+      ['advances', 'ar_invoices', 'assets', 'boq_overrun_requests', 'payables', 'pos', 'prs', 'prvs', 'receipt_substitutes', 'sales_docs', 'stock_adjust_requests', 'stock_docs', 'stock_movements'].sort(),
     );
     expect(rows.filter((r) => r.on_delete === 'c').map((r) => r.table_name).sort()).toEqual(
       ['boqs', 'daily_reports', 'milestones', 'notifications', 'project_events', 'project_handovers', 'project_members', 'project_tasks', 'stock_balances', 'stock_count_lines', 'variation_orders', 'warranty_defects'].sort(),
