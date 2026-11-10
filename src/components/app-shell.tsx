@@ -56,6 +56,7 @@ interface AppShellProps {
 /** Receivables (ฝั่งขาย) pages in the finance menu */
 const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/ar/customers', label: 'ลูกค้า', menu: 'FIN_CUSTOMERS' },
+  { href: '/accounting', label: 'ภาพรวมบัญชี', menu: 'FIN_ACCOUNTING_OVERVIEW' },
   { href: '/sales/income', label: 'รายรับ', menu: 'FIN_INCOME' },
   { href: '/sales/expense', label: 'รายจ่าย', menu: 'FIN_EXPENSE' },
   { href: '/sales/quotations', label: 'ใบเสนอราคา', menu: 'FIN_QUOTATIONS' },
@@ -66,7 +67,12 @@ const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/sales/debit-notes', label: 'ใบเพิ่มหนี้', menu: 'FIN_DEBIT_NOTES' },
   { href: '/sales/abbreviated-tax-invoices', label: 'ใบกำกับภาษีอย่างย่อ', menu: 'FIN_SHORT_TAX_INVOICES' },
   { href: '/ar/receivables', label: 'ลูกหนี้', menu: 'FIN_RECEIVABLES' },
+  { href: '/accounting/input-vat', label: 'ภาษีซื้อ', menu: 'FIN_INPUT_VAT' },
   { href: '/ar/output-vat', label: 'ภาษีขาย', menu: 'FIN_OUTPUT_VAT' },
+  { href: '/accounting/wht', label: 'หัก ณ ที่จ่าย', menu: 'FIN_WHT' },
+  { href: '/accounting/reports', label: 'รายงานบัญชี', menu: 'FIN_ACCOUNTING_REPORTS' },
+  { href: '/accounting/wht-report', label: 'รายงานภาษีหัก ณ ที่จ่าย', menu: 'FIN_WHT_REPORT' },
+  { href: '/accounting/project-budget-report', label: 'รายงานงบประมาณโครงการ', menu: 'FIN_PROJECT_BUDGET' },
   { href: '/cash-bank', label: 'เงินสด / ธนาคาร', menu: 'FIN_CASH_BANK' },
   { href: '/advances', label: 'เงินทดรองจ่าย', menu: 'FIN_ADVANCES' },
   { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ', menu: 'FIN_RECEIPT_SUBSTITUTES' },
@@ -749,7 +755,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                         href={l.href}
                         prefetch={false}
                         className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                          pathname.startsWith(l.href)
+                          pathname === l.href || (l.href !== '/accounting' && pathname.startsWith(`${l.href}/`))
                             ? 'bg-blue-50 text-blue-700 font-semibold'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                         }`}

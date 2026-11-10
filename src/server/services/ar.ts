@@ -9,6 +9,7 @@ import {
   customers,
   milestones,
   projects,
+  salesDocs,
   type SessionUser,
 } from '@/db/schema';
 import {
@@ -578,7 +579,8 @@ export async function getArInvoice(db: Db, actor: SessionUser, id: string) {
 export interface OutputVatRow {
   date: string;
   number: string;
-  kind: 'RC';
+  /** RC for a receipt against an invoice; otherwise the sales document kind */
+  kind: 'RC' | 'TI' | 'STI' | 'DN' | 'INC';
   customerName: string;
   customerTaxId: string | null;
   customerBranch: string;
@@ -617,6 +619,28 @@ export async function outputVatReport(db: Db, actor: SessionUser, year: number, 
     beforeVat: Number(r.beforeVat),
     vat: Number(r.vat),
   }));
+
+  // Sales documents issued on their own carry output VAT too (a quotation does not)
+  const docs = await db
+    .select({ d: salesDocs, projectName: projects.name })
+    .from(salesDocs)
+    .leftJoin(projects, eq(projects.id, salesDocs.projectId))
+    .where(and(eq(salesDocs.status, 'ISSUED'), inArray(salesDocs.kind, ['RC', 'TI', 'STI', 'DN', 'INC']), gte(salesDocs.docDate, from), lte(salesDocs.docDate, to)));
+  for (const { d, projectName } of docs) {
+    if (Number(d.vat) === 0) continue;
+    rows.push({
+      date: d.docDate,
+      number: d.number,
+      kind: d.kind as OutputVatRow['kind'],
+      customerName: d.customerName || 'ลูกค้าทั่วไป',
+      customerTaxId: d.customerTaxId || null,
+      customerBranch: d.customerBranch,
+      projectName,
+      beforeVat: Number(d.beforeVat),
+      vat: Number(d.vat),
+    });
+  }
+  rows.sort((a, b) => (a.date === b.date ? a.number.localeCompare(b.number) : a.date < b.date ? -1 : 1));
 
   return {
     rows,
