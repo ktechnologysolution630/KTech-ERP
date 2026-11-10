@@ -120,7 +120,7 @@ export function ItemCombobox({
         <ul id={listId} role="listbox" className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg">
           {matches.length === 0 ? (
             <li className="px-3 py-2 text-slate-500">
-              {items.length === 0 ? 'ยังไม่มีสินค้าในคลัง' : 'ไม่พบในคลัง'} — ใช้ข้อความที่พิมพ์เป็นรายการใหม่
+              {items.length === 0 ? 'ยังไม่มีสินค้าในทะเบียน' : 'ไม่พบในทะเบียนสินค้า'} — ใช้ข้อความที่พิมพ์เป็นรายการใหม่
             </li>
           ) : (
             matches.map((it, i) => (

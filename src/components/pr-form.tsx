@@ -184,7 +184,7 @@ export function PrForm({
             className="grid grid-cols-1 sm:grid-cols-12 gap-2 rounded-lg border border-slate-200 p-3 bg-slate-50/60"
           >
             <div className="sm:col-span-3">
-              <label className="block text-[11px] text-slate-500 mb-0.5">เลือกจากคลังสินค้า หรือพิมพ์เอง</label>
+              <label className="block text-[11px] text-slate-500 mb-0.5">เลือกจากทะเบียนสินค้า หรือพิมพ์เอง</label>
               <ItemCombobox
                 items={items}
                 selectedId={line.itemId}
