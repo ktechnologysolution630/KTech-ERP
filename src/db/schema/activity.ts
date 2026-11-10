@@ -23,7 +23,8 @@ export type EntityType =
   | 'ASSET'
   | 'ASSET_INSPECTION'
   | 'VENDOR'
-  | 'ITEM';
+  | 'ITEM'
+  | 'STOCK_DOC';
 
 /** Project workspace files: documents (folders, versions by name) or photos (albums). */
 export type AttachmentKind = 'FILE' | 'PHOTO';

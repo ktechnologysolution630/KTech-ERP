@@ -34,6 +34,7 @@ import {
   stockAdjustRequests,
   stockBalances,
   stockMovements,
+  stockDocs,
   variationOrders,
   whtCerts,
   type SessionUser,
@@ -300,6 +301,8 @@ export async function deleteProject(db: Db, actor: SessionUser, projectId: strin
         .set({ targetProjectId: null, notes: sql`trim(coalesce(${stockMovements.notes}, '') || ' ' || ${`โอนไปโครงการ ${project.code} ที่ลบแล้ว`})` })
         .where(eq(stockMovements.targetProjectId, projectId));
       await tx.delete(stockMovements).where(eq(stockMovements.projectId, projectId));
+      // Receipts and issues of this store go with it; a transfer or borrow keeps its document, with the link cleared
+      await tx.delete(stockDocs).where(and(eq(stockDocs.projectId, projectId), inArray(stockDocs.type, ['RECEIVE', 'ISSUE'])));
 
       await tx.update(assets).set({ projectId: null, updatedAt: new Date() }).where(eq(assets.projectId, projectId));
 

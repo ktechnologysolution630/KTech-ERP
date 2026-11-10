@@ -1,8 +1,65 @@
-import { pgTable, uuid, text, timestamp, numeric, date, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, numeric, date, index, integer, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './core';
-import { projects } from './master';
+import { projects, vendors } from './master';
+import { boqLines } from './boq';
 
 export type StockMovementType = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'ADJUST' | 'RETURN';
+/** What a stock document records; BORROW moves stock like a transfer that is expected back */
+export type StockDocType = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'BORROW';
+export type StockIssueKind = 'MATERIAL_ISSUE' | 'RETURN_IN' | 'RETURN_SUPPLIER' | 'DAMAGE_LOSS' | 'OTHER';
+
+/**
+ * One stock document (รับเข้า / จ่ายออก / โอนย้าย / ยืม) with its header as on the form;
+ * each of its lines is a stock movement pointing back here.
+ */
+export const stockDocs = pgTable(
+  'stock_docs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    number: text('number').notNull().unique(),
+    type: text('type').$type<StockDocType>().notNull(),
+    docDate: date('doc_date').notNull(),
+    docTime: text('doc_time').default('').notNull(),
+    /** Receipt: the store received into. Issue / transfer / borrow: the source. null = central store */
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+    /** Transfer / borrow destination, or where an issue went; null = central store */
+    targetProjectId: uuid('target_project_id').references(() => projects.id, { onDelete: 'set null' }),
+    warehouseName: text('warehouse_name').default('').notNull(),
+    // ---- Receipt
+    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    supplierName: text('supplier_name').default('').notNull(),
+    poNumber: text('po_number').default('').notNull(),
+    deliveryNoteNo: text('delivery_note_no').default('').notNull(),
+    taxInvoiceNo: text('tax_invoice_no').default('').notNull(),
+    taxInvoiceDate: date('tax_invoice_date'),
+    receiverName: text('receiver_name').default('').notNull(),
+    inspectorName: text('inspector_name').default('').notNull(),
+    taxType: text('tax_type').$type<'VAT7' | 'NONE' | 'INCLUSIVE' | 'EXEMPT'>().default('VAT7').notNull(),
+    accountingMethod: text('accounting_method').$type<'STOCK' | 'PROJECT_COST' | 'EXPENSE'>().default('STOCK').notNull(),
+    accountingStatus: text('accounting_status').$type<'PENDING' | 'AWAITING_TAX_INVOICE' | 'POSTED'>().default('PENDING').notNull(),
+    debitAccount: text('debit_account').default('Inventory').notNull(),
+    creditAccount: text('credit_account').default('Trade Payables').notNull(),
+    payMethod: text('pay_method').$type<'CASH' | 'TRANSFER' | 'CREDIT'>().default('CREDIT').notNull(),
+    creditDays: integer('credit_days'),
+    // ---- Issue
+    issueKind: text('issue_kind').$type<StockIssueKind>(),
+    useProjectId: uuid('use_project_id').references(() => projects.id, { onDelete: 'set null' }),
+    boqCategoryId: uuid('boq_category_id').references((): AnyPgColumn => boqLines.id, { onDelete: 'set null' }),
+    boqLineId: uuid('boq_line_id').references((): AnyPgColumn => boqLines.id, { onDelete: 'set null' }),
+    zone: text('zone').default('').notNull(),
+    usageNote: text('usage_note').default('').notNull(),
+    // ---- Totals of the lines (receipts)
+    beforeVat: numeric('before_vat', { precision: 14, scale: 2 }).default('0').notNull(),
+    vat: numeric('vat', { precision: 14, scale: 2 }).default('0').notNull(),
+    net: numeric('net', { precision: 14, scale: 2 }).default('0').notNull(),
+    notes: text('notes').default('').notNull(),
+    performedBy: uuid('performed_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('stock_docs_project_idx').on(t.projectId)],
+);
 export type StockAdjustStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export const stockItems = pgTable('stock_items', {
@@ -54,6 +111,13 @@ export const stockMovements = pgTable('stock_movements', {
     .references(() => users.id),
   locationUsed: text('location_used'),
   notes: text('notes').default(''),
+  /** The stock document this line belongs to; null for movements made before documents or by the system */
+  docId: uuid('doc_id').references((): AnyPgColumn => stockDocs.id, { onDelete: 'set null' }),
+  /** Receipt lines: price before discount, discount, VAT and extra cost (freight…) in baht */
+  listPrice: numeric('list_price', { precision: 14, scale: 2 }),
+  discount: numeric('discount', { precision: 14, scale: 2 }).default('0').notNull(),
+  vat: numeric('vat', { precision: 14, scale: 2 }).default('0').notNull(),
+  extraCost: numeric('extra_cost', { precision: 14, scale: 2 }).default('0').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

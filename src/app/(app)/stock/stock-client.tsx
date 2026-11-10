@@ -6,18 +6,22 @@ import { ArrowLeft, Calendar, FileText, Package, Plus, Search } from 'lucide-rea
 import { GsapReveal } from '@/components/gsap-animator';
 import type { StockItemDto, StockMovementDto, StockPageData } from '@/server/services/stock';
 import { ItemDialog, MovementDialog, type MovementKind } from './stock-dialogs';
+import { StockDocDialog, type StockDocOptions } from './stock-doc-form';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-const TYPE_LABEL: Record<string, string> = { RECEIVE: 'รับเข้า', ISSUE: 'จ่ายออก', TRANSFER: 'โอนย้าย', ADJUST: 'ปรับยอด', RETURN: 'รับคืน' };
+const TYPE_LABEL: Record<string, string> = { RECEIVE: 'รับเข้า', ISSUE: 'จ่ายออก', TRANSFER: 'โอนย้าย', BORROW: 'ยืม', ADJUST: 'ปรับยอด', RETURN: 'รับคืน' };
 const TYPE_BADGE: Record<string, string> = {
   RECEIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   RETURN: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   ISSUE: 'bg-rose-50 text-rose-700 border-rose-200',
   TRANSFER: 'bg-blue-50 text-blue-700 border-blue-200',
   ADJUST: 'bg-purple-50 text-purple-700 border-purple-200',
+  BORROW: 'bg-amber-50 text-amber-700 border-amber-200',
 };
+/** A borrow is stored as a transfer; its document says it was a borrow */
+const shownType = (m: { type: string; docType: string | null }) => (m.docType === 'BORROW' ? 'BORROW' : m.type);
 const CENTRAL = 'CENTRAL';
 const locKey = (projectId: string | null) => projectId ?? CENTRAL;
 
@@ -58,7 +62,7 @@ function deltaAt(m: StockMovementDto, key: string | undefined): number {
 const card = 'overflow-hidden rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.3)]';
 const tableHead = 'bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0';
 
-export function StockClient({ data }: { data: StockPageData }) {
+export function StockClient({ data, docOptions }: { data: StockPageData; docOptions: StockDocOptions }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
@@ -76,9 +80,9 @@ export function StockClient({ data }: { data: StockPageData }) {
   const q = search.trim().toLowerCase();
 
   const filteredMovements = data.movements.filter((m) => {
-    if (typeFilter !== 'All' && m.type !== typeFilter) return false;
+    if (typeFilter !== 'All' && shownType(m) !== typeFilter) return false;
     if (locationFilter !== 'All' && locKey(m.projectId) !== locationFilter && locKey(m.targetProjectId) !== locationFilter) return false;
-    if (q && ![m.itemName, m.sku, m.movementNumber, m.fromName, m.toName].some((s) => s.toLowerCase().includes(q))) return false;
+    if (q && ![m.itemName, m.sku, m.movementNumber, m.referenceNumber ?? '', m.fromName, m.toName].some((s) => s.toLowerCase().includes(q))) return false;
     return true;
   });
 
@@ -167,9 +171,12 @@ export function StockClient({ data }: { data: StockPageData }) {
         <StockAdjustTab data={data} onCreate={canMoveAnything ? () => setMovementDialog({ kind: 'ADJUST' }) : undefined} />
       )}
 
-      {movementDialog && (
-        <MovementDialog data={data} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
-      )}
+      {movementDialog &&
+        (movementDialog.kind === 'ADJUST' ? (
+          <MovementDialog data={data} initialKind="ADJUST" initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
+        ) : (
+          <StockDocDialog data={data} options={docOptions} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
+        ))}
       {itemDialog && <ItemDialog item={itemDialog.item} poLines={data.poLineOptions} onClose={() => setItemDialog(null)} />}
     </div>
   );
@@ -381,10 +388,10 @@ function MovementsTab({ movements }: { movements: StockMovementDto[] }) {
                     <tr key={m.id} className="hover:bg-slate-50">
                       <td className="px-3.5 py-2.5 whitespace-nowrap">
                         <div className="text-slate-600">{dateText(m.date)}</div>
-                        <div className="font-mono text-[10px] text-slate-400">{m.movementNumber}</div>
+                        <div className="font-mono text-[10px] text-slate-400">{m.docId && m.referenceNumber ? m.referenceNumber : m.movementNumber}</div>
                       </td>
                       <td className="px-3.5 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[m.type]}`}>{TYPE_LABEL[m.type]}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[shownType(m)]}`}>{TYPE_LABEL[shownType(m)]}</span>
                       </td>
                       <td className="px-3.5 py-2.5">
                         <div className="font-medium text-slate-900">{m.itemName}</div>

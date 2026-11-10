@@ -12,6 +12,8 @@ import {
   stockCounts,
   stockItems,
   stockMovements,
+  stockDocs,
+  type StockDocType,
   users,
   vendors,
   type PoStatus,
@@ -227,6 +229,13 @@ export interface StockMovementInput {
   performedBy: string;
   locationUsed?: string;
   notes?: string;
+  /** Stock document the movement is a line of */
+  docId?: string;
+  /** Receipt line detail: price before discount, discount, VAT and extra cost in baht */
+  listPrice?: number;
+  discount?: number;
+  vat?: number;
+  extraCost?: number;
 }
 
 function locationLabel(projectId: string | null): string {
@@ -330,6 +339,11 @@ export async function applyStockMovement(tx: Db, input: StockMovementInput): Pro
     performedBy: input.performedBy,
     locationUsed: input.locationUsed,
     notes: input.notes || '',
+    docId: input.docId ?? null,
+    listPrice: input.listPrice !== undefined ? round2(D(input.listPrice)).toFixed(2) : null,
+    discount: round2(D(input.discount ?? 0)).toFixed(2),
+    vat: round2(D(input.vat ?? 0)).toFixed(2),
+    extraCost: round2(D(input.extraCost ?? 0)).toFixed(2),
   });
   // Receipts at a new price become the item's standard cost
   if (input.type === 'RECEIVE' && input.unitCost && input.unitCost > 0) {
@@ -618,6 +632,7 @@ export interface StockItemDto {
   unitCost: number;
   reorderPoint: number;
   notes: string;
+  imageUrl: string | null;
   totalQty: number;
   totalValue: number;
   isLowStock: boolean;
@@ -642,6 +657,9 @@ export interface StockMovementDto {
   /** TRANSFER destination; null = central store or not a transfer */
   targetProjectId: string | null;
   referenceNumber: string | null;
+  /** Stock document the movement is a line of; null for older or system movements */
+  docId: string | null;
+  docType: StockDocType | null;
   performedByName: string;
   notes: string;
 }
@@ -772,6 +790,7 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
       unitCost: Number(it.unitCost),
       reorderPoint,
       notes: it.notes ?? '',
+      imageUrl: it.imageUrl,
       totalQty: totalQty.toNumber(),
       totalValue: round2(totalQty.times(it.unitCost)).toNumber(),
       isLowStock: reorderPoint > 0 && totalQty.lte(reorderPoint),
@@ -788,6 +807,10 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
     .where(gte(stockMovements.createdAt, since))
     .orderBy(desc(stockMovements.createdAt));
 
+  // Documents the movements belong to: their type (ยืม shows as such) and supplier
+  const docIds = [...new Set(movementRows.map((m) => m.docId).filter((x): x is string => !!x))];
+  const docRows = docIds.length > 0 ? await db.select({ id: stockDocs.id, type: stockDocs.type, supplierName: stockDocs.supplierName }).from(stockDocs).where(inArray(stockDocs.id, docIds)) : [];
+  const docById = new Map(docRows.map((d) => [d.id, d]));
   const movements: StockMovementDto[] = [];
   const months = lastMonths(12);
   const monthly = new Map<string, MonthlyFlow>(months.map((m) => [m, { month: m, receiveValue: 0, issueValue: 0, receiveCount: 0, issueCount: 0 }]));
@@ -808,7 +831,8 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
     const here = nameOf(m.projectId);
     let fromName = here;
     let toName = here;
-    if (m.type === 'RECEIVE') fromName = m.referenceNumber ? `PO ${m.referenceNumber}` : 'รับเข้า';
+    const doc = m.docId ? docById.get(m.docId) : undefined;
+    if (m.type === 'RECEIVE') fromName = doc ? doc.supplierName || 'รับเข้า' : m.referenceNumber ? `PO ${m.referenceNumber}` : 'รับเข้า';
     else if (m.type === 'RETURN') fromName = 'รับคืน';
     else if (m.type === 'ISSUE') toName = m.locationUsed || 'เบิกใช้หน้างาน';
     else if (m.type === 'TRANSFER') toName = nameOf(m.targetProjectId);
@@ -829,6 +853,8 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
       projectId: m.projectId,
       targetProjectId: m.targetProjectId,
       referenceNumber: m.referenceNumber,
+      docId: m.docId,
+      docType: doc?.type ?? null,
       performedByName: userName.get(m.performedBy) ?? '-',
       notes: m.notes ?? '',
     });

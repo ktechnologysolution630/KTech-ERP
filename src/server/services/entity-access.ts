@@ -18,6 +18,7 @@ import {
   prs,
   prvs,
   pvs,
+  stockDocs,
   receipts,
   receiptSubstitutes,
   stockAdjustRequests,
@@ -61,6 +62,7 @@ const LOOKUPS: Record<EntityType, Lookup> = {
   },
   VENDOR: { table: vendors, id: vendors.id, project: sql<null>`null` },
   ITEM: { table: items, id: items.id, project: sql<null>`null` },
+  STOCK_DOC: { table: stockDocs, id: stockDocs.id, project: stockDocs.projectId },
 };
 
 export const ENTITY_TYPES = Object.keys(LOOKUPS) as EntityType[];

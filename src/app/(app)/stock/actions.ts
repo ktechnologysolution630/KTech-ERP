@@ -59,3 +59,14 @@ export async function createStockCountAction(input: StockCountInput): Promise<St
   const db = await getDb();
   return run(async () => (await createStockCount(db, actor, input)).countNumber);
 }
+
+/** Saves a รับเข้า / จ่ายออก / โอนย้าย / ยืม document; value is "<id>|<number>" */
+export async function createStockDocAction(input: import('@/server/services/stock-docs').StockDocInput): Promise<StockActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const { createStockDoc } = await import('@/server/services/stock-docs');
+  return run(async () => {
+    const doc = await createStockDoc(db, actor, input);
+    return `${doc.id}|${doc.number}`;
+  });
+}
