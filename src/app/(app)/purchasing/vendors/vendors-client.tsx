@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, X, Users, Trash2 } from 'lucide-react';
-import { saveVendorAction } from '@/app/(app)/master/actions';
 import { MasterWorkbookImport } from '@/components/master-workbook-import';
-import { PaymentTermsFields } from '@/components/payment-terms-fields';
+import { VendorProfileDialog } from '@/components/vendor-profile-dialog';
+import { emptyVendorProfile } from '@/components/vendor-profile-values';
 import { VendorDeleteDialog, VendorDeleteResultBanner } from '@/components/vendor-delete';
 import type { VendorDeleteResult } from '@/server/services/vendor-delete';
 import { deleteSuppliersAction } from './actions';
@@ -40,12 +40,6 @@ export function PurchasingVendorsClient({
   const [deleteResult, setDeleteResult] = useState<{ deleted: number; inUse: VendorDeleteResult['inUse'] } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [taxId, setTaxId] = useState('');
-  const [suppliedItems, setSuppliedItems] = useState('');
-  const [creditDays, setCreditDays] = useState('30');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = vendors.filter((v) => {
     if (!searchTerm) return true;
@@ -220,165 +214,7 @@ export function PurchasingVendorsClient({
       )}
 
       {/* Modal: เพิ่มซัพพลายเออร์ใหม่ */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Users className="w-4 h-4 text-[#2453d4]" />
-                เพิ่มซัพพลายเออร์ใหม่
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form
-              action={async (formData) => {
-                setIsSubmitting(true);
-                formData.set('code', code);
-                formData.set('name', name);
-                formData.set('taxId', taxId);
-                formData.set('suppliedItems', suppliedItems);
-                formData.set('type', 'COMPANY');
-                formData.set('branch', '00000');
-                formData.set('defaultCreditDays', creditDays);
-                formData.set('defaultWhtRate', '0');
-
-                await saveVendorAction(formData);
-                setShowModal(false);
-                setIsSubmitting(false);
-                window.location.reload();
-              }}
-              className="max-h-[80vh] overflow-y-auto p-5 space-y-3.5 text-xs"
-            >
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  รหัสซัพพลายเออร์ <span className="text-red-500">*</span>
-                </label>
-                <input
-                  required
-                  placeholder="เช่น V-001 หรือ SUP-2569"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  ชื่อร้านค้า / บริษัทซัพพลายเออร์ <span className="text-red-500">*</span>
-                </label>
-                <input
-                  required
-                  placeholder="เช่น บริษัท ดูโฮม จำกัด (มหาชน)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    เลขผู้เสียภาษี (Tax ID)
-                  </label>
-                  <input
-                    placeholder="เลข 13 หลัก"
-                    value={taxId}
-                    onChange={(e) => setTaxId(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    เครดิตเทอม (วัน)
-                  </label>
-                  <input
-                    type="number"
-                    value={creditDays}
-                    onChange={(e) => setCreditDays(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="col-span-2 font-bold text-slate-800">เงื่อนไขวางบิล / รับเช็ค</p>
-                <PaymentTermsFields
-                  value={{ billingSchedule: '', creditBasis: 'BILLING', chequeSchedule: '', payMethod: 'TRANSFER' }}
-                  names={{ billingSchedule: 'billingSchedule', creditBasis: 'creditBasis', chequeSchedule: 'chequeSchedule', payMethod: 'defaultPayMethod' }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-slate-700 font-semibold">
-                  ผู้ติดต่อ
-                  <input name="contactPerson" maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
-                </label>
-                <label className="block text-slate-700 font-semibold">
-                  โทร / MOBILE
-                  <input name="phone" maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
-                </label>
-                <label className="block text-slate-700 font-semibold">
-                  E-Mail
-                  <input name="email" maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
-                </label>
-                <label className="block text-slate-700 font-semibold">
-                  FAX
-                  <input name="fax" maxLength={100} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
-                </label>
-              </div>
-
-              <label className="block text-slate-700 font-semibold">
-                ที่อยู่
-                <input name="address" maxLength={500} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
-              </label>
-
-              <label className="block text-slate-700 font-semibold">
-                ที่อยู่สำรอง
-                <input name="altAddress" maxLength={500} className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none" />
-              </label>
-
-              <div>
-                <label htmlFor="vendor-supplied-items" className="block text-slate-700 font-semibold mb-1">
-                  รายการสินค้า
-                </label>
-                <textarea
-                  id="vendor-supplied-items"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="สินค้าที่ร้านนี้ขาย เช่น ปูนซีเมนต์, เหล็กเส้น, ทราย"
-                  value={suppliedItems}
-                  onChange={(e) => setSuppliedItems(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !code || !name}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2453d4] hover:bg-[#1c43ab] shadow-sm transition disabled:opacity-60"
-                >
-                  {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกซัพพลายเออร์'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {showModal && <VendorProfileDialog vendorId={null} initial={emptyVendorProfile()} onClose={() => setShowModal(false)} />}
     </div>
   );
 }

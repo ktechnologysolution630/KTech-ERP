@@ -26,7 +26,7 @@ export default async function PurchasingVendorsPage() {
       contactPerson: v.contactPerson || (v.taxId ? `Tax ID: ${v.taxId}` : '-'),
       suppliedItems: v.suppliedItems,
       creditDays: v.defaultCreditDays ? `${v.defaultCreditDays} วัน` : 'เงินสด / ตามงวด',
-      deliveryDays: '3-7 วัน',
+      deliveryDays: v.leadTimeDays !== null ? `${v.leadTimeDays} วัน` : '-',
       totalPurchases,
       docCount: vPos.length,
       openPosCount: openPos,

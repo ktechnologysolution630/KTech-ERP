@@ -406,6 +406,51 @@ function scheduleField(label: string) {
     });
 }
 
+const text = (max: number) => z.string().trim().max(max).optional();
+const optNumber = (label: string) =>
+  z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((v, ctx) => {
+      if (v === undefined) return undefined;
+      if (v === null || v === '') return null;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label}ต้องเป็นตัวเลขไม่ติดลบ` });
+        return z.NEVER;
+      }
+      return String(n);
+    });
+
+const contactSchema = z.object({
+  kind: z.enum(['', 'PO', 'SALES', 'ACCOUNTING', 'GENERAL', 'SIGNATORY']).default(''),
+  name: z.string().trim().max(200).default(''),
+  position: z.string().trim().max(200).default(''),
+  department: z.string().trim().max(200).default(''),
+  phone: z.string().trim().max(100).default(''),
+  mobile: z.string().trim().max(100).default(''),
+  email: z.string().trim().max(200).default(''),
+  lineId: z.string().trim().max(100).default(''),
+  primary: z.boolean().default(false),
+  receivesPo: z.boolean().default(false),
+  receivesAccounting: z.boolean().default(false),
+});
+
+const bankAccountSchema = z.object({
+  bank: z.string().trim().max(200).default(''),
+  branch: z.string().trim().max(200).default(''),
+  accountName: z.string().trim().max(200).default(''),
+  accountNo: z.string().trim().max(50).default(''),
+  accountType: z.string().trim().max(50).default(''),
+  promptPay: z.string().trim().max(50).default(''),
+  primary: z.boolean().default(false),
+});
+
+/** The one marked primary, or the first; null for an empty list */
+function primaryOf<T extends { primary: boolean }>(list: T[]): T | null {
+  return list.find((x) => x.primary) ?? list[0] ?? null;
+}
+
 const vendorSchema = z.object({
   id: z.string().uuid().optional(),
   code: z.string().trim().min(1, 'กรุณาระบุรหัสผู้ขาย'),
@@ -449,7 +494,44 @@ const vendorSchema = z.object({
   billingSchedule: scheduleField('รอบวางบิล'),
   creditBasis: z.enum(['INVOICE', 'BILLING', 'RECEIPT']).optional(),
   chequeSchedule: scheduleField('รอบรับเช็ค'),
-  defaultPayMethod: z.enum(['TRANSFER', 'CHEQUE', 'CASH']).optional(),
+  defaultPayMethod: z.enum(['TRANSFER', 'CHEQUE', 'CASH', 'PROMPTPAY', 'CARD']).optional(),
+  tradeName: text(300),
+  website: text(300),
+  lineId: text(100),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  remark: text(2000),
+  building: text(200),
+  moo: text(50),
+  soi: text(200),
+  road: text(200),
+  subdistrict: text(200),
+  district: text(200),
+  province: text(200),
+  postcode: z.string().trim().max(10).optional(),
+  country: text(100),
+  contacts: z.array(contactSchema).max(50).optional(),
+  branchType: z.enum(['HQ', 'BRANCH']).optional(),
+  vatRegistered: z.boolean().optional(),
+  defaultVatRate: z.number().int().min(0).max(100).optional(),
+  whtIncomeType: text(200),
+  taxInvoiceName: text(300),
+  category: z.enum(['', 'GOODS', 'SERVICE', 'SUBCONTRACTOR', 'MANUFACTURER', 'DISTRIBUTOR']).optional(),
+  productCategory: text(300),
+  brand: text(300),
+  leadTimeDays: z.number().int().min(0).max(3650).nullable().optional(),
+  minOrderQty: optNumber('จำนวนสั่งซื้อขั้นต่ำ'),
+  minOrderValue: optNumber('ยอดสั่งซื้อขั้นต่ำ'),
+  defaultDiscount: optNumber('ส่วนลดเริ่มต้น'),
+  currency: z.string().trim().max(10).optional(),
+  vatMode: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NONE']).optional(),
+  deliveryTerms: text(1000),
+  serviceArea: text(1000),
+  recommended: z.boolean().optional(),
+  paymentTerms: text(1000),
+  creditLimit: optNumber('วงเงินเครดิต'),
+  depositRequired: z.boolean().optional(),
+  depositPercent: optNumber('เปอร์เซ็นต์มัดจำ'),
+  bankAccounts: z.array(bankAccountSchema).max(20).optional(),
   active: z.boolean().default(true),
 });
 
@@ -475,7 +557,59 @@ export async function upsertVendor(
     creditBasis: d.creditBasis,
     chequeSchedule: d.chequeSchedule,
     defaultPayMethod: d.defaultPayMethod,
+    tradeName: d.tradeName,
+    website: d.website,
+    lineId: d.lineId,
+    status: d.status,
+    remark: d.remark,
+    building: d.building,
+    moo: d.moo,
+    soi: d.soi,
+    road: d.road,
+    subdistrict: d.subdistrict,
+    district: d.district,
+    province: d.province,
+    postcode: d.postcode,
+    country: d.country,
+    contacts: d.contacts,
+    branchType: d.branchType,
+    vatRegistered: d.vatRegistered,
+    defaultVatRate: d.defaultVatRate,
+    whtIncomeType: d.whtIncomeType,
+    taxInvoiceName: d.taxInvoiceName,
+    category: d.category,
+    productCategory: d.productCategory,
+    brand: d.brand,
+    leadTimeDays: d.leadTimeDays,
+    minOrderQty: d.minOrderQty,
+    minOrderValue: d.minOrderValue,
+    defaultDiscount: d.defaultDiscount,
+    currency: d.currency,
+    vatMode: d.vatMode,
+    deliveryTerms: d.deliveryTerms,
+    serviceArea: d.serviceArea,
+    recommended: d.recommended,
+    paymentTerms: d.paymentTerms,
+    creditLimit: d.creditLimit,
+    depositRequired: d.depositRequired,
+    depositPercent: d.depositPercent,
+    bankAccounts: d.bankAccounts,
   };
+  // The primary bank account and contact still fill the flat columns PVs, POs and PDFs read
+  const bank = d.bankAccounts ? primaryOf(d.bankAccounts) : undefined;
+  if (bank !== undefined) {
+    d.bankName = bank?.bank ?? '';
+    d.bankAccountNo = bank?.accountNo ?? '';
+    d.bankAccountName = bank?.accountName ?? '';
+  }
+  const contact = d.contacts ? primaryOf(d.contacts) : undefined;
+  if (contact !== undefined) {
+    optionalFields.contactPerson = contact?.name ?? '';
+    optionalFields.email = contact?.email ?? '';
+    if (contact && (contact.phone || contact.mobile)) d.phone = contact.phone || contact.mobile;
+  }
+  // Only an active vendor is offered on new documents
+  if (d.status) d.active = d.status === 'ACTIVE';
 
   if (d.id) {
     const [updated] = await db

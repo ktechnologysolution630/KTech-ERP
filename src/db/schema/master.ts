@@ -8,6 +8,7 @@ import {
   numeric,
   date,
   primaryKey,
+  jsonb,
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -16,6 +17,34 @@ import { type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { users } from './core';
 
 export type VendorType = 'INDIVIDUAL' | 'COMPANY';
+export type VendorStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+export type VendorCategory = 'GOODS' | 'SERVICE' | 'SUBCONTRACTOR' | 'MANUFACTURER' | 'DISTRIBUTOR';
+
+/** One person to reach at a vendor */
+export interface VendorContact {
+  kind: '' | 'PO' | 'SALES' | 'ACCOUNTING' | 'GENERAL' | 'SIGNATORY';
+  name: string;
+  position: string;
+  department: string;
+  phone: string;
+  mobile: string;
+  email: string;
+  lineId: string;
+  primary: boolean;
+  receivesPo: boolean;
+  receivesAccounting: boolean;
+}
+
+/** One bank account a vendor is paid into; the primary one also fills bankName / bankAccountNo */
+export interface VendorBankAccount {
+  bank: string;
+  branch: string;
+  accountName: string;
+  accountNo: string;
+  accountType: string;
+  promptPay: string;
+  primary: boolean;
+}
 
 export const projects = pgTable(
   'projects',
@@ -85,6 +114,48 @@ export const vendors = pgTable(
     altAddress: text('alt_address').default('').notNull(),
     email: text('email').default('').notNull(),
     fax: text('fax').default('').notNull(),
+    // ---- General
+    tradeName: text('trade_name').default('').notNull(),
+    website: text('website').default('').notNull(),
+    lineId: text('line_id').default('').notNull(),
+    status: text('status').$type<VendorStatus>().default('ACTIVE').notNull(),
+    remark: text('remark').default('').notNull(),
+    // ---- Structured address (address keeps the house number / first line)
+    building: text('building').default('').notNull(),
+    moo: text('moo').default('').notNull(),
+    soi: text('soi').default('').notNull(),
+    road: text('road').default('').notNull(),
+    subdistrict: text('subdistrict').default('').notNull(),
+    district: text('district').default('').notNull(),
+    province: text('province').default('').notNull(),
+    postcode: text('postcode').default('').notNull(),
+    country: text('country').default('ไทย').notNull(),
+    contacts: jsonb('contacts').$type<VendorContact[]>().default([]).notNull(),
+    // ---- Tax
+    branchType: text('branch_type').$type<'HQ' | 'BRANCH'>().default('HQ').notNull(),
+    vatRegistered: boolean('vat_registered').default(true).notNull(),
+    defaultVatRate: integer('default_vat_rate').default(7).notNull(),
+    whtIncomeType: text('wht_income_type').default('').notNull(),
+    taxInvoiceName: text('tax_invoice_name').default('').notNull(),
+    // ---- Purchasing terms (defaults for a new PO)
+    category: text('category').$type<VendorCategory | ''>().default('').notNull(),
+    productCategory: text('product_category').default('').notNull(),
+    brand: text('brand').default('').notNull(),
+    leadTimeDays: integer('lead_time_days'),
+    minOrderQty: numeric('min_order_qty', { precision: 14, scale: 3 }),
+    minOrderValue: numeric('min_order_value', { precision: 14, scale: 2 }),
+    defaultDiscount: numeric('default_discount', { precision: 14, scale: 2 }),
+    currency: text('currency').default('THB').notNull(),
+    vatMode: text('vat_mode').$type<'EXCLUSIVE' | 'INCLUSIVE' | 'NONE'>().default('EXCLUSIVE').notNull(),
+    deliveryTerms: text('delivery_terms').default('').notNull(),
+    serviceArea: text('service_area').default('').notNull(),
+    recommended: boolean('recommended').default(false).notNull(),
+    // ---- Payment
+    paymentTerms: text('payment_terms').default('').notNull(),
+    creditLimit: numeric('credit_limit', { precision: 14, scale: 2 }),
+    depositRequired: boolean('deposit_required').default(false).notNull(),
+    depositPercent: numeric('deposit_percent', { precision: 5, scale: 2 }),
+    bankAccounts: jsonb('bank_accounts').$type<VendorBankAccount[]>().default([]).notNull(),
     active: boolean('active').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
