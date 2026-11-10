@@ -11,6 +11,7 @@ export type DocPrefix =
   | 'PRV'
   | 'SM'
   | 'SAR'
+  | 'SC'
   | 'BOQ'
   | 'PJ'
   | 'AP'

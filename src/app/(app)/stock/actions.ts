@@ -5,11 +5,13 @@ import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import {
+  createStockCount,
   decideStockAdjust,
   recordStockMovement,
   requestStockAdjust,
   upsertStockItem,
   type RecordMovementInput,
+  type StockCountInput,
   type StockAdjustInput,
   type StockItemFormInput,
 } from '@/server/services/stock';
@@ -50,4 +52,10 @@ export async function decideStockAdjustAction(requestId: string, approve: boolea
   const actor = await requireUser();
   const db = await getDb();
   return run(() => decideStockAdjust(db, actor, requestId, approve));
+}
+
+export async function createStockCountAction(input: StockCountInput): Promise<StockActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  return run(async () => (await createStockCount(db, actor, input)).countNumber);
 }

@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   BarChart2,
   ClipboardCheck,
+  ClipboardList,
   Layers,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
@@ -385,6 +386,36 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <span>สต็อกทั้งหมด</span>
                     </Link>
                     )}
+
+                    {canSee('STOCK_COUNT') && (
+                    <Link
+                      href="/stock?tab=stock-count"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        isStockActive('stock-count')
+                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>นับสต็อก</span>
+                    </Link>
+                    )}
+
+                    {canSee('STOCK_ADJUST') && (
+                    <Link
+                      href="/stock?tab=stock-adjust"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        isStockActive('stock-adjust') || isStockActive('document-history')
+                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                      <span>ปรับปรุงยอดสต็อก</span>
+                    </Link>
+                    )}
                   </div>
                 )}
               </div>
@@ -417,6 +448,20 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openPurchasing && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {canSee('PUR_PROJECT_REPORT') && (
+                    <Link
+                      href="/purchasing/project-report"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname === '/purchasing/project-report'
+                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                      <span>รายงานสรุปการจัดซื้อประจำโครงการ</span>
+                    </Link>
+                    )}
                     {canSee('PUR_OVERVIEW') && (
                     <Link
                       href="/purchasing"

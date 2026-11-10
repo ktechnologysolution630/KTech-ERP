@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, useTransition } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Calendar, CheckCircle2, FileText, Package, Plus, Search, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Package, Plus, Search } from 'lucide-react';
 import { GsapReveal } from '@/components/gsap-animator';
 import type { StockItemDto, StockMovementDto, StockPageData } from '@/server/services/stock';
-import { decideStockAdjustAction } from './actions';
 import { ItemDialog, MovementDialog, type MovementKind } from './stock-dialogs';
+import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -17,11 +17,6 @@ const TYPE_BADGE: Record<string, string> = {
   ISSUE: 'bg-rose-50 text-rose-700 border-rose-200',
   TRANSFER: 'bg-blue-50 text-blue-700 border-blue-200',
   ADJUST: 'bg-purple-50 text-purple-700 border-purple-200',
-};
-const ADJUST_STATUS: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: 'รออนุมัติ', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  APPROVED: { label: 'อนุมัติแล้ว', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  REJECTED: { label: 'ไม่อนุมัติ', cls: 'bg-red-50 text-red-700 border-red-200' },
 };
 const CENTRAL = 'CENTRAL';
 const locKey = (projectId: string | null) => projectId ?? CENTRAL;
@@ -163,10 +158,14 @@ export function StockClient({ data }: { data: StockPageData }) {
           data={data}
           onCreateItem={data.permissions.manageItems ? () => setItemDialog({ item: null }) : undefined}
           onEditItem={data.permissions.manageItems ? (item) => setItemDialog({ item }) : undefined}
-          onHistory={() => setTab('document-history')}
+          onHistory={() => setTab('stock-adjust')}
         />
       )}
-      {currentTab === 'document-history' && <AdjustHistoryTab data={data} onBack={() => setTab('all-stock')} />}
+      {currentTab === 'stock-count' && <StockCountTab data={data} />}
+      {/* document-history is the old address of the adjustment list, kept for links in notifications */}
+      {(currentTab === 'stock-adjust' || currentTab === 'document-history') && (
+        <StockAdjustTab data={data} onCreate={canMoveAnything ? () => setMovementDialog({ kind: 'ADJUST' }) : undefined} />
+      )}
 
       {movementDialog && (
         <MovementDialog data={data} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
@@ -972,109 +971,5 @@ function ItemTable({ items, onEdit }: { items: { it: StockItemDto; qty: number }
         </tbody>
       </table>
     </div>
-  );
-}
-
-function AdjustHistoryTab({ data, onBack }: { data: StockPageData; onBack: () => void }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const decide = (id: string, approve: boolean) => {
-    if (!confirm(approve ? 'อนุมัติปรับยอดสต็อกตามคำขอนี้?' : 'ไม่อนุมัติคำขอนี้?')) return;
-    setError(null);
-    startTransition(async () => {
-      const r = await decideStockAdjustAction(id, approve);
-      if (!r.ok) setError(r.error);
-      else router.refresh();
-    });
-  };
-
-  return (
-    <GsapReveal>
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-          <button type="button" onClick={onBack} className="p-1 rounded hover:bg-slate-100 text-slate-500" title="ย้อนกลับ">
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900">ประวัติเอกสารปรับยอดสต็อก</h2>
-            <p className="text-xs text-slate-500">คำขอปรับยอดจากการตรวจนับ ต้องให้หัวหน้าจัดซื้อหรือผู้บริหารอนุมัติก่อนมีผล</p>
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="px-5 py-2 text-xs text-red-600 font-medium">
-            {error}
-          </p>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[950px] text-xs">
-            <thead className={tableHead}>
-              <tr>
-                <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ / วันที่</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">วัสดุ</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">คลัง</th>
-                <th className="px-3.5 py-2.5 text-right font-medium">ยอดระบบ → ตรวจนับ</th>
-                <th className="px-3.5 py-2.5 text-right font-medium">ส่วนต่าง</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">เหตุผล</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">ผู้ขอ</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">สถานะ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {data.adjustRequests.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    ยังไม่มีคำขอปรับยอด
-                  </td>
-                </tr>
-              ) : (
-                data.adjustRequests.map((r) => {
-                  const canDecide = data.permissions.approveAdjust && r.status === 'PENDING' && r.requestedBy !== data.me;
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="px-3.5 py-2.5">
-                        <div className="font-mono font-semibold">{r.requestNumber}</div>
-                        <div className="text-slate-400">{dateText(r.createdAt)}</div>
-                      </td>
-                      <td className="px-3.5 py-2.5">
-                        <div className="font-medium">{r.itemName}</div>
-                        <div className="font-mono text-[10px] text-slate-400">{r.sku}</div>
-                      </td>
-                      <td className="px-3.5 py-2.5 text-slate-600">{r.locationName}</td>
-                      <td className="px-3.5 py-2.5 text-right">
-                        {qtyText(r.currentQty)} → {qtyText(r.adjustedQty)} {r.unit}
-                      </td>
-                      <td className={`px-3.5 py-2.5 text-right font-bold ${r.differenceQty < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                        {r.differenceQty > 0 ? '+' : ''}
-                        {qtyText(r.differenceQty)}
-                      </td>
-                      <td className="px-3.5 py-2.5 text-slate-600 max-w-xs">{r.reason}</td>
-                      <td className="px-3.5 py-2.5 text-slate-600">{r.requestedByName}</td>
-                      <td className="px-3.5 py-2.5">
-                        {canDecide ? (
-                          <div className="flex gap-1.5">
-                            <button type="button" disabled={isPending} onClick={() => decide(r.id, true)} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-[11px] disabled:opacity-50">
-                              <CheckCircle2 className="w-3 h-3" /> อนุมัติ
-                            </button>
-                            <button type="button" disabled={isPending} onClick={() => decide(r.id, false)} className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-200 text-red-600 text-[11px] disabled:opacity-50">
-                              <XCircle className="w-3 h-3" /> ไม่อนุมัติ
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${ADJUST_STATUS[r.status].cls}`}>{ADJUST_STATUS[r.status].label}</span>
-                            {r.approvedByName && <div className="text-[10px] text-slate-400 mt-0.5">โดย {r.approvedByName}</div>}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </GsapReveal>
   );
 }

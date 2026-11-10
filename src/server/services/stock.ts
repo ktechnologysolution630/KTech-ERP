@@ -8,6 +8,8 @@ import {
   projects,
   stockAdjustRequests,
   stockBalances,
+  stockCountLines,
+  stockCounts,
   stockItems,
   stockMovements,
   users,
@@ -429,6 +431,74 @@ export async function syncReceiptToStock(
 }
 
 // ---------------------------------------------------------------------------
+// Stock counts (นับสต็อก) — a record of what was counted; balances do not change
+// ---------------------------------------------------------------------------
+
+const countSchema = z.object({
+  countedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'กรุณาระบุวันที่นับ'),
+  note: z.string().trim().max(1000).default(''),
+  lines: z
+    .array(
+      z.object({
+        stockItemId: uuid,
+        projectId: locationId,
+        countedQty: z.number().finite().min(0, 'ยอดนับจริงต้องไม่ติดลบ').max(MAX_QTY),
+      }),
+    )
+    .min(1, 'กรุณากรอกยอดนับจริงอย่างน้อย 1 รายการ')
+    .max(5000, 'บันทึกได้ครั้งละไม่เกิน 5,000 รายการ'),
+});
+export type StockCountInput = z.input<typeof countSchema>;
+
+/**
+ * Records a stock count. The system quantity is read here, at save time, so the difference is
+ * against what the books held then; the counter may count only locations they may move stock in.
+ */
+export async function createStockCount(db: Db, actor: SessionUser, input: StockCountInput) {
+  const data = parse(countSchema, input);
+  const seen = new Set<string>();
+  for (const l of data.lines) {
+    const key = `${l.stockItemId}:${l.projectId ?? ''}`;
+    if (seen.has(key)) throw new DomainError('INVALID_STOCK', 'มีรายการสินค้าและคลังซ้ำกันในการนับ');
+    seen.add(key);
+    assertCan(actor, 'stock.move', { projectId: l.projectId });
+  }
+
+  return db.transaction(async (tx) => {
+    const itemIds = [...new Set(data.lines.map((l) => l.stockItemId))];
+    const [itemRows, balances] = await Promise.all([
+      tx.select({ id: stockItems.id }).from(stockItems).where(inArray(stockItems.id, itemIds)),
+      tx.select().from(stockBalances).where(inArray(stockBalances.stockItemId, itemIds)),
+    ]);
+    if (itemRows.length !== itemIds.length) throw new DomainError('NOT_FOUND', 'ไม่พบรายการวัสดุบางรายการ', 404);
+    for (const projectId of new Set(data.lines.map((l) => l.projectId))) await assertProjectExists(tx, projectId);
+    const held = new Map(balances.map((b) => [`${b.stockItemId}:${b.projectId ?? ''}`, D(b.quantity)]));
+
+    const countNumber = await nextDocNumber(tx, 'SC');
+    const [count] = await tx
+      .insert(stockCounts)
+      .values({ countNumber, countedOn: data.countedOn, note: data.note, countedBy: actor.id })
+      .returning();
+    await tx.insert(stockCountLines).values(
+      data.lines.map((l) => {
+        const system = held.get(`${l.stockItemId}:${l.projectId ?? ''}`) ?? D(0);
+        const counted = D(l.countedQty);
+        return {
+          countId: count.id,
+          stockItemId: l.stockItemId,
+          projectId: l.projectId,
+          systemQty: system.toFixed(3),
+          countedQty: counted.toFixed(3),
+          differenceQty: counted.minus(system).toFixed(3),
+        };
+      }),
+    );
+    await logActivity(tx, { entityType: 'STOCK_ADJUST', entityId: count.id, action: 'COUNT', userId: actor.id, note: `${countNumber} นับ ${data.lines.length} รายการ` });
+    return count;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Adjustments (count differences) — requested by staff, approved by management
 // ---------------------------------------------------------------------------
 
@@ -481,7 +551,7 @@ export async function requestStockAdjust(db: Db, actor: SessionUser, input: Stoc
       .returning();
     await logActivity(tx, { entityType: 'STOCK_ADJUST', entityId: req.id, action: 'REQUEST', userId: actor.id });
     const approvers = (await usersWithRole(tx, ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'])).filter((id) => id !== actor.id);
-    await notify(tx, approvers, { title: `${requestNumber} ขอปรับยอดสต็อก ${item.name}`, href: '/stock?tab=document-history', category: 'RECEIPT' });
+    await notify(tx, approvers, { title: `${requestNumber} ขอปรับยอดสต็อก ${item.name}`, href: '/stock?tab=stock-adjust', category: 'RECEIPT' });
     return req;
   });
 }
@@ -522,7 +592,7 @@ export async function decideStockAdjust(
     await logActivity(tx, { entityType: 'STOCK_ADJUST', entityId: req.id, action: approve ? 'APPROVE' : 'REJECT', userId: actor.id });
     await notify(tx, [req.requestedBy], {
       title: `${req.requestNumber} ${approve ? 'อนุมัติปรับยอดแล้ว' : 'ไม่อนุมัติปรับยอด'}`,
-      href: '/stock?tab=document-history',
+      href: '/stock?tab=stock-adjust',
       category: 'RECEIPT',
     });
     return status;
@@ -582,7 +652,11 @@ export interface StockAdjustDto {
   sku: string;
   itemName: string;
   unit: string;
+  /** Location of the adjustment; null = central store */
+  projectId: string | null;
   locationName: string;
+  /** Item's standard cost, to value the difference */
+  unitCost: number;
   currentQty: number;
   adjustedQty: number;
   differenceQty: number;
@@ -592,6 +666,28 @@ export interface StockAdjustDto {
   requestedByName: string;
   approvedByName: string | null;
   createdAt: Date;
+}
+
+export interface StockCountLineDto {
+  sku: string;
+  itemName: string;
+  unit: string;
+  projectId: string | null;
+  locationName: string;
+  systemQty: number;
+  countedQty: number;
+  differenceQty: number;
+}
+
+export interface StockCountDto {
+  id: string;
+  countNumber: string;
+  countedOn: string;
+  note: string;
+  countedByName: string;
+  createdAt: Date;
+  /** Lines at locations the viewer may see */
+  lines: StockCountLineDto[];
 }
 
 export interface MonthlyFlow {
@@ -608,6 +704,8 @@ export interface StockPageData {
   items: StockItemDto[];
   movements: StockMovementDto[];
   adjustRequests: StockAdjustDto[];
+  /** Latest stock counts, newest first */
+  counts: StockCountDto[];
   monthly: MonthlyFlow[];
   permissions: { manageItems: boolean; approveAdjust: boolean; movableProjectIds: string[]; moveCentral: boolean };
   /** Approved PO lines a new item can be created from; empty for users who cannot manage items */
@@ -751,7 +849,9 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
         sku: it?.sku ?? '-',
         itemName: it?.name ?? '-',
         unit: it?.unit ?? '',
+        projectId: r.projectId,
         locationName: nameOf(r.projectId),
+        unitCost: it?.unitCost ?? 0,
         currentQty: Number(r.currentQty),
         adjustedQty: Number(r.adjustedQty),
         differenceQty: Number(r.differenceQty),
@@ -764,11 +864,43 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
       };
     });
 
+  const countRows = await db.select().from(stockCounts).orderBy(desc(stockCounts.createdAt)).limit(100);
+  const countLineRows = countRows.length
+    ? await db.select().from(stockCountLines).where(inArray(stockCountLines.countId, countRows.map((c) => c.id)))
+    : [];
+  const counts: StockCountDto[] = countRows
+    .map((c) => ({
+      id: c.id,
+      countNumber: c.countNumber,
+      countedOn: c.countedOn,
+      note: c.note,
+      countedByName: userName.get(c.countedBy) ?? '-',
+      createdAt: c.createdAt,
+      lines: countLineRows
+        .filter((l) => l.countId === c.id && visible(l.projectId))
+        .map((l) => {
+          const it = itemById.get(l.stockItemId);
+          return {
+            sku: it?.sku ?? '-',
+            itemName: it?.name ?? '-',
+            unit: it?.unit ?? '',
+            projectId: l.projectId,
+            locationName: nameOf(l.projectId),
+            systemQty: Number(l.systemQty),
+            countedQty: Number(l.countedQty),
+            differenceQty: Number(l.differenceQty),
+          };
+        }),
+    }))
+    // A count of only other projects' stores is not shown to site staff
+    .filter((c) => c.lines.length > 0);
+
   return {
     locations: [{ projectId: null, name: CENTRAL_STORE }, ...projectRows.map((p) => ({ projectId: p.id, name: `${p.code} ${p.name}` }))],
     items,
     movements,
     adjustRequests,
+    counts,
     monthly: [...monthly.values()].map((m) => ({ ...m, receiveValue: round2(D(m.receiveValue)).toNumber(), issueValue: round2(D(m.issueValue)).toNumber() })),
     permissions: {
       manageItems: can(actor, 'stock.items'),

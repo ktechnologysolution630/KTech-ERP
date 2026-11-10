@@ -1,10 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  text,
-  timestamp,
-  numeric,
-} from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, numeric, date, index } from 'drizzle-orm/pg-core';
 import { users } from './core';
 import { projects } from './master';
 
@@ -84,3 +78,37 @@ export const stockAdjustRequests = pgTable('stock_adjust_requests', {
   notes: text('notes').default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * A stock count: what was physically counted against what the system held at that moment.
+ * It is a record only; balances change through an adjustment request (ปรับปรุงยอด).
+ */
+export const stockCounts = pgTable('stock_counts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  countNumber: text('count_number').notNull().unique(),
+  countedOn: date('counted_on').notNull(),
+  note: text('note').default('').notNull(),
+  countedBy: uuid('counted_by')
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const stockCountLines = pgTable(
+  'stock_count_lines',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    countId: uuid('count_id')
+      .notNull()
+      .references(() => stockCounts.id, { onDelete: 'cascade' }),
+    stockItemId: uuid('stock_item_id')
+      .notNull()
+      .references(() => stockItems.id, { onDelete: 'cascade' }),
+    /** null = central store */
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    systemQty: numeric('system_qty', { precision: 14, scale: 3 }).notNull(),
+    countedQty: numeric('counted_qty', { precision: 14, scale: 3 }).notNull(),
+    differenceQty: numeric('difference_qty', { precision: 14, scale: 3 }).notNull(),
+  },
+  (t) => [index('stock_count_lines_count_idx').on(t.countId)],
+);

@@ -56,7 +56,9 @@ describe('which menu entry a URL belongs to', () => {
     ['/stock', 'issues', 'STOCK_ISSUES'],
     ['/stock', 'material-usage', 'STOCK_USAGE'],
     ['/stock', 'all-stock', 'STOCK_ALL'],
-    ['/stock', 'document-history', 'STOCK_ALL'],
+    ['/stock', 'document-history', 'STOCK_ADJUST'],
+    ['/stock', 'stock-count', 'STOCK_COUNT'],
+    ['/stock', 'stock-adjust', 'STOCK_ADJUST'],
     ['/stock', 'made-up', 'STOCK_OVERVIEW'],
     ['/labor-payments', null, 'LABOR_PAY'],
     ['/labor-payments', 'payment-milestones', 'LABOR_PAY'],
@@ -135,8 +137,8 @@ describe('every page and entry is accounted for', () => {
   test('every tickable entry actually controls a page', () => {
     const urls: [string, string?][] = [
       ['/dashboard'], ['/approvals'], ['/projects'], ['/timeline'],
-      ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'],
-      ['/purchasing'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/receive'],
+      ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'],
+      ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/receive'],
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],
       ['/ar/customers'], ['/ar/invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/exports'], ['/assets'],
       ['/handover'], ['/warranty'],

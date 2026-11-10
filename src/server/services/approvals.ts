@@ -154,7 +154,7 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
       .where(eq(stockAdjustRequests.status, 'PENDING'));
     for (const { r, itemName } of rows) {
       if (r.requestedBy === actor.id) continue;
-      result.push(item({ type: 'STOCK_ADJUST', id: r.id, number: r.requestNumber, title: `${itemName}: ${r.reason}`, amount: null, href: '/stock?tab=document-history', projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
+      result.push(item({ type: 'STOCK_ADJUST', id: r.id, number: r.requestNumber, title: `${itemName}: ${r.reason}`, amount: null, href: '/stock?tab=stock-adjust', projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
     }
   }
 
