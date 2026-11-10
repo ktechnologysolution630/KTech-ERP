@@ -106,3 +106,22 @@ export async function addPrCommentAction(id: string, body: string) {
   await addComment(db, actor, { entityType: 'PR', entityId: id, body });
   revalidatePath(`/pr/${id}`);
 }
+
+/** Permanently deletes the ticked requisitions; ones a PO has ordered from are kept and reported */
+export async function deletePrsAction(
+  ids: string[],
+): Promise<{ ok: true; result: import('@/server/services/pr-delete').PrDeleteResult } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    const { deletePrs } = await import('@/server/services/pr-delete');
+    const result = await deletePrs(db, actor, ids);
+    revalidatePath('/pr');
+    revalidatePath('/purchasing');
+    revalidatePath('/purchasing/approve');
+    return { ok: true, result };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}

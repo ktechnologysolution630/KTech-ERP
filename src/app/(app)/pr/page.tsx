@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listProjects } from '@/server/services/master';
 import { listPrs } from '@/server/services/pr';
+import { can } from '@/server/policy';
 import { listPos } from '@/server/services/po';
 import { PrListClient } from './pr-list-client';
 
@@ -38,6 +39,7 @@ export default async function PrListPage() {
     <PrListClient
       projectStats={projectStats}
       allPrs={prs}
+      canDelete={can(actor, 'pr.delete')}
     />
   );
 }
