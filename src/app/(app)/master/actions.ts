@@ -104,6 +104,7 @@ export async function saveItemAction(formData: FormData) {
     active: formData.get('active') !== 'false',
   });
   revalidatePath('/master/items');
+  revalidatePath('/purchasing/items');
 }
 
 export async function importItemsAction(rows: Record<string, string>[]) {
@@ -111,6 +112,7 @@ export async function importItemsAction(rows: Record<string, string>[]) {
   const db = await getDb();
   const res = await importItems(db, actor, rows);
   revalidatePath('/master/items');
+  revalidatePath('/purchasing/items');
   return res;
 }
 
@@ -139,6 +141,7 @@ export async function importItemCatalogAction(rows: ItemImportRow[]): Promise<Di
   const db = await getDb();
   const reply = await directoryImport(() => importItemCatalog(db, actor, rows));
   revalidatePath('/master/items');
+  revalidatePath('/purchasing/items');
   return reply;
 }
 
@@ -188,6 +191,7 @@ export async function deleteItemsAction(ids: string[]): Promise<{ ok: true; resu
   try {
     const result = await deleteItems(db, actor, ids);
     revalidatePath('/master/items');
+    revalidatePath('/purchasing/items');
     revalidatePath('/pr');
     return { ok: true, result };
   } catch (err) {

@@ -547,6 +547,20 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <span>ซัพพลายเออร์</span>
                     </Link>
                     )}
+                    {canSee('PUR_ITEMS') && (
+                    <Link
+                      href="/purchasing/items"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/purchasing/items') || pathname.startsWith('/master/items')
+                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Package className="w-3.5 h-3.5 shrink-0" />
+                      <span>ทะเบียนสินค้า</span>
+                    </Link>
+                    )}
                     {canSee('PUR_RECEIVE') && (
                     <Link
                       href="/receive"

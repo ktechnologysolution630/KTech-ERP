@@ -15,6 +15,7 @@ describe('which menu entry a URL belongs to', () => {
     ['/purchasing/ap', 'PUR_AP'],
     ['/purchasing/vendors', 'PUR_VENDORS'],
     ['/purchasing/vendors/abc', 'PUR_VENDORS'],
+    ['/purchasing/items', 'PUR_ITEMS'],
     ['/pr', 'PUR_PR'],
     ['/pr/new', 'PUR_PR'],
     ['/po/abc/edit', 'PUR_PO'],
@@ -138,7 +139,7 @@ describe('every page and entry is accounted for', () => {
     const urls: [string, string?][] = [
       ['/dashboard'], ['/approvals'], ['/projects'], ['/timeline'],
       ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'],
-      ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/receive'],
+      ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/purchasing/items'], ['/receive'],
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],
       ['/ar/customers'], ['/ar/invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],
       ['/handover'], ['/warranty'],
