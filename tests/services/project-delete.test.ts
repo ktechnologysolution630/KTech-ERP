@@ -33,6 +33,7 @@ import {
 import { type Db } from '@/db/client';
 import { D } from '@/domain/money';
 import { createTestDb } from '../helpers/test-db';
+import { EARLY_PAY_REASON, receiveAll } from '../helpers/receive';
 import { seedBasics, type SeededBasics } from '../helpers/fixtures';
 import { addAttachment, addComment, readStoredFile } from '@/server/services/attachments';
 import { createInvoice } from '@/server/services/invoice';
@@ -70,6 +71,7 @@ async function billedPurchase(db: Db, f: SeededBasics, projectId: string, reques
   await markOrdered(db, f.users.buyer, po.id);
   const poDoc = await getPo(db, f.users.buyer, po.id);
   await createReceipt(db, requester, { poId: po.id, receivedAt: '2026-11-02', lines: [{ poLineId: poDoc.lines[0]!.id, qty: D(10) }] });
+  await receiveAll(db, f.users.owner, po.id);
   await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo, invoiceDate: '2026-11-03', beforeVat: D(1000), vat: D(70) });
   return { prId: pr.id, poId: po.id, poLineId: poDoc.lines[0]!.id };
 }
@@ -137,7 +139,7 @@ describe('deleting a project', () => {
     const payableA = await payableOf(db, a.poId);
     const pv = await createPv(db, finance, { vendorId: f.vendorCo, payableIds: [payableA.id], whtRates: { [payableA.id]: 3 } });
     await submitPv(db, finance, pv.id);
-    await approvePv(db, owner, pv.id);
+    await approvePv(db, owner, pv.id, EARLY_PAY_REASON);
     await markPvPaid(db, finance, pv.id, { paidAt: '2026-11-05', payMethod: 'TRANSFER' });
     expect(await db.select().from(whtCerts).where(eq(whtCerts.pvId, pv.id))).toHaveLength(1);
 
@@ -302,7 +304,7 @@ describe('deleting a project', () => {
     const payableB = await payableOf(db, b.poId);
     const pv = await createPv(db, finance, { vendorId: f.vendorCo, payableIds: [payableA.id, payableB.id], whtRates: { [payableA.id]: 0, [payableB.id]: 0 } });
     await submitPv(db, finance, pv.id);
-    await approvePv(db, owner, pv.id);
+    await approvePv(db, owner, pv.id, EARLY_PAY_REASON);
     await markPvPaid(db, finance, pv.id, { paidAt: '2026-11-05', payMethod: 'TRANSFER' });
 
     expect((await previewProjectDeletion(db, admin, f.projectA)).blockers[0]).toContain('ยกเลิก');

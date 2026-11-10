@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Plus, X, Users, Trash2 } from 'lucide-react';
 import { saveVendorAction } from '@/app/(app)/master/actions';
 import { MasterWorkbookImport } from '@/components/master-workbook-import';
+import { PaymentTermsFields } from '@/components/payment-terms-fields';
 import { VendorDeleteDialog, VendorDeleteResultBanner } from '@/components/vendor-delete';
 import type { VendorDeleteResult } from '@/server/services/vendor-delete';
 import { deleteSuppliersAction } from './actions';
@@ -304,6 +305,14 @@ export function PurchasingVendorsClient({
                     className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="col-span-2 font-bold text-slate-800">เงื่อนไขวางบิล / รับเช็ค</p>
+                <PaymentTermsFields
+                  value={{ billingSchedule: '', creditBasis: 'BILLING', chequeSchedule: '', payMethod: 'TRANSFER' }}
+                  names={{ billingSchedule: 'billingSchedule', creditBasis: 'creditBasis', chequeSchedule: 'chequeSchedule', payMethod: 'defaultPayMethod' }}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

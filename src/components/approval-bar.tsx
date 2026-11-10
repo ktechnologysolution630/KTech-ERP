@@ -8,12 +8,16 @@ export function ApprovalBar({
   onApprove,
   onReject,
   requireOverrideReason = false,
+  overrideLabel = 'เหตุผลอนุมัติกรณีเกินยอด PO (ถ้ามี)',
+  overridePlaceholder = 'ระบุเหตุผลกรณีจ่ายเกินยอด PO...',
 }: {
   canApprove: boolean;
   approverHint?: string;
   onApprove: (overrideReason?: string) => Promise<void>;
   onReject: (reason: string) => Promise<void>;
   requireOverrideReason?: boolean;
+  overrideLabel?: string;
+  overridePlaceholder?: string;
 }) {
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState('');
@@ -68,13 +72,13 @@ export function ApprovalBar({
       {requireOverrideReason && (
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">
-            เหตุผลอนุมัติกรณีเกินยอด PO (ถ้ามี)
+            {overrideLabel}
           </label>
           <input
             type="text"
             value={overrideReason}
             onChange={(e) => setOverrideReason(e.target.value)}
-            placeholder="ระบุเหตุผลกรณีจ่ายเกินยอด PO..."
+            placeholder={overridePlaceholder}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs"
           />
         </div>

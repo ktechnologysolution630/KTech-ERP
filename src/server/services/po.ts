@@ -32,6 +32,7 @@ import {
   type VatMode,
 } from '@/domain/money';
 import { requiredPoApprover } from '@/domain/po-approval';
+import { normaliseSchedule, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { assertOverrunApproved } from './boq-overrun';
@@ -61,11 +62,20 @@ export interface PoInstallmentInput {
   conditionNote?: string;
 }
 
+export interface PoTerms {
+  billingSchedule: string;
+  creditBasis: CreditBasis;
+  chequeSchedule: string;
+  payMethod: PayMethod;
+}
+
 export interface PoInput {
   projectId: string | null;
   vendorId: string;
   paymentType: PoPaymentType;
   creditDays?: number | null;
+  /** Billing / cheque terms; anything left out comes from the vendor */
+  terms?: Partial<PoTerms>;
   vatMode: VatMode;
   billDiscount: Decimal | string | number;
   shipping: Decimal | string | number;
@@ -82,6 +92,8 @@ export interface SerializedPoRevisionPayload {
   vendorId: string;
   paymentType: PoPaymentType;
   creditDays: number | null;
+  /** Absent in revisions saved before billing terms existed */
+  terms?: PoTerms;
   vatMode: VatMode;
   billDiscount: string;
   shipping: string;
@@ -331,7 +343,19 @@ async function validateAndComputePo(
     installmentAmounts = splitInstallments(totals.gross, parts);
   }
 
-  return { totals, creditDays, installmentAmounts };
+  let terms: PoTerms;
+  try {
+    terms = {
+      billingSchedule: normaliseSchedule(input.terms?.billingSchedule ?? vendor.billingSchedule),
+      creditBasis: input.terms?.creditBasis ?? vendor.creditBasis,
+      chequeSchedule: normaliseSchedule(input.terms?.chequeSchedule ?? vendor.chequeSchedule),
+      payMethod: input.terms?.payMethod ?? vendor.defaultPayMethod,
+    };
+  } catch {
+    throw new DomainError('INVALID_TERMS', 'รอบวางบิลหรือรอบรับเช็คไม่ถูกต้อง ระบุวันที่ 1–31 หรือวันในสัปดาห์', 400);
+  }
+
+  return { totals, creditDays, installmentAmounts, terms };
 }
 
 export async function createPo(
@@ -341,7 +365,7 @@ export async function createPo(
 ): Promise<{ id: string; number: string }> {
   assertCan(actor, 'po.manage');
   return db.transaction(async (tx) => {
-    const { totals, creditDays, installmentAmounts } = await validateAndComputePo(tx, input);
+    const { totals, creditDays, installmentAmounts, terms } = await validateAndComputePo(tx, input);
     const number = await nextDocNumber(tx, 'PO');
 
     const [created] = await tx
@@ -354,6 +378,7 @@ export async function createPo(
         status: 'DRAFT',
         paymentType: input.paymentType,
         creditDays,
+        ...terms,
         vatMode: input.vatMode,
         billDiscount: totals.billDiscount.toFixed(2),
         shipping: totals.shipping.toFixed(2),
@@ -427,7 +452,7 @@ export async function updatePo(
   assertCan(actor, 'po.manage');
   await db.transaction(async (tx) => {
     const po = await lockPo(tx, id);
-    const { totals, creditDays, installmentAmounts } = await validateAndComputePo(
+    const { totals, creditDays, installmentAmounts, terms } = await validateAndComputePo(
       tx,
       input,
       id,
@@ -441,6 +466,7 @@ export async function updatePo(
           vendorId: input.vendorId,
           paymentType: input.paymentType,
           creditDays,
+          ...terms,
           vatMode: input.vatMode,
           billDiscount: totals.billDiscount.toFixed(2),
           shipping: totals.shipping.toFixed(2),
@@ -547,6 +573,7 @@ export async function updatePo(
         vendorId: input.vendorId,
         paymentType: input.paymentType,
         creditDays,
+        terms,
         vatMode: input.vatMode,
         billDiscount: totals.billDiscount.toFixed(2),
         shipping: totals.shipping.toFixed(2),
@@ -825,6 +852,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
           vendorId: payload.vendorId,
           paymentType: payload.paymentType,
           creditDays: payload.creditDays,
+          ...(payload.terms ?? {}),
           vatMode: payload.vatMode,
           billDiscount: totals.billDiscount.toFixed(2),
           shipping: totals.shipping.toFixed(2),
@@ -1084,6 +1112,10 @@ export async function getPo(db: Db, actor: SessionUser, id: string) {
       status: pos.status,
       paymentType: pos.paymentType,
       creditDays: pos.creditDays,
+      billingSchedule: pos.billingSchedule,
+      creditBasis: pos.creditBasis,
+      chequeSchedule: pos.chequeSchedule,
+      payMethod: pos.payMethod,
       vatMode: pos.vatMode,
       billDiscount: pos.billDiscount,
       shipping: pos.shipping,

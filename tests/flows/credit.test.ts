@@ -7,6 +7,7 @@ import { createInvoice, getPoSummary } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
 import { createPv, submitPv, approvePv, markPvPaid } from '@/server/services/pv';
 import { createTestDb } from '../helpers/test-db';
+import { EARLY_PAY_REASON, receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
 
 describe('e2e flow: credit PO', () => {
@@ -68,6 +69,7 @@ describe('e2e flow: credit PO', () => {
     });
 
     // Invoice
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-E2E-CREDIT',
@@ -83,7 +85,7 @@ describe('e2e flow: credit PO', () => {
       whtRates: { [payable!.id]: 0 },
     });
     await submitPv(db, f.users.finance, pv.id);
-    await approvePv(db, f.users.owner, pv.id);
+    await approvePv(db, f.users.owner, pv.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pv.id, {
       paidAt: '2026-11-05',
       payMethod: 'TRANSFER',

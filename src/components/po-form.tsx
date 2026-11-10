@@ -10,6 +10,8 @@ import {
 } from '@/components/installment-editor';
 import { createPoAction, updatePoAction } from '@/app/(app)/po/actions';
 import { DateInput } from '@/components/date-input';
+import { PaymentTermsFields, type PaymentTermsValue } from '@/components/payment-terms-fields';
+import { type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 
 export interface OrderablePrLineOption {
   id: string;
@@ -44,7 +46,16 @@ export function PoForm({
   projects: { id: string; code: string; name: string }[];
   /** Main-BOQ material lines; a PO line linked to one is checked against its budget */
   boqMaterials?: BoqMaterialPick[];
-  vendors: { id: string; code: string; name: string; defaultCreditDays: number }[];
+  vendors: {
+    id: string;
+    code: string;
+    name: string;
+    defaultCreditDays: number;
+    billingSchedule: string;
+    creditBasis: CreditBasis;
+    chequeSchedule: string;
+    defaultPayMethod: PayMethod;
+  }[];
   orderablePrLines?: OrderablePrLineOption[];
   initialProjectId?: string | null;
   existing?: {
@@ -53,6 +64,7 @@ export function PoForm({
     vendorId: string;
     paymentType: PoPaymentType;
     creditDays: number | null;
+    terms?: PaymentTermsValue;
     vatMode: VatMode;
     billDiscount: string;
     shipping: string;
@@ -89,6 +101,9 @@ export function PoForm({
   const [creditDays, setCreditDays] = useState<number>(
     existing?.creditDays ?? 30,
   );
+  // Billing / cheque terms start from the vendor's and can be changed for this PO only
+  const [terms, setTerms] = useState<PaymentTermsValue | null>(existing?.terms ?? null);
+  const [termsKey, setTermsKey] = useState(0);
   const [vatMode, setVatMode] = useState<VatMode>(existing?.vatMode ?? 'EXCLUSIVE');
   const [billDiscount, setBillDiscount] = useState(existing?.billDiscount ?? '0');
   const [shipping, setShipping] = useState(existing?.shipping ?? '0');
@@ -201,6 +216,7 @@ export function PoForm({
           vendorId,
           paymentType,
           creditDays: paymentType === 'CREDIT' ? creditDays : null,
+          terms: terms ?? undefined,
           vatMode,
           billDiscount,
           shipping,
@@ -274,7 +290,11 @@ export function PoForm({
             onChange={(e) => {
               setVendorId(e.target.value);
               const v = vendors.find((x) => x.id === e.target.value);
-              if (v) setCreditDays(v.defaultCreditDays);
+              if (v) {
+                setCreditDays(v.defaultCreditDays);
+                setTerms({ billingSchedule: v.billingSchedule, creditBasis: v.creditBasis, chequeSchedule: v.chequeSchedule, payMethod: v.defaultPayMethod });
+                setTermsKey((k) => k + 1);
+              }
             }}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
@@ -311,6 +331,15 @@ export function PoForm({
           </div>
         </div>
       </div>
+
+      {paymentType === 'CREDIT' && terms && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-semibold text-slate-800">เงื่อนไขวางบิล / รับเช็ค (ดึงจากผู้ขาย แก้เฉพาะใบนี้ได้)</p>
+          <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <PaymentTermsFields key={termsKey} value={terms} onChange={setTerms} />
+          </div>
+        </div>
+      )}
 
       {matchingPrLines.length > 0 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2">

@@ -253,6 +253,13 @@
       "when": 1794285537153,
       "tag": "0035_stock_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794291627606,
+      "tag": "0036_payment_terms_cheques",
+      "breakpoints": true
     }
   ]
 }

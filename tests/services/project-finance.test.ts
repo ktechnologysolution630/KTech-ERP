@@ -12,6 +12,7 @@ import { getProjectCashflow, getProjectCostPerformance } from '@/server/services
 import { createPrv, transitionPrv } from '@/server/services/prv';
 import { approvePv, createPv, markPvPaid, submitPv } from '@/server/services/pv';
 import { seedBasics, type SeededBasics } from '../helpers/fixtures';
+import { EARLY_PAY_REASON, receiveAll } from '../helpers/receive';
 import { createTestDb } from '../helpers/test-db';
 import type { Db } from '@/db/client';
 
@@ -108,12 +109,13 @@ describe('project finance services', () => {
     });
     await submitPo(db, f.users.buyer, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-1', invoiceDate: today, beforeVat: D(1000), vat: D(70) });
     const [payable] = await listOpenPayables(db, f.users.finance, {});
     expect(payable!.projectId).toBe(f.projectA);
     const pv = await createPv(db, f.users.finance, { vendorId: f.vendorCo, payableIds: [payable!.id] });
     await submitPv(db, f.users.finance, pv.id);
-    await approvePv(db, f.users.owner, pv.id);
+    await approvePv(db, f.users.owner, pv.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pv.id, { paidAt: today, payMethod: 'TRANSFER', payFromAccount: 'K-1', payRef: 'S-1' });
 
     // Expense still open: approved contractor claim 100,000 − 5% retention, VAT 7,000

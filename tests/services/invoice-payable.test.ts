@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
+import { eq } from 'drizzle-orm';
+import { invoices, pos, vendors } from '@/db/schema';
 import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
 import {
   cancelInvoice,
@@ -13,6 +15,7 @@ import {
   requestPrepaid,
 } from '@/server/services/payable';
 import { seedBasics, type SeededBasics } from '../helpers/fixtures';
+import { receiveAll } from '../helpers/receive';
 import { createTestDb } from '../helpers/test-db';
 import type { Db } from '@/db/client';
 
@@ -48,6 +51,7 @@ describe('invoice and payable services', () => {
     creditPo = cPo.id;
     await submitPo(db, f.users.buyer, creditPo);
     await approvePo(db, f.users.buyerHead, creditPo);
+    await receiveAll(db, f.users.foreman, creditPo);
 
     const pPo = await createPo(db, f.users.buyer, {
       projectId: f.projectA,
@@ -157,15 +161,16 @@ describe('invoice and payable services', () => {
     });
   });
 
-  test('invoice over PO total returns warning', async () => {
-    const inv = await createInvoice(db, f.users.finance, {
-      poId: creditPo,
-      invoiceNo: 'IV-OVER',
-      invoiceDate: '2026-11-02',
-      beforeVat: D(1100),
-      vat: D(77),
-    });
-    expect(inv.warnings).toContain('INVOICE_EXCEEDS_PO');
+  test('a credit bill cannot exceed what has been received', async () => {
+    await expect(
+      createInvoice(db, f.users.finance, {
+        poId: creditPo,
+        invoiceNo: 'IV-OVER',
+        invoiceDate: '2026-11-02',
+        beforeVat: D(1100),
+        vat: D(77),
+      }),
+    ).rejects.toMatchObject({ code: 'INVOICE_EXCEEDS_RECEIVED' });
   });
 
   test('foreman cannot create invoice', async () => {
@@ -190,5 +195,71 @@ describe('invoice and payable services', () => {
     });
     await cancelInvoice(db, f.users.finance, inv.id, 'ออกใบแจ้งหนี้ผิด');
     expect((await listOpenPayables(db, f.users.finance, {})).length).toBe(0);
+  });
+});
+
+describe('billing and cheque terms', () => {
+  test('a PO takes its vendor terms, and the bill falls due on the cheque round', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await db
+      .update(vendors)
+      .set({ billingSchedule: 'M:25', creditBasis: 'BILLING', chequeSchedule: 'M:5,20', defaultPayMethod: 'CHEQUE' })
+      .where(eq(vendors.id, f.vendorCo));
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      creditDays: 30,
+      vatMode: 'INCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ปูน', qty: D(10), unitName: 'ถุง', unitPrice: D(107), discount: D(0) }],
+    });
+    const [saved] = await db.select().from(pos).where(eq(pos.id, po.id));
+    expect(saved).toMatchObject({ billingSchedule: 'M:25', creditBasis: 'BILLING', chequeSchedule: 'M:5,20', payMethod: 'CHEQUE' });
+    await submitPo(db, f.users.buyer, po.id);
+    await approvePo(db, f.users.buyerHead, po.id);
+
+    await expect(
+      createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-T', invoiceDate: '2026-11-10', beforeVat: D(1000), vat: D(70) }),
+    ).rejects.toMatchObject({ code: 'NOT_RECEIVED' });
+
+    await receiveAll(db, f.users.owner, po.id, '2026-11-08');
+    const inv = await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-T', invoiceDate: '2026-11-10', beforeVat: D(1000), vat: D(70) });
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, inv.id));
+    expect(row).toMatchObject({ billingDate: '2026-11-25', dueDate: '2027-01-05' });
+    const [p] = await listOpenPayables(db, f.users.finance, {});
+    expect(p!.dueDate).toBe('2027-01-05');
+  });
+
+  test('terms chosen on the PO override the vendor', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      creditDays: 15,
+      terms: { chequeSchedule: 'W:5', creditBasis: 'INVOICE' },
+      vatMode: 'NONE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ทราย', qty: D(1), unitName: 'คิว', unitPrice: D(500), discount: D(0) }],
+    });
+    const [saved] = await db.select().from(pos).where(eq(pos.id, po.id));
+    expect(saved).toMatchObject({ chequeSchedule: 'W:5', creditBasis: 'INVOICE', billingSchedule: '' });
+    await expect(
+      createPo(db, f.users.buyer, {
+        projectId: f.projectA,
+        vendorId: f.vendorCo,
+        paymentType: 'CREDIT',
+        terms: { chequeSchedule: 'M:45' },
+        vatMode: 'NONE',
+        billDiscount: D(0),
+        shipping: D(0),
+        lines: [{ description: 'ทราย', qty: D(1), unitName: 'คิว', unitPrice: D(500), discount: D(0) }],
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_TERMS' });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { eq } from 'drizzle-orm';
-import { notifications, payables, poLines, pos, type PoStatus } from '@/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { notifications, payables, poLines, pos, receiptLines, receipts, type PoStatus } from '@/db/schema';
 import { D } from '@/domain/money';
 import { listActivity } from '@/server/services/activity';
 import { addComment, listComments } from '@/server/services/attachments';
@@ -12,6 +12,7 @@ import { cancelPv, createPv } from '@/server/services/pv';
 import { createReceipt } from '@/server/services/receipt';
 import { deleteVendors } from '@/server/services/vendor-delete';
 import { createTestDb } from '../helpers/test-db';
+import { receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>;
@@ -35,6 +36,13 @@ async function makeApprovedPo(db: TestDb, f: Fixtures, paymentType: 'CREDIT' | '
   await submitPo(db, f.users.buyer, po.id);
   await approvePo(db, f.users.buyerHead, po.id);
   return po;
+}
+
+/** Bills used to be accepted before delivery; these cases are about the bill alone, so its delivery is taken away */
+async function forgetDeliveries(db: TestDb, poId: string) {
+  const ids = (await db.select({ id: receipts.id }).from(receipts).where(eq(receipts.poId, poId))).map((r) => r.id);
+  if (ids.length) await db.delete(receiptLines).where(inArray(receiptLines.receiptId, ids));
+  await db.delete(receipts).where(eq(receipts.poId, poId));
 }
 
 const statusOf = async (db: TestDb, id: string): Promise<PoStatus | undefined> => (await db.select({ status: pos.status }).from(pos).where(eq(pos.id, id)))[0]?.status;
@@ -99,7 +107,9 @@ describe('deleting a PO', () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
     const po = await makeApprovedPo(db, f);
+    await receiveAll(db, f.users.owner, po.id);
     const invoice = await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-1', invoiceDate: '2026-11-02', beforeVat: D(1000), vat: D(0) });
+    await forgetDeliveries(db, po.id);
 
     const held = await previewPoDeletion(db, f.users.admin, po.id);
     expect(held.holders).toEqual([{ label: 'ใบแจ้งหนี้', number: 'IV-1', href: `/invoices/${invoice.id}`, cancelled: false }]);
@@ -115,7 +125,9 @@ describe('deleting a PO', () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
     const po = await makeApprovedPo(db, f);
+    await receiveAll(db, f.users.owner, po.id);
     const invoice = await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-1', invoiceDate: '2026-11-02', beforeVat: D(1000), vat: D(0) });
+    await forgetDeliveries(db, po.id);
     const [payable] = await listOpenPayables(db, f.users.finance, { vendorId: f.vendorCo });
     const pv = await createPv(db, f.users.finance, { vendorId: f.vendorCo, payableIds: [payable!.id], whtRates: { [payable!.id]: 0 } });
     await cancelPv(db, f.users.finance, pv.id, 'ทำใหม่');
@@ -123,7 +135,8 @@ describe('deleting a PO', () => {
 
     expect((await previewPoDeletion(db, f.users.admin, po.id)).holders).toEqual([{ label: 'ใบสำคัญจ่าย PV', number: pv.number, href: `/pv/${pv.id}`, cancelled: true }]);
     await expect(deletePo(db, f.users.admin, po.id)).rejects.toMatchObject({ code: 'PO_IN_USE' });
-    expect(await statusOf(db, po.id)).toBe('APPROVED');
+    // Its goods arrived before the bill, which moved it on to ordered
+    expect(await statusOf(db, po.id)).toBe('ORDERED');
   });
 
   test('a bad id or one already gone is not found', async () => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { CREDIT_BASIS_LABEL, PAY_METHOD_LABEL, describeSchedule } from '@/domain/payment-terms';
 import { Text, View } from '@react-pdf/renderer';
 import { bahtText, D } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
@@ -77,6 +78,11 @@ export function PoPdfDoc({
               ? ` (${po.creditDays} วัน)`
               : ''}
           </Text>
+          {po.paymentType === 'CREDIT' && (
+            <Text>
+              วางบิล: {describeSchedule(po.billingSchedule, 'ทุกวัน')} · {CREDIT_BASIS_LABEL[po.creditBasis]} · รับเช็ค/รับเงิน: {describeSchedule(po.chequeSchedule, 'ไม่กำหนดรอบ')} ({PAY_METHOD_LABEL[po.payMethod]})
+            </Text>
+          )}
           <Text>กำหนดส่งของ: {po.deliveryDate ?? '-'}</Text>
           <Text>หมายเหตุ: {po.note || '-'}</Text>
         </View>

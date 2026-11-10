@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
-import { type PayMethod } from '@/db/schema';
 import { bangkokDateString, formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
@@ -17,11 +16,10 @@ import {
   addPvCommentAction,
   approvePvAction,
   cancelPvAction,
-  markPvPaidAction,
   rejectPvAction,
   submitPvAction,
 } from '../actions';
-import { DateInput } from '@/components/date-input';
+import { ChequePanel, PvPayForm } from './pv-payment';
 
 export default async function PvDetailPage({
   params,
@@ -40,6 +38,9 @@ export default async function PvDetailPage({
 
   const canApprove = pv.status === 'PENDING_APPROVAL' && can(actor, 'pv.approve');
   const today = bangkokDateString();
+  // Bills not yet due can only be paid early with the owner's reason
+  const earliestDue = pv.lines.map((l) => l.dueDate).sort()[0];
+  const paysEarly = !!earliestDue && earliestDue > today;
 
   return (
     <div className="space-y-6">
@@ -92,7 +93,7 @@ export default async function PvDetailPage({
 
       {pv.overrideReason && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-          <strong>อนุมัติจ่ายเกินยอด PO:</strong> {pv.overrideReason}
+          <strong>เหตุผลอนุมัติพิเศษ (เกินยอด PO / จ่ายก่อนกำหนด):</strong> {pv.overrideReason}
         </div>
       )}
 
@@ -101,9 +102,12 @@ export default async function PvDetailPage({
           <ApprovalBar
             canApprove={canApprove}
             approverHint="ต้องให้เจ้าของบริษัท (OWNER) เป็นผู้อนุมัติใบสำคัญจ่าย"
-            onApprove={async () => {
+            requireOverrideReason={paysEarly}
+            overrideLabel={paysEarly ? `เหตุผลจ่ายก่อนครบกำหนด * (ครบกำหนดเร็วสุด ${formatThaiDate(earliestDue!)})` : undefined}
+            overridePlaceholder={paysEarly ? 'เช่น ผู้ขายให้ส่วนลดเงินสด / ขอเร่งจ่ายเพื่อรับของงวดถัดไป' : undefined}
+            onApprove={async (reason) => {
               'use server';
-              await approvePvAction(id);
+              await approvePvAction(id, reason);
             }}
             onReject={async (reason) => {
               'use server';
@@ -211,76 +215,25 @@ export default async function PvDetailPage({
       </div>
 
       {pv.status === 'APPROVED' && can(actor, 'pv.pay') && (
-        <form
-          action={async (fd: FormData) => {
-            'use server';
-            await markPvPaidAction(id, {
-              paidAt: String(fd.get('paidAt') ?? ''),
-              payMethod: String(fd.get('payMethod') ?? 'TRANSFER') as PayMethod,
-              payFromAccount: String(fd.get('payFromAccount') ?? ''),
-              payRef: String(fd.get('payRef') ?? ''),
-            });
+        <PvPayForm pvId={pv.id} net={pv.net} today={today} defaultMethod={pv.vendorDefaultPayMethod} />
+      )}
+
+      {pv.payMethod === 'CHEQUE' && pv.chequeStatus && (
+        <ChequePanel
+          pvId={pv.id}
+          today={today}
+          canManage={can(actor, 'pv.pay')}
+          cheque={{
+            no: pv.chequeNo,
+            bank: pv.chequeBank,
+            date: pv.chequeDate,
+            status: pv.chequeStatus,
+            collectedBy: pv.chequeCollectedBy,
+            collectedAt: pv.chequeCollectedAt,
+            clearedAt: pv.chequeClearedAt,
+            voidReason: pv.chequeVoidReason,
           }}
-          className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 space-y-4 text-xs"
-        >
-          <h3 className="text-sm font-semibold text-emerald-950">
-            บันทึกการจ่ายเงิน (โอนแล้ว / จ่ายแล้ว)
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="block font-medium text-slate-700 mb-1">
-                วันที่จ่ายเงิน *
-              </label>
-              <DateInput
-                name="paidAt"
-                defaultValue={today}
-                required
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-700 mb-1">
-                วิธีจ่ายเงิน *
-              </label>
-              <select
-                name="payMethod"
-                defaultValue="TRANSFER"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              >
-                <option value="TRANSFER">โอนเงิน (Transfer)</option>
-                <option value="CHEQUE">เช็ค (Cheque)</option>
-                <option value="CASH">เงินสด (Cash)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-medium text-slate-700 mb-1">
-                โอนจากบัญชีบริษัท
-              </label>
-              <input
-                type="text"
-                name="payFromAccount"
-                placeholder="เช่น KBANK xxx-x-xxxxx-x"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-700 mb-1">
-                เลขอ้างอิงสลิป / เลขที่เช็ค
-              </label>
-              <input
-                type="text"
-                name="payRef"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 font-semibold"
-          >
-            ยืนยันบันทึกจ่ายเงิน ฿{formatMoneyDisplay(pv.net)}
-          </button>
-        </form>
+        />
       )}
 
       <div className="flex flex-wrap gap-2">

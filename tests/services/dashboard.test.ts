@@ -11,6 +11,7 @@ import { createArInvoice, issueArCreditNote, issueArInvoice, recordArReceipt, up
 import { compactNumber, niceAxisMax } from '@/domain/chart';
 import { bangkokDateString } from '@/domain/thai';
 import { createTestDb } from '../helpers/test-db';
+import { EARLY_PAY_REASON, receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
 
 describe('dashboard service', () => {
@@ -31,6 +32,7 @@ describe('dashboard service', () => {
     await submitPo(db, f.users.buyer, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-SOON',
@@ -40,6 +42,7 @@ describe('dashboard service', () => {
       dueDate: '2026-11-05',
     });
 
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-OVERDUE',
@@ -82,7 +85,7 @@ describe('dashboard service', () => {
       payableIds: [payableId],
     });
     await submitPv(db, f.users.finance, pv.id);
-    await approvePv(db, f.users.owner, pv.id);
+    await approvePv(db, f.users.owner, pv.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pv.id, {
       paidAt: '2026-11-02',
       payMethod: 'TRANSFER',
@@ -149,12 +152,14 @@ describe('dashboard overview', () => {
     });
     await submitPo(db, f.users.buyer, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
+    await receiveAll(db, f.users.owner, po.id);
     const paid = await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-A', invoiceDate: today, beforeVat: D(1000), vat: D(0), dueDate: '2026-12-01' });
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-B', invoiceDate: today, beforeVat: D(500), vat: D(0), dueDate: '2026-12-01' });
     const [paidPayable] = await db.select().from(payables).where(eq(payables.invoiceId, paid.id));
     const pv = await createPv(db, f.users.finance, { vendorId: f.vendorCo, payableIds: [paidPayable!.id] });
     await submitPv(db, f.users.finance, pv.id);
-    await approvePv(db, f.users.owner, pv.id);
+    await approvePv(db, f.users.owner, pv.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pv.id, { paidAt: today, payMethod: 'TRANSFER', payFromAccount: 'K-1', payRef: 'S-1' });
 
     const o = await getDashboardOverview(db, f.users.finance, { today: now });

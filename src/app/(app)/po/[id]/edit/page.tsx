@@ -45,6 +45,7 @@ export default async function EditPoPage({
           vendorId: po.vendorId,
           paymentType: po.paymentType,
           creditDays: po.creditDays,
+          terms: { billingSchedule: po.billingSchedule, creditBasis: po.creditBasis, chequeSchedule: po.chequeSchedule, payMethod: po.payMethod },
           vatMode: po.vatMode,
           billDiscount: po.billDiscount,
           shipping: po.shipping,

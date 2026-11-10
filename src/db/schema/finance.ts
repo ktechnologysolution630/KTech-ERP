@@ -34,7 +34,8 @@ export type PvStatus =
   | 'PAID'
   | 'CANCELLED';
 
-export type PayMethod = 'TRANSFER' | 'CHEQUE' | 'CASH';
+import { type ChequeStatus, type PayMethod } from '@/domain/payment-terms';
+export type { PayMethod };
 
 export type WhtFormType = 'PND3' | 'PND53';
 export type WhtCertStatus = 'ACTIVE' | 'VOID';
@@ -53,6 +54,8 @@ export const invoices = pgTable('invoices', {
   beforeVat: numeric('before_vat', { precision: 14, scale: 2 }).notNull(),
   vat: numeric('vat', { precision: 14, scale: 2 }).notNull(),
   gross: numeric('gross', { precision: 14, scale: 2 }).notNull(),
+  /** The day the bill was (or will be) placed with us, from the PO's billing schedule */
+  billingDate: date('billing_date'),
   dueDate: date('due_date'),
   status: text('status').$type<InvoiceStatus>().default('ACTIVE').notNull(),
   cancelReason: text('cancel_reason'),
@@ -121,6 +124,14 @@ export const pvs = pgTable(
     payMethod: text('pay_method').$type<PayMethod>(),
     payFromAccount: text('pay_from_account'),
     payRef: text('pay_ref'),
+    chequeNo: text('cheque_no'),
+    chequeBank: text('cheque_bank'),
+    chequeDate: date('cheque_date'),
+    chequeStatus: text('cheque_status').$type<ChequeStatus>(),
+    chequeCollectedBy: text('cheque_collected_by'),
+    chequeCollectedAt: date('cheque_collected_at'),
+    chequeClearedAt: date('cheque_cleared_at'),
+    chequeVoidReason: text('cheque_void_reason'),
     paidBy: uuid('paid_by').references(() => users.id),
     beforeVat: numeric('before_vat', { precision: 14, scale: 2 }).default('0.00').notNull(),
     vat: numeric('vat', { precision: 14, scale: 2 }).default('0.00').notNull(),

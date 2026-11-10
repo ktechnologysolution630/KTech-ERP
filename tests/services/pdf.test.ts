@@ -7,6 +7,7 @@ import { listOpenPayables } from '@/server/services/payable';
 import { createPv } from '@/server/services/pv';
 import { renderDocPdf } from '@/server/services/pdf';
 import { createTestDb } from '../helpers/test-db';
+import { receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
 
 describe('pdf service', () => {
@@ -49,6 +50,7 @@ describe('pdf service', () => {
     // The PDF prints this under the vendor's name
     expect((await getPo(db, f.users.buyer, po.id)).vendorAddress).toBe('123 ถนนพระราม 2 กรุงเทพฯ');
 
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-PDF-1',

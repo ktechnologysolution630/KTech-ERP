@@ -28,6 +28,7 @@ import {
   BarChart2,
   ClipboardCheck,
   ClipboardList,
+  CalendarClock,
   Layers,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
@@ -760,6 +761,20 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     >
                       <FileText className="w-3.5 h-3.5 shrink-0" />
                       <span>ใบสำคัญจ่าย (PV)</span>
+                    </Link>
+                    )}
+                    {canSee('FIN_CHEQUES') && (
+                    <Link
+                      href="/cheques"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/cheques')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <CalendarClock className="w-3.5 h-3.5 shrink-0" />
+                      <span>ตารางจ่ายเช็ค</span>
                     </Link>
                     )}
                     {canSee('FIN_EXPORTS') && (

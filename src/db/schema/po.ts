@@ -16,6 +16,7 @@ import { prLines } from './pr';
 import { boqLines } from './boq';
 import { stockItems } from './stock';
 import { type VatMode } from '@/domain/money';
+import { type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 
 export type PoStatus =
   | 'DRAFT'
@@ -51,6 +52,11 @@ export const pos = pgTable(
     status: text('status').$type<PoStatus>().default('DRAFT').notNull(),
     paymentType: text('payment_type').$type<PoPaymentType>().default('CREDIT').notNull(),
     creditDays: integer('credit_days'),
+    /** Billing / cheque terms copied from the vendor when the PO is made; editable per PO */
+    billingSchedule: text('billing_schedule').default('').notNull(),
+    creditBasis: text('credit_basis').$type<CreditBasis>().default('INVOICE').notNull(),
+    chequeSchedule: text('cheque_schedule').default('').notNull(),
+    payMethod: text('pay_method').$type<PayMethod>().default('TRANSFER').notNull(),
     vatMode: text('vat_mode').$type<VatMode>().default('EXCLUSIVE').notNull(),
     billDiscount: numeric('bill_discount', { precision: 14, scale: 2 })
       .default('0.00')

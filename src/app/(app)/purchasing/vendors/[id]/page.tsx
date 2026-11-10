@@ -9,6 +9,7 @@ import { can } from '@/server/policy';
 import { listPos } from '@/server/services/po';
 import { getVendorDetail } from '@/server/services/vendor-detail';
 import { VendorEditButton } from './vendor-edit-button';
+import { CREDIT_BASIS_LABEL, PAY_METHOD_LABEL, describeSchedule } from '@/domain/payment-terms';
 
 const VENDOR_TYPE_LABELS = { COMPANY: 'นิติบุคคล (ภ.ง.ด.53)', INDIVIDUAL: 'บุคคลธรรมดา (ภ.ง.ด.3)' } as const;
 
@@ -104,6 +105,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="เครดิต">{v.defaultCreditDays > 0 ? `${v.defaultCreditDays} วัน` : 'เงินสด / ตามงวด'}</Field>
             <Field label="หัก ณ ที่จ่าย">{`${v.defaultWhtRate}%`}</Field>
+            <Field label="รอบวางบิล">{describeSchedule(v.billingSchedule, 'วางบิลได้ทุกวัน')}</Field>
+            <Field label="เริ่มนับเครดิต">{CREDIT_BASIS_LABEL[v.creditBasis]}</Field>
+            <Field label="รอบรับเช็ค / รอบจ่าย">{describeSchedule(v.chequeSchedule, 'ไม่กำหนดรอบ')}</Field>
+            <Field label="วิธีจ่ายตั้งต้น">{PAY_METHOD_LABEL[v.defaultPayMethod]}</Field>
             <Field label="ธนาคาร">{v.bankName}</Field>
             <Field label="เลขที่บัญชี">{v.bankAccountNo}</Field>
             <div className="sm:col-span-2">

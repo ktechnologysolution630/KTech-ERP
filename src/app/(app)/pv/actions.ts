@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { type PayMethod } from '@/db/schema';
+import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
 import '@/server/services/wht-cert';
@@ -12,6 +13,8 @@ import {
   cancelPv,
   createPv,
   markPvPaid,
+  updateCheque,
+  type ChequeAction,
   rejectPv,
   submitPv,
   updatePv,
@@ -87,14 +90,38 @@ export async function markPvPaidAction(
     payMethod: PayMethod;
     payFromAccount?: string;
     payRef?: string;
+    cheque?: { no: string; bank: string; date: string };
   },
-) {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const actor = await requireUser();
   const db = await getDb();
-  await markPvPaid(db, actor, id, input);
+  try {
+    await markPvPaid(db, actor, id, input);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
   revalidatePath(`/pv/${id}`);
   revalidatePath('/pv');
   revalidatePath('/payables');
+  revalidatePath('/cheques');
+  return { ok: true };
+}
+
+export async function updateChequeAction(id: string, input: ChequeAction): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    await updateCheque(db, actor, id, input);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+  revalidatePath(`/pv/${id}`);
+  revalidatePath('/pv');
+  revalidatePath('/payables');
+  revalidatePath('/cheques');
+  return { ok: true };
 }
 
 export async function addPvCommentAction(id: string, body: string) {

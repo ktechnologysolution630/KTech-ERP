@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
   invoicePayableMatches,
@@ -17,6 +17,7 @@ import {
 import { DomainError } from '@/domain/errors';
 import { D, round2, sum, type Decimal } from '@/domain/money';
 import { summarizePo, type PoSummary } from '@/domain/po-summary';
+import { computeDueDate } from '@/domain/payment-terms';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { lockPo, registerPoHasPayablesResolver } from './po';
@@ -32,12 +33,20 @@ registerPoHasPayablesResolver(async (tx, poId) => {
   return rows.length > 0;
 });
 
-function addDaysToIsoDate(isoDate: string, days: number): string {
-  const parts = isoDate.split('-').map(Number);
-  const d = new Date(Date.UTC(parts[0]!, (parts[1]! ?? 1) - 1, parts[2]! ?? 1));
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+/** What has arrived on a PO so far: the latest delivery date and its value incl. VAT */
+async function receivedSoFar(tx: Db, poId: string): Promise<{ lastDate: string | null; value: Decimal }> {
+  const rows = await tx
+    .select({ receivedAt: receipts.receivedAt, qty: receiptLines.qty, unitGross: poLines.unitGross })
+    .from(receiptLines)
+    .innerJoin(receipts, and(eq(receipts.id, receiptLines.receiptId), eq(receipts.poId, poId), eq(receipts.status, 'CONFIRMED')))
+    .innerJoin(poLines, eq(poLines.id, receiptLines.poLineId));
+  let lastDate: string | null = null;
+  for (const r of rows) if (!lastDate || r.receivedAt > lastDate) lastDate = r.receivedAt;
+  return { lastDate, value: round2(sum(rows.map((r) => D(r.qty).times(D(r.unitGross))))) };
 }
+
+/** Rounding between line VAT and the bill's VAT may differ by a few satang */
+const RECEIVED_TOLERANCE = D(1);
 
 export interface CreateInvoiceInput {
   poId: string;
@@ -108,8 +117,37 @@ export async function createInvoice(
     }
 
     let dueDate: string | null = input.dueDate ?? null;
-    if (po.paymentType === 'CREDIT' && !dueDate) {
-      dueDate = addDaysToIsoDate(input.invoiceDate, po.creditDays ?? 0);
+    let billingDate: string | null = null;
+    if (po.paymentType === 'CREDIT') {
+      // A credit bill is placed against goods that have arrived, and never for more than they are worth
+      const received = await receivedSoFar(tx, po.id);
+      if (!received.lastDate) {
+        throw new DomainError('NOT_RECEIVED', 'ยังไม่มีการรับของในใบสั่งซื้อนี้ วางบิลได้หลังรับของแล้วเท่านั้น', 409);
+      }
+      const [billed] = await tx
+        .select({ gross: sql<string>`coalesce(sum(${invoices.gross}), 0)` })
+        .from(invoices)
+        .where(and(eq(invoices.poId, po.id), eq(invoices.status, 'ACTIVE')));
+      const afterThis = D(billed?.gross ?? 0).plus(gross);
+      if (afterThis.gt(received.value.plus(RECEIVED_TOLERANCE))) {
+        throw new DomainError(
+          'INVOICE_EXCEEDS_RECEIVED',
+          `ยอดวางบิลรวม ฿${afterThis.toFixed(2)} เกินมูลค่าของที่รับแล้ว ฿${received.value.toFixed(2)}`,
+          409,
+        );
+      }
+      const computed = computeDueDate({
+        invoiceDate: input.invoiceDate,
+        receivedDate: received.lastDate,
+        terms: {
+          billingSchedule: po.billingSchedule,
+          creditBasis: po.creditBasis,
+          creditDays: po.creditDays ?? 0,
+          chequeSchedule: po.chequeSchedule,
+        },
+      });
+      billingDate = computed.billingDate;
+      if (!dueDate) dueDate = computed.dueDate;
     }
 
     const [created] = await tx
@@ -123,6 +161,7 @@ export async function createInvoice(
         beforeVat: beforeVat.toFixed(2),
         vat: vat.toFixed(2),
         gross: gross.toFixed(2),
+        billingDate,
         dueDate,
         status: 'ACTIVE',
         createdBy: actor.id,
@@ -592,4 +631,41 @@ export async function getInvoice(db: Db, actor: SessionUser, id: string) {
     })),
     poPayables,
   };
+}
+
+export interface PoBillingInfo {
+  poId: string;
+  paymentType: string;
+  creditDays: number | null;
+  billingSchedule: string;
+  creditBasis: 'INVOICE' | 'BILLING' | 'RECEIPT';
+  chequeSchedule: string;
+  /** Latest confirmed delivery; null when nothing has arrived */
+  lastReceivedDate: string | null;
+}
+
+/** What the bill form needs to show the billing and due dates before saving */
+export async function listPoBillingInfo(db: Db, actor: SessionUser, poIds: string[]): Promise<PoBillingInfo[]> {
+  assertCan(actor, 'invoice.manage');
+  if (poIds.length === 0) return [];
+  const [terms, received] = await Promise.all([
+    db
+      .select({
+        poId: pos.id,
+        paymentType: pos.paymentType,
+        creditDays: pos.creditDays,
+        billingSchedule: pos.billingSchedule,
+        creditBasis: pos.creditBasis,
+        chequeSchedule: pos.chequeSchedule,
+      })
+      .from(pos)
+      .where(inArray(pos.id, poIds)),
+    db
+      .select({ poId: receipts.poId, last: sql<string | null>`max(${receipts.receivedAt})` })
+      .from(receipts)
+      .where(and(inArray(receipts.poId, poIds), eq(receipts.status, 'CONFIRMED')))
+      .groupBy(receipts.poId),
+  ]);
+  const lastByPo = new Map(received.map((r) => [r.poId, r.last ? String(r.last).slice(0, 10) : null]));
+  return terms.map((t) => ({ ...t, lastReceivedDate: lastByPo.get(t.poId) ?? null }));
 }

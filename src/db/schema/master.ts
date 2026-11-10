@@ -12,6 +12,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { type ProjectStatus } from '@/domain/project';
+import { type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { users } from './core';
 
 export type VendorType = 'INDIVIDUAL' | 'COMPANY';
@@ -72,6 +73,12 @@ export const vendors = pgTable(
     bankAccountName: text('bank_account_name').default('').notNull(),
     defaultCreditDays: integer('default_credit_days').default(30).notNull(),
     defaultWhtRate: integer('default_wht_rate').default(0).notNull(),
+    /** Billing day schedule ('' any day, 'M:25', 'W:2'); see domain/payment-terms */
+    billingSchedule: text('billing_schedule').default('').notNull(),
+    creditBasis: text('credit_basis').$type<CreditBasis>().default('BILLING').notNull(),
+    /** Cheque hand-over schedule, same format as billingSchedule */
+    chequeSchedule: text('cheque_schedule').default('').notNull(),
+    defaultPayMethod: text('default_pay_method').$type<PayMethod>().default('TRANSFER').notNull(),
     /** What this vendor sells, in the buyer's own words; not tied to the item list */
     suppliedItems: text('supplied_items').default('').notNull(),
     contactPerson: text('contact_person').default('').notNull(),

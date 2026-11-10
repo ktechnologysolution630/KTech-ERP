@@ -19,6 +19,7 @@ import {
 import { DomainError } from '@/domain/errors';
 import { MENU_KEYS, type MenuKey } from '@/domain/menu';
 import { D, WHT_RATES } from '@/domain/money';
+import { normaliseSchedule } from '@/domain/payment-terms';
 import { PROJECT_COVER_PRESETS, PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
 import { computeProjectProgress, type ScheduleTask } from '@/domain/schedule';
 import { hashPassword } from '@/server/auth/password';
@@ -389,6 +390,22 @@ export async function listProjectProgress(db: Db, projectIds: string[]): Promise
   return new Map([...byProject].map(([id, tasks]) => [id, computeProjectProgress(tasks)]));
 }
 
+/** A billing / cheque day schedule ('' any day, 'M:5,20', 'W:1'), normalised */
+function scheduleField(label: string) {
+  return z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (v === undefined) return undefined;
+      try {
+        return normaliseSchedule(v);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label}: ระบุวันที่ 1–31 หรือวันในสัปดาห์` });
+        return z.NEVER;
+      }
+    });
+}
+
 const vendorSchema = z.object({
   id: z.string().uuid().optional(),
   code: z.string().trim().min(1, 'กรุณาระบุรหัสผู้ขาย'),
@@ -429,6 +446,10 @@ const vendorSchema = z.object({
   altAddress: z.string().trim().max(500, 'ที่อยู่สำรองต้องไม่เกิน 500 ตัวอักษร').optional(),
   email: z.string().trim().max(200, 'อีเมลต้องไม่เกิน 200 ตัวอักษร').optional(),
   fax: z.string().trim().max(100, 'แฟกซ์ต้องไม่เกิน 100 ตัวอักษร').optional(),
+  billingSchedule: scheduleField('รอบวางบิล'),
+  creditBasis: z.enum(['INVOICE', 'BILLING', 'RECEIPT']).optional(),
+  chequeSchedule: scheduleField('รอบรับเช็ค'),
+  defaultPayMethod: z.enum(['TRANSFER', 'CHEQUE', 'CASH']).optional(),
   active: z.boolean().default(true),
 });
 
@@ -444,7 +465,17 @@ export async function upsertVendor(
   }
   const d = parsed.data;
   // Drizzle skips undefined, so what was left out keeps its value
-  const optionalFields = { suppliedItems: d.suppliedItems, contactPerson: d.contactPerson, altAddress: d.altAddress, email: d.email, fax: d.fax };
+  const optionalFields = {
+    suppliedItems: d.suppliedItems,
+    contactPerson: d.contactPerson,
+    altAddress: d.altAddress,
+    email: d.email,
+    fax: d.fax,
+    billingSchedule: d.billingSchedule,
+    creditBasis: d.creditBasis,
+    chequeSchedule: d.chequeSchedule,
+    defaultPayMethod: d.defaultPayMethod,
+  };
 
   if (d.id) {
     const [updated] = await db

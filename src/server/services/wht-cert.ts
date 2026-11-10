@@ -47,6 +47,23 @@ export async function issueWhtCert(
     .limit(1);
   if (!vendor) throw new DomainError('NOT_FOUND', 'ไม่พบข้อมูลผู้ขาย', 404);
 
+  // A PV paid again after its cheque was voided brings back its own certificate, dated the new payment
+  const [previous] = await tx.select().from(whtCerts).where(eq(whtCerts.pvId, pv.id)).limit(1);
+  if (previous) {
+    await tx
+      .update(whtCerts)
+      .set({
+        status: 'ACTIVE',
+        voidReason: null,
+        paidAt: pv.paidAt ?? new Date().toISOString().slice(0, 10),
+        basis: totalBasis.toFixed(2),
+        wht: totalWht.toFixed(2),
+        updatedAt: new Date(),
+      })
+      .where(eq(whtCerts.id, previous.id));
+    return previous.id;
+  }
+
   const paidDateObj = pv.paidAt
     ? new Date(`${pv.paidAt}T00:00:00+07:00`)
     : new Date();

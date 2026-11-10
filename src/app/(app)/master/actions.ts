@@ -74,6 +74,10 @@ export async function saveVendorAction(formData: FormData) {
     altAddress: optionalText(formData, 'altAddress'),
     email: optionalText(formData, 'email'),
     fax: optionalText(formData, 'fax'),
+    billingSchedule: optionalText(formData, 'billingSchedule'),
+    creditBasis: (['INVOICE', 'BILLING', 'RECEIPT'] as const).find((b) => b === formData.get('creditBasis')),
+    chequeSchedule: optionalText(formData, 'chequeSchedule'),
+    defaultPayMethod: (['TRANSFER', 'CHEQUE', 'CASH'] as const).find((m) => m === formData.get('defaultPayMethod')),
     active: formData.get('active') !== 'false',
   });
   revalidatePath('/master/vendors');

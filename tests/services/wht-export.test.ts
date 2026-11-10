@@ -9,6 +9,7 @@ import { getWhtCert } from '@/server/services/wht-cert';
 import { exportMonthly } from '@/server/services/exports';
 import { renderDocPdf } from '@/server/services/pdf';
 import { createTestDb } from '../helpers/test-db';
+import { EARLY_PAY_REASON, receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
 
 describe('50 ทวิ certificates and monthly exports', () => {
@@ -37,6 +38,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
     await submitPo(db, f.users.buyer, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-PND3',
@@ -53,7 +55,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
       whtRates: { [p!.id]: 3 },
     });
     await submitPv(db, f.users.finance, pvCreated.id);
-    await approvePv(db, f.users.owner, pvCreated.id);
+    await approvePv(db, f.users.owner, pvCreated.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pvCreated.id, {
       paidAt: '2026-11-15',
       payMethod: 'TRANSFER',
@@ -100,6 +102,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
     await submitPo(db, f.users.buyer, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-NOWHT',
@@ -116,7 +119,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
       whtRates: { [p!.id]: 0 },
     });
     await submitPv(db, f.users.finance, pvCreated.id);
-    await approvePv(db, f.users.owner, pvCreated.id);
+    await approvePv(db, f.users.owner, pvCreated.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pvCreated.id, {
       paidAt: '2026-11-15',
       payMethod: 'TRANSFER',
@@ -143,6 +146,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
     await submitPo(db, f.users.buyer, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
+    await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, {
       poId: po.id,
       invoiceNo: 'IV-NOV30',
@@ -159,7 +163,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
       whtRates: { [p!.id]: 3 },
     });
     await submitPv(db, f.users.finance, pvCreated.id);
-    await approvePv(db, f.users.owner, pvCreated.id);
+    await approvePv(db, f.users.owner, pvCreated.id, EARLY_PAY_REASON);
     await markPvPaid(db, f.users.finance, pvCreated.id, {
       paidAt: '2026-11-30',
       payMethod: 'TRANSFER',

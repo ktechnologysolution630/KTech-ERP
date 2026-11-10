@@ -12,9 +12,11 @@ import {
   type PayMethod,
   type PvStatus,
   type SessionUser,
+  whtCerts,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { computeWht, D, round2, sum, type Decimal } from '@/domain/money';
+import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
@@ -372,6 +374,7 @@ export async function approvePv(
       .select({
         line: pvLines,
         poId: payables.poId,
+        dueDate: payables.dueDate,
       })
       .from(pvLines)
       .innerJoin(payables, eq(payables.id, pvLines.payableId))
@@ -404,6 +407,16 @@ export async function approvePv(
     const trimmedOverride = overrideReason?.trim() ?? '';
     if (needsOverride && !trimmedOverride) {
       throw new DomainError('OVERPAY', 'ยอดจ่ายเกินยอด PO กรุณาระบุเหตุผลอนุมัติเกินวงเงิน', 409);
+    }
+    // Paying a bill before it falls due is the owner's call, with a reason on record
+    const today = bangkokDateString();
+    const earliestDue = lines.map((l) => l.dueDate).sort()[0];
+    if (earliestDue && earliestDue > today && !trimmedOverride) {
+      throw new DomainError(
+        'EARLY_PAYMENT',
+        `มีรายการที่ยังไม่ถึงกำหนดจ่าย (ครบกำหนด ${earliestDue}) กรุณาระบุเหตุผลการจ่ายก่อนกำหนด`,
+        409,
+      );
     }
 
     await tx
@@ -536,11 +549,20 @@ export async function markPvPaid(
     payMethod: PayMethod;
     payFromAccount?: string;
     payRef?: string;
+    /** Required when paying by cheque */
+    cheque?: { no: string; bank: string; date: string };
   },
 ) {
   assertCan(actor, 'pv.pay');
   if (!input.paidAt) {
     throw new DomainError('INVALID_INPUT', 'กรุณาระบุวันที่จ่ายเงิน', 400);
+  }
+  const cheque =
+    input.payMethod === 'CHEQUE'
+      ? { no: input.cheque?.no?.trim() ?? '', bank: input.cheque?.bank?.trim() ?? '', date: input.cheque?.date ?? '' }
+      : null;
+  if (cheque && (!cheque.no || !cheque.bank || !cheque.date)) {
+    throw new DomainError('CHEQUE_REQUIRED', 'จ่ายด้วยเช็คต้องระบุเลขที่เช็ค ธนาคาร และวันที่หน้าเช็ค', 400);
   }
 
   return db.transaction(async (tx) => {
@@ -551,6 +573,9 @@ export async function markPvPaid(
         'บันทึกจ่ายเงินได้เฉพาะใบสำคัญจ่ายที่อนุมัติแล้วเท่านั้น',
         409,
       );
+    }
+    if (cheque && pv.approvedAt && cheque.date < bangkokDateString(pv.approvedAt)) {
+      throw new DomainError('CHEQUE_DATE', 'วันที่หน้าเช็คต้องไม่ก่อนวันที่อนุมัติใบสำคัญจ่าย', 400);
     }
 
     const lines = await tx
@@ -587,7 +612,15 @@ export async function markPvPaid(
         paidAt: input.paidAt,
         payMethod: input.payMethod,
         payFromAccount: input.payFromAccount?.trim() || null,
-        payRef: input.payRef?.trim() || null,
+        payRef: input.payRef?.trim() || cheque?.no || null,
+        chequeNo: cheque?.no ?? null,
+        chequeBank: cheque?.bank ?? null,
+        chequeDate: cheque?.date ?? null,
+        chequeStatus: cheque ? 'ISSUED' : null,
+        chequeCollectedBy: null,
+        chequeCollectedAt: null,
+        chequeClearedAt: null,
+        chequeVoidReason: null,
         paidBy: actor.id,
         updatedAt: new Date(),
       })
@@ -623,6 +656,96 @@ export async function markPvPaid(
     for (const poId of touchedPoIds) {
       await triggerPoAutoComplete(tx, poId);
     }
+  });
+}
+
+export type ChequeAction =
+  | { action: 'COLLECT'; by: string; at: string }
+  | { action: 'CLEAR'; at: string }
+  | { action: 'VOID'; reason: string };
+
+/**
+ * Follows a cheque after it is written: the vendor collects it, it clears, or it is voided.
+ * Voiding undoes the payment: the PV goes back to approved, its bills back to awaiting payment and
+ * its WHT certificate is voided, so a new cheque can be recorded.
+ */
+export async function updateCheque(db: Db, actor: SessionUser, id: string, input: ChequeAction) {
+  assertCan(actor, 'pv.pay');
+  return db.transaction(async (tx) => {
+    const pv = await lockPv(tx, id);
+    if (pv.status !== 'PAID' || pv.payMethod !== 'CHEQUE' || !pv.chequeStatus) {
+      throw new DomainError('INVALID_STATUS', 'ใบสำคัญจ่ายนี้ไม่ได้จ่ายด้วยเช็ค', 409);
+    }
+    const now = new Date();
+
+    if (input.action === 'COLLECT') {
+      if (pv.chequeStatus !== 'ISSUED') throw new DomainError('INVALID_STATUS', 'เช็คนี้ไม่ได้อยู่ในสถานะรอผู้ขายรับ', 409);
+      const by = input.by.trim();
+      if (!by || !input.at) throw new DomainError('INVALID_INPUT', 'กรุณาระบุชื่อผู้รับเช็คและวันที่รับ', 400);
+      if (pv.chequeDate && input.at < pv.chequeDate) {
+        // Cheques are handed over on or after the date written on them
+        throw new DomainError('INVALID_INPUT', 'วันที่รับเช็คต้องไม่ก่อนวันที่หน้าเช็ค', 400);
+      }
+      await tx.update(pvs).set({ chequeStatus: 'COLLECTED', chequeCollectedBy: by, chequeCollectedAt: input.at, updatedAt: now }).where(eq(pvs.id, pv.id));
+      await logActivity(tx, { userId: actor.id, entityType: 'PV', entityId: pv.id, action: 'CHEQUE_COLLECTED', note: `${by} รับเช็ค ${pv.chequeNo} วันที่ ${input.at}` });
+      return;
+    }
+
+    if (input.action === 'CLEAR') {
+      if (pv.chequeStatus !== 'COLLECTED') throw new DomainError('INVALID_STATUS', 'บันทึกเช็คผ่านได้หลังผู้ขายรับเช็คแล้ว', 409);
+      if (!input.at) throw new DomainError('INVALID_INPUT', 'กรุณาระบุวันที่เช็คผ่าน', 400);
+      await tx.update(pvs).set({ chequeStatus: 'CLEARED', chequeClearedAt: input.at, updatedAt: now }).where(eq(pvs.id, pv.id));
+      await logActivity(tx, { userId: actor.id, entityType: 'PV', entityId: pv.id, action: 'CHEQUE_CLEARED', note: `เช็ค ${pv.chequeNo} ผ่านวันที่ ${input.at}` });
+      return;
+    }
+
+    // VOID
+    if (pv.chequeStatus === 'CLEARED') throw new DomainError('INVALID_STATUS', 'เช็คผ่านแล้ว ยกเลิกไม่ได้', 409);
+    const reason = input.reason.trim();
+    if (!reason) throw new DomainError('REASON_REQUIRED', 'กรุณาระบุเหตุผลการยกเลิกเช็ค', 400);
+
+    const lines = await tx
+      .select({ payable: payables })
+      .from(pvLines)
+      .innerJoin(payables, eq(payables.id, pvLines.payableId))
+      .where(eq(pvLines.pvId, pv.id));
+    const payableIds = lines.map((l) => l.payable.id);
+    if (payableIds.length > 0) {
+      await tx.update(payables).set({ status: 'IN_PV', updatedAt: now }).where(inArray(payables.id, payableIds));
+    }
+    const installmentIds = lines.map((l) => l.payable.installmentId).filter((iid): iid is string => Boolean(iid));
+    if (installmentIds.length > 0) {
+      await tx.update(poInstallments).set({ status: 'REQUESTED', updatedAt: now }).where(inArray(poInstallments.id, installmentIds));
+    }
+    if (pv.whtCertId) {
+      await tx.update(whtCerts).set({ status: 'VOID', voidReason: `ยกเลิกเช็ค: ${reason}`, updatedAt: now }).where(eq(whtCerts.id, pv.whtCertId));
+    }
+    // A PO closed by this payment is open again until the new cheque is recorded
+    const poIds = Array.from(new Set(lines.map((l) => l.payable.poId).filter((pid): pid is string => Boolean(pid))));
+    if (poIds.length > 0) {
+      await tx.update(pos).set({ status: 'ORDERED', updatedAt: now }).where(and(inArray(pos.id, poIds), eq(pos.status, 'COMPLETED')));
+    }
+
+    await tx
+      .update(pvs)
+      .set({
+        status: 'APPROVED',
+        chequeStatus: 'VOID',
+        chequeVoidReason: reason,
+        paidAt: null,
+        paidBy: null,
+        whtCertId: null,
+        updatedAt: now,
+      })
+      .where(eq(pvs.id, pv.id));
+    await logActivity(tx, {
+      userId: actor.id,
+      entityType: 'PV',
+      entityId: pv.id,
+      action: 'CHEQUE_VOIDED',
+      note: reason,
+      data: { chequeNo: pv.chequeNo, whtCertId: pv.whtCertId },
+    });
   });
 }
 
@@ -667,6 +790,7 @@ export async function getPv(db: Db, actor: SessionUser, id: string) {
       vendorBankName: vendors.bankName,
       vendorBankAccountNo: vendors.bankAccountNo,
       vendorBankAccountName: vendors.bankAccountName,
+      vendorDefaultPayMethod: vendors.defaultPayMethod,
       creatorName: users.name,
     })
     .from(pvs)
@@ -682,6 +806,7 @@ export async function getPv(db: Db, actor: SessionUser, id: string) {
       line: pvLines,
       payableStatus: payables.status,
       payableNote: payables.note,
+      dueDate: payables.dueDate,
       poId: payables.poId,
       poNumber: pos.number,
       invoiceNo: invoices.invoiceNo,
@@ -700,11 +825,13 @@ export async function getPv(db: Db, actor: SessionUser, id: string) {
     vendorBankName: row.vendorBankName,
     vendorBankAccountNo: row.vendorBankAccountNo,
     vendorBankAccountName: row.vendorBankAccountName,
+    vendorDefaultPayMethod: row.vendorDefaultPayMethod,
     creatorName: row.creatorName,
     lines: lines.map((l) => ({
       ...l.line,
       payableStatus: l.payableStatus,
       payableNote: l.payableNote,
+      dueDate: l.dueDate,
       poId: l.poId,
       poNumber: l.poNumber ?? null,
       invoiceNo: l.invoiceNo ?? null,

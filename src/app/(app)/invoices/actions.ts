@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { DomainError } from '@/domain/errors';
 import { getDb } from '@/db/client';
 import { D } from '@/domain/money';
 import { requireUser } from '@/server/auth/current-user';
@@ -23,10 +24,12 @@ export async function createInvoiceAction(input: {
   beforeVat: string;
   vat: string;
   dueDate?: string;
-}) {
+}): Promise<{ ok: false; error: string }> {
   const actor = await requireUser();
   const db = await getDb();
-  const res = await createInvoice(db, actor, {
+  let res: { id: string };
+  try {
+    res = await createInvoice(db, actor, {
     poId: input.poId,
     invoiceNo: input.invoiceNo,
     invoiceDate: input.invoiceDate,
@@ -35,6 +38,10 @@ export async function createInvoiceAction(input: {
     vat: D(input.vat || 0),
     dueDate: input.dueDate || null,
   });
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
   revalidatePath('/invoices');
   revalidatePath('/payables');
   revalidatePath(`/po/${input.poId}`);

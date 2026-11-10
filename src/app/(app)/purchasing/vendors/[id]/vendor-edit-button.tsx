@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, X } from 'lucide-react';
 import { WHT_RATES } from '@/domain/money';
+import { type CreditBasis, type PayMethod } from '@/domain/payment-terms';
+import { PaymentTermsFields } from '@/components/payment-terms-fields';
 import { updateVendorAction } from './actions';
 
 export interface VendorFormValues {
@@ -21,6 +23,10 @@ export interface VendorFormValues {
   suppliedItems: string;
   defaultCreditDays: number;
   defaultWhtRate: number;
+  billingSchedule: string;
+  creditBasis: CreditBasis;
+  chequeSchedule: string;
+  defaultPayMethod: PayMethod;
   bankName: string;
   bankAccountNo: string;
   bankAccountName: string;
@@ -119,6 +125,16 @@ export function VendorEditButton({ vendor: v }: { vendor: VendorFormValues }) {
                     ))}
                   </select>
                 </label>
+                <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 font-bold text-slate-800">เงื่อนไขวางบิล / รับเช็ค</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <PaymentTermsFields
+                      value={{ billingSchedule: v.billingSchedule, creditBasis: v.creditBasis, chequeSchedule: v.chequeSchedule, payMethod: v.defaultPayMethod }}
+                      names={{ billingSchedule: 'billingSchedule', creditBasis: 'creditBasis', chequeSchedule: 'chequeSchedule', payMethod: 'defaultPayMethod' }}
+                      inputClass={inputClass}
+                    />
+                  </div>
+                </div>
                 <TextField label="ธนาคาร" name="bankName" value={v.bankName} />
                 <TextField label="เลขที่บัญชี" name="bankAccountNo" value={v.bankAccountNo} />
                 <TextField label="ชื่อบัญชี" name="bankAccountName" value={v.bankAccountName} wide />

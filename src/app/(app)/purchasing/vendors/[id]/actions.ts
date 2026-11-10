@@ -28,6 +28,10 @@ export async function updateVendorAction(id: string, formData: FormData): Promis
       bankName: text('bankName'),
       bankAccountNo: text('bankAccountNo'),
       bankAccountName: text('bankAccountName'),
+      billingSchedule: text('billingSchedule'),
+      creditBasis: (['INVOICE', 'BILLING', 'RECEIPT'] as const).find((b) => b === text('creditBasis')),
+      chequeSchedule: text('chequeSchedule'),
+      defaultPayMethod: (['TRANSFER', 'CHEQUE', 'CASH'] as const).find((m) => m === text('defaultPayMethod')),
     });
   } catch (err) {
     if (err instanceof DomainError) return { ok: false, error: err.message };
