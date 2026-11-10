@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { boqLines, boqs, projects, stockDocs, stockItems, vendors, type SessionUser, type StockDocType } from '@/db/schema';
+import { boqLines, boqs, projects, stockDocs, stockItems, stockMovements, users, vendors, type SessionUser, type StockDocType } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { D, round2, sum, type Decimal } from '@/domain/money';
 import { DEFAULT_STOCK_CATEGORY, STOCK_CATEGORIES } from '@/domain/stock';
@@ -255,4 +255,55 @@ export async function listBoqTreeForStock(db: Db, actor: SessionUser): Promise<B
     }
   }
   return out;
+}
+
+export interface StockDocRow {
+  id: string;
+  number: string;
+  type: StockDocType;
+  docDate: string;
+  fromName: string;
+  toName: string;
+  supplierName: string;
+  reference: string;
+  lineCount: number;
+  net: number;
+  performedByName: string;
+}
+
+/** Saved stock documents, newest first, limited to the stores the actor can see */
+export async function listStockDocs(db: Db, actor: SessionUser, limit = 300): Promise<StockDocRow[]> {
+  const docs = await db.select().from(stockDocs).orderBy(desc(stockDocs.createdAt)).limit(limit);
+  const scoped = isSiteScopedOnly(actor);
+  const visible = scoped
+    ? docs.filter((d) => [d.projectId, d.targetProjectId, d.useProjectId].some((p) => p && actor.projectIds.includes(p)))
+    : docs;
+  if (visible.length === 0) return [];
+  const projectIds = [...new Set(visible.flatMap((d) => [d.projectId, d.targetProjectId, d.useProjectId]).filter((x): x is string => !!x))];
+  const [projectRows, userRows, counts] = await Promise.all([
+    projectIds.length ? db.select({ id: projects.id, code: projects.code, name: projects.name }).from(projects).where(inArray(projects.id, projectIds)) : [],
+    db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, [...new Set(visible.map((d) => d.performedBy))])),
+    db
+      .select({ docId: stockMovements.docId, n: sql<number>`count(*)::int` })
+      .from(stockMovements)
+      .where(inArray(stockMovements.docId, visible.map((d) => d.id)))
+      .groupBy(stockMovements.docId),
+  ]);
+  const projectName = new Map(projectRows.map((p) => [p.id, `${p.code} ${p.name}`]));
+  const userName = new Map(userRows.map((u) => [u.id, u.name]));
+  const countOf = new Map(counts.map((c) => [c.docId, Number(c.n)]));
+  const store = (id: string | null) => (id ? (projectName.get(id) ?? '-') : 'คลังกลาง');
+  return visible.map((d) => ({
+    id: d.id,
+    number: d.number,
+    type: d.type,
+    docDate: d.docDate,
+    fromName: d.type === 'RECEIVE' ? d.supplierName || '-' : store(d.projectId),
+    toName: d.type === 'RECEIVE' ? [store(d.projectId), d.warehouseName].filter(Boolean).join(' · ') : d.type === 'ISSUE' ? d.zone || store(d.useProjectId ?? d.targetProjectId) : store(d.targetProjectId),
+    supplierName: d.supplierName,
+    reference: [d.poNumber && `PO ${d.poNumber}`, d.deliveryNoteNo && `DN ${d.deliveryNoteNo}`, d.taxInvoiceNo && `TI ${d.taxInvoiceNo}`].filter(Boolean).join(' · '),
+    lineCount: countOf.get(d.id) ?? 0,
+    net: Number(d.net),
+    performedByName: userName.get(d.performedBy) ?? '-',
+  }));
 }

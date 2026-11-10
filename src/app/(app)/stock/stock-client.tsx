@@ -2,12 +2,13 @@
 
 import React, { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Calendar, FileText, Package, Plus, Search } from 'lucide-react';
+import { ArrowLeft, FileText, Package, Plus, Search, History } from 'lucide-react';
 import { GsapReveal } from '@/components/gsap-animator';
 import type { StockItemDto, StockMovementDto, StockPageData } from '@/server/services/stock';
 import { ItemDialog, MovementDialog, type MovementKind } from './stock-dialogs';
 import { StockDocDialog, type StockDocOptions } from './stock-doc-form';
 import { MaterialUsageDialog } from './material-usage-dialog';
+import { StockDocHistoryDialog } from './stock-doc-history';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
@@ -72,6 +73,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
   const [movementDialog, setMovementDialog] = useState<{ kind: MovementKind; itemId?: string } | null>(null);
   const [itemDialog, setItemDialog] = useState<{ item: StockItemDto | null } | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -164,7 +166,8 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
           data={data}
           onCreateItem={data.permissions.manageItems ? () => setItemDialog({ item: null }) : undefined}
           onEditItem={data.permissions.manageItems ? (item) => setItemDialog({ item }) : undefined}
-          onHistory={() => setTab('stock-adjust')}
+          onHistory={() => setHistoryOpen(true)}
+          onCreateDoc={canMoveAnything ? () => setMovementDialog({ kind: 'RECEIVE' }) : undefined}
         />
       )}
       {currentTab === 'stock-count' && <StockCountTab data={data} />}
@@ -179,6 +182,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
         ) : (
           <StockDocDialog data={data} options={docOptions} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
         ))}
+      {historyOpen && <StockDocHistoryDialog docs={docOptions.docs} onClose={() => setHistoryOpen(false)} />}
       {usageOpen && <MaterialUsageDialog data={data} meName={docOptions.meName} today={docOptions.today} onClose={() => setUsageOpen(false)} />}
       {itemDialog && <ItemDialog item={itemDialog.item} poLines={data.poLineOptions} onClose={() => setItemDialog(null)} />}
     </div>
@@ -806,11 +810,14 @@ function AllStockTab({
   onCreateItem,
   onEditItem,
   onHistory,
+  onCreateDoc,
 }: {
   data: StockPageData;
   onCreateItem?: () => void;
   onEditItem?: (item: StockItemDto) => void;
   onHistory: () => void;
+  /** Opens the receipt / issue / transfer / borrow form */
+  onCreateDoc?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [drill, setDrill] = useState<string | null>(null);
@@ -856,11 +863,17 @@ function AllStockTab({
         </div>
         <div className="flex items-center gap-3">
           <button type="button" onClick={onHistory} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            ประวัติเอกสารปรับยอด
+            <History className="w-3.5 h-3.5 text-slate-500" />
+            ประวัติเอกสารที่บันทึก
           </button>
+          {onCreateDoc && (
+            <button type="button" onClick={onCreateDoc} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#217346] hover:bg-[#1b5e39] text-white text-xs font-semibold shadow-sm">
+              <Plus className="w-4 h-4" />
+              สร้างรายการ
+            </button>
+          )}
           {onCreateItem && (
-            <button type="button" onClick={onCreateItem} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#217346] hover:bg-[#1b5e39] text-white text-xs font-semibold shadow-sm">
+            <button type="button" onClick={onCreateItem} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#217346] bg-white hover:bg-emerald-50 text-[#217346] text-xs font-medium">
               <Plus className="w-4 h-4" />
               เพิ่มวัสดุ
             </button>

@@ -4,7 +4,7 @@ import React, { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, Paperclip, Plus, X } from 'lucide-react';
 import type { StockPageData } from '@/server/services/stock';
-import type { BoqPickCategory } from '@/server/services/stock-docs';
+import type { BoqPickCategory, StockDocRow } from '@/server/services/stock-docs';
 import { D, formatMoneyDisplay, round2 } from '@/domain/money';
 import { DateInput } from '@/components/date-input';
 import { createStockDocAction } from './actions';
@@ -12,6 +12,8 @@ import { createStockDocAction } from './actions';
 export type StockDocKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'BORROW';
 export interface StockDocOptions {
   vendors: { id: string; code: string; name: string }[];
+  /** Saved documents for the history list */
+  docs: StockDocRow[];
   boqTree: BoqPickCategory[];
   meName: string;
   today: string;

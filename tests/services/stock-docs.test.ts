@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { stockDocs, stockItems, stockMovements } from '@/db/schema';
 import { getStockPageData, upsertStockItem } from '@/server/services/stock';
-import { createStockDoc, receiptLineValue } from '@/server/services/stock-docs';
+import { createStockDoc, listStockDocs, receiptLineValue } from '@/server/services/stock-docs';
 import { seedBasics } from '../helpers/fixtures';
 import { createTestDb } from '../helpers/test-db';
 
@@ -68,6 +68,12 @@ describe('stock documents', () => {
 
     const page = await getStockPageData(db, f.users.buyer);
     expect(page.movements.some((m) => m.docType === 'BORROW' && m.referenceNumber === brw.number)).toBe(true);
+
+    const history = await listStockDocs(db, f.users.buyer);
+    expect(history.map((h) => h.type)).toEqual(['BORROW', 'ISSUE', 'TRANSFER', 'RECEIVE']);
+    expect(history[3]).toMatchObject({ number: gr.number, lineCount: 2, net: 2802, reference: 'PO PO-TEST' });
+    // Site staff see only documents touching their projects
+    expect((await listStockDocs(db, f.users.foreman)).map((h) => h.type).sort()).toEqual(['ISSUE', 'TRANSFER']);
 
     // Too much on one line stops the whole document
     await expect(
