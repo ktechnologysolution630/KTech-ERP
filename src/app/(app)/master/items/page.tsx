@@ -3,9 +3,11 @@ import { requireUser } from '@/server/auth/current-user';
 import { listItems, listUnits } from '@/server/services/master';
 import { SpreadsheetImportBox } from '@/components/spreadsheet-import-box';
 import { importItemsAction, saveItemAction } from '../actions';
+import { can } from '@/server/policy';
+import { ItemsTable } from './items-table';
 
 export default async function ItemsMasterPage() {
-  await requireUser();
+  const actor = await requireUser();
   const db = await getDb();
   const [itemList, unitList] = await Promise.all([listItems(db), listUnits(db)]);
 
@@ -54,28 +56,7 @@ export default async function ItemsMasterPage() {
         </button>
       </form>
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600 text-xs">
-            <tr>
-              <th className="px-4 py-3 text-left">รหัส</th>
-              <th className="px-4 py-3 text-left">ชื่อสินค้า</th>
-              <th className="px-4 py-3 text-left">หน่วย</th>
-              <th className="px-4 py-3 text-left">หมวด</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {itemList.map((it) => (
-              <tr key={it.id}>
-                <td className="px-4 py-3 font-medium">{it.code}</td>
-                <td className="px-4 py-3">{it.name}</td>
-                <td className="px-4 py-3">{it.unitName}</td>
-                <td className="px-4 py-3 text-slate-500">{it.category || '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ItemsTable items={itemList} canDelete={can(actor, 'item.delete')} />
     </div>
   );
 }

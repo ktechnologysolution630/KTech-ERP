@@ -15,6 +15,7 @@ import {
 import type { ItemImportRow, VendorImportRow } from '@/domain/master-import';
 import { importItemCatalog, importItems, importVendorDirectory, importVendors, type DirectoryImportResult } from '@/server/services/import';
 import { updateSettings } from '@/server/services/settings';
+import { deleteItems, type ItemDeleteResult } from '@/server/services/item-delete';
 
 function optionalText(formData: FormData, key: string): string | undefined {
   const v = formData.get(key);
@@ -174,4 +175,19 @@ export async function saveSettingsAction(formData: FormData) {
     poApprovalLimit: String(formData.get('poApprovalLimit') || '50000.00'),
   });
   revalidatePath('/settings');
+}
+
+/** Deletes ticked items from the register; items still on PR/PO lines are switched off instead. */
+export async function deleteItemsAction(ids: string[]): Promise<{ ok: true; result: ItemDeleteResult } | { ok: false; error: string }> {
+  const actor = await requireUser();
+  const db = await getDb();
+  try {
+    const result = await deleteItems(db, actor, ids);
+    revalidatePath('/master/items');
+    revalidatePath('/pr');
+    return { ok: true, result };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
 }

@@ -11,6 +11,8 @@ export interface PrItemOption {
   code: string;
   name: string;
   unitName: string;
+  /** Switched-off items stay for labels on older lines but are not offered */
+  active?: boolean;
 }
 
 export function PrForm({
@@ -62,6 +64,7 @@ export function PrForm({
     ],
   );
   const [error, setError] = useState<string | null>(null);
+  const pickableItems = items.filter((i) => i.active !== false);
   const itemLabel = (id: string) => {
     const it = items.find((i) => i.id === id);
     return it ? `${it.code} - ${it.name}` : '';
@@ -186,7 +189,7 @@ export function PrForm({
             <div className="sm:col-span-3">
               <label className="block text-[11px] text-slate-500 mb-0.5">เลือกจากทะเบียนสินค้า หรือพิมพ์เอง</label>
               <ItemCombobox
-                items={items}
+                items={pickableItems}
                 selectedId={line.itemId}
                 value={line.itemId ? itemLabel(line.itemId) : line.description}
                 // Typing is free text: it becomes the description and drops any picked item

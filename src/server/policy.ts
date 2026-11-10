@@ -46,6 +46,7 @@ export type Action =
   | 'asset.delete'
   | 'prv.delete'
   | 'vendor.delete'
+  | 'item.delete'
   | 'po.delete';
 
 export interface PolicyContext {
@@ -202,6 +203,9 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'project.delete':
     case 'asset.delete':
     case 'prv.delete':
+    case 'item.delete': {
+      return hasRole(u, ['OWNER', 'ADMIN']);
+    }
     case 'vendor.delete': {
       return hasRole(u, ['OWNER', 'ADMIN']);
     }
