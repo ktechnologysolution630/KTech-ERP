@@ -267,8 +267,14 @@ export interface StockDocRow {
   supplierName: string;
   reference: string;
   lineCount: number;
+  /** First few item names of the document */
+  itemsSummary: string;
   net: number;
   performedByName: string;
+  notes: string;
+  /** Stores the document touches (null = central store), for filtering */
+  storeIds: (string | null)[];
+  storeName: string;
 }
 
 /** Saved stock documents, newest first, limited to the stores the actor can see */
@@ -284,14 +290,16 @@ export async function listStockDocs(db: Db, actor: SessionUser, limit = 300): Pr
     projectIds.length ? db.select({ id: projects.id, code: projects.code, name: projects.name }).from(projects).where(inArray(projects.id, projectIds)) : [],
     db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, [...new Set(visible.map((d) => d.performedBy))])),
     db
-      .select({ docId: stockMovements.docId, n: sql<number>`count(*)::int` })
+      .select({ docId: stockMovements.docId, name: stockItems.name })
       .from(stockMovements)
-      .where(inArray(stockMovements.docId, visible.map((d) => d.id)))
-      .groupBy(stockMovements.docId),
+      .innerJoin(stockItems, eq(stockItems.id, stockMovements.stockItemId))
+      .where(inArray(stockMovements.docId, visible.map((d) => d.id))),
   ]);
   const projectName = new Map(projectRows.map((p) => [p.id, `${p.code} ${p.name}`]));
   const userName = new Map(userRows.map((u) => [u.id, u.name]));
-  const countOf = new Map(counts.map((c) => [c.docId, Number(c.n)]));
+  const namesOf = new Map<string, string[]>();
+  for (const c of counts) if (c.docId) namesOf.set(c.docId, [...(namesOf.get(c.docId) ?? []), c.name]);
+  const summary = (names: string[]) => (names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')} และอีก ${names.length - 3} รายการ`);
   const store = (id: string | null) => (id ? (projectName.get(id) ?? '-') : 'คลังกลาง');
   return visible.map((d) => ({
     id: d.id,
@@ -302,8 +310,15 @@ export async function listStockDocs(db: Db, actor: SessionUser, limit = 300): Pr
     toName: d.type === 'RECEIVE' ? [store(d.projectId), d.warehouseName].filter(Boolean).join(' · ') : d.type === 'ISSUE' ? d.zone || store(d.useProjectId ?? d.targetProjectId) : store(d.targetProjectId),
     supplierName: d.supplierName,
     reference: [d.poNumber && `PO ${d.poNumber}`, d.deliveryNoteNo && `DN ${d.deliveryNoteNo}`, d.taxInvoiceNo && `TI ${d.taxInvoiceNo}`].filter(Boolean).join(' · '),
-    lineCount: countOf.get(d.id) ?? 0,
+    lineCount: namesOf.get(d.id)?.length ?? 0,
+    itemsSummary: summary(namesOf.get(d.id) ?? []),
     net: Number(d.net),
     performedByName: userName.get(d.performedBy) ?? '-',
+    notes: d.notes || d.usageNote,
+    storeIds: d.type === 'TRANSFER' || d.type === 'BORROW' ? [d.projectId, d.targetProjectId] : [d.projectId],
+    storeName:
+      d.type === 'TRANSFER' || d.type === 'BORROW'
+        ? `${store(d.projectId)} → ${store(d.targetProjectId)}`
+        : [store(d.projectId), d.type === 'RECEIVE' ? d.warehouseName : ''].filter(Boolean).join(' · '),
   }));
 }

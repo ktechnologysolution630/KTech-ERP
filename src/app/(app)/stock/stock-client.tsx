@@ -8,7 +8,8 @@ import type { StockItemDto, StockMovementDto, StockPageData } from '@/server/ser
 import { ItemDialog, MovementDialog, type MovementKind } from './stock-dialogs';
 import { StockDocDialog, type StockDocOptions } from './stock-doc-form';
 import { MaterialUsageDialog } from './material-usage-dialog';
-import { StockDocHistoryDialog } from './stock-doc-history';
+import { StockDocHistoryView } from './stock-doc-history';
+import { ReorderPointDialog } from './reorder-dialog';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
@@ -74,6 +75,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
   const [itemDialog, setItemDialog] = useState<{ item: StockItemDto | null } | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [reorderOpen, setReorderOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -154,6 +156,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
           canEdit={data.permissions.manageItems}
           onEdit={(item) => setItemDialog({ item })}
           onReorder={(item) => setMovementDialog({ kind: 'RECEIVE', itemId: item.id })}
+          onSettings={data.permissions.manageItems ? () => setReorderOpen(true) : undefined}
           canMove={canMoveAnything}
         />
       )}
@@ -161,7 +164,10 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
       {currentTab === 'material-usage' && (
         <UsageTab data={data} canRecord={canMoveAnything} onRecord={() => setUsageOpen(true)} />
       )}
-      {currentTab === 'all-stock' && (
+      {currentTab === 'all-stock' && historyOpen && (
+        <StockDocHistoryView docs={docOptions.docs} locations={data.locations} onBack={() => setHistoryOpen(false)} />
+      )}
+      {currentTab === 'all-stock' && !historyOpen && (
         <AllStockTab
           data={data}
           onCreateItem={data.permissions.manageItems ? () => setItemDialog({ item: null }) : undefined}
@@ -182,7 +188,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
         ) : (
           <StockDocDialog data={data} options={docOptions} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
         ))}
-      {historyOpen && <StockDocHistoryDialog docs={docOptions.docs} onClose={() => setHistoryOpen(false)} />}
+      {reorderOpen && <ReorderPointDialog items={data.items} onClose={() => setReorderOpen(false)} />}
       {usageOpen && <MaterialUsageDialog data={data} meName={docOptions.meName} today={docOptions.today} onClose={() => setUsageOpen(false)} />}
       {itemDialog && <ItemDialog item={itemDialog.item} poLines={data.poLineOptions} onClose={() => setItemDialog(null)} />}
     </div>
@@ -430,23 +436,36 @@ function LowStockTab({
   canMove,
   onEdit,
   onReorder,
+  onSettings,
 }: {
   items: StockItemDto[];
   canEdit: boolean;
   canMove: boolean;
   onEdit: (item: StockItemDto) => void;
   onReorder: (item: StockItemDto) => void;
+  /** Opens the bulk reorder point settings */
+  onSettings?: () => void;
 }) {
   const withPoint = items.filter((i) => i.reorderPoint > 0).sort((a, b) => Number(b.isLowStock) - Number(a.isLowStock));
   const lowCount = withPoint.filter((i) => i.isLowStock).length;
   return (
     <GsapReveal>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 border-b border-slate-100">
-          <h2 className="text-base font-bold text-slate-900">แจ้งเตือนวัสดุใกล้หมด</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            รายการที่ตั้งจุดสั่งซื้อไว้ · ตัวเลขสีแดงคือคงเหลือไม่เกินจุดสั่งซื้อ ({lowCount} รายการ) · ตั้งจุดสั่งซื้อได้จากปุ่ม &quot;แก้ไข&quot; หรือแท็บสต็อกทั้งหมด
-          </p>
+        <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">แจ้งเตือนวัสดุใกล้หมด</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              แสดงรายการที่ตั้งจุดสั่งซื้อไว้ โดยตัวเลขสีแดงคือรายการที่คงเหลือไม่เกินจุดสั่งซื้อ ({lowCount} รายการใกล้หมด)
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{withPoint.length} รายการ</span>
+            {onSettings && (
+              <button type="button" onClick={onSettings} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700">
+                ตั้งค่าจุดสั่งซื้อ
+              </button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-xs">
@@ -455,8 +474,8 @@ function LowStockTab({
                 <th className="px-3.5 py-2.5 text-left font-medium">วัสดุ</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">คงเหลือ</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">จุดสั่งซื้อ</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">คงเหลือแยกคลัง</th>
-                <th className="px-3.5 py-2.5 text-center font-medium w-40">จัดการ</th>
+                <th className="px-3.5 py-2.5 text-left font-medium">ที่มา / คลัง</th>
+                <th className="px-3.5 py-2.5 text-center font-medium w-40">ตั้งค่า</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

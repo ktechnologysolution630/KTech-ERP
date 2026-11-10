@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { stockDocs, stockItems, stockMovements } from '@/db/schema';
-import { getStockPageData, upsertStockItem } from '@/server/services/stock';
+import { getStockPageData, setReorderPoints, upsertStockItem } from '@/server/services/stock';
 import { createStockDoc, listStockDocs, receiptLineValue } from '@/server/services/stock-docs';
 import { seedBasics } from '../helpers/fixtures';
 import { createTestDb } from '../helpers/test-db';
@@ -71,7 +71,8 @@ describe('stock documents', () => {
 
     const history = await listStockDocs(db, f.users.buyer);
     expect(history.map((h) => h.type)).toEqual(['BORROW', 'ISSUE', 'TRANSFER', 'RECEIVE']);
-    expect(history[3]).toMatchObject({ number: gr.number, lineCount: 2, net: 2802, reference: 'PO PO-TEST' });
+    expect(history[3]).toMatchObject({ number: gr.number, lineCount: 2, net: 2802, reference: 'PO PO-TEST', itemsSummary: 'ปูนซีเมนต์, ทรายหยาบ', storeIds: [null] });
+    expect(history[0]!.storeIds).toEqual([null, f.projectB]);
     // Site staff see only documents touching their projects
     expect((await listStockDocs(db, f.users.foreman)).map((h) => h.type).sort()).toEqual(['ISSUE', 'TRANSFER']);
 
@@ -85,5 +86,17 @@ describe('stock documents', () => {
     await expect(
       createStockDoc(db, f.users.foreman, { type: 'RECEIVE', docDate: '2026-11-12', projectId: f.projectA, supplierName: 'ร้านใกล้ไซต์', lines: [{ newItem: { sku: 'X-1', name: 'ตะปู', unit: 'กก.' }, quantity: 1 }] }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  test('reorder points are set in bulk by purchasing only', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const a = await upsertStockItem(db, f.users.buyer, { name: 'ปูน', unit: 'ถุง', category: 'งานโครงสร้าง', unitCost: 1 });
+    const b = await upsertStockItem(db, f.users.buyer, { name: 'ทราย', unit: 'คิว', category: 'งานโครงสร้าง', unitCost: 1 });
+    await expect(setReorderPoints(db, f.users.foreman, [{ stockItemId: a.id, reorderPoint: 5 }])).rejects.toMatchObject({ status: 403 });
+    expect(await setReorderPoints(db, f.users.buyer, [{ stockItemId: a.id, reorderPoint: 5 }, { stockItemId: b.id, reorderPoint: 0 }])).toBe(2);
+    const items = (await getStockPageData(db, f.users.buyer)).items;
+    expect(items.find((i) => i.id === a.id)).toMatchObject({ reorderPoint: 5, isLowStock: true });
+    expect(items.find((i) => i.id === b.id)).toMatchObject({ reorderPoint: 0, isLowStock: false });
   });
 });

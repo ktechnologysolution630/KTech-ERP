@@ -958,3 +958,20 @@ export function summarizeStock(items: StockItemDto[]) {
       .sort((a, b) => b.totalValue - a.totalValue),
   };
 }
+
+const reorderSchema = z
+  .array(z.object({ stockItemId: uuid, reorderPoint: z.number().finite().min(0, 'จุดสั่งซื้อต้องไม่ติดลบ').max(MAX_QTY) }))
+  .min(1, 'ไม่มีรายการที่เปลี่ยน')
+  .max(5000);
+
+/** Sets the reorder point of many items at once; 0 switches the warning off for that item */
+export async function setReorderPoints(db: Db, actor: SessionUser, input: { stockItemId: string; reorderPoint: number }[]): Promise<number> {
+  assertCan(actor, 'stock.items');
+  const rows = parse(reorderSchema, input);
+  return db.transaction(async (tx) => {
+    for (const r of rows) {
+      await tx.update(stockItems).set({ reorderPoint: D(r.reorderPoint).toFixed(2), updatedAt: new Date() }).where(eq(stockItems.id, r.stockItemId));
+    }
+    return rows.length;
+  });
+}

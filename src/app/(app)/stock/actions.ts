@@ -70,3 +70,10 @@ export async function createStockDocAction(input: import('@/server/services/stoc
     return `${doc.id}|${doc.number}`;
   });
 }
+
+export async function setReorderPointsAction(input: { stockItemId: string; reorderPoint: number }[]): Promise<StockActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const { setReorderPoints } = await import('@/server/services/stock');
+  return run(async () => String(await setReorderPoints(db, actor, input)));
+}
