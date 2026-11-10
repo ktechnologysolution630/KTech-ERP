@@ -1,11 +1,15 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
-import { formatThaiDate } from '@/domain/thai';
+import { bangkokDateString, formatThaiDate } from '@/domain/thai';
+import { formatMoneyDisplay } from '@/domain/money';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
-import { listItems, listProjects } from '@/server/services/master';
+import { listItems, listProjects, listVendors } from '@/server/services/master';
+import { getSettings } from '@/server/services/settings';
+import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
+import { VAT_MODE_LABEL } from '@/components/doc-paper';
 import { getPr } from '@/server/services/pr';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
@@ -30,13 +34,15 @@ export default async function PrDetailPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [pr, activities, attachments, comments, projects, items] = await Promise.all([
+  const [pr, activities, attachments, comments, projects, items, vendors, settings] = await Promise.all([
     getPr(db, actor, id),
     listActivity(db, 'PR', id),
     listAttachments(db, 'PR', id),
     listComments(db, 'PR', id),
     listProjects(db, actor),
     listItems(db),
+    listVendors(db),
+    getSettings(db),
   ]);
 
   const canApprove =
@@ -116,14 +122,46 @@ export default async function PrDetailPage({
         <PrForm
           projects={projects}
           items={items}
+          vendors={vendorRefsFrom(vendors)}
+          company={companyHeaderFrom(settings)}
+          currentUserName={pr.requesterName}
+          today={bangkokDateString()}
           existing={{
             id: pr.id,
+            number: pr.number,
             projectId: pr.projectId,
             note: pr.note,
+            docDate: pr.docDate,
+            needBy: pr.needBy,
+            vendorId: pr.vendorId,
+            department: pr.department,
+            requesterText: pr.requesterText,
+            deliveryPlace: pr.deliveryPlace,
+            paymentTerms: pr.paymentTerms,
+            vatMode: pr.vatMode,
+            billDiscount: pr.billDiscount,
             lines: pr.lines,
           }}
         />
       ) : (
+        <div className="space-y-4">
+        <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-4">
+          {[
+            ['วันที่เอกสาร', pr.docDate ? formatThaiDate(pr.docDate) : formatThaiDate(pr.createdAt)],
+            ['กำหนดใช้/รับของ', pr.needBy ? formatThaiDate(pr.needBy) : '-'],
+            ['ซัพพลายเออร์อ้างอิง', pr.vendorName ?? '-'],
+            ['แผนก / ฝ่าย', pr.department || '-'],
+            ['ผู้ขอซื้อ', pr.requesterText || pr.requesterName],
+            ['สถานที่จัดส่ง', pr.deliveryPlace || '-'],
+            ['เงื่อนไขการชำระเงิน', pr.paymentTerms || '-'],
+            ['รูปแบบ VAT', VAT_MODE_LABEL[pr.vatMode]],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <dt className="text-slate-500">{k}</dt>
+              <dd className="font-medium text-slate-800">{v}</dd>
+            </div>
+          ))}
+        </dl>
         <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs">
@@ -134,13 +172,17 @@ export default async function PrDetailPage({
                 <th className="px-4 py-3 text-right">สั่งซื้อแล้ว</th>
                 <th className="px-4 py-3 text-right">คงเหลือสั่ง</th>
                 <th className="px-4 py-3 text-left">หน่วย</th>
-                <th className="px-4 py-3 text-left">วันที่ต้องการ</th>
+                <th className="px-4 py-3 text-right">ราคาต่อหน่วย</th>
+                <th className="px-4 py-3 text-right">ส่วนลด</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {pr.lines.map((l) => (
                 <tr key={l.id}>
-                  <td className="px-4 py-3 font-medium">{l.description}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {l.description}
+                    {l.detail && <span className="block text-xs font-normal text-slate-500">{l.detail}</span>}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-600">{l.category ?? '-'}</td>
                   <td className="px-4 py-3 text-right">{Number(l.qty)}</td>
                   <td className="px-4 py-3 text-right text-blue-700">
@@ -150,13 +192,13 @@ export default async function PrDetailPage({
                     {l.remainingQty.toNumber()}
                   </td>
                   <td className="px-4 py-3">{l.unitName}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {l.neededDate ? formatThaiDate(l.neededDate) : '-'}
-                  </td>
+                  <td className="px-4 py-3 text-right">{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</td>
+                  <td className="px-4 py-3 text-right">{Number(l.discount) ? formatMoneyDisplay(l.discount) : '-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { invoices, milestones, payables, pos, prvs, pvLines, pvs, vendors, whtCerts, type SessionUser } from '@/db/schema';
+import { invoices, milestones, payables, pos, prs, prvs, pvLines, pvs, vendors, whtCerts, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
@@ -69,6 +69,8 @@ export async function deleteVendors(db: Db, actor: SessionUser, ids: string[]): 
     for (const vendor of removable) {
       // Payables cancelled along with a deleted claim are all that can remain, and they would hold the vendor for good
       await tx.delete(payables).where(and(eq(payables.vendorId, vendor.id), eq(payables.status, 'CANCELLED')));
+      // A PR only names a supplier as a suggestion; it keeps its lines without it
+      await tx.update(prs).set({ vendorId: null }).where(eq(prs.vendorId, vendor.id));
       await tx.delete(vendors).where(eq(vendors.id, vendor.id));
       await logActivity(tx, { entityType: 'VENDOR', entityId: vendor.id, action: 'DELETE', userId: actor.id, note: `${vendor.code} ${vendor.name}` });
     }

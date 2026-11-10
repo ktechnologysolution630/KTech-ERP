@@ -6,6 +6,7 @@ import {
   projects,
   prs,
   users,
+  vendors,
   type PrStatus,
   type SessionUser,
 } from '@/db/schema';
@@ -27,6 +28,23 @@ export interface PrLineInput {
   estUnitPrice?: Decimal | string | number | null;
   neededDate?: string | null;
   note?: string;
+  /** Longer specification under the item name */
+  detail?: string;
+  /** Line discount in baht */
+  discount?: Decimal | string | number | null;
+}
+
+/** The requisition's header, as printed */
+export interface PrHeaderInput {
+  docDate?: string | null;
+  needBy?: string | null;
+  vendorId?: string | null;
+  department?: string;
+  requesterName?: string;
+  deliveryPlace?: string;
+  paymentTerms?: string;
+  vatMode?: 'EXCLUSIVE' | 'INCLUSIVE' | 'NONE';
+  billDiscount?: Decimal | string | number | null;
 }
 
 const lineInputSchema = z.object({
@@ -49,9 +67,48 @@ const lineInputSchema = z.object({
     .optional(),
   neededDate: z.string().nullable().optional(),
   note: z.string().optional(),
+  detail: z.string().max(2000, 'รายละเอียดต้องไม่เกิน 2,000 ตัวอักษร').optional(),
+  discount: z.custom<Decimal | string | number | null | undefined>(() => true).optional(),
 });
 
-const createPrSchema = z.object({
+const headerSchema = z.object({
+  docDate: z.string().nullable().optional(),
+  needBy: z.string().nullable().optional(),
+  vendorId: z.string().uuid().nullable().optional(),
+  department: z.string().trim().max(200).optional(),
+  requesterName: z.string().trim().max(200).optional(),
+  deliveryPlace: z.string().trim().max(500).optional(),
+  paymentTerms: z.string().trim().max(500).optional(),
+  vatMode: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NONE']).optional(),
+  billDiscount: z.custom<Decimal | string | number | null | undefined>(() => true).optional(),
+});
+
+function money(v: Decimal | string | number | null | undefined): string {
+  if (v === undefined || v === null || v === '') return '0.00';
+  try {
+    const d = round2(D(v as Decimal.Value));
+    return d.isNegative() ? '0.00' : d.toFixed(2);
+  } catch {
+    return '0.00';
+  }
+}
+
+/** Header columns to write; fields left out keep their value on update */
+function headerValues(h: z.infer<typeof headerSchema>) {
+  return {
+    docDate: h.docDate === undefined ? undefined : h.docDate || null,
+    needBy: h.needBy === undefined ? undefined : h.needBy || null,
+    vendorId: h.vendorId === undefined ? undefined : h.vendorId || null,
+    department: h.department,
+    requesterName: h.requesterName,
+    deliveryPlace: h.deliveryPlace,
+    paymentTerms: h.paymentTerms,
+    vatMode: h.vatMode,
+    billDiscount: h.billDiscount === undefined ? undefined : money(h.billDiscount),
+  };
+}
+
+const createPrSchema = headerSchema.extend({
   projectId: z.string().uuid('กรุณาเลือกโครงการ'),
   note: z.string().optional(),
   lines: z.array(lineInputSchema).min(1, 'ต้องมีรายการสินค้าอย่างน้อย 1 รายการ'),
@@ -80,7 +137,7 @@ export async function orderedQtyByPrLine(
 export async function createPr(
   db: Db,
   actor: SessionUser,
-  input: { projectId: string; note?: string; lines: PrLineInput[] },
+  input: { projectId: string; note?: string; lines: PrLineInput[] } & PrHeaderInput,
 ): Promise<{ id: string; number: string }> {
   const parsed = createPrSchema.safeParse(input);
   if (!parsed.success) {
@@ -109,6 +166,7 @@ export async function createPr(
         requestedBy: actor.id,
         status: 'DRAFT',
         note: d.note ?? '',
+        ...headerValues(d),
       })
       .returning();
 
@@ -125,6 +183,8 @@ export async function createPr(
             ? round2(D(l.estUnitPrice as Decimal.Value)).toFixed(2)
             : null,
         neededDate: l.neededDate || null,
+        detail: l.detail?.trim() ?? '',
+        discount: money(l.discount),
         note: l.note ?? '',
       })),
     );
@@ -144,8 +204,10 @@ export async function updatePr(
   db: Db,
   actor: SessionUser,
   id: string,
-  input: { note?: string; lines: PrLineInput[] },
+  input: { note?: string; lines: PrLineInput[] } & PrHeaderInput,
 ): Promise<void> {
+  const header = headerSchema.safeParse(input);
+  if (!header.success) throw new DomainError('INVALID_PR', header.error.issues[0].message);
   const linesCheck = z
     .array(lineInputSchema)
     .min(1, 'ต้องมีรายการสินค้าอย่างน้อย 1 รายการ')
@@ -173,6 +235,7 @@ export async function updatePr(
       .update(prs)
       .set({
         note: input.note !== undefined ? input.note : pr.note,
+        ...headerValues(header.data),
         updatedAt: new Date(),
       })
       .where(eq(prs.id, id));
@@ -191,6 +254,8 @@ export async function updatePr(
             ? round2(D(l.estUnitPrice as Decimal.Value)).toFixed(2)
             : null,
         neededDate: l.neededDate || null,
+        detail: l.detail?.trim() ?? '',
+        discount: money(l.discount),
         note: l.note ?? '',
       })),
     );
@@ -399,10 +464,27 @@ export async function getPr(db: Db, actor: SessionUser, id: string) {
       approvedBy: prs.approvedBy,
       approvedAt: prs.approvedAt,
       createdAt: prs.createdAt,
+      docDate: prs.docDate,
+      needBy: prs.needBy,
+      vendorId: prs.vendorId,
+      vendorName: vendors.name,
+      vendorAddress: vendors.address,
+      vendorTaxId: vendors.taxId,
+      vendorContactPerson: vendors.contactPerson,
+      vendorPhone: vendors.phone,
+      vendorEmail: vendors.email,
+      department: prs.department,
+      /** Typed on the form; the account that opened it is requesterName */
+      requesterText: prs.requesterName,
+      deliveryPlace: prs.deliveryPlace,
+      paymentTerms: prs.paymentTerms,
+      vatMode: prs.vatMode,
+      billDiscount: prs.billDiscount,
     })
     .from(prs)
     .innerJoin(projects, eq(projects.id, prs.projectId))
     .innerJoin(users, eq(users.id, prs.requestedBy))
+    .leftJoin(vendors, eq(vendors.id, prs.vendorId))
     .where(eq(prs.id, id))
     .limit(1);
 

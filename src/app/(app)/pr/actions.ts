@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
+import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
 import {
@@ -13,20 +14,29 @@ import {
   rejectPr,
   submitPr,
   updatePr,
+  type PrHeaderInput,
   type PrLineInput,
 } from '@/server/services/pr';
 
-export async function createPrAction(input: {
-  projectId: string;
-  note?: string;
-  submitNow?: boolean;
-  lines: PrLineInput[];
-}) {
+type SaveResult = { ok: false; error: string };
+
+export async function createPrAction(
+  input: {
+    projectId: string;
+    note?: string;
+    submitNow?: boolean;
+    lines: PrLineInput[];
+  } & PrHeaderInput,
+): Promise<SaveResult> {
   const actor = await requireUser();
   const db = await getDb();
-  const created = await createPr(db, actor, input);
-  if (input.submitNow) {
-    await submitPr(db, actor, created.id);
+  let created: { id: string };
+  try {
+    created = await createPr(db, actor, input);
+    if (input.submitNow) await submitPr(db, actor, created.id);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
   }
   revalidatePath('/pr');
   redirect(`/pr/${created.id}`);
@@ -34,16 +44,20 @@ export async function createPrAction(input: {
 
 export async function updatePrAction(
   id: string,
-  input: { note?: string; submitNow?: boolean; lines: PrLineInput[] },
-) {
+  input: { note?: string; submitNow?: boolean; lines: PrLineInput[] } & PrHeaderInput,
+): Promise<SaveResult> {
   const actor = await requireUser();
   const db = await getDb();
-  await updatePr(db, actor, id, input);
-  if (input.submitNow) {
-    await submitPr(db, actor, id);
+  try {
+    await updatePr(db, actor, id, input);
+    if (input.submitNow) await submitPr(db, actor, id);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
   }
   revalidatePath(`/pr/${id}`);
   revalidatePath('/pr');
+  redirect(`/pr/${id}`);
 }
 
 export async function submitPrAction(id: string) {

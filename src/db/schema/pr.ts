@@ -8,7 +8,8 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './core';
-import { items, projects } from './master';
+import { items, projects, vendors } from './master';
+import { type VatMode } from '@/domain/money';
 
 export type PrStatus =
   | 'DRAFT'
@@ -31,6 +32,18 @@ export const prs = pgTable(
       .references(() => users.id),
     status: text('status').$type<PrStatus>().default('DRAFT').notNull(),
     note: text('note').default('').notNull(),
+    /** Document header, as on the printed requisition */
+    docDate: date('doc_date'),
+    /** Wanted on site by */
+    needBy: date('need_by'),
+    /** Supplier the requester has in mind; the buyer still picks the PO's vendor */
+    vendorId: uuid('vendor_id').references(() => vendors.id),
+    department: text('department').default('').notNull(),
+    requesterName: text('requester_name').default('').notNull(),
+    deliveryPlace: text('delivery_place').default('').notNull(),
+    paymentTerms: text('payment_terms').default('').notNull(),
+    vatMode: text('vat_mode').$type<VatMode>().default('EXCLUSIVE').notNull(),
+    billDiscount: numeric('bill_discount', { precision: 14, scale: 2 }).default('0.00').notNull(),
     rejectReason: text('reject_reason'),
     approvedBy: uuid('approved_by').references(() => users.id),
     approvedAt: timestamp('approved_at', { withTimezone: true }),
@@ -52,6 +65,10 @@ export const prLines = pgTable('pr_lines', {
   unitName: text('unit_name').notNull(),
   qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
   estUnitPrice: numeric('est_unit_price', { precision: 14, scale: 2 }),
+  /** Line discount in baht on the estimate */
+  discount: numeric('discount', { precision: 14, scale: 2 }).default('0.00').notNull(),
+  /** Longer specification under the item name */
+  detail: text('detail').default('').notNull(),
   neededDate: date('needed_date'),
   note: text('note').default('').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

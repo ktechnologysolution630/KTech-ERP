@@ -114,3 +114,49 @@ describe('PR service', () => {
     expect(listForOther.length).toBe(0);
   });
 });
+
+describe('PR document header', () => {
+  test('keeps the printed header, line detail and discount, and a vendor delete drops only the suggestion', async () => {
+    const { createTestDb: mk } = await import('../helpers/test-db');
+    const { seedBasics: seed } = await import('../helpers/fixtures');
+    const { createPr: create, getPr: read, updatePr: update } = await import('@/server/services/pr');
+    const { deleteVendors } = await import('@/server/services/vendor-delete');
+    const db = await mk();
+    const f = await seed(db);
+    const pr = await create(db, f.users.foreman, {
+      projectId: f.projectA,
+      docDate: '2026-11-10',
+      needBy: '2026-11-20',
+      vendorId: f.vendorPerson,
+      department: 'ฝ่ายก่อสร้าง',
+      requesterName: 'นายช่าง',
+      deliveryPlace: 'หน้างาน PJ-001',
+      paymentTerms: 'เครดิต 30 วัน',
+      vatMode: 'INCLUSIVE',
+      billDiscount: '50',
+      lines: [{ description: 'ปูน', detail: 'ปูนซีเมนต์ 50 กก.', unitName: 'ถุง', category: 'งานโครงสร้าง', qty: 10, estUnitPrice: 120, discount: 20 }],
+    });
+    let doc = await read(db, f.users.foreman, pr.id);
+    expect(doc).toMatchObject({
+      docDate: '2026-11-10',
+      needBy: '2026-11-20',
+      vendorId: f.vendorPerson,
+      department: 'ฝ่ายก่อสร้าง',
+      requesterText: 'นายช่าง',
+      deliveryPlace: 'หน้างาน PJ-001',
+      paymentTerms: 'เครดิต 30 วัน',
+      vatMode: 'INCLUSIVE',
+      billDiscount: '50.00',
+    });
+    expect(doc.lines[0]).toMatchObject({ detail: 'ปูนซีเมนต์ 50 กก.', discount: '20.00', estUnitPrice: '120.00' });
+
+    // Updating the lines alone leaves the header as it was
+    await update(db, f.users.foreman, pr.id, { lines: [{ description: 'ปูน', unitName: 'ถุง', category: 'งานโครงสร้าง', qty: 5 }] });
+    doc = await read(db, f.users.foreman, pr.id);
+    expect(doc.department).toBe('ฝ่ายก่อสร้าง');
+
+    await deleteVendors(db, f.users.admin, [f.vendorPerson]);
+    doc = await read(db, f.users.foreman, pr.id);
+    expect(doc.vendorId).toBeNull();
+  });
+});
