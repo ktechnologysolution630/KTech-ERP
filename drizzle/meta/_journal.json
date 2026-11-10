@@ -239,6 +239,13 @@
       "when": 1794280907266,
       "tag": "0033_po_line_stock_item",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794282352421,
+      "tag": "0034_pr_line_category",
+      "breakpoints": true
     }
   ]
 }

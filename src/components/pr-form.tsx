@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { createPrAction, updatePrAction } from '@/app/(app)/pr/actions';
 import { DateInput } from '@/components/date-input';
 import { ItemCombobox } from '@/components/item-combobox';
+import { STOCK_CATEGORIES } from '@/domain/stock';
 
 export interface PrItemOption {
   id: string;
@@ -27,6 +28,7 @@ export function PrForm({
       itemId: string | null;
       description: string;
       unitName: string;
+      category: string | null;
       qty: string;
       estUnitPrice: string | null;
       neededDate: string | null;
@@ -41,6 +43,7 @@ export function PrForm({
       itemId: l.itemId ?? '',
       description: l.description,
       unitName: l.unitName,
+      category: l.category ?? '',
       qty: String(Number(l.qty)),
       estUnitPrice: l.estUnitPrice ?? '',
       neededDate: l.neededDate ?? '',
@@ -50,6 +53,7 @@ export function PrForm({
         itemId: '',
         description: '',
         unitName: 'ชิ้น',
+        category: '',
         qty: '1',
         estUnitPrice: '',
         neededDate: '',
@@ -65,6 +69,11 @@ export function PrForm({
   const [pending, startTransition] = useTransition();
 
   function handleSave(submitNow: boolean) {
+    const missing = lines.findIndex((l) => !l.category);
+    if (missing >= 0) {
+      setError(`กรุณาเลือกหมวดหมู่ของรายการที่ ${missing + 1}`);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       try {
@@ -76,6 +85,7 @@ export function PrForm({
               itemId: l.itemId || null,
               description: l.description,
               unitName: l.unitName,
+              category: l.category || null,
               qty: l.qty,
               estUnitPrice: l.estUnitPrice || null,
               neededDate: l.neededDate || null,
@@ -91,6 +101,7 @@ export function PrForm({
               itemId: l.itemId || null,
               description: l.description,
               unitName: l.unitName,
+              category: l.category || null,
               qty: l.qty,
               estUnitPrice: l.estUnitPrice || null,
               neededDate: l.neededDate || null,
@@ -153,6 +164,7 @@ export function PrForm({
                   itemId: '',
                   description: '',
                   unitName: 'ชิ้น',
+                  category: '',
                   qty: '1',
                   estUnitPrice: '',
                   neededDate: '',
@@ -193,7 +205,27 @@ export function PrForm({
               />
             </div>
 
-            <div className="sm:col-span-3">
+            <div className="sm:col-span-2">
+              <label className="block text-[11px] text-slate-500 mb-0.5">หมวดหมู่ *</label>
+              <select
+                value={line.category}
+                required
+                aria-invalid={!line.category}
+                onChange={(e) =>
+                  setLines((prev) => prev.map((r, i) => (i === idx ? { ...r, category: e.target.value } : r)))
+                }
+                className={`w-full rounded border bg-white px-2 py-1.5 text-xs ${line.category ? 'border-slate-300' : 'border-amber-400'}`}
+              >
+                <option value="">-- เลือกหมวด --</option>
+                {STOCK_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
               <label className="block text-[11px] text-slate-500 mb-0.5">รายละเอียดสินค้า *</label>
               <input
                 type="text"
@@ -208,7 +240,7 @@ export function PrForm({
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-1">
               <label className="block text-[11px] text-slate-500 mb-0.5">จำนวน *</label>
               <input
                 type="number"

@@ -129,6 +129,7 @@ export default async function PrDetailPage({
             <thead className="bg-slate-50 text-slate-600 text-xs">
               <tr>
                 <th className="px-4 py-3 text-left">รายการ</th>
+                <th className="px-4 py-3 text-left">หมวดหมู่</th>
                 <th className="px-4 py-3 text-right">จำนวนขอซื้อ</th>
                 <th className="px-4 py-3 text-right">สั่งซื้อแล้ว</th>
                 <th className="px-4 py-3 text-right">คงเหลือสั่ง</th>
@@ -140,6 +141,7 @@ export default async function PrDetailPage({
               {pr.lines.map((l) => (
                 <tr key={l.id}>
                   <td className="px-4 py-3 font-medium">{l.description}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{l.category ?? '-'}</td>
                   <td className="px-4 py-3 text-right">{Number(l.qty)}</td>
                   <td className="px-4 py-3 text-right text-blue-700">
                     {l.orderedQty.toNumber()}

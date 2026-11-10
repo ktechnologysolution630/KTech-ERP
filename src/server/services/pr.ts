@@ -10,6 +10,7 @@ import {
   type SessionUser,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
+import { STOCK_CATEGORIES } from '@/domain/stock';
 import { D, round2, type Decimal } from '@/domain/money';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
@@ -20,6 +21,8 @@ export interface PrLineInput {
   itemId?: string | null;
   description: string;
   unitName: string;
+  /** One of STOCK_CATEGORIES; null on lines made before categories */
+  category?: string | null;
   qty: Decimal | string | number;
   estUnitPrice?: Decimal | string | number | null;
   neededDate?: string | null;
@@ -30,6 +33,10 @@ const lineInputSchema = z.object({
   itemId: z.string().uuid().nullable().optional(),
   description: z.string().trim().min(1, 'กรุณาระบุรายการสินค้า'),
   unitName: z.string().trim().min(1, 'กรุณาระบุหน่วยนับ'),
+  category: z
+    .enum(STOCK_CATEGORIES, { errorMap: () => ({ message: 'กรุณาเลือกหมวดหมู่จากรายการ' }) })
+    .nullable()
+    .optional(),
   qty: z.custom<Decimal | string | number>((v) => {
     try {
       return D(v as Decimal.Value).gt(0);
@@ -111,6 +118,7 @@ export async function createPr(
         itemId: l.itemId ?? null,
         description: l.description,
         unitName: l.unitName,
+        category: l.category ?? null,
         qty: D(l.qty as Decimal.Value).toDecimalPlaces(3).toFixed(3),
         estUnitPrice:
           l.estUnitPrice !== undefined && l.estUnitPrice !== null && l.estUnitPrice !== ''
@@ -176,6 +184,7 @@ export async function updatePr(
         itemId: l.itemId ?? null,
         description: l.description,
         unitName: l.unitName,
+        category: l.category ?? null,
         qty: D(l.qty as Decimal.Value).toDecimalPlaces(3).toFixed(3),
         estUnitPrice:
           l.estUnitPrice !== undefined && l.estUnitPrice !== null && l.estUnitPrice !== ''

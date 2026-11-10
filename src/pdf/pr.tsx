@@ -40,6 +40,7 @@ export function PrPdfDoc({
       <View style={pdfStyles.tableHeader}>
         <Text style={{ width: 32 }}>#</Text>
         <Text style={{ flex: 1 }}>รายการ</Text>
+        <Text style={{ width: 90 }}>หมวดหมู่</Text>
         <Text style={{ width: 65, textAlign: 'right' }}>จำนวน</Text>
         <Text style={{ width: 55, textAlign: 'center' }}>หน่วย</Text>
         <Text style={{ width: 85, textAlign: 'right' }}>ราคาประเมิน/หน่วย</Text>
@@ -50,6 +51,7 @@ export function PrPdfDoc({
         <View key={l.id} style={pdfStyles.tableRow}>
           <Text style={{ width: 32 }}>{idx + 1}</Text>
           <Text style={{ flex: 1 }}>{l.description}</Text>
+          <Text style={{ width: 90 }}>{l.category ?? '-'}</Text>
           <Text style={{ width: 65, textAlign: 'right' }}>{Number(l.qty)}</Text>
           <Text style={{ width: 55, textAlign: 'center' }}>{l.unitName}</Text>
           <Text style={{ width: 85, textAlign: 'right' }}>

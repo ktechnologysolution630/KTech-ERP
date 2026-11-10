@@ -47,6 +47,8 @@ export const prLines = pgTable('pr_lines', {
     .references(() => prs.id, { onDelete: 'cascade' }),
   itemId: uuid('item_id').references(() => items.id),
   description: text('description').notNull(),
+  // Work category (งานโครงสร้าง, งานสถาปัตยกรรม, …); null on PRs made before categories
+  category: text('category'),
   unitName: text('unit_name').notNull(),
   qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
   estUnitPrice: numeric('est_unit_price', { precision: 14, scale: 2 }),
