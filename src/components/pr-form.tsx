@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { createPrAction, updatePrAction } from '@/app/(app)/pr/actions';
 import { DateInput } from '@/components/date-input';
+import { ItemCombobox } from '@/components/item-combobox';
 
 export interface PrItemOption {
   id: string;
@@ -57,6 +58,10 @@ export function PrForm({
     ],
   );
   const [error, setError] = useState<string | null>(null);
+  const itemLabel = (id: string) => {
+    const it = items.find((i) => i.id === id);
+    return it ? `${it.code} - ${it.name}` : '';
+  };
   const [pending, startTransition] = useTransition();
 
   function handleSave(submitNow: boolean) {
@@ -167,33 +172,25 @@ export function PrForm({
             className="grid grid-cols-1 sm:grid-cols-12 gap-2 rounded-lg border border-slate-200 p-3 bg-slate-50/60"
           >
             <div className="sm:col-span-3">
-              <label className="block text-[11px] text-slate-500 mb-0.5">เลือกจากคลังสินค้า</label>
-              <select
-                value={line.itemId}
-                onChange={(e) => {
-                  const chosen = items.find((i) => i.id === e.target.value);
+              <label className="block text-[11px] text-slate-500 mb-0.5">เลือกจากคลังสินค้า หรือพิมพ์เอง</label>
+              <ItemCombobox
+                items={items}
+                selectedId={line.itemId}
+                value={line.itemId ? itemLabel(line.itemId) : line.description}
+                // Typing is free text: it becomes the description and drops any picked item
+                onType={(text) =>
+                  setLines((prev) => prev.map((row, i) => (i === idx ? { ...row, itemId: '', description: text } : row)))
+                }
+                onPick={(chosen) =>
                   setLines((prev) =>
                     prev.map((row, i) =>
                       i === idx
-                        ? {
-                            ...row,
-                            itemId: e.target.value,
-                            description: chosen ? chosen.name : row.description,
-                            unitName: chosen ? chosen.unitName : row.unitName,
-                          }
+                        ? { ...row, itemId: chosen.id, description: chosen.name, unitName: items.find((it) => it.id === chosen.id)?.unitName || row.unitName }
                         : row,
                     ),
-                  );
-                }}
-                className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs"
-              >
-                <option value="">-- พิมพ์รายการเอง --</option>
-                {items.map((it) => (
-                  <option key={it.id} value={it.id}>
-                    {it.code} - {it.name}
-                  </option>
-                ))}
-              </select>
+                  )
+                }
+              />
             </div>
 
             <div className="sm:col-span-3">
