@@ -56,14 +56,18 @@ interface AppShellProps {
 /** Receivables (ฝั่งขาย) pages in the finance menu */
 const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/ar/customers', label: 'ลูกค้า', menu: 'FIN_CUSTOMERS' },
+  { href: '/sales/income', label: 'รายรับ', menu: 'FIN_INCOME' },
+  { href: '/sales/expense', label: 'รายจ่าย', menu: 'FIN_EXPENSE' },
   { href: '/sales/quotations', label: 'ใบเสนอราคา', menu: 'FIN_QUOTATIONS' },
   { href: '/ar/invoices', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)', menu: 'FIN_AR_INVOICES' },
   { href: '/sales/receipts', label: 'ใบเสร็จรับเงิน', menu: 'FIN_RECEIPTS' },
   { href: '/sales/tax-invoices', label: 'ใบกำกับภาษี', menu: 'FIN_TAX_INVOICES' },
+  { href: '/ar/credit-notes', label: 'ใบลดหนี้', menu: 'FIN_CREDIT_NOTES' },
   { href: '/sales/debit-notes', label: 'ใบเพิ่มหนี้', menu: 'FIN_DEBIT_NOTES' },
   { href: '/sales/abbreviated-tax-invoices', label: 'ใบกำกับภาษีอย่างย่อ', menu: 'FIN_SHORT_TAX_INVOICES' },
   { href: '/ar/receivables', label: 'ลูกหนี้', menu: 'FIN_RECEIVABLES' },
   { href: '/ar/output-vat', label: 'ภาษีขาย', menu: 'FIN_OUTPUT_VAT' },
+  { href: '/cash-bank', label: 'เงินสด / ธนาคาร', menu: 'FIN_CASH_BANK' },
   { href: '/advances', label: 'เงินทดรองจ่าย', menu: 'FIN_ADVANCES' },
   { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ', menu: 'FIN_RECEIPT_SUBSTITUTES' },
 ];

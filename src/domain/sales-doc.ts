@@ -1,15 +1,19 @@
 import { D, Decimal, round2, sum } from '@/domain/money';
 
 /** Sales documents kept outside the milestone billing flow */
-export type SalesDocKind = 'QT' | 'RC' | 'TI' | 'DN' | 'STI';
-export const SALES_DOC_KINDS: readonly SalesDocKind[] = ['QT', 'RC', 'TI', 'DN', 'STI'];
+export type SalesDocKind = 'QT' | 'RC' | 'TI' | 'DN' | 'STI' | 'INC' | 'EXP';
+export const SALES_DOC_KINDS: readonly SalesDocKind[] = ['QT', 'RC', 'TI', 'DN', 'STI', 'INC', 'EXP'];
+/** Money comes in on these; EXP is money going out */
+export const MONEY_IN_KINDS: readonly SalesDocKind[] = ['RC', 'INC'];
 
-export const SALES_DOC_META: Record<SalesDocKind, { slug: string; th: string; en: string; hint: string; prefix: 'QT' | 'REC' | 'TI' | 'DN' | 'STI' }> = {
+export const SALES_DOC_META: Record<SalesDocKind, { slug: string; th: string; en: string; hint: string; prefix: 'QT' | 'REC' | 'TI' | 'DN' | 'STI' | 'INC' | 'EXP' }> = {
   QT: { slug: 'quotations', th: 'ใบเสนอราคา', en: 'QUOTATION', hint: 'เสนอราคางานก่อสร้างให้ลูกค้าก่อนเปิดโครงการ', prefix: 'QT' },
   RC: { slug: 'receipts', th: 'ใบเสร็จรับเงิน', en: 'RECEIPT', hint: 'บันทึกการรับชำระเงินและออกใบเสร็จ', prefix: 'REC' },
   TI: { slug: 'tax-invoices', th: 'ใบกำกับภาษี', en: 'TAX INVOICE', hint: 'ออกใบกำกับภาษีขายให้ลูกค้า', prefix: 'TI' },
   DN: { slug: 'debit-notes', th: 'ใบเพิ่มหนี้', en: 'DEBIT NOTE', hint: 'เรียกเก็บเพิ่มจากใบกำกับภาษีที่ออกไปแล้ว', prefix: 'DN' },
   STI: { slug: 'abbreviated-tax-invoices', th: 'ใบกำกับภาษีอย่างย่อ', en: 'ABBREVIATED TAX INVOICE', hint: 'ใบกำกับภาษีอย่างย่อสำหรับขายปลีก ราคารวม VAT', prefix: 'STI' },
+  INC: { slug: 'income', th: 'ใบสำคัญรับ', en: 'RECEIPT VOUCHER', hint: 'รายรับอื่นนอกจากงวดงาน เช่น ขายเศษวัสดุ ดอกเบี้ย ค่าเช่า', prefix: 'INC' },
+  EXP: { slug: 'expense', th: 'ใบสำคัญจ่าย', en: 'PAYMENT VOUCHER', hint: 'ค่าวัสดุ ค่าแรง ค่าเช่า และค่าใช้จ่ายโครงการที่จ่ายตรง ไม่ผ่านใบสั่งซื้อ', prefix: 'EXP' },
 };
 
 export const kindFromSlug = (slug: string): SalesDocKind | null => SALES_DOC_KINDS.find((k) => SALES_DOC_META[k].slug === slug) ?? null;
@@ -24,6 +28,7 @@ export const SALES_VAT_LABEL: Record<SalesVatMode, string> = {
 };
 
 export const ACCOUNT_CATEGORIES = ['รายได้ค่าก่อสร้าง', 'รายได้ค่าบริการ', 'รายได้ค่าออกแบบ', 'รายได้จากการขาย', 'รายได้อื่น'] as const;
+export const EXPENSE_CATEGORIES = ['ค่าวัสดุ', 'ค่าแรง', 'ค่าผู้รับเหมาช่วง', 'ค่าเช่าเครื่องจักร', 'ค่าขนส่ง', 'ค่าสาธารณูปโภค', 'ค่าใช้จ่ายสำนักงาน', 'ค่าใช้จ่ายอื่น'] as const;
 
 export interface SalesLineInput {
   isSection?: boolean;
@@ -39,6 +44,7 @@ export interface SalesTotals {
   vat: Decimal;
   total: Decimal;
   wht: Decimal;
+  retention: Decimal;
   payable: Decimal;
 }
 
@@ -54,6 +60,8 @@ export function computeSalesTotals(input: {
   discountValue: number;
   vatMode: SalesVatMode;
   whtRate: number;
+  /** หักประกันผลงาน, percent of the amount before VAT */
+  retentionRate?: number;
 }): SalesTotals {
   const subtotal = round2(sum(input.lines.filter((l) => !l.isSection).map((l) => round2(D(l.qty).times(D(l.unitPrice))))));
   const rawDiscount = input.discountType === 'PERCENT' ? subtotal.times(D(input.discountValue || 0)).div(100) : D(input.discountValue || 0);
@@ -70,5 +78,6 @@ export function computeSalesTotals(input: {
     beforeVat = round2(afterDiscount.minus(vat));
   }
   const wht = round2(beforeVat.times(D(input.whtRate || 0)).div(100));
-  return { subtotal, discount, afterDiscount, beforeVat, vat, total, wht, payable: round2(total.minus(wht)) };
+  const retention = round2(beforeVat.times(D(input.retentionRate || 0)).div(100));
+  return { subtotal, discount, afterDiscount, beforeVat, vat, total, wht, retention, payable: round2(total.minus(wht).minus(retention)) };
 }

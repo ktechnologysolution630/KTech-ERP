@@ -6,7 +6,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { DateInput } from '@/components/date-input';
 import { AmountInWords, DocPaper, MetaRow, SignatureRow, paperCell, paperInput, type CompanyHeader } from '@/components/doc-paper';
 import { formatMoneyDisplay } from '@/domain/money';
-import { ACCOUNT_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
+import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { THAI_BANKS } from '@/domain/vendor-profile';
 import { createSalesDocAction } from './actions';
 
@@ -21,6 +21,22 @@ export interface SalesCustomerOption {
   phone: string;
   email: string;
 }
+
+export interface SalesAccountOption {
+  id: string;
+  label: string;
+  isDefaultReceive: boolean;
+  isDefaultPay: boolean;
+}
+
+const PAY_METHODS = [
+  ['TRANSFER', 'โอนเงิน'],
+  ['CASH', 'เงินสด'],
+  ['CHEQUE', 'เช็ค'],
+  ['PROMPTPAY', 'พร้อมเพย์'],
+  ['CARD', 'บัตรเครดิต'],
+] as const;
+type PayMethod = (typeof PAY_METHODS)[number][0];
 
 interface Line {
   isSection: boolean;
@@ -42,12 +58,17 @@ export function SalesDocForm({
   kind,
   company,
   customers,
+  vendors = [],
+  accounts = [],
   projects,
   today,
 }: {
   kind: SalesDocKind;
   company: CompanyHeader;
   customers: SalesCustomerOption[];
+  /** Payees of a payment voucher */
+  vendors?: SalesCustomerOption[];
+  accounts?: SalesAccountOption[];
   projects: { id: string; code: string; name: string }[];
   today: string;
 }) {
@@ -69,7 +90,12 @@ export function SalesDocForm({
   const [discountType, setDiscountType] = useState<'PERCENT' | 'AMOUNT'>('AMOUNT');
   const [discountValue, setDiscountValue] = useState('');
   const [whtRate, setWhtRate] = useState('');
-  const [payMethod, setPayMethod] = useState<'TRANSFER' | 'CASH' | 'CHEQUE'>('TRANSFER');
+  const isExpense = kind === 'EXP';
+  const paid = kind === 'RC' || kind === 'INC' || isExpense;
+  const parties = isExpense ? vendors : customers;
+  const [payMethod, setPayMethod] = useState<PayMethod>('TRANSFER');
+  const [accountId, setAccountId] = useState(() => accounts.find((a) => (isExpense ? a.isDefaultPay : a.isDefaultReceive))?.id ?? '');
+  const [retentionRate, setRetentionRate] = useState('');
   const [bank, setBank] = useState('');
   const [bankBranch, setBankBranch] = useState('');
   const [accountName, setAccountName] = useState('');
@@ -83,13 +109,14 @@ export function SalesDocForm({
         discountValue: n(discountValue),
         vatMode,
         whtRate: n(whtRate),
+        retentionRate: isExpense ? n(retentionRate) : 0,
       }),
-    [lines, discountType, discountValue, vatMode, whtRate],
+    [lines, discountType, discountValue, vatMode, whtRate, retentionRate, isExpense],
   );
   const setLine = (i: number, patch: Partial<Line>) => setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const pickCustomer = (id: string) => {
     setCustomerId(id);
-    const c = customers.find((x) => x.id === id);
+    const c = parties.find((x) => x.id === id);
     setCust(c ? { name: c.name, taxId: c.taxId ?? '', branch: c.branch, address: c.address, contact: c.contactName, phone: c.phone, email: c.email } : { name: '', taxId: '', branch: '', address: '', contact: '', phone: '', email: '' });
   };
   // Item numbers skip the area headings
@@ -103,7 +130,10 @@ export function SalesDocForm({
         docDate,
         dueDate: kind === 'QT' && dueDate ? dueDate : null,
         reference,
-        customerId: customerId || null,
+        customerId: isExpense ? null : customerId || null,
+        vendorId: isExpense ? customerId || null : null,
+        accountId: paid && accountId ? accountId : null,
+        retentionRate: isExpense ? n(retentionRate) : 0,
         customerName: cust.name,
         customerTaxId: cust.taxId,
         customerBranch: cust.branch,
@@ -118,7 +148,7 @@ export function SalesDocForm({
         discountType,
         discountValue: n(discountValue),
         whtRate: n(whtRate),
-        payMethod: kind === 'RC' ? payMethod : null,
+        payMethod: paid ? payMethod : null,
         bank,
         bankBranch,
         accountName,
@@ -183,18 +213,19 @@ export function SalesDocForm({
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <div className="space-y-1.5 text-sm">
             <p className="text-xs font-semibold text-slate-600">
-              ลูกค้า{kind !== 'STI' && <span className="text-red-500"> *</span>}
+              {isExpense ? 'ผู้ขาย / ผู้รับเงิน' : 'ลูกค้า'}
+              {kind !== 'STI' && <span className="text-red-500"> *</span>}
             </p>
-            <select value={customerId} onChange={(e) => pickCustomer(e.target.value)} aria-label="ลูกค้า" className={`${paperInput} font-semibold`}>
-              <option value="">{kind === 'STI' ? 'ไม่ระบุลูกค้า (ขายปลีก)' : 'เลือกลูกค้า'}</option>
-              {customers.map((c) => (
+            <select value={customerId} onChange={(e) => pickCustomer(e.target.value)} aria-label={isExpense ? 'ผู้ขาย / ผู้รับเงิน' : 'ลูกค้า'} className={`${paperInput} font-semibold`}>
+              <option value="">{kind === 'STI' ? 'ไม่ระบุลูกค้า (ขายปลีก)' : isExpense ? 'เลือกผู้ขาย / ผู้รับเงิน' : 'เลือกลูกค้า'}</option>
+              {parties.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.code})
                 </option>
               ))}
             </select>
             {!customerId && (
-              <input value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} placeholder="หรือพิมพ์ชื่อลูกค้า" aria-label="ชื่อลูกค้า" className={paperInput} />
+              <input value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} placeholder={isExpense ? 'หรือพิมพ์ชื่อผู้รับเงิน' : 'หรือพิมพ์ชื่อลูกค้า'} aria-label="ชื่อ" className={paperInput} />
             )}
             <input value={cust.address} onChange={(e) => setCust({ ...cust, address: e.target.value })} placeholder="ที่อยู่" aria-label="ที่อยู่ลูกค้า" className={paperInput} />
             <div className="grid grid-cols-2 gap-2">
@@ -218,7 +249,7 @@ export function SalesDocForm({
             <input value={milestone} onChange={(e) => setMilestone(e.target.value)} placeholder="งวดงาน" aria-label="งวดงาน" className={paperInput} />
             <select value={accountCategory} onChange={(e) => setAccountCategory(e.target.value)} aria-label="หมวดบัญชี" className={paperInput}>
               <option value="">เลือกหมวดบัญชี</option>
-              {ACCOUNT_CATEGORIES.map((a) => (
+              {(isExpense ? EXPENSE_CATEGORIES : ACCOUNT_CATEGORIES).map((a) => (
                 <option key={a}>{a}</option>
               ))}
             </select>
@@ -298,14 +329,27 @@ export function SalesDocForm({
               หมายเหตุ
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={box} />
             </label>
-            {kind === 'RC' && (
+            {paid && (
               <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 p-3">
                 <label className="block text-xs font-semibold text-slate-600">
                   วิธีชำระเงิน
-                  <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as typeof payMethod)} className={box}>
-                    <option value="TRANSFER">โอนเงิน</option>
-                    <option value="CASH">เงินสด</option>
-                    <option value="CHEQUE">เช็ค</option>
+                  <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as PayMethod)} className={box}>
+                    {PAY_METHODS.map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-slate-600">
+                  {isExpense ? 'จ่ายจากบัญชีบริษัท' : 'เข้าบัญชีบริษัท'}
+                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={box}>
+                    <option value="">{accounts.length === 0 ? 'ยังไม่มีบัญชี (เพิ่มที่เมนูเงินสด / ธนาคาร)' : 'ไม่ระบุ'}</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 {payMethod !== 'CASH' && (
@@ -372,14 +416,23 @@ export function SalesDocForm({
                 <span>{formatMoneyDisplay(totals.wht.toFixed(2))}</span>
               </div>
             )}
+            {isExpense && (
+              <div className="flex items-center justify-between gap-3 px-3 py-1.5">
+                <span className="flex items-center gap-1 text-slate-600">
+                  หักประกันผลงาน
+                  <input type="number" min={0} max={100} step="0.01" value={retentionRate} onChange={(e) => setRetentionRate(e.target.value)} placeholder="0" aria-label="หักประกันผลงาน (%)" className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-xs" />%
+                </span>
+                <span>-{formatMoneyDisplay(totals.retention.toFixed(2))}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3 bg-[#102d72] px-3 py-1.5 font-bold text-white">
-              <span>ยอดชำระ</span>
+              <span>{isExpense ? 'ยอดสุทธิที่ต้องจ่าย' : 'ยอดชำระ'}</span>
               <span>{formatMoneyDisplay(totals.payable.toFixed(2))}</span>
             </div>
           </div>
         </div>
 
-        <SignatureRow roles={['ผู้จัดทำ', 'ผู้อนุมัติ', 'ลูกค้า']} />
+        <SignatureRow roles={['ผู้จัดทำ', 'ผู้อนุมัติ', isExpense ? 'ผู้รับเงิน' : 'ลูกค้า']} />
       </DocPaper>
     </div>
   );

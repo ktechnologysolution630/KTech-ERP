@@ -99,7 +99,7 @@ describe('hiding', () => {
     expect(blockedMenuFor(['FIN_PV', 'FIN_EXPORTS'], '/api/pdf/wht/abc')).toBe('FIN_PV');
     expect(blockedMenuFor(['LABOR_PAY'], '/labor-payments/abc')).toBeNull();
     expect(blockedMenuFor(['LABOR_PAY', 'LABOR_RECEIVE', 'LABOR_REPORT'], '/labor-payments/abc')).toBe('LABOR_PAY');
-    expect(blockedMenuFor(['FIN_CUSTOMERS', 'FIN_AR_INVOICES', 'FIN_RECEIVABLES', 'FIN_OUTPUT_VAT'], '/ar')).toBe('FIN_CUSTOMERS');
+    expect(blockedMenuFor(['FIN_CUSTOMERS', 'FIN_AR_INVOICES', 'FIN_CREDIT_NOTES', 'FIN_RECEIVABLES', 'FIN_OUTPUT_VAT'], '/ar')).toBe('FIN_CUSTOMERS');
     expect(blockedMenuFor(['FIN_CUSTOMERS'], '/ar')).toBeNull();
   });
 
@@ -141,7 +141,7 @@ describe('every page and entry is accounted for', () => {
       ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'],
       ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/purchasing/items'], ['/receive'],
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],
-      ['/ar/customers'], ['/ar/invoices'], ['/sales/quotations'], ['/sales/receipts'], ['/sales/tax-invoices'], ['/sales/debit-notes'], ['/sales/abbreviated-tax-invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],
+      ['/ar/customers'], ['/ar/invoices'], ['/sales/income'], ['/sales/expense'], ['/ar/credit-notes'], ['/cash-bank'], ['/sales/quotations'], ['/sales/receipts'], ['/sales/tax-invoices'], ['/sales/debit-notes'], ['/sales/abbreviated-tax-invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],
       ['/handover'], ['/warranty'],
     ];
     const controlled = new Set(urls.flatMap(([path, tab]) => menuKeysForPath(path, tab ?? null)));

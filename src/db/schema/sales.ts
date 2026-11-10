@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp, numeric, date, boolean, integer, index } from 'drizzle-orm/pg-core';
 import { users } from './core';
-import { projects } from './master';
+import { projects, vendors } from './master';
+
 import { customers } from './ar';
 import type { SalesDocKind, SalesVatMode } from '@/domain/sales-doc';
 
@@ -9,6 +10,28 @@ import type { SalesDocKind, SalesVatMode } from '@/domain/sales-doc';
  * ใบกำกับภาษีอย่างย่อ. The customer is copied onto the document, so later edits to the customer
  * do not change what was issued.
  */
+export type CompanyAccountType = 'SAVINGS' | 'CURRENT' | 'FIXED' | 'CASH' | 'OTHER';
+
+/** The company's own bank and cash accounts, with the balance they started from */
+export const companyAccounts = pgTable('company_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  bank: text('bank').notNull(),
+  accountName: text('account_name').notNull(),
+  accountNo: text('account_no').notNull(),
+  branch: text('branch').default('').notNull(),
+  type: text('type').$type<CompanyAccountType>().default('SAVINGS').notNull(),
+  currency: text('currency').default('THB').notNull(),
+  openingBalance: numeric('opening_balance', { precision: 14, scale: 2 }).default('0').notNull(),
+  openingDate: date('opening_date'),
+  ownerName: text('owner_name').default('').notNull(),
+  isDefaultReceive: boolean('is_default_receive').default(false).notNull(),
+  isDefaultPay: boolean('is_default_pay').default(false).notNull(),
+  active: boolean('active').default(true).notNull(),
+  notes: text('notes').default('').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const salesDocs = pgTable(
   'sales_docs',
   {
@@ -19,6 +42,10 @@ export const salesDocs = pgTable(
     dueDate: date('due_date'),
     reference: text('reference').default('').notNull(),
     customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+    /** Payee of a payment voucher (EXP) */
+    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    /** Company bank / cash account the money went into or out of */
+    accountId: uuid('account_id').references(() => companyAccounts.id, { onDelete: 'set null' }),
     customerName: text('customer_name').default('').notNull(),
     customerTaxId: text('customer_tax_id').default('').notNull(),
     customerBranch: text('customer_branch').default('').notNull(),
@@ -33,7 +60,9 @@ export const salesDocs = pgTable(
     discountType: text('discount_type').$type<'PERCENT' | 'AMOUNT'>().default('AMOUNT').notNull(),
     discountValue: numeric('discount_value', { precision: 14, scale: 2 }).default('0').notNull(),
     whtRate: numeric('wht_rate', { precision: 5, scale: 2 }).default('0').notNull(),
-    payMethod: text('pay_method').$type<'TRANSFER' | 'CASH' | 'CHEQUE'>(),
+    retentionRate: numeric('retention_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+    retention: numeric('retention', { precision: 14, scale: 2 }).default('0').notNull(),
+    payMethod: text('pay_method').$type<'TRANSFER' | 'CASH' | 'CHEQUE' | 'PROMPTPAY' | 'CARD'>(),
     bank: text('bank').default('').notNull(),
     bankBranch: text('bank_branch').default('').notNull(),
     accountName: text('account_name').default('').notNull(),

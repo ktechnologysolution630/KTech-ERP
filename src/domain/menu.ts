@@ -53,14 +53,18 @@ export const MENU_TREE = [
     label: 'บัญชี / การเงิน',
     children: [
       { key: 'FIN_CUSTOMERS', label: 'ลูกค้า' },
+      { key: 'FIN_INCOME', label: 'รายรับ' },
+      { key: 'FIN_EXPENSE', label: 'รายจ่าย' },
       { key: 'FIN_QUOTATIONS', label: 'ใบเสนอราคา' },
       { key: 'FIN_AR_INVOICES', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)' },
       { key: 'FIN_RECEIPTS', label: 'ใบเสร็จรับเงิน' },
       { key: 'FIN_TAX_INVOICES', label: 'ใบกำกับภาษี' },
+      { key: 'FIN_CREDIT_NOTES', label: 'ใบลดหนี้' },
       { key: 'FIN_DEBIT_NOTES', label: 'ใบเพิ่มหนี้' },
       { key: 'FIN_SHORT_TAX_INVOICES', label: 'ใบกำกับภาษีอย่างย่อ' },
       { key: 'FIN_RECEIVABLES', label: 'ลูกหนี้' },
       { key: 'FIN_OUTPUT_VAT', label: 'ภาษีขาย' },
+      { key: 'FIN_CASH_BANK', label: 'เงินสด / ธนาคาร' },
       { key: 'FIN_ADVANCES', label: 'เงินทดรองจ่าย' },
       { key: 'FIN_RECEIPT_SUBSTITUTES', label: 'ใบรับรองแทนใบเสร็จ' },
       { key: 'FIN_AP_INVOICES', label: 'ใบแจ้งหนี้ผู้ขาย (AP)' },
@@ -132,7 +136,7 @@ const TABBED_PATHS: Record<string, { fallback: MenuKey; tabs: Record<string, Men
   },
 };
 
-const AR_KEYS: MenuKey[] = ['FIN_CUSTOMERS', 'FIN_AR_INVOICES', 'FIN_RECEIVABLES', 'FIN_OUTPUT_VAT'];
+const AR_KEYS: MenuKey[] = ['FIN_CUSTOMERS', 'FIN_AR_INVOICES', 'FIN_CREDIT_NOTES', 'FIN_RECEIVABLES', 'FIN_OUTPUT_VAT'];
 
 /**
  * Which entries open each URL, including sub-pages. Where several do, the page stays open while any of them is
@@ -171,7 +175,11 @@ const PATHS: [string, MenuKey[]][] = [
   ['/invoices', ['FIN_AP_INVOICES']],
   ['/pv', ['FIN_PV']],
   // A sales document of any kind opens from any of its menus
-  ['/sales', ['FIN_QUOTATIONS', 'FIN_RECEIPTS', 'FIN_TAX_INVOICES', 'FIN_DEBIT_NOTES', 'FIN_SHORT_TAX_INVOICES']],
+  ['/sales', ['FIN_INCOME', 'FIN_EXPENSE', 'FIN_QUOTATIONS', 'FIN_RECEIPTS', 'FIN_TAX_INVOICES', 'FIN_DEBIT_NOTES', 'FIN_SHORT_TAX_INVOICES']],
+  ['/sales/income', ['FIN_INCOME']],
+  ['/sales/expense', ['FIN_EXPENSE']],
+  ['/cash-bank', ['FIN_CASH_BANK']],
+  ['/ar/credit-notes', ['FIN_CREDIT_NOTES']],
   ['/sales/quotations', ['FIN_QUOTATIONS']],
   ['/sales/receipts', ['FIN_RECEIPTS']],
   ['/sales/tax-invoices', ['FIN_TAX_INVOICES']],

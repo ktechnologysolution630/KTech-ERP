@@ -274,6 +274,6 @@ describe('deleting vendors', () => {
       where c.contype = 'f' and c.confrelid = 'vendors'::regclass
       order by 1
     `);
-    expect((result.rows as { table_name: string }[]).map((r) => r.table_name)).toEqual(['invoices', 'milestones', 'payables', 'pos', 'prs', 'prvs', 'pvs', 'stock_docs', 'wht_certs']);
+    expect((result.rows as { table_name: string }[]).map((r) => r.table_name)).toEqual(['invoices', 'milestones', 'payables', 'pos', 'prs', 'prvs', 'pvs', 'sales_docs', 'stock_docs', 'wht_certs']);
   });
 });

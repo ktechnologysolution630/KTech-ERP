@@ -29,7 +29,9 @@ export interface SalesDocViewData {
   accountCategory: string;
   vatMode: SalesVatMode;
   whtRate: string;
-  payMethod: 'TRANSFER' | 'CASH' | 'CHEQUE' | null;
+  payMethod: 'TRANSFER' | 'CASH' | 'CHEQUE' | 'PROMPTPAY' | 'CARD' | null;
+  retention: string;
+  retentionRate: string;
   bank: string;
   bankBranch: string;
   accountName: string;
@@ -48,7 +50,7 @@ export interface SalesDocViewData {
   lines: { id: string; isSection: boolean; name: string; detail: string; qty: string; unit: string; unitPrice: string; amount: string }[];
 }
 
-const PAY_LABEL = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค' } as const;
+const PAY_LABEL = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค', PROMPTPAY: 'พร้อมเพย์', CARD: 'บัตรเครดิต' } as const;
 
 function Paper({ doc, company }: { doc: SalesDocViewData; company: CompanyHeader }) {
   const meta = SALES_DOC_META[doc.kind];
@@ -102,7 +104,7 @@ function Paper({ doc, company }: { doc: SalesDocViewData; company: CompanyHeader
       <hr className="my-4 border-slate-200" />
       <div className="grid grid-cols-2 gap-6 text-xs">
         <div>
-          <p className="font-semibold text-slate-500">ลูกค้า</p>
+          <p className="font-semibold text-slate-500">{doc.kind === 'EXP' ? 'ผู้ขาย / ผู้รับเงิน' : 'ลูกค้า'}</p>
           <p className="text-sm font-semibold">{doc.customerName || '-'}</p>
           <p>{doc.customerAddress}</p>
           <p>
@@ -202,15 +204,21 @@ function Paper({ doc, company }: { doc: SalesDocViewData; company: CompanyHeader
                 <td className="text-right">{money(doc.wht)}</td>
               </tr>
             )}
+            {Number(doc.retention) > 0 && (
+              <tr>
+                <td>หักประกันผลงาน {Number(doc.retentionRate)}%</td>
+                <td className="text-right">-{money(doc.retention)}</td>
+              </tr>
+            )}
             <tr className="bg-[#102d72] font-bold text-white">
-              <td>ยอดชำระ</td>
+              <td>{doc.kind === 'EXP' ? 'ยอดสุทธิที่ต้องจ่าย' : 'ยอดชำระ'}</td>
               <td className="text-right">{money(doc.payable)}</td>
             </tr>
           </tbody>
         </table>
       </div>
       <div className="mt-10 grid grid-cols-3 gap-6 text-center text-xs text-slate-600">
-        {['ผู้จัดทำ', 'ผู้อนุมัติ', 'ลูกค้า'].map((r) => (
+        {['ผู้จัดทำ', 'ผู้อนุมัติ', doc.kind === 'EXP' ? 'ผู้รับเงิน' : 'ลูกค้า'].map((r) => (
           <div key={r} className="space-y-1">
             <div className="mx-auto h-10 w-40 border-b border-slate-400" />
             <p>({r})</p>

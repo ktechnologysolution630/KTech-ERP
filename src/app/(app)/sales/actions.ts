@@ -35,3 +35,17 @@ export async function cancelSalesDocAction(id: string, slug: string, reason: str
     throw err;
   }
 }
+
+export async function saveCompanyAccountAction(input: import('@/server/services/sales-docs').CompanyAccountInput): Promise<Result> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const { saveCompanyAccount } = await import('@/server/services/sales-docs');
+  try {
+    const id = await saveCompanyAccount(db, actor, input);
+    revalidatePath('/cash-bank');
+    return { ok: true, id };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}

@@ -21,6 +21,8 @@ export type DocPrefix =
   | 'TI'
   | 'STI'
   | 'DN'
+  | 'INC'
+  | 'EXP'
   | 'BOQ'
   | 'PJ'
   | 'AP'

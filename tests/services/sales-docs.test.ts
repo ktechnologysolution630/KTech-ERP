@@ -58,3 +58,37 @@ describe('sales documents', () => {
     expect(await getSalesDoc(db, f.users.finance, rc.id)).toMatchObject({ payMethod: 'CHEQUE', wht: '300.00', payable: '10400.00' });
   });
 });
+
+describe('income, expense and company accounts', () => {
+  test('a payment voucher to a vendor with retention, an income voucher, and the account balance', async () => {
+    const { listCompanyAccounts, saveCompanyAccount } = await import('@/server/services/sales-docs');
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const acc = await saveCompanyAccount(db, f.users.finance, { bank: 'ธนาคารกสิกรไทย จำกัด (มหาชน)', accountName: 'บจก. ทดสอบ', accountNo: '111-1-11111-1', openingBalance: 50000, isDefaultPay: true, isDefaultReceive: true });
+    const exp = await createSalesDoc(db, f.users.finance, {
+      kind: 'EXP',
+      docDate: '2026-11-10',
+      vendorId: f.vendorCo,
+      accountId: acc,
+      projectId: f.projectA,
+      vatMode: 'EXCLUSIVE',
+      whtRate: 3,
+      retentionRate: 5,
+      payMethod: 'PROMPTPAY',
+      lines: [{ name: 'ค่าแรงงานเทพื้น', qty: 1, unitPrice: 10000 }],
+    });
+    expect(exp.number).toMatch(/^EXP-/);
+    const doc = await getSalesDoc(db, f.users.finance, exp.id);
+    // 10,000 + VAT 700 − WHT 300 − retention 500
+    expect(doc).toMatchObject({ vendorId: f.vendorCo, customerId: null, total: '10700.00', wht: '300.00', retention: '500.00', payable: '9900.00', payMethod: 'PROMPTPAY' });
+    expect(doc.customerName).not.toBe('');
+    await createSalesDoc(db, f.users.finance, { kind: 'INC', docDate: '2026-11-11', customerName: 'ร้านรับซื้อเศษเหล็ก', accountId: acc, vatMode: 'NONE', lines: [{ name: 'ขายเศษเหล็ก', qty: 1, unitPrice: 2500 }] });
+    const [a] = await listCompanyAccounts(db, f.users.finance);
+    expect(a).toMatchObject({ moneyIn: 2500, moneyOut: 9900, balance: 42600 });
+    expect(a!.recent).toHaveLength(2);
+    // A cancelled voucher no longer moves the balance
+    await cancelSalesDoc(db, f.users.finance, exp.id, 'บันทึกผิด');
+    expect((await listCompanyAccounts(db, f.users.finance))[0]!.balance).toBe(52500);
+    await expect(createSalesDoc(db, f.users.finance, { kind: 'EXP', docDate: '2026-11-10', lines: [{ name: 'x', qty: 1, unitPrice: 1 }] })).rejects.toMatchObject({ code: 'INVALID_SALES_DOC' });
+  });
+});
