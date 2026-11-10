@@ -33,5 +33,5 @@ export default async function PurchasingVendorsPage() {
     };
   });
 
-  return <PurchasingVendorsClient initialVendors={vendorStats} canImport={can(actor, 'master.manage')} />;
+  return <PurchasingVendorsClient initialVendors={vendorStats} canImport={can(actor, 'master.manage')} canDelete={can(actor, 'vendor.delete')} />;
 }

@@ -3,9 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, X, Users, Building2 } from 'lucide-react';
+import { Search, Plus, X, Users, Trash2 } from 'lucide-react';
 import { saveVendorAction } from '@/app/(app)/master/actions';
 import { MasterWorkbookImport } from '@/components/master-workbook-import';
+import { VendorDeleteDialog, VendorDeleteResultBanner } from '@/components/vendor-delete';
+import type { VendorDeleteResult } from '@/server/services/vendor-delete';
+import { deleteSuppliersAction } from './actions';
 
 interface VendorItem {
   id: string;
@@ -20,8 +23,20 @@ interface VendorItem {
   openPosCount: number;
 }
 
-export function PurchasingVendorsClient({ initialVendors, canImport }: { initialVendors: VendorItem[]; canImport: boolean }) {
+export function PurchasingVendorsClient({
+  initialVendors,
+  canImport,
+  canDelete,
+}: {
+  initialVendors: VendorItem[];
+  canImport: boolean;
+  canDelete: boolean;
+}) {
   const router = useRouter();
+  const [vendors, setVendors] = useState<VendorItem[]>(initialVendors);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ deleted: number; inUse: VendorDeleteResult['inUse'] } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [code, setCode] = useState('');
@@ -31,11 +46,23 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
   const [creditDays, setCreditDays] = useState('30');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filtered = initialVendors.filter((v) => {
+  const filtered = vendors.filter((v) => {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return [v.name, v.code, v.suppliedItems].some((text) => text.toLowerCase().includes(q));
   });
+
+  const selectedRows = vendors.filter((v) => selected.has(v.id));
+  const allShownSelected = filtered.length > 0 && filtered.every((v) => selected.has(v.id));
+  // Ticking "all" selects only what the search shows, so a hidden supplier is never deleted by surprise
+  const toggleShown = () => setSelected(allShownSelected ? new Set() : new Set(filtered.map((v) => v.id)));
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const columnCount = canDelete ? 9 : 8;
 
   return (
     <div className="space-y-4 font-sans text-slate-800">
@@ -50,6 +77,21 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
 
         <div className="flex flex-wrap items-center justify-end gap-2.5">
           {canImport && <MasterWorkbookImport />}
+          {canDelete && (
+            <button
+              type="button"
+              disabled={selectedRows.length === 0}
+              onClick={() => {
+                setDeleteResult(null);
+                setDeleting(true);
+              }}
+              title={selectedRows.length === 0 ? 'ติ๊กเลือกซัพพลายเออร์ที่จะลบก่อน' : undefined}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>ลบ{selectedRows.length > 0 && ` (${selectedRows.length})`}</span>
+            </button>
+          )}
           {/* Search box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -73,12 +115,21 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
         </div>
       </div>
 
+      {deleteResult && (
+        <VendorDeleteResultBanner deleted={deleteResult.deleted} inUse={deleteResult.inUse} onClose={() => setDeleteResult(null)} />
+      )}
+
       {/* Navy Table (Image 5) */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1050px] text-xs">
             <thead className="bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0">
               <tr>
+                {canDelete && (
+                  <th className="w-8 px-3.5 py-2.5">
+                    <input type="checkbox" checked={allShownSelected} onChange={toggleShown} aria-label="เลือกซัพพลายเออร์ทั้งหมดที่แสดง" className="align-middle" />
+                  </th>
+                )}
                 <th className="px-3.5 py-2.5 text-left font-medium">ซัพพลายเออร์</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ผู้ติดต่อ</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">รายการสินค้า</th>
@@ -92,13 +143,23 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-14 text-center text-slate-400 text-xs">
-                    ยังไม่มีซัพพลายเออร์
+                  <td colSpan={columnCount} className="py-14 text-center text-slate-400 text-xs">
+                    {vendors.length === 0 ? 'ยังไม่มีซัพพลายเออร์' : 'ไม่พบซัพพลายเออร์ที่ตรงกับคำค้นหา'}
                   </td>
                 </tr>
               ) : (
                 filtered.map((v) => (
-                  <tr key={v.id} onClick={() => router.push(`/purchasing/vendors/${v.id}`)} className="cursor-pointer hover:bg-slate-50 transition">
+                  <tr
+                    key={v.id}
+                    onClick={() => router.push(`/purchasing/vendors/${v.id}`)}
+                    className={`cursor-pointer transition ${selected.has(v.id) ? 'bg-red-50/40 hover:bg-red-50' : 'hover:bg-slate-50'}`}
+                  >
+                    {canDelete && (
+                      // Ticking must not open the supplier
+                      <td className="px-3.5 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={selected.has(v.id)} onChange={() => toggleOne(v.id)} aria-label={`เลือก ${v.name}`} className="align-middle" />
+                      </td>
+                    )}
                     <td className="px-3.5 py-2.5">
                       <Link href={`/purchasing/vendors/${v.id}`} onClick={(e) => e.stopPropagation()} className="font-bold text-slate-900 hover:text-[#2453d4] hover:underline">
                         {v.name}
@@ -139,6 +200,23 @@ export function PurchasingVendorsClient({ initialVendors, canImport }: { initial
           </table>
         </div>
       </div>
+
+      {deleting && selectedRows.length > 0 && (
+        <VendorDeleteDialog
+          title="ลบซัพพลายเออร์"
+          targets={selectedRows}
+          deleteAction={deleteSuppliersAction}
+          onClose={() => setDeleting(false)}
+          onDeleted={({ deletedIds, inUse }) => {
+            const gone = new Set(deletedIds);
+            setVendors((prev) => prev.filter((v) => !gone.has(v.id)));
+            setSelected(new Set());
+            setDeleteResult({ deleted: deletedIds.length, inUse });
+            setDeleting(false);
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Modal: เพิ่มซัพพลายเออร์ใหม่ */}
       {showModal && (
