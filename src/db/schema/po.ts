@@ -14,6 +14,7 @@ import { users } from './core';
 import { items, projects, vendors } from './master';
 import { prLines } from './pr';
 import { boqLines } from './boq';
+import { stockItems } from './stock';
 import { type VatMode } from '@/domain/money';
 
 export type PoStatus =
@@ -84,6 +85,8 @@ export const poLines = pgTable('po_lines', {
   itemId: uuid('item_id').references(() => items.id),
   // BOQ material line this purchase draws on; used for the over-BOQ (AP) check
   boqLineId: uuid('boq_line_id').references(() => boqLines.id),
+  // Stock item this line's goods go into when received; set when the item is created from the line or on first receipt
+  stockItemId: uuid('stock_item_id').references(() => stockItems.id, { onDelete: 'set null' }),
   description: text('description').notNull(),
   unitName: text('unit_name').notNull(),
   qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),

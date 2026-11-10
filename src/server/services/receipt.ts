@@ -131,6 +131,7 @@ export async function createReceipt(
       validEntries.map((e) => {
         const line = lineMap.get(e.poLineId)!;
         return {
+          poLineId: e.poLineId,
           description: line.description,
           unit: line.unitName,
           unitPrice: Number(line.unitPrice),

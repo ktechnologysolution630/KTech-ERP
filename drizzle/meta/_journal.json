@@ -232,6 +232,13 @@
       "when": 1794216175849,
       "tag": "0032_notification_category_boq_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794280907266,
+      "tag": "0033_po_line_stock_item",
+      "breakpoints": true
     }
   ]
 }

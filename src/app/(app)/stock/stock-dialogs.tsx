@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, Plus, X } from 'lucide-react';
-import type { PrLineOptionDto, StockItemDto, StockPageData } from '@/server/services/stock';
+import type { PoLineOptionDto, StockItemDto, StockPageData } from '@/server/services/stock';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { recordStockMovementAction, requestStockAdjustAction, saveStockItemAction } from './actions';
 
@@ -308,18 +308,18 @@ export function MovementDialog({
 /** Create a catalog item (optionally from a PR line, with a starting quantity), or edit one. */
 export function ItemDialog({
   item,
-  prLines,
+  poLines,
   onClose,
 }: {
   item: StockItemDto | null;
-  prLines: PrLineOptionDto[];
+  poLines: PoLineOptionDto[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    prLineId: '',
+    poLineId: '',
     sku: item?.sku ?? '',
     name: item?.name ?? '',
     category: item?.category ?? STOCK_CATEGORIES[0],
@@ -329,29 +329,30 @@ export function ItemDialog({
     notes: item?.notes ?? '',
   });
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const [prQuery, setPrQuery] = useState('');
+  const [poQuery, setPoQuery] = useState('');
 
   // An existing item may carry a category from before the fixed list; keep it selectable
   const categoryOptions: string[] = (STOCK_CATEGORIES as readonly string[]).includes(form.category)
     ? [...STOCK_CATEGORIES]
     : [form.category, ...STOCK_CATEGORIES];
 
-  const q = prQuery.trim().toLowerCase();
-  const prMatches = q
-    ? prLines.filter((l) => `${l.prNumber} ${l.projectCode} ${l.itemCode} ${l.description}`.toLowerCase().includes(q))
-    : prLines;
+  const q = poQuery.trim().toLowerCase();
+  const poMatches = q
+    ? poLines.filter((l) => `${l.poNumber} ${l.projectCode ?? ''} ${l.vendorName} ${l.itemCode} ${l.description}`.toLowerCase().includes(q))
+    : poLines;
+  const fromPo = form.poLineId !== '';
 
-  /** Picking a PR line fills code, name, unit and quantity; the user can still change them. */
-  const pickPrLine = (id: string) => {
-    const line = prLines.find((l) => l.id === id);
+  /** Picking a PO line fills code, name and unit; its stock comes with the goods receipt, so no quantity. */
+  const pickPoLine = (id: string) => {
+    const line = poLines.find((l) => l.id === id);
     setForm((f) =>
       line
-        ? { ...f, prLineId: id, sku: line.itemCode || f.sku, name: line.description, unit: line.unit || f.unit, quantity: String(line.qty) }
-        : { ...f, prLineId: '' },
+        ? { ...f, poLineId: id, sku: line.itemCode || f.sku, name: line.description, unit: line.unit || f.unit, quantity: '' }
+        : { ...f, poLineId: '' },
     );
   };
 
-  const quantity = form.quantity === '' ? 0 : Number(form.quantity);
+  const quantity = form.quantity === '' || fromPo ? 0 : Number(form.quantity);
   const quantityInvalid = !item && (!Number.isFinite(quantity) || quantity < 0);
 
   return (
@@ -373,7 +374,7 @@ export function ItemDialog({
               unit: form.unit,
               reorderPoint: Number(form.reorderPoint || 0),
               notes: form.notes,
-              ...(item ? {} : { quantity, prLineId: form.prLineId || undefined }),
+              ...(item ? {} : fromPo ? { poLineId: form.poLineId } : { quantity }),
             });
             if (!r.ok) {
               setError(r.error);
@@ -388,31 +389,31 @@ export function ItemDialog({
         <fieldset disabled={isPending} className="space-y-3.5">
           {!item && (
             <div className="block space-y-1.5">
-              <Label>อ้างอิงจากใบขอซื้อ (PR)</Label>
-              {prLines.length === 0 ? (
+              <Label>อ้างอิงจากใบสั่งซื้อ (PO)</Label>
+              {poLines.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300 p-2 text-slate-500">
-                  ยังไม่มีใบขอซื้อที่ส่งแล้วให้อ้างอิง — กรอกข้อมูลเองได้เลย
+                  ไม่มีรายการใน PO ที่อนุมัติแล้วและยังไม่ผูกกับวัสดุ — กรอกข้อมูลเองได้เลย
                 </p>
               ) : (
                 <>
                   <input
                     type="search"
-                    value={prQuery}
-                    onChange={(e) => setPrQuery(e.target.value)}
-                    placeholder="ค้นหาเลข PR, รหัสโครงการ หรือชื่อวัสดุ"
-                    aria-label="ค้นหาใบขอซื้อ"
+                    value={poQuery}
+                    onChange={(e) => setPoQuery(e.target.value)}
+                    placeholder="ค้นหาเลข PO, โครงการ, ผู้ขาย หรือชื่อวัสดุ"
+                    aria-label="ค้นหาใบสั่งซื้อ"
                     className={inputClass}
                   />
-                  <select value={form.prLineId} onChange={(e) => pickPrLine(e.target.value)} aria-label="รายการในใบขอซื้อ" className={inputClass}>
-                    <option value="">— ไม่อ้างอิง PR (กรอกเอง) —</option>
-                    {form.prLineId && !prMatches.some((l) => l.id === form.prLineId) && (
-                      <PrLineOption line={prLines.find((l) => l.id === form.prLineId)} />
+                  <select value={form.poLineId} onChange={(e) => pickPoLine(e.target.value)} aria-label="รายการในใบสั่งซื้อ" className={inputClass}>
+                    <option value="">— ไม่อ้างอิง PO (กรอกเอง / ยอดยกมา) —</option>
+                    {fromPo && !poMatches.some((l) => l.id === form.poLineId) && (
+                      <PoLineOption line={poLines.find((l) => l.id === form.poLineId)} />
                     )}
-                    {prMatches.map((l) => (
-                      <PrLineOption key={l.id} line={l} />
+                    {poMatches.map((l) => (
+                      <PoLineOption key={l.id} line={l} />
                     ))}
                   </select>
-                  {q && prMatches.length === 0 && <p className="text-slate-500">ไม่พบรายการที่ตรงกับ “{prQuery}”</p>}
+                  {q && poMatches.length === 0 && <p className="text-slate-500">ไม่พบรายการที่ตรงกับ “{poQuery}”</p>}
                 </>
               )}
             </div>
@@ -422,7 +423,7 @@ export function ItemDialog({
             <input
               value={form.sku}
               onChange={(e) => set('sku', e.target.value)}
-              placeholder={item ? '' : 'ดึงจาก PR อัตโนมัติ หรือเว้นว่างให้ระบบออกรหัสให้'}
+              placeholder={item ? '' : 'ดึงจาก PO อัตโนมัติ หรือเว้นว่างให้ระบบออกรหัสให้'}
               className={inputClass}
             />
           </label>
@@ -461,14 +462,15 @@ export function ItemDialog({
                   step="any"
                   min={0}
                   inputMode="decimal"
-                  value={form.quantity}
+                  value={fromPo ? '' : form.quantity}
                   onChange={(e) => set('quantity', e.target.value)}
-                  placeholder="0"
+                  placeholder={fromPo ? 'เข้าอัตโนมัติเมื่อรับของ' : '0'}
+                  disabled={fromPo}
                   aria-invalid={quantityInvalid}
                   className={inputClass}
                 />
                 <span className="mt-1 block text-[10px] text-slate-500">
-                  {form.prLineId ? 'รับเข้าคลังหน้างานของโครงการตาม PR' : 'รับเข้าคลังกลาง'} · เว้นว่างถ้ายังไม่มีของ
+                  {fromPo ? 'จำนวนจะเข้าสต็อกอัตโนมัติเมื่อกดรับของตาม PO' : 'ยอดยกมา รับเข้าคลังกลาง · เว้นว่างถ้ายังไม่มีของ'}
                 </span>
               </label>
             )}
@@ -501,12 +503,14 @@ export function ItemDialog({
   );
 }
 
-function PrLineOption({ line }: { line: PrLineOptionDto | undefined }) {
+function PoLineOption({ line }: { line: PoLineOptionDto | undefined }) {
   if (!line) return null;
   const code = line.itemCode ? ` [${line.itemCode}]` : '';
+  const where = line.projectCode ?? 'สำนักงาน';
+  const price = line.unitPrice.toLocaleString('th-TH', { minimumFractionDigits: 2 });
   return (
     <option value={line.id}>
-      {`${line.prNumber} · ${line.projectCode} · ${line.description}${code} (${line.qty.toLocaleString('th-TH')} ${line.unit})`}
+      {`${line.poNumber} · ${where} · ${line.vendorName} · ${line.description}${code} (${line.qty.toLocaleString('th-TH')} ${line.unit} @ ฿${price})`}
     </option>
   );
 }

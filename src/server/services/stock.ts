@@ -3,15 +3,16 @@ import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
   items,
-  prLines,
-  prs,
+  poLines,
+  pos,
   projects,
   stockAdjustRequests,
   stockBalances,
   stockItems,
   stockMovements,
   users,
-  type PrStatus,
+  vendors,
+  type PoStatus,
   type SessionUser,
   type StockAdjustStatus,
   type StockMovementType,
@@ -53,10 +54,13 @@ const itemSchema = z.object({
 });
 export type StockItemInput = z.input<typeof itemSchema>;
 
-/** The item form: a new item may start with a quantity and point at the PR line it comes from. */
+/**
+ * The item form: a new item may point at the PO line it is bought on (then its stock arrives
+ * with the goods receipt), or, without a PO, start with an opening quantity in the central store.
+ */
 const itemFormSchema = itemSchema.extend({
   quantity: z.number().finite().min(0, 'จำนวนต้องไม่ติดลบ').max(MAX_QTY).default(0),
-  prLineId: uuid.optional(),
+  poLineId: uuid.optional(),
 });
 export type StockItemFormInput = z.input<typeof itemFormSchema>;
 
@@ -88,93 +92,109 @@ async function writeStockItem(tx: Db, data: z.output<typeof itemSchema>) {
   return created;
 }
 
-/** PRs whose lines can be used as the source of a stock item (not drafts, rejected or cancelled). */
-const PR_STATUSES_FOR_STOCK: PrStatus[] = ['SUBMITTED', 'APPROVED', 'CLOSED'];
+/** Approved POs: the purchase is decided, so its lines are real items at a real price. */
+const PO_STATUSES_FOR_STOCK: PoStatus[] = ['APPROVED', 'ORDERED', 'COMPLETED'];
 
-export interface PrLineOptionDto {
+export interface PoLineOptionDto {
   id: string;
-  prNumber: string;
-  projectCode: string;
-  /** Item master code when the PR line picked one; '' when typed freely */
+  poNumber: string;
+  /** null = office PO, received into the central store */
+  projectCode: string | null;
+  vendorName: string;
+  /** Item master code when the PO line picked one; '' when typed freely */
   itemCode: string;
   description: string;
   unit: string;
   qty: number;
+  unitPrice: number;
 }
 
-/** Recent PR lines the actor may see, newest first, for the item form's "อ้างอิงจาก PR" picker. */
-export async function listPrLinesForStock(db: Db, actor: SessionUser, limit = 300): Promise<PrLineOptionDto[]> {
+/** Lines of approved POs not yet tied to a stock item, newest first, for the item form's PO picker. */
+export async function listPoLinesForStock(db: Db, actor: SessionUser, limit = 300): Promise<PoLineOptionDto[]> {
   if (!can(actor, 'stock.items')) return [];
   const scoped = isSiteScopedOnly(actor);
   if (scoped && actor.projectIds.length === 0) return [];
   const rows = await db
     .select({
-      id: prLines.id,
-      prNumber: prs.number,
+      id: poLines.id,
+      poNumber: pos.number,
       projectCode: projects.code,
+      vendorName: vendors.name,
       itemCode: items.code,
-      description: prLines.description,
-      unit: prLines.unitName,
-      qty: prLines.qty,
+      description: poLines.description,
+      unit: poLines.unitName,
+      qty: poLines.qty,
+      unitPrice: poLines.unitPrice,
     })
-    .from(prLines)
-    .innerJoin(prs, eq(prs.id, prLines.prId))
-    .innerJoin(projects, eq(projects.id, prs.projectId))
-    .leftJoin(items, eq(items.id, prLines.itemId))
+    .from(poLines)
+    .innerJoin(pos, eq(pos.id, poLines.poId))
+    .innerJoin(vendors, eq(vendors.id, pos.vendorId))
+    .leftJoin(projects, eq(projects.id, pos.projectId))
+    .leftJoin(items, eq(items.id, poLines.itemId))
     .where(
       and(
-        inArray(prs.status, PR_STATUSES_FOR_STOCK),
-        scoped ? inArray(prs.projectId, actor.projectIds) : undefined,
+        inArray(pos.status, PO_STATUSES_FOR_STOCK),
+        isNull(poLines.stockItemId),
+        // Site staff see their own projects' POs only, not office POs
+        scoped ? inArray(pos.projectId, actor.projectIds) : undefined,
       ),
     )
-    .orderBy(desc(prs.createdAt), prLines.createdAt)
+    .orderBy(desc(pos.createdAt), poLines.sort)
     .limit(limit);
-  return rows.map((r) => ({ ...r, itemCode: r.itemCode ?? '', qty: Number(r.qty) }));
+  return rows.map((r) => ({ ...r, itemCode: r.itemCode ?? '', qty: Number(r.qty), unitPrice: Number(r.unitPrice) }));
 }
 
 /**
- * Saves an item from the stock page. A new item may reference a PR line (for its project and
- * estimated price) and start with a quantity, received into that PR's site store or, without a
- * PR, into the central store. Existing items change their balances only through movements.
+ * Saves an item from the stock page. A new item may come from a PO line: it takes the line's
+ * price and is tied to it, so the goods receipt puts the stock into this item (no quantity is
+ * entered then, or it would be counted twice). Without a PO, a new item may start with an
+ * opening quantity in the central store. Existing items change their balances only through movements.
  */
 export async function upsertStockItem(db: Db, actor: SessionUser, input: StockItemFormInput) {
   assertCan(actor, 'stock.items');
-  const { quantity, prLineId, ...data } = parse(itemFormSchema, input);
+  const { quantity, poLineId, ...data } = parse(itemFormSchema, input);
   if (!data.id && !(STOCK_CATEGORIES as readonly string[]).includes(data.category)) {
     throw new DomainError('INVALID_STOCK', 'กรุณาเลือกหมวดหมู่จากรายการ');
   }
+  if (poLineId && quantity > 0) {
+    throw new DomainError('INVALID_STOCK', 'วัสดุที่อ้างอิง PO จะเข้าสต็อกเมื่อรับของ ไม่ต้องใส่จำนวน');
+  }
 
   return db.transaction(async (tx) => {
-    let source: { prNumber: string; projectId: string; estUnitPrice: string | null } | null = null;
-    if (prLineId && !data.id) {
+    let source: { lineId: string; unitPrice: string } | null = null;
+    if (poLineId && !data.id) {
       const [row] = await tx
-        .select({ prNumber: prs.number, projectId: prs.projectId, status: prs.status, estUnitPrice: prLines.estUnitPrice })
-        .from(prLines)
-        .innerJoin(prs, eq(prs.id, prLines.prId))
-        .where(eq(prLines.id, prLineId))
-        .limit(1);
-      if (!row || !PR_STATUSES_FOR_STOCK.includes(row.status)) {
-        throw new DomainError('INVALID_STOCK', 'ไม่พบรายการใบขอซื้อที่อ้างอิง หรือใบขอซื้อยังไม่ได้ส่ง/ถูกยกเลิก');
+        .select({ lineId: poLines.id, unitPrice: poLines.unitPrice, stockItemId: poLines.stockItemId, status: pos.status, projectId: pos.projectId })
+        .from(poLines)
+        .innerJoin(pos, eq(pos.id, poLines.poId))
+        .where(eq(poLines.id, poLineId))
+        .for('update');
+      if (!row || !PO_STATUSES_FOR_STOCK.includes(row.status)) {
+        throw new DomainError('INVALID_STOCK', 'ไม่พบรายการในใบสั่งซื้อที่อ้างอิง หรือใบสั่งซื้อยังไม่อนุมัติ/ถูกยกเลิก');
       }
-      if (isSiteScopedOnly(actor) && !actor.projectIds.includes(row.projectId)) {
-        throw new DomainError('FORBIDDEN', 'ไม่มีสิทธิ์อ้างอิงใบขอซื้อของโครงการนี้', 403);
+      if (isSiteScopedOnly(actor) && (!row.projectId || !actor.projectIds.includes(row.projectId))) {
+        throw new DomainError('FORBIDDEN', 'ไม่มีสิทธิ์อ้างอิงใบสั่งซื้อนี้', 403);
+      }
+      if (row.stockItemId) {
+        throw new DomainError('INVALID_STOCK', 'รายการนี้ในใบสั่งซื้อผูกกับวัสดุอื่นแล้ว', 409);
       }
       source = row;
     }
 
-    const unitCost = data.unitCost ?? (source?.estUnitPrice ? Number(source.estUnitPrice) : undefined);
-    const item = await writeStockItem(tx, { ...data, unitCost: data.id ? data.unitCost : (unitCost ?? 0) });
+    const unitCost = data.id ? data.unitCost : (data.unitCost ?? (source ? Number(source.unitPrice) : 0));
+    const item = await writeStockItem(tx, { ...data, unitCost });
 
-    if (!data.id && quantity > 0) {
+    if (source) {
+      await tx.update(poLines).set({ stockItemId: item.id, updatedAt: new Date() }).where(eq(poLines.id, source.lineId));
+    } else if (!data.id && quantity > 0) {
       await applyStockMovement(tx, {
         stockItemId: item.id,
-        projectId: source?.projectId ?? null,
+        projectId: null,
         type: 'RECEIVE',
         quantity,
-        referenceType: source ? 'PR' : 'OPENING',
-        referenceNumber: source?.prNumber,
+        referenceType: 'OPENING',
         performedBy: actor.id,
-        notes: source ? `ยอดตั้งต้นอ้างอิงใบขอซื้อ ${source.prNumber}` : 'ยอดตั้งต้นเมื่อเพิ่มวัสดุ',
+        notes: 'ยอดยกมาเมื่อเพิ่มวัสดุ',
       });
     }
     return item;
@@ -362,12 +382,18 @@ export async function syncReceiptToStock(
   actorId: string,
   projectId: string | null,
   poNumber: string,
-  lines: Array<{ description: string; unit: string; unitPrice: number | string; qty: number }>,
+  lines: Array<{ poLineId?: string; description: string; unit: string; unitPrice: number | string; qty: number }>,
 ) {
   for (const line of lines) {
     if (line.qty <= 0) continue;
     const name = line.description.trim();
-    const [existing] = await tx.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.name, name)).limit(1);
+    // The item tied to the PO line wins; otherwise one with the same name, otherwise a new one
+    const [linked] = line.poLineId
+      ? await tx.select({ id: poLines.stockItemId }).from(poLines).where(eq(poLines.id, line.poLineId)).limit(1)
+      : [];
+    const [existing] = linked?.id
+      ? [{ id: linked.id }]
+      : await tx.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.name, name)).limit(1);
     const stockItemId =
       existing?.id ??
       (
@@ -381,6 +407,11 @@ export async function syncReceiptToStock(
           notes: '',
         })
       ).id;
+
+    // Later receipts of this line go into the same item even if it is renamed
+    if (line.poLineId && !linked?.id) {
+      await tx.update(poLines).set({ stockItemId, updatedAt: new Date() }).where(eq(poLines.id, line.poLineId));
+    }
 
     await applyStockMovement(tx, {
       stockItemId,
@@ -579,8 +610,8 @@ export interface StockPageData {
   adjustRequests: StockAdjustDto[];
   monthly: MonthlyFlow[];
   permissions: { manageItems: boolean; approveAdjust: boolean; movableProjectIds: string[]; moveCentral: boolean };
-  /** PR lines a new item can reference; empty for users who cannot manage items */
-  prLineOptions: PrLineOptionDto[];
+  /** Approved PO lines a new item can be created from; empty for users who cannot manage items */
+  poLineOptions: PoLineOptionDto[];
   me: string;
 }
 
@@ -745,7 +776,7 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
       movableProjectIds: projectRows.filter((p) => can(actor, 'stock.move', { projectId: p.id })).map((p) => p.id),
       moveCentral: can(actor, 'stock.move', { projectId: null }),
     },
-    prLineOptions: await listPrLinesForStock(db, actor),
+    poLineOptions: await listPoLinesForStock(db, actor),
     me: actor.id,
   };
 }
