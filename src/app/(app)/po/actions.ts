@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
@@ -23,7 +22,10 @@ import {
   requestCloseShort,
 } from '@/server/services/close-short';
 
-export async function createPoAction(input: PoInput & { submitNow?: boolean }): Promise<{ ok: false; error: string }> {
+/** Saved PO id, or why it was refused; the form uploads its pictures and then opens the PO */
+export type PoSaveResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function createPoAction(input: PoInput & { submitNow?: boolean }): Promise<PoSaveResult> {
   const actor = await requireUser();
   const db = await getDb();
   let created: { id: string };
@@ -35,13 +37,13 @@ export async function createPoAction(input: PoInput & { submitNow?: boolean }): 
     throw err;
   }
   revalidatePath('/po');
-  redirect(`/po/${created.id}`);
+  return { ok: true, id: created.id };
 }
 
 export async function updatePoAction(
   id: string,
   input: PoInput & { submitNow?: boolean },
-): Promise<{ ok: false; error: string }> {
+): Promise<PoSaveResult> {
   const actor = await requireUser();
   const db = await getDb();
   try {
@@ -53,7 +55,7 @@ export async function updatePoAction(
   }
   revalidatePath(`/po/${id}`);
   revalidatePath('/po');
-  redirect(`/po/${id}`);
+  return { ok: true, id };
 }
 
 export async function deletePoAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {

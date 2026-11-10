@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2 } from 'lucide-react';
+import { FileText, ImagePlus, Plus, Trash2, X } from 'lucide-react';
+import { PoBoqDialog } from '@/components/po-boq-dialog';
 import type { PoPaymentType } from '@/db/schema';
 import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMode } from '@/domain/money';
 import { InstallmentEditor, type InstallmentRowState } from '@/components/installment-editor';
@@ -181,7 +182,9 @@ export function PoForm({
       discount: Number(l.discount) ? String(Number(l.discount)) : '',
     })) ?? [emptyLine()],
   );
-  const [showBoq, setShowBoq] = useState(Boolean(existing?.lines.some((l) => l.boqLineId)));
+  const [boqOpen, setBoqOpen] = useState(false);
+  /** Pictures picked here go up once the PO is saved */
+  const [photos, setPhotos] = useState<File[]>([]);
   const [installments, setInstallments] = useState<InstallmentRowState[]>(
     existing?.installments && existing.installments.length > 0 ? existing.installments : DEFAULT_INSTALLMENTS,
   );
@@ -275,8 +278,21 @@ export function PoForm({
     };
     startTransition(async () => {
       const r = existing ? await updatePoAction(existing.id, payload) : await createPoAction(payload);
-      // Success redirects; only a refusal comes back
-      if (r && !r.ok) setError(r.error);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      let failed = 0;
+      for (const file of photos) {
+        const fd = new FormData();
+        fd.set('file', file);
+        fd.set('entityType', 'PO');
+        fd.set('entityId', r.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: fd }).catch(() => null);
+        if (!res?.ok) failed++;
+      }
+      router.push(failed > 0 ? `/po/${r.id}?upload=failed` : `/po/${r.id}`);
+      router.refresh();
     });
   }
 
@@ -288,12 +304,29 @@ export function PoForm({
             {error}
           </p>
         )}
-        {projectId !== 'OFFICE' && projectBoqMaterials.length > 0 && (
-          <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
-            <input type="checkbox" checked={showBoq} onChange={(e) => setShowBoq(e.target.checked)} />
-            ตัดงบ BOQ
-          </label>
-        )}
+        <button
+          type="button"
+          onClick={() => setBoqOpen(true)}
+          disabled={projectId === 'OFFICE' || projectBoqMaterials.length === 0}
+          title={projectId === 'OFFICE' || !projectId ? 'เลือกโครงการก่อน' : projectBoqMaterials.length === 0 ? 'โครงการนี้ยังไม่มี BOQ' : undefined}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <FileText className="h-4 w-4" /> ตัดงบ BOQ{lines.some((l) => l.boqLineId) ? ` (${lines.filter((l) => l.boqLineId).length})` : ''}
+        </button>
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          <ImagePlus className="h-4 w-4" /> แนบรูป ({photos.length})
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              const picked = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              setPhotos((prev) => [...prev, ...picked]);
+            }}
+          />
+        </label>
         <button type="button" onClick={() => router.back()} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           ยกเลิก
         </button>
@@ -314,6 +347,37 @@ export function PoForm({
           {pending ? 'กำลังบันทึก...' : 'สร้างเอกสารและส่งขออนุมัติ'}
         </button>
       </div>
+
+      {photos.length > 0 && (
+        <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-2 text-xs">
+          {photos.map((f, i) => (
+            <span key={`${f.name}-${i}`} className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-slate-700">
+              {f.name}
+              <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-600" title={`เอา ${f.name} ออก`}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          <span className="self-center text-slate-400">อัปโหลดเมื่อบันทึกเอกสาร</span>
+        </div>
+      )}
+
+      {boqOpen && (
+        <PoBoqDialog
+          materials={projectBoqMaterials}
+          lines={lines.map((l) => ({ description: l.description, unitName: l.unitName, amount: num(l.qty).times(num(l.unitPrice)).minus(num(l.discount)).toNumber(), boqLineId: l.boqLineId }))}
+          onClose={() => setBoqOpen(false)}
+          onSave={(picks, added) => {
+            setLines((prev) => {
+              const kept = prev.map((l, i) => ({ ...l, boqLineId: picks[i] ?? '' }));
+              // A blank starter line gives way to lines brought in from the BOQ
+              const base = added.length > 0 ? kept.filter((l) => l.description.trim() !== '') : kept;
+              return [...base, ...added.map((x) => ({ ...emptyLine(), description: x.description, unitName: x.unitName || 'ชิ้น', boqLineId: x.boqLineId }))];
+            });
+            setBoqOpen(false);
+          }}
+        />
+      )}
 
       <DocPaper
         company={company}
@@ -404,28 +468,13 @@ export function PoForm({
                 <tr key={idx} className="align-top">
                   <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{idx + 1}</td>
                   <td className="border border-slate-200 px-1 py-1">
-                    {showBoq && projectBoqMaterials.length > 0 && (
-                      <select
-                        value={l.boqLineId}
-                        onChange={(e) => {
-                          const pick = projectBoqMaterials.find((b) => b.id === e.target.value);
-                          setLine(idx, {
-                            boqLineId: e.target.value,
-                            description: l.description.trim() || pick?.description || l.description,
-                            unitName: pick?.unit && (l.unitName === 'ชิ้น' || !l.unitName) ? pick.unit : l.unitName,
-                          });
-                        }}
-                        aria-label={`รายการ BOQ ของรายการที่ ${idx + 1}`}
-                        className={`${paperCell} mb-1 bg-amber-50 text-xs`}
-                      >
-                        <option value="">— ไม่ตัดงบ BOQ —</option>
-                        {projectBoqMaterials.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.source && b.source !== 'BOQ หลัก' ? `[${b.source}] ` : ''}
-                            {b.no} {b.description} · งบคงเหลือ {formatMoneyDisplay(b.remaining.toFixed(2))}
-                          </option>
-                        ))}
-                      </select>
+                    {l.boqLineId && (
+                      <p className="mb-1 px-1.5 text-[11px] text-amber-700">
+                        ตัดงบ BOQ: {(() => {
+                          const b = boqMaterials.find((x) => x.id === l.boqLineId);
+                          return b ? `${b.no} ${b.description}` : 'รายการ BOQ';
+                        })()}
+                      </p>
                     )}
                     <input value={l.description} onChange={(e) => setLine(idx, { description: e.target.value })} placeholder="ชื่อรายการ" aria-label={`ชื่อรายการที่ ${idx + 1}`} className={`${paperCell} font-medium`} />
                     <textarea
