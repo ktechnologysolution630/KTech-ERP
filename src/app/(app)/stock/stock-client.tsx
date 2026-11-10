@@ -7,6 +7,7 @@ import { GsapReveal } from '@/components/gsap-animator';
 import type { StockItemDto, StockMovementDto, StockPageData } from '@/server/services/stock';
 import { ItemDialog, MovementDialog, type MovementKind } from './stock-dialogs';
 import { StockDocDialog, type StockDocOptions } from './stock-doc-form';
+import { MaterialUsageDialog } from './material-usage-dialog';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
@@ -70,6 +71,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
 
   const [movementDialog, setMovementDialog] = useState<{ kind: MovementKind; itemId?: string } | null>(null);
   const [itemDialog, setItemDialog] = useState<{ item: StockItemDto | null } | null>(null);
+  const [usageOpen, setUsageOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -155,7 +157,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
       )}
       {currentTab === 'issues' && <LedgerTab data={data} />}
       {currentTab === 'material-usage' && (
-        <UsageTab data={data} canRecord={canMoveAnything} onRecord={() => setMovementDialog({ kind: 'ISSUE' })} />
+        <UsageTab data={data} canRecord={canMoveAnything} onRecord={() => setUsageOpen(true)} />
       )}
       {currentTab === 'all-stock' && (
         <AllStockTab
@@ -177,6 +179,7 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
         ) : (
           <StockDocDialog data={data} options={docOptions} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
         ))}
+      {usageOpen && <MaterialUsageDialog data={data} meName={docOptions.meName} today={docOptions.today} onClose={() => setUsageOpen(false)} />}
       {itemDialog && <ItemDialog item={itemDialog.item} poLines={data.poLineOptions} onClose={() => setItemDialog(null)} />}
     </div>
   );
