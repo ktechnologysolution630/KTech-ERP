@@ -33,7 +33,8 @@ describe('PR service', () => {
       projectId: f.projectA,
       lines: [sampleLine],
     });
-    expect(pr.number).toMatch(/^PR-\d{4}-\d{4}$/);
+    // Numbered per project: PR-<project code>-0001
+    expect(pr.number).toBe('PR-PJ-001-0001');
     await submitPr(db, f.users.foreman, pr.id);
     await approvePr(db, f.users.pm, pr.id);
     const got = await getPr(db, f.users.pm, pr.id);

@@ -14,7 +14,7 @@ import { D, round2, type Decimal } from '@/domain/money';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
-import { nextDocNumber } from './numbering';
+import { nextProjectDocNumber } from './numbering';
 
 export interface PrLineInput {
   itemId?: string | null;
@@ -83,7 +83,17 @@ export async function createPr(
   assertCan(actor, 'pr.create', { projectId: d.projectId });
 
   return db.transaction(async (tx) => {
-    const number = await nextDocNumber(tx, 'PR');
+    const [project] = await tx
+      .select({ id: projects.id, code: projects.code })
+      .from(projects)
+      .where(eq(projects.id, d.projectId))
+      .limit(1);
+    if (!project) throw new DomainError('NOT_FOUND', 'ไม่พบโครงการ', 404);
+    // PR-<project code>-0001, counting per project
+    const number = await nextProjectDocNumber(tx, 'PR', project, async (candidate) => {
+      const [taken] = await tx.select({ id: prs.id }).from(prs).where(eq(prs.number, candidate)).limit(1);
+      return Boolean(taken);
+    });
     const [created] = await tx
       .insert(prs)
       .values({
