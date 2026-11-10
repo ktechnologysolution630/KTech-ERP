@@ -52,6 +52,16 @@ export interface PoLineInput {
   qty: Decimal | string | number;
   unitPrice: Decimal | string | number;
   discount?: Decimal | string | number;
+  /** Longer specification under the item name */
+  detail?: string;
+}
+
+/** The order's printed header */
+export interface PoHeader {
+  docDate: string | null;
+  department: string;
+  requesterName: string;
+  paymentTerms: string;
 }
 
 export interface PoInstallmentInput {
@@ -69,6 +79,17 @@ export interface PoTerms {
   payMethod: PayMethod;
 }
 
+/** Header columns to write; a field left out keeps what is stored */
+function headerOf(h: Partial<PoHeader> | undefined) {
+  if (!h) return {};
+  return {
+    docDate: h.docDate === undefined ? undefined : h.docDate || null,
+    department: h.department?.trim().slice(0, 200),
+    requesterName: h.requesterName?.trim().slice(0, 200),
+    paymentTerms: h.paymentTerms?.trim().slice(0, 500),
+  };
+}
+
 export interface PoInput {
   projectId: string | null;
   vendorId: string;
@@ -76,6 +97,8 @@ export interface PoInput {
   creditDays?: number | null;
   /** Billing / cheque terms; anything left out comes from the vendor */
   terms?: Partial<PoTerms>;
+  /** Left out, a new PO's header is blank and an existing one keeps its own */
+  header?: Partial<PoHeader>;
   vatMode: VatMode;
   billDiscount: Decimal | string | number;
   shipping: Decimal | string | number;
@@ -94,6 +117,8 @@ export interface SerializedPoRevisionPayload {
   creditDays: number | null;
   /** Absent in revisions saved before billing terms existed */
   terms?: PoTerms;
+  /** Absent in revisions saved before the printed header existed */
+  header?: Partial<PoHeader>;
   vatMode: VatMode;
   billDiscount: string;
   shipping: string;
@@ -109,6 +134,7 @@ export interface SerializedPoRevisionPayload {
     /** Absent in revisions saved before BOQ linking existed */
     boqLineId?: string | null;
     description: string;
+    detail?: string;
     unitName: string;
     qty: string;
     unitPrice: string;
@@ -379,6 +405,7 @@ export async function createPo(
         paymentType: input.paymentType,
         creditDays,
         ...terms,
+        ...headerOf(input.header),
         vatMode: input.vatMode,
         billDiscount: totals.billDiscount.toFixed(2),
         shipping: totals.shipping.toFixed(2),
@@ -401,6 +428,7 @@ export async function createPo(
           itemId: l.itemId ?? null,
           boqLineId: l.boqLineId ?? null,
           description: l.description.trim(),
+          detail: l.detail?.trim() ?? '',
           unitName: l.unitName.trim(),
           qty: D(l.qty).toDecimalPlaces(3).toFixed(3),
           unitPrice: round2(D(l.unitPrice)).toFixed(2),
@@ -467,6 +495,7 @@ export async function updatePo(
           paymentType: input.paymentType,
           creditDays,
           ...terms,
+          ...headerOf(input.header),
           vatMode: input.vatMode,
           billDiscount: totals.billDiscount.toFixed(2),
           shipping: totals.shipping.toFixed(2),
@@ -490,6 +519,7 @@ export async function updatePo(
             itemId: l.itemId ?? null,
             boqLineId: l.boqLineId ?? null,
             description: l.description.trim(),
+          detail: l.detail?.trim() ?? '',
             unitName: l.unitName.trim(),
             qty: D(l.qty).toDecimalPlaces(3).toFixed(3),
             unitPrice: round2(D(l.unitPrice)).toFixed(2),
@@ -574,6 +604,7 @@ export async function updatePo(
         paymentType: input.paymentType,
         creditDays,
         terms,
+        header: input.header,
         vatMode: input.vatMode,
         billDiscount: totals.billDiscount.toFixed(2),
         shipping: totals.shipping.toFixed(2),
@@ -588,6 +619,7 @@ export async function updatePo(
           itemId: l.itemId ?? null,
           boqLineId: l.boqLineId ?? null,
           description: l.description.trim(),
+          detail: l.detail?.trim() ?? '',
           unitName: l.unitName.trim(),
           qty: D(l.qty).toDecimalPlaces(3).toFixed(3),
           unitPrice: round2(D(l.unitPrice)).toFixed(2),
@@ -773,6 +805,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
               itemId: nl.itemId,
               boqLineId: nl.boqLineId ?? null,
               description: nl.description,
+              detail: nl.detail ?? '',
               unitName: nl.unitName,
               qty: nl.qty,
               unitPrice: nl.unitPrice,
@@ -792,6 +825,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
             itemId: nl.itemId,
             boqLineId: nl.boqLineId ?? null,
             description: nl.description,
+              detail: nl.detail ?? '',
             unitName: nl.unitName,
             qty: nl.qty,
             unitPrice: nl.unitPrice,
@@ -853,6 +887,7 @@ export async function approvePo(db: Db, actor: SessionUser, id: string): Promise
           paymentType: payload.paymentType,
           creditDays: payload.creditDays,
           ...(payload.terms ?? {}),
+          ...headerOf(payload.header),
           vatMode: payload.vatMode,
           billDiscount: totals.billDiscount.toFixed(2),
           shipping: totals.shipping.toFixed(2),
@@ -1116,6 +1151,10 @@ export async function getPo(db: Db, actor: SessionUser, id: string) {
       creditBasis: pos.creditBasis,
       chequeSchedule: pos.chequeSchedule,
       payMethod: pos.payMethod,
+      docDate: pos.docDate,
+      department: pos.department,
+      requesterName: pos.requesterName,
+      paymentTerms: pos.paymentTerms,
       vatMode: pos.vatMode,
       billDiscount: pos.billDiscount,
       shipping: pos.shipping,

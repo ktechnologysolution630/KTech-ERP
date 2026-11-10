@@ -23,12 +23,16 @@ import {
   requestCloseShort,
 } from '@/server/services/close-short';
 
-export async function createPoAction(input: PoInput & { submitNow?: boolean }) {
+export async function createPoAction(input: PoInput & { submitNow?: boolean }): Promise<{ ok: false; error: string }> {
   const actor = await requireUser();
   const db = await getDb();
-  const created = await createPo(db, actor, input);
-  if (input.submitNow) {
-    await submitPo(db, actor, created.id);
+  let created: { id: string };
+  try {
+    created = await createPo(db, actor, input);
+    if (input.submitNow) await submitPo(db, actor, created.id);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
   }
   revalidatePath('/po');
   redirect(`/po/${created.id}`);
@@ -37,12 +41,15 @@ export async function createPoAction(input: PoInput & { submitNow?: boolean }) {
 export async function updatePoAction(
   id: string,
   input: PoInput & { submitNow?: boolean },
-) {
+): Promise<{ ok: false; error: string }> {
   const actor = await requireUser();
   const db = await getDb();
-  await updatePo(db, actor, id, input);
-  if (input.submitNow) {
-    await submitPo(db, actor, id);
+  try {
+    await updatePo(db, actor, id, input);
+    if (input.submitNow) await submitPo(db, actor, id);
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
   }
   revalidatePath(`/po/${id}`);
   revalidatePath('/po');

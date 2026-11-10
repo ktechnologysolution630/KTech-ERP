@@ -340,3 +340,43 @@ describe('PO service', () => {
     expect(afterRev.approvedRevision).toBe(1);
   });
 });
+
+describe('PO document header', () => {
+  test('keeps the printed header and line detail, through a revision after approval', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'PREPAID',
+      terms: { payMethod: 'PROMPTPAY' },
+      header: { docDate: '2026-11-10', department: 'จัดซื้อ', requesterName: 'นายช่าง', paymentTerms: 'จ่ายก่อนส่งของ' },
+      vatMode: 'NONE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ทราย', detail: 'ทรายหยาบ', unitName: 'คิว', qty: D(2), unitPrice: D(500), discount: D(0) }],
+    });
+    let doc = await getPo(db, f.users.buyer, po.id);
+    expect(doc).toMatchObject({ docDate: '2026-11-10', department: 'จัดซื้อ', requesterName: 'นายช่าง', paymentTerms: 'จ่ายก่อนส่งของ', payMethod: 'PROMPTPAY' });
+    expect(doc.lines[0]!.detail).toBe('ทรายหยาบ');
+
+    await submitPo(db, f.users.buyer, po.id);
+    await approvePo(db, f.users.buyerHead, po.id);
+    await updatePo(db, f.users.buyer, po.id, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'PREPAID',
+      header: { department: 'ฝ่ายก่อสร้าง' },
+      vatMode: 'NONE',
+      billDiscount: D(0),
+      shipping: D(0),
+      reason: 'แก้รายละเอียด',
+      lines: [{ id: doc.lines[0]!.id, description: 'ทราย', detail: 'ทรายละเอียด', unitName: 'คิว', qty: D(2), unitPrice: D(500), discount: D(0) }],
+    });
+    await submitPo(db, f.users.buyer, po.id);
+    await approvePo(db, f.users.buyerHead, po.id);
+    doc = await getPo(db, f.users.buyer, po.id);
+    expect(doc).toMatchObject({ department: 'ฝ่ายก่อสร้าง', requesterName: 'นายช่าง', docDate: '2026-11-10' });
+    expect(doc.lines[0]!.detail).toBe('ทรายละเอียด');
+  });
+});

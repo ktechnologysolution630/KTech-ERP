@@ -143,8 +143,10 @@ export function computeDueDate(input: {
   return { billingDate, dueDate };
 }
 
-export type PayMethod = 'TRANSFER' | 'CHEQUE' | 'CASH';
-export const PAY_METHOD_LABEL: Record<PayMethod, string> = { CHEQUE: 'เช็ค', TRANSFER: 'โอนเงิน', CASH: 'เงินสด' };
+export type PayMethod = 'TRANSFER' | 'CHEQUE' | 'CASH' | 'PROMPTPAY' | 'CARD';
+export const PAY_METHOD_LABEL: Record<PayMethod, string> = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค', PROMPTPAY: 'พร้อมเพย์', CARD: 'บัตรเครดิต' };
+/** In the order the PO form offers them */
+export const PAY_METHODS: readonly PayMethod[] = ['TRANSFER', 'CASH', 'CHEQUE', 'PROMPTPAY', 'CARD'];
 
 export type ChequeStatus = 'ISSUED' | 'COLLECTED' | 'CLEARED' | 'VOID';
 export const CHEQUE_STATUS_LABEL: Record<ChequeStatus, string> = {

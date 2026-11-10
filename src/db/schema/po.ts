@@ -57,6 +57,11 @@ export const pos = pgTable(
     creditBasis: text('credit_basis').$type<CreditBasis>().default('INVOICE').notNull(),
     chequeSchedule: text('cheque_schedule').default('').notNull(),
     payMethod: text('pay_method').$type<PayMethod>().default('TRANSFER').notNull(),
+    /** Document header, as on the printed order */
+    docDate: date('doc_date'),
+    department: text('department').default('').notNull(),
+    requesterName: text('requester_name').default('').notNull(),
+    paymentTerms: text('payment_terms').default('').notNull(),
     vatMode: text('vat_mode').$type<VatMode>().default('EXCLUSIVE').notNull(),
     billDiscount: numeric('bill_discount', { precision: 14, scale: 2 })
       .default('0.00')
@@ -94,6 +99,8 @@ export const poLines = pgTable('po_lines', {
   // Stock item this line's goods go into when received; set when the item is created from the line or on first receipt
   stockItemId: uuid('stock_item_id').references(() => stockItems.id, { onDelete: 'set null' }),
   description: text('description').notNull(),
+    /** Longer specification under the item name */
+    detail: text('detail').default('').notNull(),
   unitName: text('unit_name').notNull(),
   qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
   unitPrice: numeric('unit_price', { precision: 14, scale: 2 }).notNull(),

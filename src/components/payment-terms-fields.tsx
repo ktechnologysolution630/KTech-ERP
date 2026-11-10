@@ -5,6 +5,7 @@ import {
   CREDIT_BASES,
   CREDIT_BASIS_LABEL,
   PAY_METHOD_LABEL,
+  PAY_METHODS,
   WEEKDAY_LABEL,
   formatSchedule,
   parseSchedule,
@@ -117,7 +118,10 @@ export function PaymentTermsFields({
   onChange,
   names,
   inputClass = DEFAULT_INPUT,
+  hidePayMethod = false,
 }: {
+  /** The PO asks for the pay method in its own footer */
+  hidePayMethod?: boolean;
   value: PaymentTermsValue;
   onChange?: (v: PaymentTermsValue) => void;
   /** Form field names; leave out for a controlled use */
@@ -144,16 +148,18 @@ export function PaymentTermsFields({
         </select>
       </label>
       <ScheduleField label="รอบรับเช็ค / รอบจ่าย" name={names?.chequeSchedule} value={v.chequeSchedule} onChange={(s) => set({ chequeSchedule: s })} anyLabel="ไม่กำหนดรอบ" inputClass={inputClass} />
+      {!hidePayMethod && (
       <label className="block font-semibold text-slate-700">
         วิธีจ่ายตั้งต้น
         <select name={names?.payMethod} value={v.payMethod} onChange={(e) => set({ payMethod: e.target.value as PayMethod })} className={`${inputClass} mt-1 font-normal`}>
-          {(['CHEQUE', 'TRANSFER', 'CASH'] as const).map((m) => (
+          {PAY_METHODS.map((m) => (
             <option key={m} value={m}>
               {PAY_METHOD_LABEL[m]}
             </option>
           ))}
         </select>
       </label>
+      )}
     </>
   );
 }

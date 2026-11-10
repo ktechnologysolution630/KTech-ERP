@@ -34,7 +34,7 @@ export function PoPdfDoc({
       titleTh="ใบสั่งซื้อ"
       titleEn="Purchase Order"
       docNumber={po.number}
-      docDate={formatThaiDate(po.createdAt)}
+      docDate={formatThaiDate(po.docDate ?? po.createdAt)}
       isDraft={isDraft}
       signatures={['ผู้จัดทำ', 'ผู้อนุมัติ']}
       footer={
@@ -69,6 +69,12 @@ export function PoPdfDoc({
           <Text>
             โครงการ: {po.projectCode} - {po.projectName}
           </Text>
+          {(po.requesterName || po.department) && (
+            <Text>
+              ผู้ขอซื้อ: {po.requesterName || '-'}
+              {po.department ? ` (${po.department})` : ''}
+            </Text>
+          )}
           <Text>สถานที่จัดส่ง: {po.deliveryAddress || '-'}</Text>
         </View>
         <View style={pdfStyles.metaBox}>
@@ -83,6 +89,8 @@ export function PoPdfDoc({
               วางบิล: {describeSchedule(po.billingSchedule, 'ทุกวัน')} · {CREDIT_BASIS_LABEL[po.creditBasis]} · รับเช็ค/รับเงิน: {describeSchedule(po.chequeSchedule, 'ไม่กำหนดรอบ')} ({PAY_METHOD_LABEL[po.payMethod]})
             </Text>
           )}
+          {po.paymentTerms ? <Text>เงื่อนไขการชำระเงิน: {po.paymentTerms}</Text> : null}
+          <Text>วิธีชำระเงิน: {PAY_METHOD_LABEL[po.payMethod]}</Text>
           <Text>กำหนดส่งของ: {po.deliveryDate ?? '-'}</Text>
           <Text>หมายเหตุ: {po.note || '-'}</Text>
         </View>
@@ -101,7 +109,8 @@ export function PoPdfDoc({
       {po.lines.map((l, idx) => (
         <View key={l.id} style={pdfStyles.tableRow}>
           <Text style={{ width: 28 }}>{idx + 1}</Text>
-          <Text style={{ flex: 1 }}>{l.description}</Text>
+          <Text style={{ flex: 1 }}>{l.detail ? `${l.description}
+${l.detail}` : l.description}</Text>
           <Text style={{ width: 55, textAlign: 'right' }}>{Number(l.qty)}</Text>
           <Text style={{ width: 50, textAlign: 'center' }}>{l.unitName}</Text>
           <Text style={{ width: 70, textAlign: 'right' }}>{l.unitPrice}</Text>

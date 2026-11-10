@@ -4,6 +4,9 @@ import { listProjects, listVendors } from '@/server/services/master';
 import { listOrderablePrLines } from '@/server/services/pr';
 import { listBoqMaterialOptions } from '@/server/services/boq-overrun';
 import { PoForm } from '@/components/po-form';
+import { companyHeaderFrom } from '@/components/doc-paper-data';
+import { getSettings } from '@/server/services/settings';
+import { bangkokDateString } from '@/domain/thai';
 
 export default async function NewPoPage({
   searchParams,
@@ -13,19 +16,23 @@ export default async function NewPoPage({
   const actor = await requireUser();
   const db = await getDb();
   const params = await searchParams;
-  const [projects, vendors, orderable, boqMaterials] = await Promise.all([
+  const [projects, vendors, orderable, boqMaterials, settings] = await Promise.all([
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),
     listBoqMaterialOptions(db, actor),
+    getSettings(db),
   ]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900">เปิดใบสั่งซื้อใหม่ (PO)</h1>
+      <h1 className="text-xl font-bold text-slate-900">สร้างใบสั่งซื้อ PO</h1>
       <PoForm
         projects={projects}
         vendors={vendors}
+        company={companyHeaderFrom(settings)}
+        currentUserName={actor.name}
+        today={bangkokDateString()}
         initialProjectId={params.projectId}
         boqMaterials={boqMaterials}
         orderablePrLines={orderable.map((l) => ({

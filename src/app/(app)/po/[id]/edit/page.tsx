@@ -5,6 +5,9 @@ import { getPoOrNotFound } from '../../get-po-or-not-found';
 import { listOrderablePrLines } from '@/server/services/pr';
 import { listBoqMaterialOptions } from '@/server/services/boq-overrun';
 import { PoForm } from '@/components/po-form';
+import { companyHeaderFrom } from '@/components/doc-paper-data';
+import { getSettings } from '@/server/services/settings';
+import { bangkokDateString } from '@/domain/thai';
 
 export default async function EditPoPage({
   params,
@@ -14,12 +17,13 @@ export default async function EditPoPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [po, projects, vendors, orderable, boqMaterials] = await Promise.all([
+  const [po, projects, vendors, orderable, boqMaterials, settings] = await Promise.all([
     getPoOrNotFound(db, actor, id),
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),
     listBoqMaterialOptions(db, actor),
+    getSettings(db),
   ]);
 
   return (
@@ -28,6 +32,9 @@ export default async function EditPoPage({
       <PoForm
         projects={projects}
         vendors={vendors}
+        company={companyHeaderFrom(settings)}
+        currentUserName={actor.name}
+        today={bangkokDateString()}
         boqMaterials={boqMaterials}
         orderablePrLines={orderable.map((l) => ({
           id: l.id,
@@ -41,6 +48,11 @@ export default async function EditPoPage({
         }))}
         existing={{
           id: po.id,
+          number: po.number,
+          docDate: po.docDate,
+          department: po.department,
+          requesterName: po.requesterName,
+          paymentTerms: po.paymentTerms,
           projectId: po.projectId,
           vendorId: po.vendorId,
           paymentType: po.paymentType,
@@ -58,6 +70,7 @@ export default async function EditPoPage({
             prLineId: l.prLineId,
             boqLineId: l.boqLineId,
             description: l.description,
+            detail: l.detail,
             unitName: l.unitName,
             qty: l.qty,
             unitPrice: l.unitPrice,

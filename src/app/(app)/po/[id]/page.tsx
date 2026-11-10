@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PAY_METHOD_LABEL } from '@/domain/payment-terms';
 import { getDb } from '@/db/client';
 import { computeDocTotals, D } from '@/domain/money';
 import { requiredPoApprover } from '@/domain/po-approval';
@@ -110,7 +111,17 @@ export default async function PoDetailPage({
           </div>
           <p className="text-xs text-slate-600 mt-1">
             โครงการ: {po.projectCode} - {po.projectName} · ผู้ขาย: {po.vendorName} · ผู้เปิด:{' '}
-            {po.creatorName} · {formatThaiDate(po.createdAt)}
+            {po.creatorName} · {formatThaiDate(po.docDate ?? po.createdAt)}
+          </p>
+          <p className="text-xs text-slate-600 mt-0.5">
+            {[
+              po.requesterName && `ผู้ขอซื้อ: ${po.requesterName}${po.department ? ` (${po.department})` : ''}`,
+              po.deliveryAddress && `สถานที่จัดส่ง: ${po.deliveryAddress}`,
+              `วิธีชำระเงิน: ${PAY_METHOD_LABEL[po.payMethod]}`,
+              po.paymentTerms && `เงื่อนไข: ${po.paymentTerms}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
 
@@ -210,7 +221,10 @@ export default async function PoDetailPage({
           <tbody className="divide-y divide-slate-100">
             {po.lines.map((l) => (
               <tr key={l.id}>
-                <td className="px-4 py-3 font-medium">{l.description}</td>
+                <td className="px-4 py-3 font-medium">
+                  {l.description}
+                  {l.detail && <span className="block text-xs font-normal text-slate-500">{l.detail}</span>}
+                </td>
                 <td className="px-4 py-3 text-right">{Number(l.qty)}</td>
                 <td className="px-4 py-3 text-right text-emerald-700">
                   {l.receivedQty.toNumber()}
