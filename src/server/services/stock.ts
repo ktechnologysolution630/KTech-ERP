@@ -2,18 +2,23 @@ import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
+  items,
+  prLines,
+  prs,
   projects,
   stockAdjustRequests,
   stockBalances,
   stockItems,
   stockMovements,
   users,
+  type PrStatus,
   type SessionUser,
   type StockAdjustStatus,
   type StockMovementType,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { D, Decimal, round2 } from '@/domain/money';
+import { DEFAULT_STOCK_CATEGORY, STOCK_CATEGORIES } from '@/domain/stock';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
@@ -39,13 +44,21 @@ const itemSchema = z.object({
   id: uuid.optional(),
   sku: z.string().trim().max(50).default(''),
   name: z.string().trim().min(1, 'กรุณาระบุชื่อสินค้า/วัสดุ').max(300),
-  category: z.string().trim().max(100).default('ทั่วไป'),
+  category: z.string().trim().max(100).default(DEFAULT_STOCK_CATEGORY),
   unit: z.string().trim().min(1, 'กรุณาระบุหน่วย').max(30).default('ชิ้น'),
-  unitCost: z.number().finite().min(0, 'ราคาทุนต้องไม่ติดลบ').max(1_000_000_000).default(0),
+  /** Standard cost; left out, a new item starts at 0 and an existing one keeps its cost */
+  unitCost: z.number().finite().min(0, 'ราคาทุนต้องไม่ติดลบ').max(1_000_000_000).optional(),
   reorderPoint: z.number().finite().min(0, 'จุดสั่งซื้อต้องไม่ติดลบ').max(MAX_QTY).default(0),
   notes: z.string().trim().max(1000).default(''),
 });
 export type StockItemInput = z.input<typeof itemSchema>;
+
+/** The item form: a new item may start with a quantity and point at the PR line it comes from. */
+const itemFormSchema = itemSchema.extend({
+  quantity: z.number().finite().min(0, 'จำนวนต้องไม่ติดลบ').max(MAX_QTY).default(0),
+  prLineId: uuid.optional(),
+});
+export type StockItemFormInput = z.input<typeof itemFormSchema>;
 
 /** Inserts or updates a catalog item without permission checks (system use, e.g. receipt sync). */
 async function writeStockItem(tx: Db, data: z.output<typeof itemSchema>) {
@@ -56,9 +69,9 @@ async function writeStockItem(tx: Db, data: z.output<typeof itemSchema>) {
   const values = {
     sku,
     name: data.name,
-    category: data.category || 'ทั่วไป',
+    category: data.category || DEFAULT_STOCK_CATEGORY,
     unit: data.unit,
-    unitCost: D(data.unitCost).toFixed(2),
+    ...(data.unitCost !== undefined ? { unitCost: D(data.unitCost).toFixed(2) } : {}),
     reorderPoint: D(data.reorderPoint).toFixed(2),
     notes: data.notes,
   };
@@ -75,10 +88,97 @@ async function writeStockItem(tx: Db, data: z.output<typeof itemSchema>) {
   return created;
 }
 
-export async function upsertStockItem(db: Db, actor: SessionUser, input: StockItemInput) {
+/** PRs whose lines can be used as the source of a stock item (not drafts, rejected or cancelled). */
+const PR_STATUSES_FOR_STOCK: PrStatus[] = ['SUBMITTED', 'APPROVED', 'CLOSED'];
+
+export interface PrLineOptionDto {
+  id: string;
+  prNumber: string;
+  projectCode: string;
+  /** Item master code when the PR line picked one; '' when typed freely */
+  itemCode: string;
+  description: string;
+  unit: string;
+  qty: number;
+}
+
+/** Recent PR lines the actor may see, newest first, for the item form's "อ้างอิงจาก PR" picker. */
+export async function listPrLinesForStock(db: Db, actor: SessionUser, limit = 300): Promise<PrLineOptionDto[]> {
+  if (!can(actor, 'stock.items')) return [];
+  const scoped = isSiteScopedOnly(actor);
+  if (scoped && actor.projectIds.length === 0) return [];
+  const rows = await db
+    .select({
+      id: prLines.id,
+      prNumber: prs.number,
+      projectCode: projects.code,
+      itemCode: items.code,
+      description: prLines.description,
+      unit: prLines.unitName,
+      qty: prLines.qty,
+    })
+    .from(prLines)
+    .innerJoin(prs, eq(prs.id, prLines.prId))
+    .innerJoin(projects, eq(projects.id, prs.projectId))
+    .leftJoin(items, eq(items.id, prLines.itemId))
+    .where(
+      and(
+        inArray(prs.status, PR_STATUSES_FOR_STOCK),
+        scoped ? inArray(prs.projectId, actor.projectIds) : undefined,
+      ),
+    )
+    .orderBy(desc(prs.createdAt), prLines.createdAt)
+    .limit(limit);
+  return rows.map((r) => ({ ...r, itemCode: r.itemCode ?? '', qty: Number(r.qty) }));
+}
+
+/**
+ * Saves an item from the stock page. A new item may reference a PR line (for its project and
+ * estimated price) and start with a quantity, received into that PR's site store or, without a
+ * PR, into the central store. Existing items change their balances only through movements.
+ */
+export async function upsertStockItem(db: Db, actor: SessionUser, input: StockItemFormInput) {
   assertCan(actor, 'stock.items');
-  const data = parse(itemSchema, input);
-  return db.transaction((tx) => writeStockItem(tx, data));
+  const { quantity, prLineId, ...data } = parse(itemFormSchema, input);
+  if (!data.id && !(STOCK_CATEGORIES as readonly string[]).includes(data.category)) {
+    throw new DomainError('INVALID_STOCK', 'กรุณาเลือกหมวดหมู่จากรายการ');
+  }
+
+  return db.transaction(async (tx) => {
+    let source: { prNumber: string; projectId: string; estUnitPrice: string | null } | null = null;
+    if (prLineId && !data.id) {
+      const [row] = await tx
+        .select({ prNumber: prs.number, projectId: prs.projectId, status: prs.status, estUnitPrice: prLines.estUnitPrice })
+        .from(prLines)
+        .innerJoin(prs, eq(prs.id, prLines.prId))
+        .where(eq(prLines.id, prLineId))
+        .limit(1);
+      if (!row || !PR_STATUSES_FOR_STOCK.includes(row.status)) {
+        throw new DomainError('INVALID_STOCK', 'ไม่พบรายการใบขอซื้อที่อ้างอิง หรือใบขอซื้อยังไม่ได้ส่ง/ถูกยกเลิก');
+      }
+      if (isSiteScopedOnly(actor) && !actor.projectIds.includes(row.projectId)) {
+        throw new DomainError('FORBIDDEN', 'ไม่มีสิทธิ์อ้างอิงใบขอซื้อของโครงการนี้', 403);
+      }
+      source = row;
+    }
+
+    const unitCost = data.unitCost ?? (source?.estUnitPrice ? Number(source.estUnitPrice) : undefined);
+    const item = await writeStockItem(tx, { ...data, unitCost: data.id ? data.unitCost : (unitCost ?? 0) });
+
+    if (!data.id && quantity > 0) {
+      await applyStockMovement(tx, {
+        stockItemId: item.id,
+        projectId: source?.projectId ?? null,
+        type: 'RECEIVE',
+        quantity,
+        referenceType: source ? 'PR' : 'OPENING',
+        referenceNumber: source?.prNumber,
+        performedBy: actor.id,
+        notes: source ? `ยอดตั้งต้นอ้างอิงใบขอซื้อ ${source.prNumber}` : 'ยอดตั้งต้นเมื่อเพิ่มวัสดุ',
+      });
+    }
+    return item;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -274,7 +374,7 @@ export async function syncReceiptToStock(
         await writeStockItem(tx, {
           sku: '',
           name,
-          category: 'วัสดุโครงการ',
+          category: DEFAULT_STOCK_CATEGORY,
           unit: line.unit || 'ชิ้น',
           unitCost: Number(line.unitPrice || 0),
           reorderPoint: 0,
@@ -479,6 +579,8 @@ export interface StockPageData {
   adjustRequests: StockAdjustDto[];
   monthly: MonthlyFlow[];
   permissions: { manageItems: boolean; approveAdjust: boolean; movableProjectIds: string[]; moveCentral: boolean };
+  /** PR lines a new item can reference; empty for users who cannot manage items */
+  prLineOptions: PrLineOptionDto[];
   me: string;
 }
 
@@ -643,6 +745,7 @@ export async function getStockPageData(db: Db, actor: SessionUser, opts: { movem
       movableProjectIds: projectRows.filter((p) => can(actor, 'stock.move', { projectId: p.id })).map((p) => p.id),
       moveCentral: can(actor, 'stock.move', { projectId: null }),
     },
+    prLineOptions: await listPrLinesForStock(db, actor),
     me: actor.id,
   };
 }

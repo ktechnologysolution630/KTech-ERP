@@ -3,7 +3,8 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, Plus, X } from 'lucide-react';
-import type { StockItemDto, StockPageData } from '@/server/services/stock';
+import type { PrLineOptionDto, StockItemDto, StockPageData } from '@/server/services/stock';
+import { STOCK_CATEGORIES } from '@/domain/stock';
 import { recordStockMovementAction, requestStockAdjustAction, saveStockItemAction } from './actions';
 
 export type MovementKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'ADJUST';
@@ -304,27 +305,64 @@ export function MovementDialog({
   );
 }
 
-/** Create a catalog item, or edit one (incl. its reorder point). */
-export function ItemDialog({ item, onClose }: { item: StockItemDto | null; onClose: () => void }) {
+/** Create a catalog item (optionally from a PR line, with a starting quantity), or edit one. */
+export function ItemDialog({
+  item,
+  prLines,
+  onClose,
+}: {
+  item: StockItemDto | null;
+  prLines: PrLineOptionDto[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
+    prLineId: '',
     sku: item?.sku ?? '',
     name: item?.name ?? '',
-    category: item?.category ?? 'วัสดุโครงสร้าง',
+    category: item?.category ?? STOCK_CATEGORIES[0],
     unit: item?.unit ?? 'ถุง',
-    unitCost: item ? String(item.unitCost) : '',
+    quantity: '',
     reorderPoint: item ? String(item.reorderPoint) : '',
     notes: item?.notes ?? '',
   });
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [prQuery, setPrQuery] = useState('');
+
+  // An existing item may carry a category from before the fixed list; keep it selectable
+  const categoryOptions: string[] = (STOCK_CATEGORIES as readonly string[]).includes(form.category)
+    ? [...STOCK_CATEGORIES]
+    : [form.category, ...STOCK_CATEGORIES];
+
+  const q = prQuery.trim().toLowerCase();
+  const prMatches = q
+    ? prLines.filter((l) => `${l.prNumber} ${l.projectCode} ${l.itemCode} ${l.description}`.toLowerCase().includes(q))
+    : prLines;
+
+  /** Picking a PR line fills code, name, unit and quantity; the user can still change them. */
+  const pickPrLine = (id: string) => {
+    const line = prLines.find((l) => l.id === id);
+    setForm((f) =>
+      line
+        ? { ...f, prLineId: id, sku: line.itemCode || f.sku, name: line.description, unit: line.unit || f.unit, quantity: String(line.qty) }
+        : { ...f, prLineId: '' },
+    );
+  };
+
+  const quantity = form.quantity === '' ? 0 : Number(form.quantity);
+  const quantityInvalid = !item && (!Number.isFinite(quantity) || quantity < 0);
 
   return (
     <DialogShell title={item ? `แก้ไขวัสดุ ${item.sku}` : 'เพิ่มข้อมูลวัสดุใหม่'} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (quantityInvalid) {
+            setError('จำนวนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป');
+            return;
+          }
           setError(null);
           startTransition(async () => {
             const r = await saveStockItemAction({
@@ -333,9 +371,9 @@ export function ItemDialog({ item, onClose }: { item: StockItemDto | null; onClo
               name: form.name,
               category: form.category,
               unit: form.unit,
-              unitCost: Number(form.unitCost || 0),
               reorderPoint: Number(form.reorderPoint || 0),
               notes: form.notes,
+              ...(item ? {} : { quantity, prLineId: form.prLineId || undefined }),
             });
             if (!r.ok) {
               setError(r.error);
@@ -348,27 +386,92 @@ export function ItemDialog({ item, onClose }: { item: StockItemDto | null; onClo
         className="p-5 space-y-3.5 text-xs"
       >
         <fieldset disabled={isPending} className="space-y-3.5">
+          {!item && (
+            <div className="block space-y-1.5">
+              <Label>อ้างอิงจากใบขอซื้อ (PR)</Label>
+              {prLines.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300 p-2 text-slate-500">
+                  ยังไม่มีใบขอซื้อที่ส่งแล้วให้อ้างอิง — กรอกข้อมูลเองได้เลย
+                </p>
+              ) : (
+                <>
+                  <input
+                    type="search"
+                    value={prQuery}
+                    onChange={(e) => setPrQuery(e.target.value)}
+                    placeholder="ค้นหาเลข PR, รหัสโครงการ หรือชื่อวัสดุ"
+                    aria-label="ค้นหาใบขอซื้อ"
+                    className={inputClass}
+                  />
+                  <select value={form.prLineId} onChange={(e) => pickPrLine(e.target.value)} aria-label="รายการในใบขอซื้อ" className={inputClass}>
+                    <option value="">— ไม่อ้างอิง PR (กรอกเอง) —</option>
+                    {form.prLineId && !prMatches.some((l) => l.id === form.prLineId) && (
+                      <PrLineOption line={prLines.find((l) => l.id === form.prLineId)} />
+                    )}
+                    {prMatches.map((l) => (
+                      <PrLineOption key={l.id} line={l} />
+                    ))}
+                  </select>
+                  {q && prMatches.length === 0 && <p className="text-slate-500">ไม่พบรายการที่ตรงกับ “{prQuery}”</p>}
+                </>
+              )}
+            </div>
+          )}
           <label className="block">
             <Label>รหัสวัสดุ (SKU)</Label>
-            <input value={form.sku} onChange={(e) => set('sku', e.target.value)} placeholder="เว้นว่างให้ระบบออกรหัสให้" className={inputClass} />
+            <input
+              value={form.sku}
+              onChange={(e) => set('sku', e.target.value)}
+              placeholder={item ? '' : 'ดึงจาก PR อัตโนมัติ หรือเว้นว่างให้ระบบออกรหัสให้'}
+              className={inputClass}
+            />
           </label>
           <label className="block">
             <Label required>ชื่อวัสดุ / สินค้า</Label>
             <input required value={form.name} onChange={(e) => set('name', e.target.value)} className={inputClass} />
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block">
-              <Label>หมวดหมู่</Label>
-              <input value={form.category} onChange={(e) => set('category', e.target.value)} className={inputClass} />
+              <Label required>หมวดหมู่</Label>
+              <select required value={form.category} onChange={(e) => set('category', e.target.value)} className={inputClass}>
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {(STOCK_CATEGORIES as readonly string[]).includes(c) ? c : `${c} (หมวดเดิม)`}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block">
               <Label required>หน่วยนับ</Label>
               <input required value={form.unit} onChange={(e) => set('unit', e.target.value)} className={inputClass} />
             </label>
-            <label className="block">
-              <Label>ราคาทุนต่อหน่วย (บาท)</Label>
-              <input type="number" step="0.01" min={0} value={form.unitCost} onChange={(e) => set('unitCost', e.target.value)} className={inputClass} />
-            </label>
+            {item ? (
+              <div className="block">
+                <Label>จำนวนคงเหลือ</Label>
+                <p className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  {item.totalQty.toLocaleString('th-TH')} {item.unit}
+                  <span className="block text-[10px] text-slate-500">เปลี่ยนจำนวนผ่านเมนูรับเข้า / จ่ายออก / ปรับยอด</span>
+                </p>
+              </div>
+            ) : (
+              <label className="block">
+                <Label>จำนวน</Label>
+                <input
+                  type="number"
+                  step="any"
+                  min={0}
+                  inputMode="decimal"
+                  value={form.quantity}
+                  onChange={(e) => set('quantity', e.target.value)}
+                  placeholder="0"
+                  aria-invalid={quantityInvalid}
+                  className={inputClass}
+                />
+                <span className="mt-1 block text-[10px] text-slate-500">
+                  {form.prLineId ? 'รับเข้าคลังหน้างานของโครงการตาม PR' : 'รับเข้าคลังกลาง'} · เว้นว่างถ้ายังไม่มีของ
+                </span>
+              </label>
+            )}
             <label className="block">
               <Label>จุดสั่งซื้อ (แจ้งเตือนเมื่อเหลือไม่เกิน)</Label>
               <input type="number" step="any" min={0} value={form.reorderPoint} onChange={(e) => set('reorderPoint', e.target.value)} className={inputClass} />
@@ -388,12 +491,22 @@ export function ItemDialog({ item, onClose }: { item: StockItemDto | null; onClo
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100">
             ยกเลิก
           </button>
-          <button type="submit" disabled={isPending} className="inline-flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-white bg-[#2453d4] hover:bg-[#1c43ab] disabled:opacity-60">
+          <button type="submit" disabled={isPending || quantityInvalid} className="inline-flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-white bg-[#2453d4] hover:bg-[#1c43ab] disabled:opacity-60">
             {!item && <Plus className="w-3.5 h-3.5" />}
             {isPending ? 'กำลังบันทึก...' : 'บันทึกวัสดุ'}
           </button>
         </div>
       </form>
     </DialogShell>
+  );
+}
+
+function PrLineOption({ line }: { line: PrLineOptionDto | undefined }) {
+  if (!line) return null;
+  const code = line.itemCode ? ` [${line.itemCode}]` : '';
+  return (
+    <option value={line.id}>
+      {`${line.prNumber} · ${line.projectCode} · ${line.description}${code} (${line.qty.toLocaleString('th-TH')} ${line.unit})`}
+    </option>
   );
 }

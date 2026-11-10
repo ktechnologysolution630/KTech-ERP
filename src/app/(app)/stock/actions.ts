@@ -11,7 +11,7 @@ import {
   upsertStockItem,
   type RecordMovementInput,
   type StockAdjustInput,
-  type StockItemInput,
+  type StockItemFormInput,
 } from '@/server/services/stock';
 
 export type StockActionResult = { ok: true; value?: string } | { ok: false; error: string };
@@ -28,7 +28,7 @@ async function run(fn: () => Promise<string | void>): Promise<StockActionResult>
   }
 }
 
-export async function saveStockItemAction(input: StockItemInput): Promise<StockActionResult> {
+export async function saveStockItemAction(input: StockItemFormInput): Promise<StockActionResult> {
   const actor = await requireUser();
   const db = await getDb();
   return run(async () => (await upsertStockItem(db, actor, input)).id);

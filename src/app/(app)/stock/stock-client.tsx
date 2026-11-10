@@ -171,7 +171,7 @@ export function StockClient({ data }: { data: StockPageData }) {
       {movementDialog && (
         <MovementDialog data={data} initialKind={movementDialog.kind} initialItemId={movementDialog.itemId} onClose={() => setMovementDialog(null)} />
       )}
-      {itemDialog && <ItemDialog item={itemDialog.item} onClose={() => setItemDialog(null)} />}
+      {itemDialog && <ItemDialog item={itemDialog.item} prLines={data.prLineOptions} onClose={() => setItemDialog(null)} />}
     </div>
   );
 }
