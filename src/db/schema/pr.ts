@@ -69,6 +69,8 @@ export const prLines = pgTable('pr_lines', {
   lineKind: text('line_kind').$type<PrLineKind>().default('GOODS').notNull(),
   // Work category (งานโครงสร้าง, งานสถาปัตยกรรม, …); null on PRs made before categories
   category: text('category'),
+  /** Item group under the category (เหล็กเสริม, สายไฟฟ้า, …); null when none was chosen */
+  itemGroup: text('item_group'),
   unitName: text('unit_name').notNull(),
   qty: numeric('qty', { precision: 14, scale: 3 }).notNull(),
   estUnitPrice: numeric('est_unit_price', { precision: 14, scale: 2 }),

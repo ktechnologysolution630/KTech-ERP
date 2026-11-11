@@ -21,14 +21,17 @@ import {
 } from '@/components/doc-paper';
 import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMode } from '@/domain/money';
 import { duplicatesOfOutstanding, formatQty, type OutstandingPrLine } from '@/domain/pr-outstanding';
-import { LINE_KIND_LABEL, PR_TYPE_META, type PrLineKind, type PrType } from '@/domain/pr-type';
+import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures, type PrLineKind, type PrType } from '@/domain/pr-type';
 import { STOCK_CATEGORIES } from '@/domain/stock';
+import { classifyItem, groupOfItemCode, groupsOfCategory } from '@/domain/item-groups';
 
 export interface PrItemOption {
   id: string;
   code: string;
   name: string;
   unitName: string;
+  /** Work category kept on the item; the code's group wins when it has one */
+  category?: string | null;
   /** Switched-off items stay for labels on older lines but are not offered */
   active?: boolean;
 }
@@ -40,6 +43,8 @@ interface LineState {
   detail: string;
   unitName: string;
   category: string;
+  /** Item group under the category; goods only */
+  group: string;
   qty: string;
   estUnitPrice: string;
   discount: string;
@@ -53,6 +58,7 @@ const emptyLine = (kind: PrLineKind): LineState => ({
   detail: '',
   unitName: kind === 'LABOR' ? 'งาน' : 'ชิ้น',
   category: '',
+  group: '',
   qty: '1',
   estUnitPrice: '',
   discount: '',
@@ -88,6 +94,7 @@ export interface PrFormExisting {
     lineKind: PrLineKind;
     unitName: string;
     category: string | null;
+    itemGroup: string | null;
     qty: string;
     estUnitPrice: string | null;
     discount: string;
@@ -101,7 +108,8 @@ const td = 'border border-slate-200 px-1 py-1';
 
 /**
  * The requisition, laid out like the printed document. Three forms share it: goods without prices,
- * hired work with prices, and goods and work together.
+ * hired work with prices, and goods and work together. Goods lines read category, group, item,
+ * quantity, unit.
  */
 export function PrForm({
   prType: prTypeProp = 'GOODS',
@@ -157,6 +165,7 @@ export function PrForm({
       detail: l.detail ?? '',
       unitName: l.unitName,
       category: l.category ?? '',
+      group: l.itemGroup ?? '',
       qty: String(Number(l.qty)),
       estUnitPrice: l.estUnitPrice ? String(Number(l.estUnitPrice)) : '',
       discount: Number(l.discount) ? String(Number(l.discount)) : '',
@@ -167,6 +176,18 @@ export function PrForm({
   const [pending, startTransition] = useTransition();
 
   const pickableItems = items.filter((i) => i.active !== false);
+  /** Items of the line's group, else of its category; the whole register when neither narrows it */
+  const itemsFor = (line: LineState) => {
+    if (line.group) {
+      const inGroup = pickableItems.filter((i) => groupOfItemCode(i.code)?.name === line.group && classifyItem(i).category === line.category);
+      if (inGroup.length > 0) return inGroup;
+    }
+    if (line.category) {
+      const inCategory = pickableItems.filter((i) => classifyItem(i).category === line.category);
+      if (inCategory.length > 0) return inCategory;
+    }
+    return pickableItems;
+  };
   const itemLabel = (id: string) => {
     const it = items.find((i) => i.id === id);
     return it ? `${it.code} - ${it.name}` : '';
@@ -236,6 +257,7 @@ export function PrForm({
         detail: l.detail,
         unitName: l.unitName,
         category: l.category || null,
+        itemGroup: l.kind === 'GOODS' ? l.group || null : null,
         qty: l.qty,
         estUnitPrice: priced ? l.estUnitPrice || null : null,
         discount: priced ? l.discount || '0' : '0',
@@ -250,6 +272,29 @@ export function PrForm({
     });
   }
 
+  /** Category picker of a line; choosing another category drops a group that is not under it */
+  const categoryCell = (line: LineState, idx: number, n: number, work: boolean) => (
+    <td className={td}>
+      <select
+        value={line.category}
+        onChange={(e) => {
+          const category = e.target.value;
+          setLine(idx, { category, group: groupsOfCategory(category).some((g) => g.name === line.group) ? line.group : '' });
+        }}
+        aria-label={`หมวด${work ? 'หมู่งาน' : 'รายการ'}ที่ ${n + 1}`}
+        aria-invalid={!line.category}
+        className={`${paperCell} text-xs ${line.category ? '' : 'border-amber-400'}`}
+      >
+        <option value="">-- เลือกหมวด --</option>
+        {STOCK_CATEGORIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </td>
+  );
+
   /** The line table of one kind; in the combined form there is one for goods and one for work */
   const table = (kind: PrLineKind) => {
     const rows = lines.map((line, idx) => ({ line, idx })).filter((r) => r.line.kind === kind);
@@ -261,12 +306,18 @@ export function PrForm({
             ส่วนที่ {work ? 2 : 1} · {LINE_KIND_LABEL[kind]}
           </p>
         )}
-        <table className={`w-full border-collapse text-sm ${priced ? 'min-w-[860px]' : 'min-w-[620px]'}`}>
+        <table className={`w-full border-collapse text-sm ${priced ? (work ? 'min-w-[860px]' : 'min-w-[1020px]') : 'min-w-[780px]'}`}>
           <thead className="bg-[#102d72] text-xs text-white">
             <tr>
               <th className={`w-12 ${th}`}>ลำดับ</th>
+              {!work && (
+                <>
+                  <th className={`w-40 ${th}`}>หมวด *</th>
+                  <th className={`w-44 ${th}`}>กลุ่ม</th>
+                </>
+              )}
               <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
-              <th className={`w-40 ${th}`}>หมวดหมู่ *</th>
+              {work && <th className={`w-40 ${th}`}>หมวดหมู่ *</th>}
               <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
               <th className={`w-20 ${th}`}>หน่วย</th>
               {priced && (
@@ -285,6 +336,27 @@ export function PrForm({
             {rows.map(({ line, idx }, n) => (
               <tr key={idx} className="align-top">
                 <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{n + 1}</td>
+                {!work && (
+                  <>
+                    {categoryCell(line, idx, n, work)}
+                    <td className={td}>
+                      <select
+                        value={line.group}
+                        onChange={(e) => setLine(idx, { group: e.target.value })}
+                        disabled={!line.category}
+                        aria-label={`กลุ่มรายการที่ ${n + 1}`}
+                        className={`${paperCell} text-xs disabled:bg-slate-50 disabled:text-slate-400`}
+                      >
+                        <option value="">{line.category ? '-- เลือกกลุ่ม --' : 'เลือกหมวดก่อน'}</option>
+                        {groupsOfCategory(line.category).map((g) => (
+                          <option key={g.code} value={g.name}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </>
+                )}
                 <td className={td}>
                   {work ? (
                     <input
@@ -296,14 +368,23 @@ export function PrForm({
                     />
                   ) : (
                     <ItemCombobox
-                      items={pickableItems}
+                      items={itemsFor(line)}
                       selectedId={line.itemId}
                       value={line.itemId ? itemLabel(line.itemId) : line.description}
                       // Typing is free text: it becomes the item name and drops any picked item
                       onType={(text) => setLine(idx, { itemId: '', description: text })}
-                      onPick={(chosen) =>
-                        setLine(idx, { itemId: chosen.id, description: chosen.name, unitName: items.find((it) => it.id === chosen.id)?.unitName || line.unitName })
-                      }
+                      onPick={(chosen) => {
+                        const item = items.find((it) => it.id === chosen.id);
+                        // The register knows where the item belongs; keep what was chosen when it does not
+                        const placed = item ? classifyItem(item) : null;
+                        setLine(idx, {
+                          itemId: chosen.id,
+                          description: chosen.name,
+                          unitName: item?.unitName || line.unitName,
+                          category: placed?.category || line.category,
+                          group: placed?.category ? placed.group : line.group,
+                        });
+                      }}
                     />
                   )}
                   <textarea
@@ -332,22 +413,7 @@ export function PrForm({
                     </ul>
                   )}
                 </td>
-                <td className={td}>
-                  <select
-                    value={line.category}
-                    onChange={(e) => setLine(idx, { category: e.target.value })}
-                    aria-label={`หมวดหมู่${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}
-                    aria-invalid={!line.category}
-                    className={`${paperCell} text-xs ${line.category ? '' : 'border-amber-400'}`}
-                  >
-                    <option value="">-- เลือกหมวด --</option>
-                    {STOCK_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </td>
+                {work && categoryCell(line, idx, n, work)}
                 <td className={td}>
                   <input type="number" step="0.001" min={0} value={line.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`${work ? 'ปริมาณงาน' : 'จำนวนรายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
                 </td>
@@ -387,7 +453,7 @@ export function PrForm({
           {priced && prType === 'GOODS_AND_LABOR' && (
             <tfoot>
               <tr className="bg-slate-50 text-sm font-semibold">
-                <td colSpan={7} className="border border-slate-200 px-2 py-1.5 text-right">
+                <td colSpan={work ? 7 : 8} className="border border-slate-200 px-2 py-1.5 text-right">
                   รวม{work ? 'ค่าจ้าง / ค่าแรง' : 'ค่าสินค้า / วัสดุ'}
                 </td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{formatMoneyDisplay(subtotalOf(kind).toFixed(2))}</td>
@@ -575,7 +641,7 @@ export function PrForm({
           </div>
         )}
 
-        <SignatureRow roles={[prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ', 'ผู้จัดทำ', 'ผู้อนุมัติ']} />
+        <SignatureRow roles={prSignatures(prType)} />
       </DocPaper>
     </div>
   );

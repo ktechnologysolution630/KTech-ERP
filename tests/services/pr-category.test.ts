@@ -24,4 +24,32 @@ describe('PR line category', () => {
     const pr = await createPr(db, f.users.pm, { projectId: f.projectA, lines: [line] });
     expect((await getPr(db, f.users.pm, pr.id)).lines[0]).toMatchObject({ category: null });
   });
+
+  test('the item group is saved with the line and must sit under its category', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const pr = await createPr(db, f.users.pm, { projectId: f.projectA, lines: [{ ...line, category: 'งานสุขาภิบาล', itemGroup: 'ท่อและข้อต่อน้ำดี' }] });
+    expect((await getPr(db, f.users.pm, pr.id)).lines[0]).toMatchObject({ category: 'งานสุขาภิบาล', itemGroup: 'ท่อและข้อต่อน้ำดี' });
+
+    await updatePr(db, f.users.pm, pr.id, { lines: [{ ...line, category: 'งานสุขาภิบาล', itemGroup: 'สุขภัณฑ์' }] });
+    expect((await getPr(db, f.users.pm, pr.id)).lines[0]).toMatchObject({ itemGroup: 'สุขภัณฑ์' });
+
+    await updatePr(db, f.users.pm, pr.id, { lines: [{ ...line, category: 'งานสุขาภิบาล', itemGroup: '' }] });
+    expect((await getPr(db, f.users.pm, pr.id)).lines[0]).toMatchObject({ itemGroup: null });
+
+    await expect(updatePr(db, f.users.pm, pr.id, { lines: [{ ...line, category: 'งานสุขาภิบาล', itemGroup: 'เหล็กเสริม' }] })).rejects.toMatchObject({ code: 'INVALID_PR' });
+    await expect(createPr(db, f.users.pm, { projectId: f.projectA, lines: [{ ...line, itemGroup: 'เหล็กเสริม' }] })).rejects.toMatchObject({ code: 'INVALID_PR' });
+  });
+
+  test('editing a combined PR keeps which lines are goods and which are work', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const lines = [
+      { ...line, lineKind: 'GOODS' as const, estUnitPrice: 150 },
+      { ...line, description: 'ค่าแรงเดินท่อ', unitName: 'งาน', lineKind: 'LABOR' as const, estUnitPrice: 180 },
+    ];
+    const pr = await createPr(db, f.users.pm, { projectId: f.projectA, prType: 'GOODS_AND_LABOR', lines });
+    await updatePr(db, f.users.pm, pr.id, { prType: 'GOODS_AND_LABOR', lines });
+    expect((await getPr(db, f.users.pm, pr.id)).lines.map((l) => l.lineKind).sort()).toEqual(['GOODS', 'LABOR']);
+  });
 });

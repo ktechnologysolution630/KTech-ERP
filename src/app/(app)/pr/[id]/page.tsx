@@ -49,8 +49,9 @@ export default async function PrDetailPage({
   // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on
   const outstanding = pr.status === 'DRAFT' || pr.status === 'REJECTED' ? await listOutstandingPrLines(db, actor, { projectId: pr.projectId }) : [];
 
-  // The goods form has no prices; PRs written before the forms existed may still carry some
-  const showPrices = PR_TYPE_META[pr.prType].priced || pr.lines.some((l) => l.estUnitPrice);
+  // The goods form shows no prices, also on PRs written before the forms existed
+  const showPrices = PR_TYPE_META[pr.prType].priced;
+  const goods = pr.prType === 'GOODS';
   const lineAmount = (l: { qty: string; estUnitPrice: string | null; discount: string }) => Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount);
 
   const canApprove =
@@ -183,13 +184,20 @@ export default async function PrDetailPage({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs">
               <tr>
+                {goods && (
+                  <>
+                    <th className="px-4 py-3 text-left">หมวด</th>
+                    <th className="px-4 py-3 text-left">กลุ่ม</th>
+                  </>
+                )}
                 <th className="px-4 py-3 text-left">รายการ</th>
                 {pr.prType === 'GOODS_AND_LABOR' && <th className="px-4 py-3 text-left">ประเภท</th>}
-                <th className="px-4 py-3 text-left">หมวดหมู่</th>
+                {!goods && <th className="px-4 py-3 text-left">หมวดหมู่</th>}
                 <th className="px-4 py-3 text-right">จำนวนขอซื้อ</th>
+                {goods && <th className="px-4 py-3 text-left">หน่วย</th>}
                 <th className="px-4 py-3 text-right">สั่งซื้อแล้ว</th>
                 <th className="px-4 py-3 text-right">คงเหลือสั่ง</th>
-                <th className="px-4 py-3 text-left">หน่วย</th>
+                {!goods && <th className="px-4 py-3 text-left">หน่วย</th>}
                 {showPrices && (
                   <>
                     <th className="px-4 py-3 text-right">ราคาต่อหน่วย</th>
@@ -202,20 +210,32 @@ export default async function PrDetailPage({
             <tbody className="divide-y divide-slate-100">
               {pr.lines.map((l) => (
                 <tr key={l.id}>
+                  {goods && (
+                    <>
+                      <td className="px-4 py-3 text-xs text-slate-600">{l.category ?? '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{l.itemGroup ?? '-'}</td>
+                    </>
+                  )}
                   <td className="px-4 py-3 font-medium">
                     {l.description}
                     {l.detail && <span className="block text-xs font-normal text-slate-500">{l.detail}</span>}
                   </td>
                   {pr.prType === 'GOODS_AND_LABOR' && <td className="px-4 py-3 text-xs">{LINE_KIND_LABEL[l.lineKind]}</td>}
-                  <td className="px-4 py-3 text-xs text-slate-600">{l.category ?? '-'}</td>
+                  {!goods && (
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {l.category ?? '-'}
+                      {l.itemGroup && <span className="block text-slate-500">{l.itemGroup}</span>}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right">{Number(l.qty)}</td>
+                  {goods && <td className="px-4 py-3">{l.unitName}</td>}
                   <td className="px-4 py-3 text-right text-blue-700">
                     {l.orderedQty.toNumber()}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">
                     {l.remainingQty.toNumber()}
                   </td>
-                  <td className="px-4 py-3">{l.unitName}</td>
+                  {!goods && <td className="px-4 py-3">{l.unitName}</td>}
                   {showPrices && (
                     <>
                       <td className="px-4 py-3 text-right">{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</td>

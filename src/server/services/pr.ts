@@ -12,6 +12,7 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { STOCK_CATEGORIES } from '@/domain/stock';
+import { groupsOfCategory } from '@/domain/item-groups';
 import { type PrLineKind, type PrType } from '@/domain/pr-type';
 import { D, round2, type Decimal } from '@/domain/money';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
@@ -25,6 +26,8 @@ export interface PrLineInput {
   unitName: string;
   /** One of STOCK_CATEGORIES; null on lines made before categories */
   category?: string | null;
+  /** Name of one of ITEM_GROUPS under the category */
+  itemGroup?: string | null;
   qty: Decimal | string | number;
   estUnitPrice?: Decimal | string | number | null;
   neededDate?: string | null;
@@ -61,6 +64,7 @@ const lineInputSchema = z.object({
     .enum(STOCK_CATEGORIES, { errorMap: () => ({ message: 'กรุณาเลือกหมวดหมู่จากรายการ' }) })
     .nullable()
     .optional(),
+  itemGroup: z.string().trim().max(200).nullable().optional(),
   qty: z.custom<Decimal | string | number>((v) => {
     try {
       return D(v as Decimal.Value).gt(0);
@@ -137,6 +141,8 @@ function linesForType(type: PrType, lines: ParsedLine[], stripPrices: boolean): 
     const lineKind: PrLineKind = type === 'GOODS' ? 'GOODS' : type === 'LABOR' ? 'LABOR' : (l.lineKind ?? 'GOODS');
     return type === 'GOODS' && stripPrices ? { ...l, lineKind, estUnitPrice: null, discount: 0 } : { ...l, lineKind };
   });
+  const misplaced = shaped.find((l) => l.itemGroup && !groupsOfCategory(l.category).some((g) => g.name === l.itemGroup));
+  if (misplaced) throw new DomainError('INVALID_PR', `กลุ่ม "${misplaced.itemGroup}" ไม่อยู่ในหมวดของรายการ "${misplaced.description}"`);
   const unpriced = shaped.findIndex((l) => l.lineKind === 'LABOR' && !priceOf(l).gt(0));
   if (unpriced >= 0) throw new DomainError('INVALID_PR', `กรุณาระบุราคาค่าจ้างของรายการ "${shaped[unpriced]!.description}"`);
   if (type === 'GOODS_AND_LABOR' && !(shaped.some((l) => l.lineKind === 'GOODS') && shaped.some((l) => l.lineKind === 'LABOR'))) {
@@ -218,6 +224,7 @@ export async function createPr(
         description: l.description,
         unitName: l.unitName,
         category: l.category ?? null,
+        itemGroup: l.itemGroup || null,
         qty: D(l.qty as Decimal.Value).toDecimalPlaces(3).toFixed(3),
         estUnitPrice:
           l.estUnitPrice !== undefined && l.estUnitPrice !== null && l.estUnitPrice !== ''
@@ -295,6 +302,7 @@ export async function updatePr(
         description: l.description,
         unitName: l.unitName,
         category: l.category ?? null,
+        itemGroup: l.itemGroup || null,
         qty: D(l.qty as Decimal.Value).toDecimalPlaces(3).toFixed(3),
         estUnitPrice:
           l.estUnitPrice !== undefined && l.estUnitPrice !== null && l.estUnitPrice !== ''
@@ -303,6 +311,7 @@ export async function updatePr(
         neededDate: l.neededDate || null,
         detail: l.detail?.trim() ?? '',
         discount: money(l.discount),
+        lineKind: l.lineKind ?? 'GOODS',
         note: l.note ?? '',
       })),
     );

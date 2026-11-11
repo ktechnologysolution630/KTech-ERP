@@ -1,0 +1,1 @@
+ALTER TABLE "pr_lines" ADD COLUMN "item_group" text;

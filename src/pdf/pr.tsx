@@ -4,7 +4,7 @@ import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
 import { PdfShell, pdfStyles } from './layout';
-import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
+import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures } from '@/domain/pr-type';
 
 export function PrPdfDoc({
   pr,
@@ -15,7 +15,9 @@ export function PrPdfDoc({
 }) {
   const isDraft = pr.status !== 'APPROVED' && pr.status !== 'CLOSED';
   const meta = PR_TYPE_META[pr.prType];
-  const showPrices = meta.priced || pr.lines.some((l) => l.estUnitPrice);
+  // The goods form never prints prices, also for PRs written before the forms existed
+  const showPrices = meta.priced;
+  const goods = pr.prType === 'GOODS';
   const combined = pr.prType === 'GOODS_AND_LABOR';
   const labor = pr.prType === 'LABOR';
   const total = pr.lines.reduce((s, l) => s + Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount), 0);
@@ -28,7 +30,7 @@ export function PrPdfDoc({
       docNumber={pr.number}
       docDate={formatThaiDate(pr.docDate ?? pr.createdAt)}
       isDraft={isDraft}
-      signatures={[labor ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ', 'ผู้จัดทำ', 'ผู้อนุมัติ']}
+      signatures={prSignatures(pr.prType)}
     >
       <View style={pdfStyles.metaGrid}>
         <View style={pdfStyles.metaBox}>
@@ -50,9 +52,11 @@ export function PrPdfDoc({
 
       <View style={pdfStyles.tableHeader}>
         <Text style={{ width: 32 }}>#</Text>
+        {goods && <Text style={{ width: 105 }}>หมวด</Text>}
+        {goods && <Text style={{ width: 115 }}>กลุ่ม</Text>}
         <Text style={{ flex: 1 }}>รายการ</Text>
         {combined && <Text style={{ width: 70 }}>ประเภท</Text>}
-        <Text style={{ width: 90 }}>หมวดหมู่</Text>
+        {!goods && <Text style={{ width: 90 }}>หมวดหมู่</Text>}
         <Text style={{ width: 55, textAlign: 'right' }}>จำนวน</Text>
         <Text style={{ width: 50, textAlign: 'center' }}>หน่วย</Text>
         {showPrices && <Text style={{ width: 70, textAlign: 'right' }}>ราคา/หน่วย</Text>}
@@ -63,10 +67,13 @@ export function PrPdfDoc({
       {pr.lines.map((l, idx) => (
         <View key={l.id} style={pdfStyles.tableRow}>
           <Text style={{ width: 32 }}>{idx + 1}</Text>
+          {goods && <Text style={{ width: 105, paddingRight: 4 }}>{l.category ?? '-'}</Text>}
+          {goods && <Text style={{ width: 115, paddingRight: 4 }}>{l.itemGroup ?? '-'}</Text>}
           <Text style={{ flex: 1 }}>{l.detail ? `${l.description}
 ${l.detail}` : l.description}</Text>
           {combined && <Text style={{ width: 70 }}>{LINE_KIND_LABEL[l.lineKind]}</Text>}
-          <Text style={{ width: 90 }}>{l.category ?? '-'}</Text>
+          {!goods && <Text style={{ width: 90 }}>{l.itemGroup ? `${l.category ?? '-'}
+${l.itemGroup}` : (l.category ?? '-')}</Text>}
           <Text style={{ width: 55, textAlign: 'right' }}>{Number(l.qty)}</Text>
           <Text style={{ width: 50, textAlign: 'center' }}>{l.unitName}</Text>
           {showPrices && <Text style={{ width: 70, textAlign: 'right' }}>{l.estUnitPrice ?? '-'}</Text>}

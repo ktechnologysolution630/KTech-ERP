@@ -203,7 +203,7 @@ export function AmountInWords({ amount }: { amount: DocTotals['gross'] }) {
 /** Blank signature lines, as on the printed form */
 export function SignatureRow({ roles }: { roles: string[] }) {
   return (
-    <div className="grid grid-cols-1 gap-6 pt-6 text-center text-xs text-slate-600 sm:grid-cols-3">
+    <div className={`grid grid-cols-1 gap-6 pt-6 text-center text-xs text-slate-600 ${roles.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
       {roles.map((r) => (
         <div key={r} className="space-y-2">
           <div className="mx-auto h-10 w-48 border-b border-slate-400" />
