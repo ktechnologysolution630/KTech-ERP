@@ -1,5 +1,6 @@
 import React from 'react';
 import { CREDIT_BASIS_LABEL, PAY_METHOD_LABEL, describeSchedule } from '@/domain/payment-terms';
+import { type Signer } from '@/domain/signature';
 import { Text, View } from '@react-pdf/renderer';
 import { bahtText, D } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
@@ -19,9 +20,12 @@ const PO_CONDITIONS = [
 export function PoPdfDoc({
   po,
   settings,
+  signers,
 }: {
   po: Awaited<ReturnType<typeof getPo>>;
   settings: Settings;
+  /** Who has signed in the system; blank lines when left out */
+  signers?: Signer[];
 }) {
   const isDraft =
     po.status === 'DRAFT' ||
@@ -36,7 +40,7 @@ export function PoPdfDoc({
       docNumber={po.number}
       docDate={formatThaiDate(po.docDate ?? po.createdAt)}
       isDraft={isDraft}
-      signatures={['ผู้จัดทำ', 'ผู้อนุมัติ']}
+      signatures={signers ?? ['ผู้จัดทำ', 'ผู้อนุมัติ']}
       footer={
         <View style={{ fontSize: 10 }}>
           <Text style={{ fontWeight: 'bold' }}>เงื่อนไข/CONDITION:</Text>

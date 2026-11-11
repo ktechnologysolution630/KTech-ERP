@@ -5,13 +5,17 @@ import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
 import { PdfShell, pdfStyles } from './layout';
 import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures } from '@/domain/pr-type';
+import { type Signer } from '@/domain/signature';
 
 export function PrPdfDoc({
   pr,
   settings,
+  signers,
 }: {
   pr: Awaited<ReturnType<typeof getPr>>;
   settings: Settings;
+  /** Who has signed in the system; blank lines when left out */
+  signers?: Signer[];
 }) {
   const isDraft = pr.status !== 'APPROVED' && pr.status !== 'CLOSED';
   const meta = PR_TYPE_META[pr.prType];
@@ -30,7 +34,7 @@ export function PrPdfDoc({
       docNumber={pr.number}
       docDate={formatThaiDate(pr.docDate ?? pr.createdAt)}
       isDraft={isDraft}
-      signatures={prSignatures(pr.prType)}
+      signatures={signers ?? prSignatures(pr.prType)}
     >
       <View style={pdfStyles.metaGrid}>
         <View style={pdfStyles.metaBox}>

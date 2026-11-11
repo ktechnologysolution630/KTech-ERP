@@ -8,6 +8,8 @@ import { bahtText, D, formatMoneyDisplay } from '@/domain/money';
 import { SALES_DOC_META, SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { formatThaiDate } from '@/domain/thai';
 import type { CompanyHeader } from '@/components/doc-paper';
+import { SignedRow } from '@/components/signed-row';
+import type { Signer } from '@/domain/signature';
 import { cancelSalesDocAction } from '../../actions';
 
 export interface SalesDocViewData {
@@ -52,7 +54,7 @@ export interface SalesDocViewData {
 
 const PAY_LABEL = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค', PROMPTPAY: 'พร้อมเพย์', CARD: 'บัตรเครดิต' } as const;
 
-function Paper({ doc, company }: { doc: SalesDocViewData; company: CompanyHeader }) {
+function Paper({ doc, company, signers }: { doc: SalesDocViewData; company: CompanyHeader; signers: Signer[] }) {
   const meta = SALES_DOC_META[doc.kind];
   const nos = doc.lines.reduce<number[]>((acc, l, i) => [...acc, (acc[i - 1] ?? 0) + (l.isSection ? 0 : 1)], []);
   const money = (v: string) => formatMoneyDisplay(v);
@@ -217,22 +219,14 @@ function Paper({ doc, company }: { doc: SalesDocViewData; company: CompanyHeader
           </tbody>
         </table>
       </div>
-      <div className="mt-10 grid grid-cols-3 gap-6 text-center text-xs text-slate-600">
-        {['ผู้จัดทำ', 'ผู้อนุมัติ', doc.kind === 'EXP' ? 'ผู้รับเงิน' : 'ลูกค้า'].map((r) => (
-          <div key={r} className="space-y-1">
-            <div className="mx-auto h-10 w-40 border-b border-slate-400" />
-            <p>({r})</p>
-            <p>วันที่ ____ / ____ / ______</p>
-          </div>
-        ))}
-      </div>
+      <SignedRow signers={signers} className="mt-10" />
       {doc.status === 'CANCELLED' && <p className="mt-6 text-center text-lg font-bold text-red-600">ยกเลิกแล้ว: {doc.cancelReason}</p>}
     </div>
   );
 }
 
 /** The issued document with print and cancel */
-export function SalesDocView({ doc, slug, company }: { doc: SalesDocViewData; slug: string; company: CompanyHeader }) {
+export function SalesDocView({ doc, slug, company, signers }: { doc: SalesDocViewData; slug: string; company: CompanyHeader; signers: Signer[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [cancelling, setCancelling] = useState(false);
@@ -280,10 +274,10 @@ export function SalesDocView({ doc, slug, company }: { doc: SalesDocViewData; sl
         </div>
       )}
       <div className="rounded-sm border border-slate-200 shadow-sm">
-        <Paper doc={doc} company={company} />
+        <Paper doc={doc} company={company} signers={signers} />
       </div>
       <PrintRoot>
-        <Paper doc={doc} company={company} />
+        <Paper doc={doc} company={company} signers={signers} />
       </PrintRoot>
     </div>
   );

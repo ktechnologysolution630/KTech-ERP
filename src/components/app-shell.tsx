@@ -30,6 +30,7 @@ import {
   ClipboardList,
   CalendarClock,
   Layers,
+  PenLine,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -932,13 +933,31 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
               </Link>
               )}
 
+              {/* Everyone has a profile: it is where their own signature is made */}
+              <Link
+                href="/profile"
+                prefetch={false}
+                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                  pathname.startsWith('/profile')
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+                title="โปรไฟล์ / ลายเซ็น"
+              >
+                <div className="flex items-center gap-2.5">
+                  <PenLine className="w-4 h-4 text-slate-500 shrink-0" />
+                  {!collapsed && <span>โปรไฟล์ / ลายเซ็น</span>}
+                </div>
+                {!collapsed && <span className="text-[10px] text-slate-400">Profile</span>}
+              </Link>
+
             </div>
           </div>
         </div>
 
         {/* Bottom Profile in Sidebar (Images 2-5) */}
         <div className="p-3 border-t border-slate-200 bg-white shrink-0">
-          <div className="flex items-center gap-2.5">
+          <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="flex items-center gap-2.5 rounded-lg hover:bg-slate-50">
             <div className="w-8 h-8 rounded-full bg-[#2453d4] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
               {initials}
             </div>
@@ -948,7 +967,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 <div className="text-[10px] text-slate-400 truncate">{displayEmail}</div>
               </div>
             )}
-          </div>
+          </Link>
         </div>
       </aside>
 
@@ -989,9 +1008,9 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
             />
 
             {/* User Avatar Circle */}
-            <div className="w-8 h-8 rounded-full bg-emerald-600 ring-2 ring-emerald-100 overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+            <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="w-8 h-8 rounded-full bg-emerald-600 ring-2 ring-emerald-100 overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
               <span>{initials}</span>
-            </div>
+            </Link>
 
             {/* Logout Exit Button */}
             <form action={logoutAction}>

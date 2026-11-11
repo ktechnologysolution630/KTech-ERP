@@ -7,6 +7,7 @@ import { ensureFontsRegistered } from '@/pdf/layout';
 import { PoPdfDoc } from '@/pdf/po';
 import { PrPdfDoc } from '@/pdf/pr';
 import { PvPdfDoc } from '@/pdf/pv';
+import { poSigners, prSigners, pvSigners } from './doc-signers';
 import { getPo } from './po';
 import { getPr } from './pr';
 import { getPv } from './pv';
@@ -43,7 +44,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'pr') {
     const pr = await getPr(db, actor, id);
     const buffer = await renderToBuffer(
-      PrPdfDoc({ pr, settings }) as unknown as React.ReactElement<never>,
+      PrPdfDoc({ pr, settings, signers: await prSigners(db, pr) }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pr.number}.pdf` };
   }
@@ -51,7 +52,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'po') {
     const po = await getPo(db, actor, id);
     const buffer = await renderToBuffer(
-      PoPdfDoc({ po, settings }) as unknown as React.ReactElement<never>,
+      PoPdfDoc({ po, settings, signers: await poSigners(db, po) }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${po.number}.pdf` };
   }
@@ -59,7 +60,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'pv') {
     const pv = await getPv(db, actor, id);
     const buffer = await renderToBuffer(
-      PvPdfDoc({ pv, settings }) as unknown as React.ReactElement<never>,
+      PvPdfDoc({ pv, settings, signers: await pvSigners(db, pv) }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pv.number}.pdf` };
   }

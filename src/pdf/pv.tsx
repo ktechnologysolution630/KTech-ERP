@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { bahtText, D } from '@/domain/money';
+import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPv } from '@/server/services/pv';
 import { type Settings } from '@/server/services/settings';
@@ -9,9 +10,12 @@ import { PdfShell, pdfStyles } from './layout';
 export function PvPdfDoc({
   pv,
   settings,
+  signers,
 }: {
   pv: Awaited<ReturnType<typeof getPv>>;
   settings: Settings;
+  /** Who has signed in the system; blank lines when left out */
+  signers?: Signer[];
 }) {
   const isDraft = pv.status !== 'APPROVED' && pv.status !== 'PAID';
 
@@ -23,7 +27,7 @@ export function PvPdfDoc({
       docNumber={pv.number}
       docDate={pv.paidAt ? formatThaiDate(pv.paidAt) : formatThaiDate(pv.createdAt)}
       isDraft={isDraft}
-      signatures={['ผู้จัดทำ', 'ผู้อนุมัติ', 'ผู้รับเงิน']}
+      signatures={signers ?? ['ผู้จัดทำ', 'ผู้อนุมัติ', 'ผู้รับเงิน']}
     >
       <View style={pdfStyles.metaGrid}>
         <View style={pdfStyles.metaBox}>

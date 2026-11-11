@@ -19,3 +19,4 @@ export * from './site';
 export * from './handover';
 export * from './news';
 export * from './assets';
+export * from './signatures';

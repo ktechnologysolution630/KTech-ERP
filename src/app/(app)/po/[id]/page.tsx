@@ -16,6 +16,8 @@ import { getSettings } from '@/server/services/settings';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
+import { SignedRow } from '@/components/signed-row';
+import { poSigners } from '@/server/services/doc-signers';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
@@ -61,6 +63,7 @@ export default async function PoDetailPage({
       getPoSummary(db, id),
     ]);
   const boqCheck = po.projectId ? await getPoBoqCheck(db, actor, id) : null;
+  const signers = await poSigners(db, po);
   const deletion = can(actor, 'po.delete') ? await previewPoDeletion(db, actor, id) : null;
   const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
   const hasSomeReceipt = receipts.length > 0;
@@ -490,6 +493,11 @@ export default async function PoDetailPage({
           />
         )}
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 print:break-inside-avoid">
+        <h2 className="text-xs font-semibold text-slate-600">การลงนาม</h2>
+        <SignedRow signers={signers} className="pt-3" />
+      </section>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <AttachmentsBox entityType="PO" entityId={po.id} items={attachments} />

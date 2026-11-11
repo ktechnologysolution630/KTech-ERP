@@ -3,11 +3,13 @@ import React from 'react';
 import {
   Document,
   Font,
+  Image,
   Page,
   StyleSheet,
   Text,
   View,
 } from '@react-pdf/renderer';
+import { type Signer } from '@/domain/signature';
 import { type Settings } from '@/server/services/settings';
 
 let fontsRegistered = false;
@@ -134,9 +136,17 @@ export const pdfStyles = StyleSheet.create({
   signatureBox: {
     width: 150,
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#94a3b8',
-    paddingTop: 6,
+  },
+  /** Where a signature sits, resting on the line */
+  signatureSpace: {
+    width: 150,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    borderBottomWidth: 1,
+    borderBottomColor: '#94a3b8',
+    paddingBottom: 2,
+    marginBottom: 6,
   },
 });
 
@@ -157,7 +167,8 @@ export function PdfShell({
   docNumber: string;
   docDate: string;
   isDraft?: boolean;
-  signatures: string[];
+  /** A bare label is a blank line; a signer who has acted in the system is drawn on it */
+  signatures: (string | Signer)[];
   children: React.ReactNode;
   /** Sits at the bottom of the last page, or on a page of its own if it does not fit */
   footer?: React.ReactNode;
@@ -186,14 +197,26 @@ export function PdfShell({
         {children}
 
         <View style={pdfStyles.signaturesRow}>
-          {signatures.map((label) => (
-            <View key={label} style={pdfStyles.signatureBox}>
-              <Text>({label})</Text>
-              <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
-                วันที่ ......../......../........
-              </Text>
-            </View>
-          ))}
+          {signatures.map((entry) => {
+            const s: Signer = typeof entry === 'string' ? { label: entry } : entry;
+            return (
+              <View key={s.label} style={pdfStyles.signatureBox} wrap={false}>
+                <View style={pdfStyles.signatureSpace}>
+                  {s.image ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image src={s.image} style={{ maxWidth: 140, maxHeight: 38, objectFit: 'contain' }} />
+                  ) : s.name ? (
+                    <Text style={{ fontSize: 11 }}>{s.name}</Text>
+                  ) : null}
+                </View>
+                <Text>({s.label})</Text>
+                {s.name && <Text style={{ fontSize: 10 }}>{s.name}</Text>}
+                <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                  {s.name ? (s.date ? `วันที่ ${s.date}` : 'ลงนามในระบบ') : 'วันที่ ......../......../........'}
+                </Text>
+              </View>
+            );
+          })}
         </View>
 
         {footer && (

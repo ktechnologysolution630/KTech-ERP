@@ -16,6 +16,8 @@ import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
+import { SignedRow } from '@/components/signed-row';
+import { prSigners } from '@/server/services/doc-signers';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { PrForm } from '@/components/pr-form';
@@ -53,6 +55,8 @@ export default async function PrDetailPage({
   const showPrices = PR_TYPE_META[pr.prType].priced;
   const goods = pr.prType === 'GOODS';
   const lineAmount = (l: { qty: string; estUnitPrice: string | null; discount: string }) => Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount);
+
+  const signers = await prSigners(db, pr);
 
   const canApprove =
     pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId });
@@ -259,6 +263,13 @@ export default async function PrDetailPage({
           </table>
         </div>
         </div>
+      )}
+
+      {!canEdit && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 print:break-inside-avoid">
+        <h2 className="text-xs font-semibold text-slate-600">การลงนาม</h2>
+        <SignedRow signers={signers} className="pt-3" />
+      </section>
       )}
 
       <div className="flex flex-wrap gap-2">

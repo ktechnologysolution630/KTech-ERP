@@ -9,6 +9,8 @@ import { getPv } from '@/server/services/pv';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
+import { SignedRow } from '@/components/signed-row';
+import { pvSigners } from '@/server/services/doc-signers';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
@@ -36,6 +38,7 @@ export default async function PvDetailPage({
     listComments(db, 'PV', id),
   ]);
 
+  const signers = await pvSigners(db, pv);
   const canApprove = pv.status === 'PENDING_APPROVAL' && can(actor, 'pv.approve');
   const today = bangkokDateString();
   // Bills not yet due can only be paid early with the owner's reason
@@ -272,6 +275,11 @@ export default async function PvDetailPage({
             </form>
           )}
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 print:break-inside-avoid">
+        <h2 className="text-xs font-semibold text-slate-600">การลงนาม</h2>
+        <SignedRow signers={signers} className="pt-3" />
+      </section>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <AttachmentsBox entityType="PV" entityId={pv.id} items={attachments} />

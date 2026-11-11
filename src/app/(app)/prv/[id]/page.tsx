@@ -5,6 +5,7 @@ import { getDb } from '@/db/client';
 import { bahtText, D } from '@/domain/money';
 import { PRV_BANK_ACCOUNTS, PRV_CATEGORY_LABELS, PRV_PAY_METHOD_LABELS, PRV_PAY_METHODS } from '@/domain/prv';
 import { requireUser } from '@/server/auth/current-user';
+import { prvSigners } from '@/server/services/doc-signers';
 import { getPrvById } from '@/server/services/prv';
 import { getSettings } from '@/server/services/settings';
 import { PrvActions } from './prv-actions';
@@ -15,6 +16,13 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
   const db = await getDb();
   const [prv, settings] = await Promise.all([getPrvById(db, actor, id), getSettings(db)]);
   if (!prv) notFound();
+  const [requesterSign, verifierSign, approverSign] = await prvSigners(db, prv);
+  /** The signature picture when the person has one; their name is printed beside it either way */
+  const sign = (s: typeof requesterSign) =>
+    s?.image ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={s.image} alt={`ลายเซ็น ${s.name ?? ''}`} className="mx-auto max-h-12 max-w-full object-contain" />
+    ) : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -187,6 +195,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
         <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-200 text-center">
           <div className="space-y-4 p-3 rounded-lg border border-slate-100">
             <span className="text-slate-500 font-medium">ผู้ขอเบิก / Site Engineer</span>
+            {sign(requesterSign)}
             <div className="h-10 flex items-center justify-center font-semibold text-slate-800">
               {prv.requestedByName}
             </div>
@@ -195,6 +204,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
 
           <div className="space-y-4 p-3 rounded-lg border border-slate-100">
             <span className="text-slate-500 font-medium">ผู้ตรวจรับรอง / Project Engineer (PM)</span>
+            {sign(verifierSign)}
             <div className="h-10 flex items-center justify-center font-semibold text-slate-800">
               {prv.verifiedByName || '(รอการตรวจสอบ)'}
             </div>
@@ -205,6 +215,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
 
           <div className="space-y-4 p-3 rounded-lg border border-slate-100 bg-blue-50/30">
             <span className="text-slate-500 font-medium">ผู้อนุมัติจ่าย / Approved by Owner</span>
+            {sign(approverSign)}
             <div className="h-10 flex items-center justify-center font-bold text-emerald-700">
               {prv.approvedByName || '(รอเจ้าของอนุมัติ)'}
             </div>

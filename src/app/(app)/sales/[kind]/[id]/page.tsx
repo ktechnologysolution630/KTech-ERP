@@ -11,6 +11,7 @@ import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { SalesDocView } from './sales-doc-view';
 import { listAttachments } from '@/server/services/attachments';
 import { AttachmentsBox } from '@/components/attachments';
+import { salesDocSigners } from '@/server/services/doc-signers';
 
 export default async function SalesDocPage({ params }: { params: Promise<{ kind: string; id: string }> }) {
   const { kind: slug, id } = await params;
@@ -26,14 +27,14 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
     throw err;
   }
   if (doc.kind !== kind) notFound();
-  const [settings, attachments] = await Promise.all([getSettings(db), listAttachments(db, 'SALES_DOC', id)]);
+  const [settings, attachments, signers] = await Promise.all([getSettings(db), listAttachments(db, 'SALES_DOC', id), salesDocSigners(db, doc)]);
 
   return (
     <div className="space-y-4">
       <Link href={`/sales/${slug}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
         <ArrowLeft className="h-4 w-4" /> กลับไปหน้า{SALES_DOC_META[kind].th}
       </Link>
-      <SalesDocView doc={doc} slug={slug} company={companyHeaderFrom(settings)} />
+      <SalesDocView doc={doc} slug={slug} company={companyHeaderFrom(settings)} signers={signers} />
       <div className="max-w-xl">
         <AttachmentsBox entityType="SALES_DOC" entityId={doc.id} items={attachments} />
       </div>
