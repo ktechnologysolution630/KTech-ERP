@@ -38,7 +38,7 @@ describe('which devices may only look', () => {
 
   test('pages made only for writing are not opened', () => {
     for (const p of ['/pr/new', '/po/new', '/po/8f1c/edit', '/sales/quotations/new', '/ar/invoices/new', '/receive/8f1c']) expect(isEditingPath(p)).toBe(true);
-    for (const p of ['/pr', '/pr/8f1c', '/po/8f1c', '/receive', '/inbox', '/news', '/projects/8f1c/boq', '/']) expect(isEditingPath(p)).toBe(false);
+    for (const p of ['/pr', '/pr/8f1c', '/po/8f1c', '/receive', '/inbox', '/news', '/projects/8f1c/boq', '/', '/vehicles/new', '/vehicles/8f1c']) expect(isEditingPath(p)).toBe(false);
   });
 });
 
@@ -50,7 +50,10 @@ describe('every action that writes refuses a view-only device', () => {
     'loadCalendarAction', 'loadCashflowAction', 'loadChatAction', 'loadCostPerformanceAction', 'loadDailyReportAction', 'loadDailyReportsAction',
     'loadDefectsAction', 'loadFilesAction', 'loadForecastAction', 'loadInspectionsAction', 'loadPeriodicReportAction', 'loadTeamAction',
     'loadVoBoqAction', 'loadVoDocumentAction',
+    'loadFleetLiveAction', 'loadTripRouteAction',
   ];
+  /** The vehicle menu: written from any device, iPhone included, by the owner's decision of 2026-11-11 */
+  const ANY_DEVICE_DIR = 'vehicles/';
   const appDir = join(process.cwd(), 'src/app/(app)');
   const sources = (readdirSync(appDir, { recursive: true }) as string[])
     .filter((f) => /\.tsx?$/.test(f))
@@ -69,9 +72,17 @@ describe('every action that writes refuses a view-only device', () => {
   test('an action asks for a writer, directly or through the file\'s own helper, unless it is on the read-only list', () => {
     expect(actions.length).toBeGreaterThan(140);
     const helperWrites = (file: string) => /async function ctx\(\) \{\s*return \{ actor: await requireWriter\(\)/.test(sources.find((s) => s.file === file)!.text);
-    const guarded = (a: (typeof actions)[number]) => a.block.includes('requireWriter()') || (a.block.includes('await ctx()') && helperWrites(a.file));
+    const anyDeviceHelper = (file: string) => /async function ctx\(\) \{\s*return \{ actor: await requireUserOnAnyDevice\(\)/.test(sources.find((s) => s.file === file)!.text);
+    const vehicleAction = (a: (typeof actions)[number]) => a.file.startsWith(ANY_DEVICE_DIR) && (a.block.includes('requireUserOnAnyDevice()') || (a.block.includes('await ctx()') && anyDeviceHelper(a.file)));
+    const guarded = (a: (typeof actions)[number]) => a.block.includes('requireWriter()') || (a.block.includes('await ctx()') && helperWrites(a.file)) || vehicleAction(a);
     const open = actions.filter((a) => !guarded(a)).map((a) => a.name).sort();
     expect(open).toEqual([...READ_ONLY].sort());
+  });
+
+  test('only the vehicle menu may write from any device', () => {
+    const outside = sources.filter((s) => !s.file.startsWith(ANY_DEVICE_DIR) && s.text.includes('requireUserOnAnyDevice'));
+    expect(outside.map((s) => s.file)).toEqual([]);
+    expect(actions.filter((a) => a.file.startsWith(ANY_DEVICE_DIR)).length).toBeGreaterThan(5);
   });
 
   test('the read-only actions never go through the writer check, so looking still works', () => {

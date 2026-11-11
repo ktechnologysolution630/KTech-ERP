@@ -25,7 +25,9 @@ export type EntityType =
   | 'VENDOR'
   | 'ITEM'
   | 'STOCK_DOC'
-  | 'SALES_DOC';
+  | 'SALES_DOC'
+  | 'VEHICLE_TRIP'
+  | 'VEHICLE_EXPENSE';
 
 /** Project workspace files: documents (folders, versions by name) or photos (albums). */
 export type AttachmentKind = 'FILE' | 'PHOTO';
@@ -87,7 +89,7 @@ export const storedFiles = pgTable('stored_files', {
 });
 
 /** Topic a notification belongs to; the bell groups notifications by it. */
-export const NOTIFICATION_CATEGORIES = ['BOQ', 'PO', 'PR', 'RECEIPT', 'FINANCE', 'PROJECT', 'GENERAL'] as const;
+export const NOTIFICATION_CATEGORIES = ['BOQ', 'PO', 'PR', 'RECEIPT', 'FINANCE', 'PROJECT', 'VEHICLE', 'GENERAL'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 /**

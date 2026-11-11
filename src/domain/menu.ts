@@ -83,6 +83,16 @@ export const MENU_TREE = [
     ],
   },
   {
+    key: 'VEHICLES',
+    label: 'การใช้รถ',
+    children: [
+      { key: 'VEH_TRIPS', label: 'ขอใช้รถ / บันทึกการใช้รถ' },
+      { key: 'VEH_LIVE', label: 'ติดตามรถ Realtime' },
+      { key: 'VEH_REPORT', label: 'รายงานการใช้รถ' },
+      { key: 'VEH_FLEET', label: 'ทะเบียนรถ' },
+    ],
+  },
+  {
     key: 'AFTER_SERVICE',
     label: 'บริการหลังก่อสร้าง',
     children: [
@@ -207,6 +217,10 @@ const PATHS: [string, MenuKey[]][] = [
   ['/api/export', ['FIN_EXPORTS']],
   ['/api/pdf/pv', ['FIN_PV']],
   ['/api/pdf/wht', ['FIN_PV', 'FIN_EXPORTS']],
+  ['/vehicles', ['VEH_TRIPS']],
+  ['/vehicles/live', ['VEH_LIVE']],
+  ['/vehicles/report', ['VEH_REPORT']],
+  ['/vehicles/fleet', ['VEH_FLEET']],
   ['/handover', ['AS_HANDOVER']],
   ['/warranty', ['AS_WARRANTY']],
 ];

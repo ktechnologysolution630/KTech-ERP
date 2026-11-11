@@ -28,6 +28,7 @@ export type DocPrefix =
   | 'AP'
   | 'VO'
   | 'INV'
+  | 'VT'
   | 'RC'
   | 'CN'
   | 'ADV'

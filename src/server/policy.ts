@@ -48,7 +48,11 @@ export type Action =
   | 'vendor.delete'
   | 'pr.delete'
   | 'item.delete'
-  | 'po.delete';
+  | 'po.delete'
+  | 'vehicle.request'
+  | 'vehicle.approve'
+  | 'vehicle.track'
+  | 'vehicle.manage';
 
 export interface PolicyContext {
   projectId?: string | null;
@@ -68,6 +72,8 @@ const GLOBAL_PROJECT_VIEW_ROLES: Role[] = [
 ];
 
 export const ASSET_OFFICE_ROLES: Role[] = ['FINANCE', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'];
+/** Who approves vehicle use and watches the fleet */
+export const VEHICLE_OFFICE_ROLES: Role[] = ['GENERAL_MANAGER', 'PURCHASING_HEAD', 'OWNER', 'ADMIN'];
 
 function hasRole(u: SessionUser, roles: Role[]): boolean {
   return u.roles.some((r) => roles.includes(r));
@@ -222,6 +228,18 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     }
     case 'settings.manage': {
       return hasRole(u, ['ADMIN', 'OWNER']);
+    }
+    case 'vehicle.request': {
+      // Anyone signed in may ask for a vehicle
+      return u.roles.length > 0;
+    }
+    case 'vehicle.approve':
+    case 'vehicle.manage': {
+      return hasRole(u, VEHICLE_OFFICE_ROLES);
+    }
+    case 'vehicle.track': {
+      // The live map and every trip; finance sees them for the costs
+      return hasRole(u, [...VEHICLE_OFFICE_ROLES, 'FINANCE']);
     }
     case 'export.view': {
       return hasRole(u, ['FINANCE', 'GENERAL_MANAGER', 'OWNER', 'ADMIN']);

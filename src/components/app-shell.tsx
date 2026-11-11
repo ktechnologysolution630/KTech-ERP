@@ -31,6 +31,8 @@ import {
   CalendarClock,
   Layers,
   PenLine,
+  Car,
+  MapPin,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -102,6 +104,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
   const [openFinance, setOpenFinance] = useState<boolean>(
     pathname.startsWith('/invoices') || pathname.startsWith('/pv') || pathname.startsWith('/exports') || pathname.startsWith('/assets'),
   );
+  const [openVehicles, setOpenVehicles] = useState<boolean>(pathname.startsWith('/vehicles'));
   const [openAfterService, setOpenAfterService] = useState<boolean>(
     pathname.startsWith('/handover') || pathname.startsWith('/warranty'),
   );
@@ -837,6 +840,52 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
                       <span>ตรวจเช็คทรัพย์สิน</span>
                     </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+              )}
+
+              {/* การใช้รถ (Accordion) */}
+              {canSee('VEHICLES') && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setOpenVehicles(!openVehicles)}
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                    pathname.startsWith('/vehicles') ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Car className="w-4 h-4 text-slate-600 shrink-0" />
+                    {!collapsed && <span>การใช้รถ</span>}
+                  </div>
+                  {!collapsed && <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${openVehicles ? 'rotate-180' : ''}`} />}
+                </button>
+
+                {openVehicles && !collapsed && (
+                  <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {([
+                      ['VEH_TRIPS', '/vehicles', 'ขอใช้รถ / บันทึกการใช้รถ', Car],
+                      ['VEH_LIVE', '/vehicles/live', 'ติดตามรถ Realtime', MapPin],
+                      ['VEH_REPORT', '/vehicles/report', 'รายงานการใช้รถ', FileText],
+                      ['VEH_FLEET', '/vehicles/fleet', 'ทะเบียนรถ', ClipboardList],
+                    ] as const).map(([key, href, label, Icon]) =>
+                      canSee(key) ? (
+                        <Link
+                          key={key}
+                          href={href}
+                          prefetch={false}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                            (href === '/vehicles' ? pathname === '/vehicles' || /^\/vehicles\/(new|[0-9a-f-]{36})/.test(pathname) : pathname.startsWith(href))
+                              ? 'bg-blue-50 text-blue-700 font-semibold'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span>{label}</span>
+                        </Link>
+                      ) : null,
                     )}
                   </div>
                 )}

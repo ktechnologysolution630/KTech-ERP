@@ -8,6 +8,7 @@ import {
   arInvoices,
   arReceipts,
   assets,
+  vehicleTrips,
   attachments,
   boqLines,
   boqOverrunRequests,
@@ -305,6 +306,8 @@ export async function deleteProject(db: Db, actor: SessionUser, projectId: strin
       await tx.delete(stockDocs).where(and(eq(stockDocs.projectId, projectId), inArray(stockDocs.type, ['RECEIVE', 'ISSUE'])));
 
       await tx.update(assets).set({ projectId: null, updatedAt: new Date() }).where(eq(assets.projectId, projectId));
+      // A trip is the vehicle's history: it stays, counted as an office trip from now on
+      await tx.update(vehicleTrips).set({ projectId: null, updatedAt: new Date() }).where(eq(vehicleTrips.projectId, projectId));
 
       const files = await tx.select({ url: attachments.url }).from(attachments).where(inArray(attachments.entityId, entityIds));
       await tx.delete(attachments).where(inArray(attachments.entityId, entityIds));

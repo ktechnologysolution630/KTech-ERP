@@ -91,6 +91,10 @@ describe('the proxy on an iPhone or iPad', () => {
     }
   });
 
+  test('the vehicle menu opens and its forms work on an iPhone', async () => {
+    for (const path of ['/vehicles', '/vehicles/new', '/vehicles/8f1c']) expect((await send(path)).status).toBe(200);
+  });
+
   test('the page that explains it is always reachable', async () => {
     const res = await send('/view-only');
     expect(res.status).toBe(200);

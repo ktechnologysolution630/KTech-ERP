@@ -26,13 +26,19 @@ import {
   variationOrders,
   items,
   vendors,
+  vehicleTripExpenses,
+  vehicleTrips,
   type EntityType,
   type SessionUser,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 
-type Lookup = { table: PgTable; id: PgColumn; project: SQL | PgColumn };
+/** `people`: those who may always open it, whatever their project access: the requester and driver of a trip */
+type Lookup = { table: PgTable; id: PgColumn; project: SQL | PgColumn; people?: SQL };
+
+const tripPeople = (tripIdColumn: PgColumn) =>
+  sql<string[]>`(select array[${vehicleTrips.requestedBy}, ${vehicleTrips.driverId}]::text[] from ${vehicleTrips} where ${vehicleTrips.id} = ${tripIdColumn})`;
 
 /** Project of a PO-linked document, via its PO. */
 const viaPo = (poIdColumn: PgColumn) => sql<string | null>`(select ${pos.projectId} from ${pos} where ${pos.id} = ${poIdColumn})`;
@@ -65,6 +71,14 @@ const LOOKUPS: Record<EntityType, Lookup> = {
   ITEM: { table: items, id: items.id, project: sql<null>`null` },
   STOCK_DOC: { table: stockDocs, id: stockDocs.id, project: stockDocs.projectId },
   SALES_DOC: { table: salesDocs, id: salesDocs.id, project: salesDocs.projectId },
+  // Read straight off the row: a subquery on the same table would match every trip
+  VEHICLE_TRIP: { table: vehicleTrips, id: vehicleTrips.id, project: vehicleTrips.projectId, people: sql<string[]>`array[${vehicleTrips.requestedBy}, ${vehicleTrips.driverId}]::text[]` },
+  VEHICLE_EXPENSE: {
+    table: vehicleTripExpenses,
+    id: vehicleTripExpenses.id,
+    project: sql<string | null>`(select ${vehicleTrips.projectId} from ${vehicleTrips} where ${vehicleTrips.id} = ${vehicleTripExpenses.tripId})`,
+    people: tripPeople(vehicleTripExpenses.tripId),
+  },
 };
 
 export const ENTITY_TYPES = Object.keys(LOOKUPS) as EntityType[];
@@ -85,11 +99,12 @@ export async function assertEntityAccess(
     throw new DomainError('NOT_FOUND', 'ไม่พบเอกสาร', 404);
   }
   const [row] = await db
-    .select({ projectId: sql<string | null>`${lookup.project}` })
+    .select({ projectId: sql<string | null>`${lookup.project}`, people: lookup.people ?? sql<null>`null` })
     .from(lookup.table)
     .where(eq(lookup.id, entityId))
     .limit(1);
   if (!row) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสาร', 404);
+  if (Array.isArray(row.people) && row.people.includes(actor.id)) return row.projectId;
   if (row.projectId) {
     assertCan(actor, 'project.view', { projectId: row.projectId });
   } else if (isSiteScopedOnly(actor)) {

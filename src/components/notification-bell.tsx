@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Bell } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type NotificationCategory = 'BOQ' | 'PO' | 'PR' | 'RECEIPT' | 'FINANCE' | 'PROJECT' | 'GENERAL';
+export type NotificationCategory = 'BOQ' | 'PO' | 'PR' | 'RECEIPT' | 'FINANCE' | 'PROJECT' | 'VEHICLE' | 'GENERAL';
 export type NotificationLevel = 'INFO' | 'NOTICE' | 'WARNING' | 'CRITICAL' | 'OVER';
 
 export interface NotificationItem {
@@ -24,9 +24,10 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   RECEIPT: 'รับของ/สต็อก',
   FINANCE: 'การเงิน',
   PROJECT: 'โครงการ',
+  VEHICLE: 'การใช้รถ',
   GENERAL: 'ทั่วไป',
 };
-const CATEGORY_ORDER: NotificationCategory[] = ['BOQ', 'PO', 'PR', 'RECEIPT', 'FINANCE', 'PROJECT', 'GENERAL'];
+const CATEGORY_ORDER: NotificationCategory[] = ['BOQ', 'PO', 'PR', 'RECEIPT', 'FINANCE', 'PROJECT', 'VEHICLE', 'GENERAL'];
 
 /** Left stripe and badge per severity; BOQ usage alerts use 50% / 80% / 100% / เกิน. */
 const LEVEL_STYLES: Record<NotificationLevel, { stripe: string; badge: string; label: string } | null> = {

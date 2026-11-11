@@ -143,6 +143,7 @@ describe('every page and entry is accounted for', () => {
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],
       ['/ar/customers'], ['/ar/invoices'], ['/accounting'], ['/accounting/input-vat'], ['/accounting/bill-scan'], ['/accounting/settings'], ['/accounting/wht'], ['/accounting/reports'], ['/accounting/wht-report'], ['/accounting/project-budget-report'], ['/sales/income'], ['/sales/expense'], ['/ar/credit-notes'], ['/cash-bank'], ['/sales/quotations'], ['/sales/receipts'], ['/sales/tax-invoices'], ['/sales/debit-notes'], ['/sales/abbreviated-tax-invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],
       ['/handover'], ['/warranty'],
+      ['/vehicles'], ['/vehicles/live'], ['/vehicles/report'], ['/vehicles/fleet'],
     ];
     const controlled = new Set(urls.flatMap(([path, tab]) => menuKeysForPath(path, tab ?? null)));
     const leaves = MENU_TREE.flatMap((node) => ('children' in node ? node.children.map((c) => c.key) : [node.key]));

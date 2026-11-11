@@ -32,6 +32,14 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
+/**
+ * The signed-in user, for the vehicle menu only: drivers take vehicles out, send their position and
+ * bring them back from an iPhone too. Every other action that writes asks `requireWriter`.
+ */
+export async function requireUserOnAnyDevice(): Promise<SessionUser> {
+  return requireUser();
+}
+
 /** Whether this request comes from an iPhone or iPad, which may only look at documents */
 export async function isViewOnlyDevice(): Promise<boolean> {
   const [headerList, cookieStore] = await Promise.all([headers(), cookies()]);
