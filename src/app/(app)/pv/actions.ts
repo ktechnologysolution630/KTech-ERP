@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { type PayMethod } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
 import '@/server/services/wht-cert';
 import {
@@ -59,7 +59,7 @@ export async function submitPvAction(id: string) {
 }
 
 export async function approvePvAction(id: string, overrideReason?: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await approvePv(db, actor, id, overrideReason);
   revalidatePath(`/pv/${id}`);
@@ -67,7 +67,7 @@ export async function approvePvAction(id: string, overrideReason?: string) {
 }
 
 export async function rejectPvAction(id: string, reason: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await rejectPv(db, actor, id, reason);
   revalidatePath(`/pv/${id}`);

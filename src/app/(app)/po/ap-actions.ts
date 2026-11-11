@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import { decideBoqOverrun, requestBoqOverrun } from '@/server/services/boq-overrun';
 
 export type ApActionResult = { ok: true } | { ok: false; error: string };
@@ -34,7 +34,7 @@ export async function decideBoqOverrunAction(
   approve: boolean,
   note: string,
 ): Promise<ApActionResult> {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   return run(poId, () => decideBoqOverrun(db, actor, requestId, approve, note));
 }

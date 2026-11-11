@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import {
   createStockCount,
   decideStockAdjust,
@@ -49,7 +49,7 @@ export async function requestStockAdjustAction(input: StockAdjustInput): Promise
 }
 
 export async function decideStockAdjustAction(requestId: string, approve: boolean): Promise<StockActionResult> {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   return run(() => decideStockAdjust(db, actor, requestId, approve));
 }

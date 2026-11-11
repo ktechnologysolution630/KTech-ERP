@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser, requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireUser, requireWriter } from '@/server/auth/current-user';
 import type { BoqDocumentDto, SaveBoqInput } from '@/server/services/boq';
 import {
   cancelVo,
@@ -75,7 +75,7 @@ export async function decideVoAction(
   approve: boolean,
   note: string,
 ): Promise<VoActionResult> {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   return done(await run(projectId, () => decideVo(db, actor, voId, approve, note)));
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
 import {
   approvePr,
@@ -69,7 +69,7 @@ export async function submitPrAction(id: string) {
 }
 
 export async function approvePrAction(id: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await approvePr(db, actor, id);
   revalidatePath(`/pr/${id}`);
@@ -77,7 +77,7 @@ export async function approvePrAction(id: string) {
 }
 
 export async function rejectPrAction(id: string, reason: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await rejectPr(db, actor, id, reason);
   revalidatePath(`/pr/${id}`);

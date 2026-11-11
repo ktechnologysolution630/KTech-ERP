@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { type MilestoneKind } from '@/domain/milestone';
-import { requireWriter } from '@/server/auth/current-user';
+import { isViewOnlyDevice, requireDecider, requireWriter } from '@/server/auth/current-user';
 import {
   advanceMilestone,
   cancelMilestone,
@@ -49,9 +49,11 @@ export async function deleteMilestoneAction(projectId: string, id: string) {
 }
 
 export async function advanceMilestoneAction(projectId: string, id: string, date?: string) {
-  const actor = await requireWriter();
+  // From a phone or tablet only the approval step goes through; claiming and paying wait for a computer
+  const actor = await requireDecider();
+  const approvalOnly = await isViewOnlyDevice();
   const db = await getDb();
-  return run(projectId, () => advanceMilestone(db, actor, id, date));
+  return run(projectId, () => advanceMilestone(db, actor, id, date, { approvalOnly }));
 }
 
 export async function cancelMilestoneAction(projectId: string, id: string, reason: string) {

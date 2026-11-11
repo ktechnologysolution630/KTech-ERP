@@ -1,38 +1,57 @@
 /**
- * Terms of use: on an iPhone or iPad the system is for looking at documents only. Nothing may be
- * created, changed, approved, received, commented on or uploaded from one.
+ * Terms of use (owner, 2026-11-11): on a phone or tablet of any make the system is for looking at
+ * documents and approving them. Nothing may be created, changed, deleted, received, commented on or
+ * uploaded from one; that is done on a notebook or desktop computer.
  */
 
-/** Set by the browser itself once it finds it is an iPad that calls itself a Mac */
+/** Set by the browser itself once it finds it is a phone or tablet that calls itself a computer */
 export const VIEW_ONLY_COOKIE = 'ktec_view_only';
 export const VIEW_ONLY_PATH = '/view-only';
-export const VIEW_ONLY_MESSAGE = 'iPad และ iPhone ใช้ดูเอกสารได้อย่างเดียว ไม่สามารถสร้าง แก้ไข หรืออนุมัติได้ (ยกเว้นเมนูการใช้รถ)';
+export const VIEW_ONLY_MESSAGE = 'มือถือและแท็บเล็ตใช้ดูและอนุมัติเอกสารได้เท่านั้น การสร้างหรือแก้ไขเอกสารต้องทำบนโน้ตบุ๊กหรือคอมพิวเตอร์ (ยกเว้นเมนูการใช้รถ)';
 
 /**
- * The one exception the owner allowed (2026-11-11): drivers use their phones to take a vehicle out,
- * send where it is and bring it back, so the vehicle pages stay writable on any device.
+ * The one exception the owner allowed: drivers use their phones to take a vehicle out, send where it
+ * is and bring it back, so the vehicle pages stay writable on any device.
  */
 export const ANY_DEVICE_PATH = '/vehicles';
 export const isAnyDevicePath = (pathname: string) => pathname === ANY_DEVICE_PATH || pathname.startsWith(`${ANY_DEVICE_PATH}/`);
 
-/** iPhone, iPod touch and iPad, in Safari or any other browser on them */
-export function isAppleMobileUserAgent(userAgent: string | null | undefined): boolean {
-  return /\b(iPhone|iPad|iPod)\b/.test(userAgent ?? '');
+/**
+ * Phones and tablets as their browsers name themselves: iPhone, iPad, Android of every make (Samsung,
+ * Xiaomi, OPPO, Huawei…), Kindle, and the rest. A Chromebook ("CrOS") is a notebook and is not matched.
+ */
+const MOBILE_UA = /\b(iPhone|iPad|iPod|Android|Mobile|Tablet|Silk|Kindle|KF[A-Z]{2,4}|PlayBook|BlackBerry|BB10|Opera Mini|IEMobile|Windows Phone|webOS|HarmonyOS)\b/i;
+
+export function isMobileUserAgent(userAgent: string | null | undefined): boolean {
+  return MOBILE_UA.test(userAgent ?? '');
+}
+
+export interface DeviceSignals {
+  userAgent: string;
+  platform?: string;
+  maxTouchPoints?: number;
+  /** Whether any pointing device can aim finely: a mouse or touchpad. Phones and tablets have none. */
+  hasFinePointer?: boolean;
 }
 
 /**
- * Asked in the browser. iPadOS asks for the desktop site by default and then says it is a Mac; only
- * its touch screen gives it away, and no Mac has one.
+ * Asked in the browser, which knows more than its name. An iPad and an Android tablet ask for the
+ * desktop site by default and then call themselves a Mac or a Linux PC; what gives them away is a
+ * touch screen with no mouse or touchpad. A touch-screen notebook has its touchpad, so it stays a computer.
  */
-export function isAppleMobileDevice(nav: { userAgent: string; platform?: string; maxTouchPoints?: number }): boolean {
-  if (isAppleMobileUserAgent(nav.userAgent)) return true;
-  const saysMac = nav.platform === 'MacIntel' || /\bMacintosh\b/.test(nav.userAgent);
-  return saysMac && (nav.maxTouchPoints ?? 0) > 1;
+export function isMobileDevice(d: DeviceSignals): boolean {
+  if (isMobileUserAgent(d.userAgent)) return true;
+  const touch = (d.maxTouchPoints ?? 0) > 1;
+  if (!touch) return false;
+  const saysMac = d.platform === 'MacIntel' || /\bMacintosh\b/.test(d.userAgent);
+  // No Mac has a touch screen
+  if (saysMac) return true;
+  return d.hasFinePointer === false;
 }
 
 /** Asked on the server, which sees only what the browser sent */
 export function isViewOnlyRequest(userAgent: string | null | undefined, cookie: string | null | undefined): boolean {
-  return isAppleMobileUserAgent(userAgent) || cookie === '1';
+  return isMobileUserAgent(userAgent) || cookie === '1';
 }
 
 /** A page that exists only to write something: `/pr/new`, `/po/<id>/edit`, the receiving form */

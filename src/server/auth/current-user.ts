@@ -34,22 +34,31 @@ export async function requireUser(): Promise<SessionUser> {
 
 /**
  * The signed-in user, for the vehicle menu only: drivers take vehicles out, send their position and
- * bring them back from an iPhone too. Every other action that writes asks `requireWriter`.
+ * bring them back from a phone too. Every other action that writes asks `requireWriter`.
  */
 export async function requireUserOnAnyDevice(): Promise<SessionUser> {
   return requireUser();
 }
 
-/** Whether this request comes from an iPhone or iPad, which may only look at documents */
+/**
+ * The signed-in user, for an action that approves or refuses a document. Phones and tablets may do
+ * this (terms of use): approving is the one thing they are for besides looking. An action that also
+ * creates or changes something must keep that part behind `requireWriter`.
+ */
+export async function requireDecider(): Promise<SessionUser> {
+  return requireUser();
+}
+
+/** Whether this request comes from a phone or tablet, which may only look and approve */
 export async function isViewOnlyDevice(): Promise<boolean> {
   const [headerList, cookieStore] = await Promise.all([headers(), cookies()]);
   return isViewOnlyRequest(headerList.get('user-agent'), cookieStore.get(VIEW_ONLY_COOKIE)?.value);
 }
 
 /**
- * The signed-in user, for an action that creates, changes, approves or deletes something. On an
- * iPhone or iPad nothing is written: the person is taken to the page that says so. Call it outside
- * any `try`, as with every redirect.
+ * The signed-in user, for an action that creates, changes or deletes something. On a phone or tablet
+ * nothing is written: the person is taken to the page that says so, and does it on a computer. Call
+ * it outside any `try`, as with every redirect.
  */
 export async function requireWriter(): Promise<SessionUser> {
   const user = await requireUser();

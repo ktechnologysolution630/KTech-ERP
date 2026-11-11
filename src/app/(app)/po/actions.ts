@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
 import { deletePo } from '@/server/services/po-delete';
 import {
@@ -81,7 +81,7 @@ export async function submitPoAction(id: string) {
 }
 
 export async function approvePoAction(id: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await approvePo(db, actor, id);
   revalidatePath(`/po/${id}`);
@@ -89,7 +89,7 @@ export async function approvePoAction(id: string) {
 }
 
 export async function rejectPoAction(id: string, reason: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await rejectPo(db, actor, id, reason);
   revalidatePath(`/po/${id}`);
@@ -127,7 +127,7 @@ export async function requestCloseShortAction(poId: string, reason: string) {
 }
 
 export async function approveCloseShortAction(poId: string, requestId: string) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await approveCloseShort(db, actor, requestId);
   revalidatePath(`/po/${poId}`);
@@ -139,7 +139,7 @@ export async function rejectCloseShortAction(
   requestId: string,
   reason: string,
 ) {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   await rejectCloseShort(db, actor, requestId, reason);
   revalidatePath(`/po/${poId}`);

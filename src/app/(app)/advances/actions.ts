@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import {
   addAdvanceExpense,
   cancelAdvance,
@@ -41,13 +41,18 @@ async function ctx() {
   return { actor: await requireWriter(), db: await getDb() };
 }
 
+/** For approving or refusing, which phones and tablets may do */
+async function decideCtx() {
+  return { actor: await requireDecider(), db: await getDb() };
+}
+
 export async function requestAdvanceAction(input: AdvanceInput) {
   const { actor, db } = await ctx();
   return run(async () => (await requestAdvance(db, actor, input)).id);
 }
 
 export async function decideAdvanceAction(id: string, approve: boolean, note: string) {
-  const { actor, db } = await ctx();
+  const { actor, db } = await decideCtx();
   return run(() => decideAdvance(db, actor, id, approve, note));
 }
 
@@ -93,7 +98,7 @@ export async function submitReceiptSubstituteAction(id: string) {
 }
 
 export async function decideReceiptSubstituteAction(id: string, approve: boolean, note: string) {
-  const { actor, db } = await ctx();
+  const { actor, db } = await decideCtx();
   return run(() => decideReceiptSubstitute(db, actor, id, approve, note));
 }
 

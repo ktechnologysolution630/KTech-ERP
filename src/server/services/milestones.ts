@@ -340,8 +340,13 @@ export async function advanceMilestone(
   actor: SessionUser,
   id: string,
   dateInput?: string,
+  /** Set for a phone or tablet: it may approve a claimed milestone and do nothing else */
+  opts: { approvalOnly?: boolean } = {},
 ): Promise<MilestoneStatus> {
   const m = await loadMilestone(db, id);
+  if (opts.approvalOnly && m.status !== 'CLAIMED') {
+    throw new DomainError('VIEW_ONLY_DEVICE', 'มือถือและแท็บเล็ตอนุมัติงวดงานได้อย่างเดียว การส่งเบิกและจ่ายเงินต้องทำบนโน้ตบุ๊กหรือคอมพิวเตอร์', 403);
+  }
   const next = NEXT_MILESTONE_STATUS[m.status];
   const permission = STEP_PERMISSION[m.status];
   if (!next || !permission) {

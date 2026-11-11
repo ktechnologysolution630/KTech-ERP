@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider, requireWriter } from '@/server/auth/current-user';
 import { createPrv, deletePrv, transitionPrv, type CreatePrvInput, type PrvTransition } from '@/server/services/prv';
 
 export type PrvActionResult = { ok: true; id?: string } | { ok: false; error: string };
@@ -37,7 +37,8 @@ export async function deletePrvAction(id: string): Promise<PrvActionResult> {
 }
 
 export async function transitionPrvAction(id: string, action: PrvTransition, note = ''): Promise<PrvActionResult> {
-  const actor = await requireWriter();
+  // Sending it is writing it; checking, approving and refusing may be done from a phone
+  const actor = action === 'submit' ? await requireWriter() : await requireDecider();
   const db = await getDb();
   try {
     await transitionPrv(db, actor, id, action, note);

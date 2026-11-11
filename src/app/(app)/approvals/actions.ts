@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import type { ApprovalType } from '@/domain/approvals';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireDecider } from '@/server/auth/current-user';
 import { decideApproval } from '@/server/services/approvals';
 
 export async function decideApprovalAction(input: {
@@ -13,7 +13,7 @@ export async function decideApprovalAction(input: {
   approve: boolean;
   note: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireWriter();
+  const actor = await requireDecider();
   const db = await getDb();
   try {
     await decideApproval(db, actor, input);

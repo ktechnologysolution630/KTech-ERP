@@ -71,12 +71,16 @@ describe('milestone service', () => {
     });
 
     await expect(advanceMilestone(db, f.users.finance, id)).rejects.toMatchObject({ status: 403 });
+    // From a phone or tablet the claim waits for a computer
+    await expect(advanceMilestone(db, f.users.pm, id, '2026-11-05', { approvalOnly: true })).rejects.toMatchObject({ code: 'VIEW_ONLY_DEVICE' });
     expect(await advanceMilestone(db, f.users.pm, id, '2026-11-05')).toBe('CLAIMED');
     await expect(updateMilestone(db, f.users.pm, id, { title: 'x', amount: 1 })).rejects.toMatchObject({ status: 409 });
     await expect(deleteMilestone(db, f.users.pm, id)).rejects.toMatchObject({ status: 409 });
 
     await expect(advanceMilestone(db, f.users.pm, id)).rejects.toMatchObject({ status: 403 });
-    expect(await advanceMilestone(db, f.users.owner, id)).toBe('APPROVED');
+    // Approving is what a phone may do
+    expect(await advanceMilestone(db, f.users.owner, id, undefined, { approvalOnly: true })).toBe('APPROVED');
+    await expect(advanceMilestone(db, f.users.finance, id, '2026-11-20', { approvalOnly: true })).rejects.toMatchObject({ code: 'VIEW_ONLY_DEVICE' });
     expect(await advanceMilestone(db, f.users.finance, id, '2026-11-20')).toBe('PAID');
     await expect(advanceMilestone(db, f.users.owner, id)).rejects.toMatchObject({ status: 409 });
     await expect(cancelMilestone(db, f.users.pm, id, 'x')).rejects.toMatchObject({ status: 409 });
