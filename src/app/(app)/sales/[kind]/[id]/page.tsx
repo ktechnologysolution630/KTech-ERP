@@ -9,6 +9,8 @@ import { getSalesDoc } from '@/server/services/sales-docs';
 import { getSettings } from '@/server/services/settings';
 import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { SalesDocView } from './sales-doc-view';
+import { listAttachments } from '@/server/services/attachments';
+import { AttachmentsBox } from '@/components/attachments';
 
 export default async function SalesDocPage({ params }: { params: Promise<{ kind: string; id: string }> }) {
   const { kind: slug, id } = await params;
@@ -24,7 +26,7 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
     throw err;
   }
   if (doc.kind !== kind) notFound();
-  const settings = await getSettings(db);
+  const [settings, attachments] = await Promise.all([getSettings(db), listAttachments(db, 'SALES_DOC', id)]);
 
   return (
     <div className="space-y-4">
@@ -32,6 +34,9 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
         <ArrowLeft className="h-4 w-4" /> กลับไปหน้า{SALES_DOC_META[kind].th}
       </Link>
       <SalesDocView doc={doc} slug={slug} company={companyHeaderFrom(settings)} />
+      <div className="max-w-xl">
+        <AttachmentsBox entityType="SALES_DOC" entityId={doc.id} items={attachments} />
+      </div>
     </div>
   );
 }

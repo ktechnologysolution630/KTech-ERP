@@ -101,3 +101,21 @@ export const salesDocLines = pgTable('sales_doc_lines', {
   unitPrice: numeric('unit_price', { precision: 14, scale: 2 }).default('0').notNull(),
   amount: numeric('amount', { precision: 14, scale: 2 }).default('0').notNull(),
 });
+
+export type AccountCategoryType = 'INCOME' | 'EXPENSE' | 'ASSET' | 'LIABILITY' | 'EQUITY' | 'OTHER';
+
+/** หมวดรายรับ / หมวดค่าใช้จ่าย: the company's chart of categories offered on accounting documents */
+export const accountCategories = pgTable('account_categories', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  code: text('code').notNull().unique(),
+  name: text('name').notNull(),
+  type: text('type').$type<AccountCategoryType>().notNull(),
+  groupName: text('group_name').default('').notNull(),
+  /** Usual VAT of documents in this category */
+  vatDefault: text('vat_default').$type<'VAT7' | 'NONE'>().default('VAT7').notNull(),
+  /** Usual withholding tax rate in percent; 0 for none */
+  whtRate: numeric('wht_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2 } from 'lucide-react';
 import { DateInput } from '@/components/date-input';
 import { AmountInWords, DocPaper, MetaRow, SignatureRow, paperCell, paperInput, type CompanyHeader } from '@/components/doc-paper';
 import { formatMoneyDisplay } from '@/domain/money';
-import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
+import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type CategoryOption, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { THAI_BANKS } from '@/domain/vendor-profile';
 import { createSalesDocAction } from './actions';
 
@@ -60,6 +60,7 @@ export function SalesDocForm({
   customers,
   vendors = [],
   accounts = [],
+  categories,
   projects,
   today,
 }: {
@@ -69,6 +70,8 @@ export function SalesDocForm({
   /** Payees of a payment voucher */
   vendors?: SalesCustomerOption[];
   accounts?: SalesAccountOption[];
+  /** Active categories from ตั้งค่าบัญชี; the built-in list is used when none are set up */
+  categories?: CategoryOption[];
   projects: { id: string; code: string; name: string }[];
   today: string;
 }) {
@@ -113,6 +116,17 @@ export function SalesDocForm({
       }),
     [lines, discountType, discountValue, vatMode, whtRate, retentionRate, isExpense],
   );
+  const categoryList: CategoryOption[] = categories && categories.length > 0 ? categories : (isExpense ? EXPENSE_CATEGORIES : ACCOUNT_CATEGORIES).map((label) => ({ label }));
+  // A tax field the person has set by hand is theirs; a category only fills the ones left alone
+  const taxSetByHand = useRef({ vat: false, wht: false });
+  const pickCategory = (label: string) => {
+    setAccountCategory(label);
+    const c = categoryList.find((x) => x.label === label);
+    // An abbreviated tax invoice always carries VAT and has no withholding tax
+    if (!c || kind === 'STI') return;
+    if (c.vatDefault && !taxSetByHand.current.vat) setVatMode(c.vatDefault === 'NONE' ? 'NONE' : 'EXCLUSIVE');
+    if (c.whtRate !== undefined && !taxSetByHand.current.wht) setWhtRate(c.whtRate > 0 ? String(c.whtRate) : '');
+  };
   const setLine = (i: number, patch: Partial<Line>) => setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const pickCustomer = (id: string) => {
     setCustomerId(id);
@@ -247,10 +261,10 @@ export function SalesDocForm({
               ))}
             </select>
             <input value={milestone} onChange={(e) => setMilestone(e.target.value)} placeholder="งวดงาน" aria-label="งวดงาน" className={paperInput} />
-            <select value={accountCategory} onChange={(e) => setAccountCategory(e.target.value)} aria-label="หมวดบัญชี" className={paperInput}>
+            <select value={accountCategory} onChange={(e) => pickCategory(e.target.value)} aria-label="หมวดบัญชี" className={paperInput}>
               <option value="">เลือกหมวดบัญชี</option>
-              {(isExpense ? EXPENSE_CATEGORIES : ACCOUNT_CATEGORIES).map((a) => (
-                <option key={a}>{a}</option>
+              {categoryList.map((a) => (
+                <option key={a.label}>{a.label}</option>
               ))}
             </select>
           </div>
@@ -394,7 +408,13 @@ export function SalesDocForm({
             </div>
             <Row label="ราคาหลังหักส่วนลด" value={totals.afterDiscount.toFixed(2)} />
             <div className="flex items-center justify-between gap-3 px-3 py-1.5">
-              <select value={vatMode} onChange={(e) => setVatMode(e.target.value as SalesVatMode)} aria-label="ประเภท VAT" className="rounded border border-slate-200 px-1 py-0.5 text-xs">
+              <select
+                value={vatMode}
+                onChange={(e) => {
+                  taxSetByHand.current.vat = true;
+                  setVatMode(e.target.value as SalesVatMode);
+                }}
+                aria-label="ประเภท VAT" className="rounded border border-slate-200 px-1 py-0.5 text-xs">
                 {(Object.keys(SALES_VAT_LABEL) as SalesVatMode[])
                   .filter((m) => kind !== 'STI' || m !== 'EXCLUSIVE')
                   .map((m) => (
@@ -411,7 +431,7 @@ export function SalesDocForm({
               <div className="flex items-center justify-between gap-3 px-3 py-1.5">
                 <span className="flex items-center gap-1 text-slate-600">
                   หัก ณ ที่จ่าย
-                  <input type="number" min={0} max={100} step="0.01" value={whtRate} onChange={(e) => setWhtRate(e.target.value)} placeholder="0" aria-label="หัก ณ ที่จ่าย (%)" className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-xs" />%
+                  <input type="number" min={0} max={100} step="0.01" value={whtRate} onChange={(e) => { taxSetByHand.current.wht = true; setWhtRate(e.target.value); }} placeholder="0" aria-label="หัก ณ ที่จ่าย (%)" className="w-14 rounded border border-slate-200 px-1 py-0.5 text-right text-xs" />%
                 </span>
                 <span>{formatMoneyDisplay(totals.wht.toFixed(2))}</span>
               </div>

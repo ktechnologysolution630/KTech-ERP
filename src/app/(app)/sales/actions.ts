@@ -49,3 +49,17 @@ export async function saveCompanyAccountAction(input: import('@/server/services/
     throw err;
   }
 }
+
+export async function saveAccountCategoryAction(input: import('@/server/services/account-categories').AccountCategoryInput): Promise<Result> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const { saveAccountCategory } = await import('@/server/services/account-categories');
+  try {
+    const id = await saveAccountCategory(db, actor, input);
+    revalidatePath('/accounting/settings');
+    return { ok: true, id };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
+}

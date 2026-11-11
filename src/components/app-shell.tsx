@@ -59,6 +59,7 @@ const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/accounting', label: 'ภาพรวมบัญชี', menu: 'FIN_ACCOUNTING_OVERVIEW' },
   { href: '/sales/income', label: 'รายรับ', menu: 'FIN_INCOME' },
   { href: '/sales/expense', label: 'รายจ่าย', menu: 'FIN_EXPENSE' },
+  { href: '/accounting/bill-scan', label: 'สแกนบิล', menu: 'FIN_BILL_SCAN' },
   { href: '/sales/quotations', label: 'ใบเสนอราคา', menu: 'FIN_QUOTATIONS' },
   { href: '/ar/invoices', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)', menu: 'FIN_AR_INVOICES' },
   { href: '/sales/receipts', label: 'ใบเสร็จรับเงิน', menu: 'FIN_RECEIPTS' },
@@ -76,6 +77,7 @@ const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/cash-bank', label: 'เงินสด / ธนาคาร', menu: 'FIN_CASH_BANK' },
   { href: '/advances', label: 'เงินทดรองจ่าย', menu: 'FIN_ADVANCES' },
   { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ', menu: 'FIN_RECEIPT_SUBSTITUTES' },
+  { href: '/accounting/settings', label: 'ตั้งค่าบัญชีและภาษี', menu: 'FIN_ACCOUNTING_SETTINGS' },
 ];
 
 export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {

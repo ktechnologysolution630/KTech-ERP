@@ -33,6 +33,8 @@ const VISIBLE: Partial<Record<Role, MenuKey[]>> = {
     'FIN_CUSTOMERS',
     'FIN_AR_INVOICES',
     'FIN_ACCOUNTING_OVERVIEW',
+    'FIN_BILL_SCAN',
+    'FIN_ACCOUNTING_SETTINGS',
     'FIN_INPUT_VAT',
     'FIN_WHT',
     'FIN_ACCOUNTING_REPORTS',

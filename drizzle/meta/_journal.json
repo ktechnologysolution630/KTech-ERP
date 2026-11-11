@@ -302,6 +302,13 @@
       "when": 1794304017079,
       "tag": "0042_income_expense_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794312850020,
+      "tag": "0043_account_categories",
+      "breakpoints": true
     }
   ]
 }

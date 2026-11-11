@@ -30,6 +30,17 @@ export const SALES_VAT_LABEL: Record<SalesVatMode, string> = {
 export const ACCOUNT_CATEGORIES = ['รายได้ค่าก่อสร้าง', 'รายได้ค่าบริการ', 'รายได้ค่าออกแบบ', 'รายได้จากการขาย', 'รายได้อื่น'] as const;
 export const EXPENSE_CATEGORIES = ['ค่าวัสดุ', 'ค่าแรง', 'ค่าผู้รับเหมาช่วง', 'ค่าเช่าเครื่องจักร', 'ค่าขนส่ง', 'ค่าสาธารณูปโภค', 'ค่าใช้จ่ายสำนักงาน', 'ค่าใช้จ่ายอื่น'] as const;
 
+/** A category offered on a document, with the VAT and withholding tax its documents usually carry */
+export interface CategoryOption {
+  label: string;
+  /** Absent on the built-in list, which says nothing about tax */
+  vatDefault?: 'VAT7' | 'NONE';
+  whtRate?: number;
+}
+
+export const categoryOptions = (rows: { code: string; name: string; vatDefault: 'VAT7' | 'NONE'; whtRate: string }[]): CategoryOption[] =>
+  rows.map((c) => ({ label: `${c.code} ${c.name}`, vatDefault: c.vatDefault, whtRate: Number(c.whtRate) }));
+
 export interface SalesLineInput {
   isSection?: boolean;
   qty: number;

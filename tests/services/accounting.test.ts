@@ -33,3 +33,28 @@ describe('accounting reports', () => {
     await expect(listLedger(db, f.users.foreman, { from: '2026-11-01', to: '2026-11-30' })).rejects.toMatchObject({ status: 403 });
   });
 });
+
+describe('account categories and running numbers', () => {
+  test('the chart is seeded, codes are unique, and the next number follows what was issued', async () => {
+    const { listAccountCategories, listDocRunning, saveAccountCategory } = await import('@/server/services/account-categories');
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const expense = await listAccountCategories(db, f.users.finance, { types: ['EXPENSE'], activeOnly: true });
+    expect(expense.some((c) => c.code === '5101' && c.name === 'ค่าวัสดุก่อสร้าง')).toBe(true);
+    // What a form is given: the label saved on the document, and the tax the category usually carries
+    const { categoryOptions } = await import('@/domain/sales-doc');
+    expect(categoryOptions(expense).find((c) => c.label === '5102 ค่าผู้รับเหมาช่วง')).toEqual({ label: '5102 ค่าผู้รับเหมาช่วง', vatDefault: 'VAT7', whtRate: 3 });
+    expect(categoryOptions(expense).find((c) => c.label === '5103 ค่าแรงงานโครงการ')).toMatchObject({ vatDefault: 'NONE', whtRate: 3 });
+    await expect(saveAccountCategory(db, f.users.finance, { code: '5101', name: 'ซ้ำ', type: 'EXPENSE' })).rejects.toMatchObject({ status: 409 });
+    const id = await saveAccountCategory(db, f.users.finance, { code: '5150', name: 'ค่าทดสอบวัสดุ', type: 'EXPENSE', whtRate: 3 });
+    await saveAccountCategory(db, f.users.finance, { id, code: '5150', name: 'ค่าทดสอบวัสดุ', type: 'EXPENSE', active: false });
+    expect((await listAccountCategories(db, f.users.finance, { types: ['EXPENSE'], activeOnly: true })).some((c) => c.code === '5150')).toBe(false);
+    await expect(saveAccountCategory(db, f.users.foreman, { code: '9', name: 'x', type: 'OTHER' })).rejects.toMatchObject({ status: 403 });
+
+    const at = new Date('2026-11-10T05:00:00Z');
+    await createSalesDoc(db, f.users.finance, { kind: 'QT', docDate: '2026-11-10', customerName: 'ก', lines: [{ name: 'งาน', qty: 1, unitPrice: 1 }] });
+    const qt = (await listDocRunning(db, f.users.finance, at)).find((r) => r.prefix === 'QT')!;
+    expect(qt).toMatchObject({ used: 1 });
+    expect(qt.next).toMatch(/^QT-\d{4}-0002$/);
+  });
+});
