@@ -8,6 +8,8 @@ import { deletePrsAction } from './actions';
 import type { PrDeleteResult } from '@/server/services/pr-delete';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import type { PrStatus } from '@/db/schema';
+import type { OutstandingPrLine } from '@/domain/pr-outstanding';
+import { OutstandingPanel } from './outstanding-panel';
 
 interface PrItem {
   id: string;
@@ -36,10 +38,13 @@ interface ProjectStat {
 export function PrListClient({
   projectStats,
   allPrs,
+  outstanding = [],
   canDelete = false,
 }: {
   projectStats: ProjectStat[];
   allPrs: PrItem[];
+  /** Requested lines not received in full, for the alert above the list */
+  outstanding?: OutstandingPrLine[];
   /** Owner / admin: tick and permanently delete, e.g. test data */
   canDelete?: boolean;
 }) {
@@ -120,6 +125,8 @@ export function PrListClient({
           </Link>
         </div>
       </div>
+
+      <OutstandingPanel outstanding={outstanding} />
 
       {result && (
         <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700">

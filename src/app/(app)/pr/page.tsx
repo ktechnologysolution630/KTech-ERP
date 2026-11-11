@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listProjects } from '@/server/services/master';
 import { listPrs } from '@/server/services/pr';
+import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { can } from '@/server/policy';
 import { listPos } from '@/server/services/po';
 import { PrListClient } from './pr-list-client';
@@ -11,10 +12,11 @@ export default async function PrListPage() {
   const actor = await requireUser();
   const db = await getDb();
 
-  const [prs, pos, projects] = await Promise.all([
+  const [prs, pos, projects, outstanding] = await Promise.all([
     listPrs(db, actor, {}),
     listPos(db, actor, {}),
     listProjects(db, actor),
+    listOutstandingPrLines(db, actor),
   ]);
 
   // Group by project
@@ -39,6 +41,7 @@ export default async function PrListPage() {
     <PrListClient
       projectStats={projectStats}
       allPrs={prs}
+      outstanding={outstanding}
       canDelete={can(actor, 'pr.delete')}
     />
   );

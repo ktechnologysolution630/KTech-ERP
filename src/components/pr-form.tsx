@@ -20,6 +20,7 @@ import {
   type VendorRef,
 } from '@/components/doc-paper';
 import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMode } from '@/domain/money';
+import { duplicatesOfOutstanding, formatQty, type OutstandingPrLine } from '@/domain/pr-outstanding';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 
 export interface PrItemOption {
@@ -98,6 +99,7 @@ export function PrForm({
   currentUserName,
   today,
   existing,
+  outstanding = [],
 }: {
   projects: { id: string; code: string; name: string }[];
   items: PrItemOption[];
@@ -106,6 +108,8 @@ export function PrForm({
   currentUserName: string;
   today: string;
   existing?: PrFormExisting;
+  /** Lines of open PRs not received in full; a line asking for the same thing again is pointed out */
+  outstanding?: OutstandingPrLine[];
 }) {
   const router = useRouter();
   const [projectId, setProjectId] = useState(existing?.projectId ?? '');
@@ -155,6 +159,14 @@ export function PrForm({
       }),
     [lines, billDiscount, vatMode],
   );
+
+  // Per line: what earlier PRs of this project asked for and are still waiting on
+  const repeats = useMemo(
+    () => lines.map((l) => duplicatesOfOutstanding(l, outstanding, { projectId, exceptPrId: existing?.id })),
+    [lines, outstanding, projectId, existing?.id],
+  );
+  const repeatedLines = repeats.filter((r) => r.length > 0).length;
+  const repeatedPrs = [...new Map(repeats.flat().map((o) => [o.prId, o.prNumber])).entries()];
 
   function handleSave(submitNow: boolean) {
     if (!projectId) {
@@ -231,6 +243,23 @@ export function PrForm({
           {pending ? 'กำลังบันทึก...' : 'สร้างเอกสารและส่งขออนุมัติ'}
         </button>
       </div>
+
+      {repeatedLines > 0 && (
+        <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">
+            มี {repeatedLines} รายการในใบนี้ที่ขอซื้อไว้แล้วและยังได้รับไม่ครบ จากใบขอซื้อเลขที่{' '}
+            {repeatedPrs.map(([id, number], i) => (
+              <span key={id}>
+                {i > 0 && ', '}
+                <a href={`/pr/${id}`} target="_blank" rel="noreferrer" className="underline">
+                  {number}
+                </a>
+              </span>
+            ))}
+          </p>
+          <p className="mt-0.5 text-xs">ดูยอดค้างรับใต้แต่ละรายการ ถ้าของเดิมกำลังจะมาส่ง อาจไม่ต้องขอซื้อซ้ำ ระบบไม่ได้ห้ามบันทึก</p>
+        </div>
+      )}
 
       <DocPaper
         company={company}
@@ -326,6 +355,23 @@ export function PrForm({
                       aria-label={`รายละเอียดรายการที่ ${idx + 1}`}
                       className={`${paperCell} mt-1 resize-y text-xs text-slate-600`}
                     />
+                    {repeats[idx]!.length > 0 && (
+                      <ul className="mt-1 space-y-0.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900" aria-label={`ยอดค้างรับของรายการที่ ${idx + 1}`}>
+                        {repeats[idx]!.map((o) => (
+                          <li key={o.prLineId}>
+                            ยังค้างรับ{' '}
+                            <strong>
+                              {formatQty(o.outstandingQty)} {o.unitName}
+                            </strong>{' '}
+                            จาก{' '}
+                            <a href={`/pr/${o.prId}`} target="_blank" rel="noreferrer" className="font-semibold underline">
+                              {o.prNumber}
+                            </a>{' '}
+                            (ขอ {formatQty(o.qty)} รับแล้ว {formatQty(o.receivedQty)})
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </td>
                   <td className="border border-slate-200 px-1 py-1">
                     <select

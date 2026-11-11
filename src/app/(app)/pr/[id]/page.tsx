@@ -11,6 +11,7 @@ import { getSettings } from '@/server/services/settings';
 import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 import { VAT_MODE_LABEL } from '@/components/doc-paper';
 import { getPr } from '@/server/services/pr';
+import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
@@ -44,6 +45,8 @@ export default async function PrDetailPage({
     listVendors(db),
     getSettings(db),
   ]);
+  // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on
+  const outstanding = pr.status === 'DRAFT' || pr.status === 'REJECTED' ? await listOutstandingPrLines(db, actor, { projectId: pr.projectId }) : [];
 
   const canApprove =
     pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId });
@@ -126,6 +129,7 @@ export default async function PrDetailPage({
           company={companyHeaderFrom(settings)}
           currentUserName={pr.requesterName}
           today={bangkokDateString()}
+          outstanding={outstanding}
           existing={{
             id: pr.id,
             number: pr.number,
