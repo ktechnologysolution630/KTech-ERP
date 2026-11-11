@@ -39,6 +39,7 @@ import { assertOverrunApproved } from './boq-overrun';
 import { checkBoqUsageAlerts } from './boq-usage-alerts';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
+import { listPoPriceIncreases } from './price-history';
 import { orderedQtyByPrLine, registerOrderedQtyResolver } from './pr';
 import { getSettings } from './settings';
 
@@ -664,6 +665,8 @@ export async function updatePo(
   });
 }
 
+const dearerNote = (count: number) => (count > 0 ? ` — มี ${count} รายการราคาสูงกว่ารอบที่แล้ว` : '');
+
 export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<void> {
   assertCan(actor, 'po.manage');
   await db.transaction(async (tx) => {
@@ -693,10 +696,12 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
         tx,
         roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'] : ['OWNER'],
       );
+      const dearer = await listPoPriceIncreases(tx, { id, vatMode: payload.vatMode, createdAt: po.createdAt, lines: payload.lines });
       await notify(tx, approvers, {
-        title: `PO ${po.number} (แก้ไขครั้งที่ ${po.currentRevision}) รออนุมัติ`,
+        title: `PO ${po.number} (แก้ไขครั้งที่ ${po.currentRevision}) รออนุมัติ${dearerNote(dearer.length)}`,
         href: `/po/${po.id}`,
         category: 'PO',
+        level: dearer.length > 0 ? 'WARNING' : undefined,
         projectId: payload.projectId ?? po.projectId,
       });
       await logActivity(tx, {
@@ -727,10 +732,18 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
       tx,
       roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'] : ['OWNER'],
     );
+    // The approver is told up front when something costs more than the last time it was bought
+    const dearer = await listPoPriceIncreases(tx, {
+      id,
+      vatMode: po.vatMode,
+      createdAt: po.createdAt,
+      lines: await tx.select().from(poLines).where(eq(poLines.poId, id)),
+    });
     await notify(tx, approvers, {
-      title: `ใบสั่งซื้อ ${po.number} รออนุมัติ`,
+      title: `ใบสั่งซื้อ ${po.number} รออนุมัติ${dearerNote(dearer.length)}`,
       href: `/po/${po.id}`,
       category: 'PO',
+      level: dearer.length > 0 ? 'WARNING' : undefined,
       projectId: po.projectId,
     });
 

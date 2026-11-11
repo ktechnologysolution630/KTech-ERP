@@ -4,6 +4,7 @@ import { listProjects, listVendors } from '@/server/services/master';
 import { getPoOrNotFound } from '../../get-po-or-not-found';
 import { listOrderablePrLines } from '@/server/services/pr';
 import { listBoqMaterialOptions } from '@/server/services/boq-overrun';
+import { listLastPurchasePrices } from '@/server/services/price-history';
 import { PoForm } from '@/components/po-form';
 import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { getSettings } from '@/server/services/settings';
@@ -26,6 +27,9 @@ export default async function EditPoPage({
     getSettings(db),
   ]);
 
+  // Compared with what was bought before this order was first written, never with the order itself
+  const lastPrices = await listLastPurchasePrices(db, { exceptPoId: po.id, before: po.createdAt });
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-slate-900">แก้ไขใบสั่งซื้อ {po.number}</h1>
@@ -36,6 +40,7 @@ export default async function EditPoPage({
         currentUserName={actor.name}
         today={bangkokDateString()}
         boqMaterials={boqMaterials}
+        lastPrices={lastPrices}
         orderablePrLines={orderable.map((l) => ({
           id: l.id,
           prNumber: l.prNumber,

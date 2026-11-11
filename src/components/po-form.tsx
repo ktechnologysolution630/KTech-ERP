@@ -22,6 +22,8 @@ import {
   type CompanyHeader,
 } from '@/components/doc-paper';
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
+import { priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
+import { PriceIncreaseNote } from '@/components/price-increase';
 
 export interface OrderablePrLineOption {
   id: string;
@@ -101,9 +103,12 @@ export function PoForm({
   today,
   orderablePrLines = [],
   boqMaterials = [],
+  lastPrices = [],
   initialProjectId,
   existing,
 }: {
+  /** What each thing cost the last time it was bought; a line priced above it is pointed out */
+  lastPrices?: LastPurchasePrice[];
   projects: { id: string; code: string; name: string }[];
   /** Main-BOQ material lines; a PO line linked to one is checked against its budget */
   boqMaterials?: BoqMaterialPick[];
@@ -192,6 +197,8 @@ export function PoForm({
   const [pending, startTransition] = useTransition();
 
   const setLine = (idx: number, patch: Partial<LineState>) => setLines((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
+  const dearer = useMemo(() => lines.map((l) => priceIncrease(l, vatMode, lastPrices)), [lines, vatMode, lastPrices]);
 
   const totals = useMemo(
     () =>
@@ -486,6 +493,7 @@ export function PoForm({
                       className={`${paperCell} mt-1 resize-y text-xs text-slate-600`}
                     />
                     {l.prLineId && <p className="px-1.5 text-[11px] text-blue-700">อ้างอิงใบขอซื้อ</p>}
+                    {dearer[idx] && <PriceIncreaseNote up={dearer[idx]} unitName={l.unitName} label={`ราคาสูงกว่ารอบที่แล้ว รายการที่ ${idx + 1}`} />}
                   </td>
                   <td className="border border-slate-200 px-1 py-1">
                     <input type="number" step="0.001" min={0} value={l.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`จำนวนรายการที่ ${idx + 1}`} className={`${paperCell} text-right`} />

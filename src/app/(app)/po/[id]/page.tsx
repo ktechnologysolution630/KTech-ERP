@@ -5,7 +5,7 @@ import { computeDocTotals, D } from '@/domain/money';
 import { requiredPoApprover } from '@/domain/po-approval';
 import { formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
-import { can } from '@/server/policy';
+import { can, isSiteScopedOnly } from '@/server/policy';
 import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
 import { type SerializedPoRevisionPayload } from '@/server/services/po';
@@ -18,6 +18,8 @@ import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
 import { SignedRow } from '@/components/signed-row';
 import { poSigners } from '@/server/services/doc-signers';
+import { PriceIncreasePanel } from '@/components/price-increase';
+import { listPoPriceIncreases } from '@/server/services/price-history';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
@@ -64,6 +66,8 @@ export default async function PoDetailPage({
     ]);
   const boqCheck = po.projectId ? await getPoBoqCheck(db, actor, id) : null;
   const signers = await poSigners(db, po);
+  // Prices are the office's business: site staff see the order, not what other projects paid
+  const priceIncreases = isSiteScopedOnly(actor) ? [] : await listPoPriceIncreases(db, po);
   const deletion = can(actor, 'po.delete') ? await previewPoDeletion(db, actor, id) : null;
   const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
   const hasSomeReceipt = receipts.length > 0;
@@ -166,6 +170,8 @@ export default async function PoDetailPage({
       )}
 
       {boqCheck && <BoqOverrunPanel poId={po.id} check={boqCheck} />}
+
+      <PriceIncreasePanel increases={priceIncreases} />
 
       {isWaitingApproval && (
         <ApprovalBar
