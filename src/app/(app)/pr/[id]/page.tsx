@@ -11,6 +11,7 @@ import { getSettings } from '@/server/services/settings';
 import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 import { VAT_MODE_LABEL } from '@/components/doc-paper';
 import { getPr } from '@/server/services/pr';
+import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
 import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
@@ -48,6 +49,10 @@ export default async function PrDetailPage({
   // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on
   const outstanding = pr.status === 'DRAFT' || pr.status === 'REJECTED' ? await listOutstandingPrLines(db, actor, { projectId: pr.projectId }) : [];
 
+  // The goods form has no prices; PRs written before the forms existed may still carry some
+  const showPrices = PR_TYPE_META[pr.prType].priced || pr.lines.some((l) => l.estUnitPrice);
+  const lineAmount = (l: { qty: string; estUnitPrice: string | null; discount: string }) => Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount);
+
   const canApprove =
     pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId });
   const canEdit =
@@ -61,6 +66,7 @@ export default async function PrDetailPage({
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900">{pr.number}</h1>
             <DocStatusBadge status={pr.status} />
+            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-[#2453d4]">{PR_TYPE_META[pr.prType].label}</span>
             {pr.status === 'APPROVED' && (
               <DocStatusBadge
                 status={pr.orderProgress}
@@ -133,6 +139,8 @@ export default async function PrDetailPage({
           existing={{
             id: pr.id,
             number: pr.number,
+            prType: pr.prType,
+            workEnd: pr.workEnd,
             projectId: pr.projectId,
             note: pr.note,
             docDate: pr.docDate,
@@ -152,13 +160,18 @@ export default async function PrDetailPage({
         <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-4">
           {[
             ['วันที่เอกสาร', pr.docDate ? formatThaiDate(pr.docDate) : formatThaiDate(pr.createdAt)],
-            ['กำหนดใช้/รับของ', pr.needBy ? formatThaiDate(pr.needBy) : '-'],
-            ['ซัพพลายเออร์อ้างอิง', pr.vendorName ?? '-'],
+            [pr.prType === 'LABOR' ? 'กำหนดเริ่มงาน' : 'กำหนดใช้/รับของ', pr.needBy ? formatThaiDate(pr.needBy) : '-'],
+            ...(pr.prType === 'GOODS' ? [] : [['กำหนดแล้วเสร็จ', pr.workEnd ? formatThaiDate(pr.workEnd) : '-']]),
+            [pr.prType === 'LABOR' ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง', pr.vendorName ?? '-'],
             ['แผนก / ฝ่าย', pr.department || '-'],
             ['ผู้ขอซื้อ', pr.requesterText || pr.requesterName],
-            ['สถานที่จัดส่ง', pr.deliveryPlace || '-'],
-            ['เงื่อนไขการชำระเงิน', pr.paymentTerms || '-'],
-            ['รูปแบบ VAT', VAT_MODE_LABEL[pr.vatMode]],
+            [pr.prType === 'LABOR' ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง', pr.deliveryPlace || '-'],
+            ...(showPrices
+              ? [
+                  ['เงื่อนไขการชำระเงิน', pr.paymentTerms || '-'],
+                  ['รูปแบบ VAT', VAT_MODE_LABEL[pr.vatMode]],
+                ]
+              : []),
           ].map(([k, v]) => (
             <div key={k}>
               <dt className="text-slate-500">{k}</dt>
@@ -171,13 +184,19 @@ export default async function PrDetailPage({
             <thead className="bg-slate-50 text-slate-600 text-xs">
               <tr>
                 <th className="px-4 py-3 text-left">รายการ</th>
+                {pr.prType === 'GOODS_AND_LABOR' && <th className="px-4 py-3 text-left">ประเภท</th>}
                 <th className="px-4 py-3 text-left">หมวดหมู่</th>
                 <th className="px-4 py-3 text-right">จำนวนขอซื้อ</th>
                 <th className="px-4 py-3 text-right">สั่งซื้อแล้ว</th>
                 <th className="px-4 py-3 text-right">คงเหลือสั่ง</th>
                 <th className="px-4 py-3 text-left">หน่วย</th>
-                <th className="px-4 py-3 text-right">ราคาต่อหน่วย</th>
-                <th className="px-4 py-3 text-right">ส่วนลด</th>
+                {showPrices && (
+                  <>
+                    <th className="px-4 py-3 text-right">ราคาต่อหน่วย</th>
+                    <th className="px-4 py-3 text-right">ส่วนลด</th>
+                    <th className="px-4 py-3 text-right">จำนวนเงิน</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -187,6 +206,7 @@ export default async function PrDetailPage({
                     {l.description}
                     {l.detail && <span className="block text-xs font-normal text-slate-500">{l.detail}</span>}
                   </td>
+                  {pr.prType === 'GOODS_AND_LABOR' && <td className="px-4 py-3 text-xs">{LINE_KIND_LABEL[l.lineKind]}</td>}
                   <td className="px-4 py-3 text-xs text-slate-600">{l.category ?? '-'}</td>
                   <td className="px-4 py-3 text-right">{Number(l.qty)}</td>
                   <td className="px-4 py-3 text-right text-blue-700">
@@ -196,11 +216,26 @@ export default async function PrDetailPage({
                     {l.remainingQty.toNumber()}
                   </td>
                   <td className="px-4 py-3">{l.unitName}</td>
-                  <td className="px-4 py-3 text-right">{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</td>
-                  <td className="px-4 py-3 text-right">{Number(l.discount) ? formatMoneyDisplay(l.discount) : '-'}</td>
+                  {showPrices && (
+                    <>
+                      <td className="px-4 py-3 text-right">{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</td>
+                      <td className="px-4 py-3 text-right">{Number(l.discount) ? formatMoneyDisplay(l.discount) : '-'}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatMoneyDisplay(lineAmount(l).toFixed(2))}</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
+            {showPrices && (
+              <tfoot className="bg-slate-50 text-sm font-semibold">
+                <tr>
+                  <td colSpan={pr.prType === 'GOODS_AND_LABOR' ? 9 : 8} className="px-4 py-2.5 text-right">
+                    รวมก่อนส่วนลดท้ายบิลและ VAT
+                  </td>
+                  <td className="px-4 py-2.5 text-right">{formatMoneyDisplay(pr.lines.reduce((s, l) => s + lineAmount(l), 0).toFixed(2))}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
         </div>

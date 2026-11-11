@@ -160,3 +160,50 @@ describe('PR document header', () => {
     expect(doc.vendorId).toBeNull();
   });
 });
+
+describe('the three PR forms', () => {
+  const goods = { description: 'ปูน', unitName: 'ถุง', category: 'งานโครงสร้าง' as const, qty: 10 };
+  const work = { description: 'ค่าแรงก่ออิฐ', unitName: 'ตร.ม.', category: 'งานสถาปัตยกรรม' as const, qty: 40 };
+
+  test('the goods form drops prices; a PR that names no form keeps them', async () => {
+    const { createTestDb: mk } = await import('../helpers/test-db');
+    const { seedBasics: seed } = await import('../helpers/fixtures');
+    const { createPr: create, getPr: read } = await import('@/server/services/pr');
+    const db = await mk();
+    const f = await seed(db);
+    const a = await create(db, f.users.foreman, { projectId: f.projectA, prType: 'GOODS', billDiscount: 50, lines: [{ ...goods, estUnitPrice: 120, discount: 5, lineKind: 'LABOR' }] });
+    const doc = await read(db, f.users.foreman, a.id);
+    expect(doc).toMatchObject({ prType: 'GOODS', billDiscount: '0.00' });
+    expect(doc.lines[0]).toMatchObject({ estUnitPrice: null, discount: '0.00', lineKind: 'GOODS' });
+    const legacy = await create(db, f.users.foreman, { projectId: f.projectA, lines: [{ ...goods, estUnitPrice: 120 }] });
+    expect((await read(db, f.users.foreman, legacy.id)).lines[0]).toMatchObject({ estUnitPrice: '120.00', lineKind: 'GOODS' });
+  });
+
+  test('hired work must be priced; the combined form needs goods and work', async () => {
+    const { createTestDb: mk } = await import('../helpers/test-db');
+    const { seedBasics: seed } = await import('../helpers/fixtures');
+    const { createPr: create, getPr: read, updatePr: update } = await import('@/server/services/pr');
+    const db = await mk();
+    const f = await seed(db);
+    await expect(create(db, f.users.foreman, { projectId: f.projectA, prType: 'LABOR', lines: [work] })).rejects.toMatchObject({ code: 'INVALID_PR' });
+    const labor = await create(db, f.users.foreman, { projectId: f.projectA, prType: 'LABOR', needBy: '2026-11-20', workEnd: '2026-12-05', lines: [{ ...work, estUnitPrice: 180 }] });
+    expect(await read(db, f.users.foreman, labor.id)).toMatchObject({ prType: 'LABOR', workEnd: '2026-12-05' });
+    expect((await read(db, f.users.foreman, labor.id)).lines[0]).toMatchObject({ lineKind: 'LABOR', estUnitPrice: '180.00' });
+
+    await expect(
+      create(db, f.users.foreman, { projectId: f.projectA, prType: 'GOODS_AND_LABOR', lines: [{ ...goods, lineKind: 'GOODS' }] }),
+    ).rejects.toMatchObject({ code: 'INVALID_PR' });
+    const both = await create(db, f.users.foreman, {
+      projectId: f.projectA,
+      prType: 'GOODS_AND_LABOR',
+      lines: [
+        { ...goods, lineKind: 'GOODS', estUnitPrice: 150 },
+        { ...work, lineKind: 'LABOR', estUnitPrice: 180 },
+      ],
+    });
+    expect((await read(db, f.users.foreman, both.id)).lines.map((l) => l.lineKind)).toEqual(['GOODS', 'LABOR']);
+    // Editing without naming the form keeps the form, and its rules
+    await expect(update(db, f.users.foreman, both.id, { lines: [{ ...goods, lineKind: 'GOODS' }] })).rejects.toMatchObject({ code: 'INVALID_PR' });
+    expect((await read(db, f.users.foreman, both.id)).prType).toBe('GOODS_AND_LABOR');
+  });
+});

@@ -57,6 +57,8 @@ export async function listOutstandingPrLines(db: Db, actor: SessionUser, filters
   for (const l of lines) linesByPr.set(l.prId, [...(linesByPr.get(l.prId) ?? []), l]);
   return openPrs.flatMap((pr) =>
     (linesByPr.get(pr.id) ?? []).flatMap((l) => {
+      // Hired work is not goods that arrive, so it is never "waiting to be received"
+      if (l.lineKind === 'LABOR') return [];
       const sum = byPrLine.get(l.id) ?? { ordered: D(0), received: D(0) };
       const outstanding = D(l.qty).minus(sum.received);
       if (!outstanding.gt(0)) return [];

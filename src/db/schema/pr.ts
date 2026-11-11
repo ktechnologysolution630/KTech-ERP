@@ -10,6 +10,7 @@ import {
 import { users } from './core';
 import { items, projects, vendors } from './master';
 import { type VatMode } from '@/domain/money';
+import { type PrLineKind, type PrType } from '@/domain/pr-type';
 
 export type PrStatus =
   | 'DRAFT'
@@ -32,6 +33,10 @@ export const prs = pgTable(
       .references(() => users.id),
     status: text('status').$type<PrStatus>().default('DRAFT').notNull(),
     note: text('note').default('').notNull(),
+    /** Which of the three forms the PR was written on */
+    prType: text('pr_type').$type<PrType>().default('GOODS').notNull(),
+    /** Hired work: when it should be finished (needBy is when it starts) */
+    workEnd: date('work_end'),
     /** Document header, as on the printed requisition */
     docDate: date('doc_date'),
     /** Wanted on site by */
@@ -60,6 +65,8 @@ export const prLines = pgTable('pr_lines', {
     .references(() => prs.id, { onDelete: 'cascade' }),
   itemId: uuid('item_id').references(() => items.id),
   description: text('description').notNull(),
+  /** Goods to buy or work to hire; a combined PR has both */
+  lineKind: text('line_kind').$type<PrLineKind>().default('GOODS').notNull(),
   // Work category (งานโครงสร้าง, งานสถาปัตยกรรม, …); null on PRs made before categories
   category: text('category'),
   unitName: text('unit_name').notNull(),

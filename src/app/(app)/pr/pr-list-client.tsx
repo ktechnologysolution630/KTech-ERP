@@ -8,6 +8,7 @@ import { deletePrsAction } from './actions';
 import type { PrDeleteResult } from '@/server/services/pr-delete';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import type { PrStatus } from '@/db/schema';
+import { PR_TYPE_META, type PrType } from '@/domain/pr-type';
 import type { OutstandingPrLine } from '@/domain/pr-outstanding';
 import { OutstandingPanel } from './outstanding-panel';
 
@@ -20,6 +21,7 @@ interface PrItem {
   requestedBy: string;
   requesterName: string;
   status: PrStatus;
+  prType: PrType;
   note: string;
   createdAt: Date;
 }
@@ -225,6 +227,7 @@ export function PrListClient({
                                       <div className="flex items-center gap-3">
                                         <FileText className="w-4 h-4 text-slate-400" />
                                         <span className="font-mono font-bold text-[#2453d4]">{pr.number}</span>
+                                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{PR_TYPE_META[pr.prType].short}</span>
                                         <span className="text-slate-600 truncate max-w-sm">
                                           {pr.note || 'ไม่มีหมายเหตุ'}
                                         </span>
@@ -262,6 +265,7 @@ export function PrListClient({
                     </th>
                   )}
                   <th className="px-4 py-3 text-left font-medium">เลขที่ PR</th>
+                  <th className="px-4 py-3 text-left font-medium">แบบฟอร์ม</th>
                   <th className="px-4 py-3 text-left font-medium">โครงการ</th>
                   <th className="px-4 py-3 text-left font-medium">ผู้ขอซื้อ</th>
                   <th className="px-4 py-3 text-left font-medium">วันที่</th>
@@ -271,7 +275,7 @@ export function PrListClient({
               <tbody className="divide-y divide-slate-100">
                 {allPrs.length === 0 ? (
                   <tr>
-                    <td colSpan={canDelete ? 6 : 5} className="py-12 text-center text-slate-400 text-xs">
+                    <td colSpan={canDelete ? 7 : 6} className="py-12 text-center text-slate-400 text-xs">
                       ยังไม่มีรายการใบขอซื้อ PR
                     </td>
                   </tr>
@@ -284,6 +288,7 @@ export function PrListClient({
                           {pr.number}
                         </Link>
                       </td>
+                      <td className="px-4 py-3 text-slate-600">{PR_TYPE_META[pr.prType].short}</td>
                       <td className="px-4 py-3 font-medium text-slate-800">{pr.projectName}</td>
                       <td className="px-4 py-3 text-slate-600">{pr.requesterName}</td>
                       <td className="px-4 py-3 text-slate-500">

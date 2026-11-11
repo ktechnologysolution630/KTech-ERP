@@ -12,6 +12,7 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { STOCK_CATEGORIES } from '@/domain/stock';
+import { type PrLineKind, type PrType } from '@/domain/pr-type';
 import { D, round2, type Decimal } from '@/domain/money';
 import { assertCan, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
@@ -32,10 +33,15 @@ export interface PrLineInput {
   detail?: string;
   /** Line discount in baht */
   discount?: Decimal | string | number | null;
+  /** Used on a combined PR; the other forms fix it */
+  lineKind?: PrLineKind;
 }
 
 /** The requisition's header, as printed */
 export interface PrHeaderInput {
+  /** The form the PR is written on; kept as it is when left out on update */
+  prType?: PrType;
+  workEnd?: string | null;
   docDate?: string | null;
   needBy?: string | null;
   vendorId?: string | null;
@@ -69,9 +75,12 @@ const lineInputSchema = z.object({
   note: z.string().optional(),
   detail: z.string().max(2000, 'รายละเอียดต้องไม่เกิน 2,000 ตัวอักษร').optional(),
   discount: z.custom<Decimal | string | number | null | undefined>(() => true).optional(),
+  lineKind: z.enum(['GOODS', 'LABOR']).optional(),
 });
 
 const headerSchema = z.object({
+  prType: z.enum(['GOODS', 'LABOR', 'GOODS_AND_LABOR']).optional(),
+  workEnd: z.string().nullable().optional(),
   docDate: z.string().nullable().optional(),
   needBy: z.string().nullable().optional(),
   vendorId: z.string().uuid().nullable().optional(),
@@ -105,7 +114,35 @@ function headerValues(h: z.infer<typeof headerSchema>) {
     paymentTerms: h.paymentTerms,
     vatMode: h.vatMode,
     billDiscount: h.billDiscount === undefined ? undefined : money(h.billDiscount),
+    workEnd: h.workEnd === undefined ? undefined : h.workEnd || null,
   };
+}
+
+type ParsedLine = z.infer<typeof lineInputSchema>;
+const priceOf = (l: ParsedLine) => {
+  try {
+    return l.estUnitPrice === undefined || l.estUnitPrice === null || l.estUnitPrice === '' ? D(0) : D(l.estUnitPrice as Decimal.Value);
+  } catch {
+    return D(0);
+  }
+};
+
+/**
+ * Makes the lines fit the form: the goods form carries no prices (purchasing finds them), hired
+ * work must be priced, and a combined PR needs both goods and work. Callers that name no form
+ * (imports, older code) keep whatever prices they pass.
+ */
+function linesForType(type: PrType, lines: ParsedLine[], stripPrices: boolean): ParsedLine[] {
+  const shaped = lines.map((l) => {
+    const lineKind: PrLineKind = type === 'GOODS' ? 'GOODS' : type === 'LABOR' ? 'LABOR' : (l.lineKind ?? 'GOODS');
+    return type === 'GOODS' && stripPrices ? { ...l, lineKind, estUnitPrice: null, discount: 0 } : { ...l, lineKind };
+  });
+  const unpriced = shaped.findIndex((l) => l.lineKind === 'LABOR' && !priceOf(l).gt(0));
+  if (unpriced >= 0) throw new DomainError('INVALID_PR', `กรุณาระบุราคาค่าจ้างของรายการ "${shaped[unpriced]!.description}"`);
+  if (type === 'GOODS_AND_LABOR' && !(shaped.some((l) => l.lineKind === 'GOODS') && shaped.some((l) => l.lineKind === 'LABOR'))) {
+    throw new DomainError('INVALID_PR', 'ใบขอซื้อและจ้างทำงานต้องมีทั้งรายการสินค้าและรายการจ้างทำงาน');
+  }
+  return shaped;
 }
 
 const createPrSchema = headerSchema.extend({
@@ -145,6 +182,8 @@ export async function createPr(
   }
   const d = parsed.data;
   assertCan(actor, 'pr.create', { projectId: d.projectId });
+  const prType: PrType = d.prType ?? 'GOODS';
+  const lines = linesForType(prType, d.lines, d.prType === 'GOODS');
 
   return db.transaction(async (tx) => {
     const [project] = await tx
@@ -167,11 +206,13 @@ export async function createPr(
         status: 'DRAFT',
         note: d.note ?? '',
         ...headerValues(d),
+        prType,
+        ...(prType === 'GOODS' && d.prType === 'GOODS' ? { billDiscount: '0.00' } : {}),
       })
       .returning();
 
     await tx.insert(prLines).values(
-      d.lines.map((l) => ({
+      lines.map((l) => ({
         prId: created.id,
         itemId: l.itemId ?? null,
         description: l.description,
@@ -185,6 +226,7 @@ export async function createPr(
         neededDate: l.neededDate || null,
         detail: l.detail?.trim() ?? '',
         discount: money(l.discount),
+        lineKind: l.lineKind ?? 'GOODS',
         note: l.note ?? '',
       })),
     );
@@ -231,18 +273,23 @@ export async function updatePr(
       throw new DomainError('INVALID_STATE', 'แก้ไขได้เฉพาะสถานะร่างหรือถูกตีกลับ', 409);
     }
 
+    const prType: PrType = header.data.prType ?? pr.prType;
+    const lines = linesForType(prType, linesCheck.data, header.data.prType === 'GOODS');
+
     await tx
       .update(prs)
       .set({
         note: input.note !== undefined ? input.note : pr.note,
         ...headerValues(header.data),
+        prType,
+        ...(header.data.prType === 'GOODS' ? { billDiscount: '0.00' } : {}),
         updatedAt: new Date(),
       })
       .where(eq(prs.id, id));
 
     await tx.delete(prLines).where(eq(prLines.prId, id));
     await tx.insert(prLines).values(
-      linesCheck.data.map((l) => ({
+      lines.map((l) => ({
         prId: id,
         itemId: l.itemId ?? null,
         description: l.description,
@@ -464,6 +511,8 @@ export async function getPr(db: Db, actor: SessionUser, id: string) {
       approvedBy: prs.approvedBy,
       approvedAt: prs.approvedAt,
       createdAt: prs.createdAt,
+      prType: prs.prType,
+      workEnd: prs.workEnd,
       docDate: prs.docDate,
       needBy: prs.needBy,
       vendorId: prs.vendorId,
@@ -548,6 +597,7 @@ export async function listPrs(
       requestedBy: prs.requestedBy,
       requesterName: users.name,
       status: prs.status,
+      prType: prs.prType,
       note: prs.note,
       createdAt: prs.createdAt,
     })

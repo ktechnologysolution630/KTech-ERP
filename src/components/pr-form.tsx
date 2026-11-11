@@ -21,6 +21,7 @@ import {
 } from '@/components/doc-paper';
 import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMode } from '@/domain/money';
 import { duplicatesOfOutstanding, formatQty, type OutstandingPrLine } from '@/domain/pr-outstanding';
+import { LINE_KIND_LABEL, PR_TYPE_META, type PrLineKind, type PrType } from '@/domain/pr-type';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 
 export interface PrItemOption {
@@ -33,6 +34,7 @@ export interface PrItemOption {
 }
 
 interface LineState {
+  kind: PrLineKind;
   itemId: string;
   description: string;
   detail: string;
@@ -44,11 +46,12 @@ interface LineState {
   note: string;
 }
 
-const emptyLine = (): LineState => ({
+const emptyLine = (kind: PrLineKind): LineState => ({
+  kind,
   itemId: '',
   description: '',
   detail: '',
-  unitName: 'ชิ้น',
+  unitName: kind === 'LABOR' ? 'งาน' : 'ชิ้น',
   category: '',
   qty: '1',
   estUnitPrice: '',
@@ -65,10 +68,12 @@ function num(v: string) {
 export interface PrFormExisting {
   id: string;
   number: string;
+  prType: PrType;
   projectId: string;
   note: string;
   docDate: string | null;
   needBy: string | null;
+  workEnd: string | null;
   vendorId: string | null;
   department: string;
   requesterText: string;
@@ -80,6 +85,7 @@ export interface PrFormExisting {
     itemId: string | null;
     description: string;
     detail: string;
+    lineKind: PrLineKind;
     unitName: string;
     category: string | null;
     qty: string;
@@ -90,8 +96,15 @@ export interface PrFormExisting {
   }[];
 }
 
-/** The purchase requisition, laid out like the printed document */
+const th = 'border border-[#102d72] px-2 py-2';
+const td = 'border border-slate-200 px-1 py-1';
+
+/**
+ * The requisition, laid out like the printed document. Three forms share it: goods without prices,
+ * hired work with prices, and goods and work together.
+ */
 export function PrForm({
+  prType: prTypeProp = 'GOODS',
   projects,
   items,
   vendors,
@@ -101,6 +114,8 @@ export function PrForm({
   existing,
   outstanding = [],
 }: {
+  /** Form for a new PR; an existing PR keeps its own */
+  prType?: PrType;
   projects: { id: string; code: string; name: string }[];
   items: PrItemOption[];
   vendors: VendorRef[];
@@ -112,22 +127,31 @@ export function PrForm({
   outstanding?: OutstandingPrLine[];
 }) {
   const router = useRouter();
+  const prType = existing?.prType ?? prTypeProp;
+  const meta = PR_TYPE_META[prType];
+  const priced = meta.priced;
+  const hasWork = prType !== 'GOODS';
+  const kinds: PrLineKind[] = prType === 'GOODS' ? ['GOODS'] : prType === 'LABOR' ? ['LABOR'] : ['GOODS', 'LABOR'];
+
   const [projectId, setProjectId] = useState(existing?.projectId ?? '');
   const [docDate, setDocDate] = useState(existing?.docDate ?? today);
   // Older PRs kept the date per line; the earliest one becomes the header date
   const [needBy, setNeedBy] = useState(
     existing?.needBy ?? existing?.lines.map((l) => l.neededDate).filter((d): d is string => !!d).sort()[0] ?? '',
   );
+  const [workEnd, setWorkEnd] = useState(existing?.workEnd ?? '');
   const [vendorId, setVendorId] = useState(existing?.vendorId ?? '');
   const [department, setDepartment] = useState(existing?.department ?? '');
   const [requester, setRequester] = useState(existing?.requesterText || currentUserName);
   const [deliveryPlace, setDeliveryPlace] = useState(existing?.deliveryPlace ?? '');
   const [note, setNote] = useState(existing?.note ?? '');
   const [paymentTerms, setPaymentTerms] = useState(existing?.paymentTerms ?? '');
-  const [vatMode, setVatMode] = useState<VatMode>(existing?.vatMode ?? 'EXCLUSIVE');
+  const [vatMode, setVatMode] = useState<VatMode>(existing?.vatMode ?? (prType === 'LABOR' ? 'NONE' : 'EXCLUSIVE'));
   const [billDiscount, setBillDiscount] = useState(existing && Number(existing.billDiscount) ? String(Number(existing.billDiscount)) : '');
   const [lines, setLines] = useState<LineState[]>(
     existing?.lines.map((l) => ({
+      // A PR keeps its form, so a line of the other kind cannot exist outside the combined form
+      kind: prType === 'GOODS' ? 'GOODS' : prType === 'LABOR' ? 'LABOR' : l.lineKind,
       itemId: l.itemId ?? '',
       description: l.description,
       detail: l.detail ?? '',
@@ -137,7 +161,7 @@ export function PrForm({
       estUnitPrice: l.estUnitPrice ? String(Number(l.estUnitPrice)) : '',
       discount: Number(l.discount) ? String(Number(l.discount)) : '',
       note: l.note ?? '',
-    })) ?? [emptyLine()],
+    })) ?? kinds.map(emptyLine),
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -148,21 +172,23 @@ export function PrForm({
     return it ? `${it.code} - ${it.name}` : '';
   };
   const setLine = (idx: number, patch: Partial<LineState>) => setLines((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  const amountOf = (l: LineState) => num(l.qty).times(num(l.estUnitPrice)).minus(num(l.discount));
 
   const totals = useMemo(
     () =>
       computeDocTotals({
         vatMode,
-        billDiscount: num(billDiscount),
+        billDiscount: priced ? num(billDiscount) : D(0),
         shipping: D(0),
-        lines: lines.map((l) => ({ qty: num(l.qty), unitPrice: num(l.estUnitPrice), discount: num(l.discount) })),
+        lines: lines.map((l) => ({ qty: num(l.qty), unitPrice: priced ? num(l.estUnitPrice) : D(0), discount: priced ? num(l.discount) : D(0) })),
       }),
-    [lines, billDiscount, vatMode],
+    [lines, billDiscount, vatMode, priced],
   );
+  const subtotalOf = (kind: PrLineKind) => lines.filter((l) => l.kind === kind).reduce((s, l) => s.plus(amountOf(l)), D(0));
 
-  // Per line: what earlier PRs of this project asked for and are still waiting on
+  // Per line: what earlier PRs of this project asked for and are still waiting on (goods only)
   const repeats = useMemo(
-    () => lines.map((l) => duplicatesOfOutstanding(l, outstanding, { projectId, exceptPrId: existing?.id })),
+    () => lines.map((l) => (l.kind === 'GOODS' ? duplicatesOfOutstanding(l, outstanding, { projectId, exceptPrId: existing?.id }) : [])),
     [lines, outstanding, projectId, existing?.id],
   );
   const repeatedLines = repeats.filter((r) => r.length > 0).length;
@@ -173,33 +199,46 @@ export function PrForm({
       setError('กรุณาเลือกโครงการ');
       return;
     }
+    const unnamed = lines.findIndex((l) => !l.description.trim());
+    if (unnamed >= 0) {
+      setError(`กรุณากรอกชื่อรายการ${lines[unnamed]!.kind === 'LABOR' ? 'งาน' : 'สินค้า'}ให้ครบ`);
+      return;
+    }
     const missing = lines.findIndex((l) => !l.category);
     if (missing >= 0) {
-      setError(`กรุณาเลือกหมวดหมู่ของรายการที่ ${missing + 1}`);
+      setError(`กรุณาเลือกหมวดหมู่ของรายการ "${lines[missing]!.description}"`);
+      return;
+    }
+    const unpriced = lines.find((l) => l.kind === 'LABOR' && !num(l.estUnitPrice).gt(0));
+    if (unpriced) {
+      setError(`กรุณาระบุราคาค่าจ้างของรายการ "${unpriced.description}"`);
       return;
     }
     setError(null);
     const header = {
+      prType,
       note,
       docDate: docDate || null,
       needBy: needBy || null,
+      workEnd: hasWork ? workEnd || null : null,
       vendorId: vendorId || null,
       department,
       requesterName: requester,
       deliveryPlace,
-      paymentTerms,
+      paymentTerms: priced ? paymentTerms : '',
       vatMode,
-      billDiscount: billDiscount || '0',
+      billDiscount: priced ? billDiscount || '0' : '0',
       submitNow,
       lines: lines.map((l) => ({
-        itemId: l.itemId || null,
+        lineKind: l.kind,
+        itemId: l.kind === 'GOODS' ? l.itemId || null : null,
         description: l.description,
         detail: l.detail,
         unitName: l.unitName,
         category: l.category || null,
         qty: l.qty,
-        estUnitPrice: l.estUnitPrice || null,
-        discount: l.discount || '0',
+        estUnitPrice: priced ? l.estUnitPrice || null : null,
+        discount: priced ? l.discount || '0' : '0',
         neededDate: needBy || null,
         note: l.note,
       })),
@@ -211,11 +250,169 @@ export function PrForm({
     });
   }
 
+  /** The line table of one kind; in the combined form there is one for goods and one for work */
+  const table = (kind: PrLineKind) => {
+    const rows = lines.map((line, idx) => ({ line, idx })).filter((r) => r.line.kind === kind);
+    const work = kind === 'LABOR';
+    return (
+      <div className="overflow-x-auto" key={kind}>
+        {prType === 'GOODS_AND_LABOR' && (
+          <p className="mb-1.5 text-sm font-bold text-slate-800">
+            ส่วนที่ {work ? 2 : 1} · {LINE_KIND_LABEL[kind]}
+          </p>
+        )}
+        <table className={`w-full border-collapse text-sm ${priced ? 'min-w-[860px]' : 'min-w-[620px]'}`}>
+          <thead className="bg-[#102d72] text-xs text-white">
+            <tr>
+              <th className={`w-12 ${th}`}>ลำดับ</th>
+              <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
+              <th className={`w-40 ${th}`}>หมวดหมู่ *</th>
+              <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
+              <th className={`w-20 ${th}`}>หน่วย</th>
+              {priced && (
+                <>
+                  <th className={`w-28 ${th}`}>
+                    {work ? 'ค่าจ้างต่อหน่วย *' : 'ราคาต่อหน่วย'}
+                  </th>
+                  <th className={`w-24 ${th}`}>ส่วนลด</th>
+                  <th className={`w-28 ${th}`}>จำนวนเงิน</th>
+                </>
+              )}
+              <th className="w-8 border border-[#102d72]" aria-label="ลบ" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ line, idx }, n) => (
+              <tr key={idx} className="align-top">
+                <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{n + 1}</td>
+                <td className={td}>
+                  {work ? (
+                    <input
+                      value={line.description}
+                      onChange={(e) => setLine(idx, { description: e.target.value })}
+                      placeholder="เช่น ค่าแรงก่ออิฐฉาบปูน, จ้างเดินท่อประปา"
+                      aria-label={`รายการงานที่ ${n + 1}`}
+                      className={`${paperCell} font-medium`}
+                    />
+                  ) : (
+                    <ItemCombobox
+                      items={pickableItems}
+                      selectedId={line.itemId}
+                      value={line.itemId ? itemLabel(line.itemId) : line.description}
+                      // Typing is free text: it becomes the item name and drops any picked item
+                      onType={(text) => setLine(idx, { itemId: '', description: text })}
+                      onPick={(chosen) =>
+                        setLine(idx, { itemId: chosen.id, description: chosen.name, unitName: items.find((it) => it.id === chosen.id)?.unitName || line.unitName })
+                      }
+                    />
+                  )}
+                  <textarea
+                    value={line.detail}
+                    onChange={(e) => setLine(idx, { detail: e.target.value })}
+                    placeholder={work ? 'รายละเอียดงาน / พื้นที่ทำงาน' : 'รายละเอียด'}
+                    rows={1}
+                    aria-label={`รายละเอียด${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}
+                    className={`${paperCell} mt-1 resize-y text-xs text-slate-600`}
+                  />
+                  {repeats[idx]!.length > 0 && (
+                    <ul className="mt-1 space-y-0.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900" aria-label={`ยอดค้างรับของรายการที่ ${n + 1}`}>
+                      {repeats[idx]!.map((o) => (
+                        <li key={o.prLineId}>
+                          ยังค้างรับ{' '}
+                          <strong>
+                            {formatQty(o.outstandingQty)} {o.unitName}
+                          </strong>{' '}
+                          จาก{' '}
+                          <a href={`/pr/${o.prId}`} target="_blank" rel="noreferrer" className="font-semibold underline">
+                            {o.prNumber}
+                          </a>{' '}
+                          (ขอ {formatQty(o.qty)} รับแล้ว {formatQty(o.receivedQty)})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
+                <td className={td}>
+                  <select
+                    value={line.category}
+                    onChange={(e) => setLine(idx, { category: e.target.value })}
+                    aria-label={`หมวดหมู่${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}
+                    aria-invalid={!line.category}
+                    className={`${paperCell} text-xs ${line.category ? '' : 'border-amber-400'}`}
+                  >
+                    <option value="">-- เลือกหมวด --</option>
+                    {STOCK_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className={td}>
+                  <input type="number" step="0.001" min={0} value={line.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`${work ? 'ปริมาณงาน' : 'จำนวนรายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
+                </td>
+                <td className={td}>
+                  <input value={line.unitName} onChange={(e) => setLine(idx, { unitName: e.target.value })} list={work ? 'pr-work-units' : undefined} aria-label={`หน่วย${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`} className={paperCell} />
+                </td>
+                {priced && (
+                  <>
+                    <td className={td}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={line.estUnitPrice}
+                        onChange={(e) => setLine(idx, { estUnitPrice: e.target.value })}
+                        placeholder="0.00"
+                        aria-label={`${work ? 'ค่าจ้างต่อหน่วยงาน' : 'ราคาต่อหน่วยรายการ'}ที่ ${n + 1}`}
+                        className={`${paperCell} text-right ${work && !num(line.estUnitPrice).gt(0) ? 'border-amber-400' : ''}`}
+                      />
+                    </td>
+                    <td className={td}>
+                      <input type="number" step="0.01" min={0} value={line.discount} onChange={(e) => setLine(idx, { discount: e.target.value })} placeholder="0.00" aria-label={`ส่วนลด${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
+                    </td>
+                    <td className="border border-slate-200 px-2 py-2 text-right font-medium">{formatMoneyDisplay(amountOf(line).toFixed(2))}</td>
+                  </>
+                )}
+                <td className="border border-slate-200 px-1 py-2 text-center">
+                  {rows.length > 1 && (
+                    <button type="button" onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-600" title={`ลบ${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          {priced && prType === 'GOODS_AND_LABOR' && (
+            <tfoot>
+              <tr className="bg-slate-50 text-sm font-semibold">
+                <td colSpan={7} className="border border-slate-200 px-2 py-1.5 text-right">
+                  รวม{work ? 'ค่าจ้าง / ค่าแรง' : 'ค่าสินค้า / วัสดุ'}
+                </td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatMoneyDisplay(subtotalOf(kind).toFixed(2))}</td>
+                <td className="border border-slate-200" />
+              </tr>
+            </tfoot>
+          )}
+        </table>
+        <button
+          type="button"
+          onClick={() => setLines((prev) => [...prev, emptyLine(kind)])}
+          className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50"
+        >
+          <Plus className="h-3.5 w-3.5" /> {work ? 'เพิ่มรายการงาน' : 'เพิ่มรายการ'}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
+        <span className="mr-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-[#2453d4]">แบบฟอร์ม: {meta.label}</span>
         {error && (
-          <p role="alert" className="mr-auto text-xs font-medium text-red-600">
+          <p role="alert" className="text-xs font-medium text-red-600">
             {error}
           </p>
         )}
@@ -261,41 +458,48 @@ export function PrForm({
         </div>
       )}
 
+      <datalist id="pr-work-units">
+        {['งาน', 'ตร.ม.', 'ม.', 'จุด', 'ชุด', 'วัน', 'คน-วัน', 'เหมา'].map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
+
       <DocPaper
         company={company}
-        titleTh="ใบขอซื้อ"
-        titleEn="PURCHASE REQUISITION"
+        titleTh={meta.titleTh}
+        titleEn={meta.titleEn}
         meta={
           <>
             <MetaRow label="เลขที่:">
               <input value={existing?.number ?? 'ออกเลขอัตโนมัติเมื่อบันทึก'} readOnly className={`${paperInput} text-slate-500`} />
             </MetaRow>
-            <MetaRow label="ประเภท:">
-              <select
-                value="PR"
-                onChange={(e) => {
-                  if (e.target.value === 'PO') router.push(projectId ? `/po/new?projectId=${projectId}` : '/po/new');
-                }}
-                className={paperInput}
-              >
-                <option value="PR">PR</option>
-                <option value="PO">PO</option>
-              </select>
+            <MetaRow label="แบบฟอร์ม:">
+              <input value={meta.short} readOnly className={`${paperInput} text-slate-500`} />
             </MetaRow>
             <MetaRow label="วันที่:">
               <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={paperInput} />
             </MetaRow>
-            <MetaRow label="กำหนดใช้/รับของ:">
+            <MetaRow label={prType === 'LABOR' ? 'กำหนดเริ่มงาน:' : prType === 'GOODS' ? 'กำหนดใช้/รับของ:' : 'กำหนดรับของ/เริ่มงาน:'}>
               <DateInput value={needBy} onChange={(e) => setNeedBy(e.target.value)} className={paperInput} />
             </MetaRow>
+            {hasWork && (
+              <MetaRow label="กำหนดแล้วเสร็จ:">
+                <DateInput value={workEnd} onChange={(e) => setWorkEnd(e.target.value)} className={paperInput} />
+              </MetaRow>
+            )}
           </>
         }
       >
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          <VendorBlock title="ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง" vendors={vendors} vendorId={vendorId} onChange={setVendorId} />
+          <VendorBlock
+            title={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : prType === 'GOODS' ? 'ซัพพลายเออร์อ้างอิง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
+            vendors={vendors}
+            vendorId={vendorId}
+            onChange={setVendorId}
+          />
           <div className="space-y-2 text-sm">
             <p className="text-xs font-semibold text-slate-600">
-              โครงการ / ผู้ขอซื้อ <span className="text-red-500">*</span>
+              โครงการ / ผู้ขอ <span className="text-red-500">*</span>
             </p>
             <select
               disabled={Boolean(existing)}
@@ -312,150 +516,66 @@ export function PrForm({
               ))}
             </select>
             <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
-            <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={paperInput} />
-            <input value={deliveryPlace} onChange={(e) => setDeliveryPlace(e.target.value)} placeholder="สถานที่จัดส่ง" aria-label="สถานที่จัดส่ง" className={paperInput} />
+            <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} aria-label={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} className={paperInput} />
+            <input
+              value={deliveryPlace}
+              onChange={(e) => setDeliveryPlace(e.target.value)}
+              placeholder={prType === 'LABOR' ? 'สถานที่ทำงาน' : prType === 'GOODS' ? 'สถานที่จัดส่ง' : 'สถานที่จัดส่ง / ทำงาน'}
+              aria-label={prType === 'LABOR' ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'}
+              className={paperInput}
+            />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-sm">
-            <thead className="bg-[#102d72] text-xs text-white">
-              <tr>
-                <th className="w-12 border border-[#102d72] px-2 py-2">ลำดับ</th>
-                <th className="border border-[#102d72] px-2 py-2">รายการ</th>
-                <th className="w-40 border border-[#102d72] px-2 py-2">หมวดหมู่ *</th>
-                <th className="w-24 border border-[#102d72] px-2 py-2">จำนวน</th>
-                <th className="w-20 border border-[#102d72] px-2 py-2">หน่วย</th>
-                <th className="w-28 border border-[#102d72] px-2 py-2">ราคาต่อหน่วย</th>
-                <th className="w-24 border border-[#102d72] px-2 py-2">ส่วนลด</th>
-                <th className="w-28 border border-[#102d72] px-2 py-2">จำนวนเงิน</th>
-                <th className="w-8 border border-[#102d72]" aria-label="ลบ" />
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((line, idx) => (
-                <tr key={idx} className="align-top">
-                  <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{idx + 1}</td>
-                  <td className="border border-slate-200 px-1 py-1">
-                    <ItemCombobox
-                      items={pickableItems}
-                      selectedId={line.itemId}
-                      value={line.itemId ? itemLabel(line.itemId) : line.description}
-                      // Typing is free text: it becomes the item name and drops any picked item
-                      onType={(text) => setLine(idx, { itemId: '', description: text })}
-                      onPick={(chosen) =>
-                        setLine(idx, { itemId: chosen.id, description: chosen.name, unitName: items.find((it) => it.id === chosen.id)?.unitName || line.unitName })
-                      }
-                    />
-                    <textarea
-                      value={line.detail}
-                      onChange={(e) => setLine(idx, { detail: e.target.value })}
-                      placeholder="รายละเอียด"
-                      rows={1}
-                      aria-label={`รายละเอียดรายการที่ ${idx + 1}`}
-                      className={`${paperCell} mt-1 resize-y text-xs text-slate-600`}
-                    />
-                    {repeats[idx]!.length > 0 && (
-                      <ul className="mt-1 space-y-0.5 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900" aria-label={`ยอดค้างรับของรายการที่ ${idx + 1}`}>
-                        {repeats[idx]!.map((o) => (
-                          <li key={o.prLineId}>
-                            ยังค้างรับ{' '}
-                            <strong>
-                              {formatQty(o.outstandingQty)} {o.unitName}
-                            </strong>{' '}
-                            จาก{' '}
-                            <a href={`/pr/${o.prId}`} target="_blank" rel="noreferrer" className="font-semibold underline">
-                              {o.prNumber}
-                            </a>{' '}
-                            (ขอ {formatQty(o.qty)} รับแล้ว {formatQty(o.receivedQty)})
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                  <td className="border border-slate-200 px-1 py-1">
-                    <select
-                      value={line.category}
-                      onChange={(e) => setLine(idx, { category: e.target.value })}
-                      aria-label={`หมวดหมู่รายการที่ ${idx + 1}`}
-                      aria-invalid={!line.category}
-                      className={`${paperCell} text-xs ${line.category ? '' : 'border-amber-400'}`}
-                    >
-                      <option value="">-- เลือกหมวด --</option>
-                      {STOCK_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="border border-slate-200 px-1 py-1">
-                    <input type="number" step="0.001" min={0} value={line.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`จำนวนรายการที่ ${idx + 1}`} className={`${paperCell} text-right`} />
-                  </td>
-                  <td className="border border-slate-200 px-1 py-1">
-                    <input value={line.unitName} onChange={(e) => setLine(idx, { unitName: e.target.value })} aria-label={`หน่วยรายการที่ ${idx + 1}`} className={paperCell} />
-                  </td>
-                  <td className="border border-slate-200 px-1 py-1">
-                    <input type="number" step="0.01" min={0} value={line.estUnitPrice} onChange={(e) => setLine(idx, { estUnitPrice: e.target.value })} placeholder="0.00" aria-label={`ราคาต่อหน่วยรายการที่ ${idx + 1}`} className={`${paperCell} text-right`} />
-                  </td>
-                  <td className="border border-slate-200 px-1 py-1">
-                    <input type="number" step="0.01" min={0} value={line.discount} onChange={(e) => setLine(idx, { discount: e.target.value })} placeholder="0.00" aria-label={`ส่วนลดรายการที่ ${idx + 1}`} className={`${paperCell} text-right`} />
-                  </td>
-                  <td className="border border-slate-200 px-2 py-2 text-right font-medium">
-                    {formatMoneyDisplay(num(line.qty).times(num(line.estUnitPrice)).minus(num(line.discount)).toFixed(2))}
-                  </td>
-                  <td className="border border-slate-200 px-1 py-2 text-center">
-                    {lines.length > 1 && (
-                      <button type="button" onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-600" title={`ลบรายการที่ ${idx + 1}`}>
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button
-            type="button"
-            onClick={() => setLines((prev) => [...prev, emptyLine()])}
-            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50"
-          >
-            <Plus className="h-3.5 w-3.5" /> เพิ่มรายการ
-          </button>
-        </div>
+        {kinds.map(table)}
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            <AmountInWords amount={totals.gross} />
+        {priced ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-3">
+              <AmountInWords amount={totals.gross} />
+              <label className="block text-xs font-semibold text-slate-600">
+                หมายเหตุ
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
+              </label>
+              <label className="block text-xs font-semibold text-slate-600">
+                {hasWork ? 'เงื่อนไขการจ่ายเงิน / งวดงาน' : 'เงื่อนไขการชำระเงิน'}
+                <input
+                  value={paymentTerms}
+                  onChange={(e) => setPaymentTerms(e.target.value)}
+                  placeholder={hasWork ? 'เช่น จ่ายเมื่องานแล้วเสร็จ / แบ่ง 2 งวด 50-50' : undefined}
+                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold text-slate-600">
+                  รูปแบบ VAT
+                  <select value={vatMode} onChange={(e) => setVatMode(e.target.value as VatMode)} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal">
+                    {(['EXCLUSIVE', 'INCLUSIVE', 'NONE'] as const).map((m) => (
+                      <option key={m} value={m}>
+                        {VAT_MODE_LABEL[m]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-slate-600">
+                  VAT (%)
+                  <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-normal text-slate-500" />
+                </label>
+              </div>
+            </div>
+            <TotalsBox totals={totals} billDiscount={billDiscount} onBillDiscount={setBillDiscount} vatMode={vatMode} />
+          </div>
+        ) : (
+          <div className="space-y-2">
             <label className="block text-xs font-semibold text-slate-600">
               หมายเหตุ
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="ระบุจุดใช้งานหรือความเร่งด่วน" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
             </label>
-            <label className="block text-xs font-semibold text-slate-600">
-              เงื่อนไขการชำระเงิน
-              <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block text-xs font-semibold text-slate-600">
-                รูปแบบ VAT
-                <select value={vatMode} onChange={(e) => setVatMode(e.target.value as VatMode)} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal">
-                  {(['EXCLUSIVE', 'INCLUSIVE', 'NONE'] as const).map((m) => (
-                    <option key={m} value={m}>
-                      {VAT_MODE_LABEL[m]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-xs font-semibold text-slate-600">
-                VAT (%)
-                <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-normal text-slate-500" />
-              </label>
-            </div>
+            <p className="text-xs text-slate-500">ใบขอซื้อสินค้าไม่ต้องใส่ราคา ฝ่ายจัดซื้อจะหาราคาและออกใบสั่งซื้อ (PO) ให้หลังอนุมัติ</p>
           </div>
-          <TotalsBox totals={totals} billDiscount={billDiscount} onBillDiscount={setBillDiscount} vatMode={vatMode} />
-        </div>
+        )}
 
-        <SignatureRow roles={['ผู้ขอซื้อ', 'ผู้จัดทำ', 'ผู้อนุมัติ']} />
+        <SignatureRow roles={[prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ', 'ผู้จัดทำ', 'ผู้อนุมัติ']} />
       </DocPaper>
     </div>
   );
