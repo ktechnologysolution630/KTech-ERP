@@ -54,6 +54,11 @@ export default async function PrDetailPage({
   // The goods form shows no prices, also on PRs written before the forms existed
   const showPrices = PR_TYPE_META[pr.prType].priced;
   const goods = pr.prType === 'GOODS';
+  // PRs written while the date sat in the header carry it there
+  const neededOf = (l: { neededDate: string | null }) => {
+    const d = l.neededDate ?? pr.needBy;
+    return d ? formatThaiDate(d) : '-';
+  };
   const lineAmount = (l: { qty: string; estUnitPrice: string | null; discount: string }) => Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount);
 
   const signers = await prSigners(db, pr);
@@ -165,7 +170,8 @@ export default async function PrDetailPage({
         <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-4">
           {[
             ['วันที่เอกสาร', pr.docDate ? formatThaiDate(pr.docDate) : formatThaiDate(pr.createdAt)],
-            [pr.prType === 'LABOR' ? 'กำหนดเริ่มงาน' : 'กำหนดใช้/รับของ', pr.needBy ? formatThaiDate(pr.needBy) : '-'],
+            // The goods form shows the date on each line
+            ...(goods ? [] : [[pr.prType === 'LABOR' ? 'กำหนดเริ่มงาน' : 'กำหนดรับของ/เริ่มงาน', pr.needBy ? formatThaiDate(pr.needBy) : '-']]),
             ...(pr.prType === 'GOODS' ? [] : [['กำหนดแล้วเสร็จ', pr.workEnd ? formatThaiDate(pr.workEnd) : '-']]),
             [pr.prType === 'LABOR' ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง', pr.vendorName ?? '-'],
             ['แผนก / ฝ่าย', pr.department || '-'],
@@ -199,6 +205,7 @@ export default async function PrDetailPage({
                 {!goods && <th className="px-4 py-3 text-left">หมวดหมู่</th>}
                 <th className="px-4 py-3 text-right">จำนวนขอซื้อ</th>
                 {goods && <th className="px-4 py-3 text-left">หน่วย</th>}
+                {goods && <th className="px-4 py-3 text-left">กำหนดใช้/รับของ</th>}
                 <th className="px-4 py-3 text-right">สั่งซื้อแล้ว</th>
                 <th className="px-4 py-3 text-right">คงเหลือสั่ง</th>
                 {!goods && <th className="px-4 py-3 text-left">หน่วย</th>}
@@ -233,6 +240,7 @@ export default async function PrDetailPage({
                   )}
                   <td className="px-4 py-3 text-right">{Number(l.qty)}</td>
                   {goods && <td className="px-4 py-3">{l.unitName}</td>}
+                  {goods && <td className="whitespace-nowrap px-4 py-3">{neededOf(l)}</td>}
                   <td className="px-4 py-3 text-right text-blue-700">
                     {l.orderedQty.toNumber()}
                   </td>

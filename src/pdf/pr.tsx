@@ -24,6 +24,13 @@ export function PrPdfDoc({
   const goods = pr.prType === 'GOODS';
   const combined = pr.prType === 'GOODS_AND_LABOR';
   const labor = pr.prType === 'LABOR';
+  // PRs written while the date sat in the header carry it there
+  const needed = (lineDate: string | null) => {
+    const d = lineDate ?? pr.needBy;
+    return d ? formatThaiDate(d) : '-';
+  };
+  // The goods table carries three more columns, so its narrow ones give way to the item name
+  const w = goods ? { no: 26, category: 90, group: 115, qty: 48, unit: 44, needed: 62 } : { no: 32, category: 0, group: 0, qty: 55, unit: 50, needed: 0 };
   const total = pr.lines.reduce((s, l) => s + Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount), 0);
 
   return (
@@ -43,7 +50,7 @@ export function PrPdfDoc({
           </Text>
           <Text>ผู้ขอซื้อ: {pr.requesterText || pr.requesterName}{pr.department ? ` (${pr.department})` : ''}</Text>
           <Text>{labor ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'}: {pr.deliveryPlace || '-'}</Text>
-          <Text>{labor ? 'กำหนดเริ่มงาน' : 'กำหนดใช้/รับของ'}: {pr.needBy ? formatThaiDate(pr.needBy) : '-'}</Text>
+          {!goods && <Text>{labor ? 'กำหนดเริ่มงาน' : 'กำหนดรับของ/เริ่มงาน'}: {pr.needBy ? formatThaiDate(pr.needBy) : '-'}</Text>}
           {pr.prType !== 'GOODS' && <Text>กำหนดแล้วเสร็จ: {pr.workEnd ? formatThaiDate(pr.workEnd) : '-'}</Text>}
         </View>
         <View style={pdfStyles.metaBox}>
@@ -55,14 +62,15 @@ export function PrPdfDoc({
       </View>
 
       <View style={pdfStyles.tableHeader}>
-        <Text style={{ width: 32 }}>#</Text>
-        {goods && <Text style={{ width: 105 }}>หมวด</Text>}
-        {goods && <Text style={{ width: 115 }}>กลุ่ม</Text>}
+        <Text style={{ width: w.no }}>#</Text>
+        {goods && <Text style={{ width: w.category }}>หมวด</Text>}
+        {goods && <Text style={{ width: w.group }}>กลุ่ม</Text>}
         <Text style={{ flex: 1 }}>รายการ</Text>
         {combined && <Text style={{ width: 70 }}>ประเภท</Text>}
         {!goods && <Text style={{ width: 90 }}>หมวดหมู่</Text>}
-        <Text style={{ width: 55, textAlign: 'right' }}>จำนวน</Text>
-        <Text style={{ width: 50, textAlign: 'center' }}>หน่วย</Text>
+        <Text style={{ width: w.qty, textAlign: 'right' }}>จำนวน</Text>
+        <Text style={{ width: w.unit, textAlign: 'center' }}>หน่วย</Text>
+        {goods && <Text style={{ width: w.needed, textAlign: 'center' }}>กำหนดใช้/รับของ</Text>}
         {showPrices && <Text style={{ width: 70, textAlign: 'right' }}>ราคา/หน่วย</Text>}
         {showPrices && <Text style={{ width: 50, textAlign: 'right' }}>ส่วนลด</Text>}
         {showPrices && <Text style={{ width: 75, textAlign: 'right' }}>จำนวนเงิน</Text>}
@@ -70,16 +78,17 @@ export function PrPdfDoc({
 
       {pr.lines.map((l, idx) => (
         <View key={l.id} style={pdfStyles.tableRow}>
-          <Text style={{ width: 32 }}>{idx + 1}</Text>
-          {goods && <Text style={{ width: 105, paddingRight: 4 }}>{l.category ?? '-'}</Text>}
-          {goods && <Text style={{ width: 115, paddingRight: 4 }}>{l.itemGroup ?? '-'}</Text>}
+          <Text style={{ width: w.no }}>{idx + 1}</Text>
+          {goods && <Text style={{ width: w.category, paddingRight: 4 }}>{l.category ?? '-'}</Text>}
+          {goods && <Text style={{ width: w.group, paddingRight: 4 }}>{l.itemGroup ?? '-'}</Text>}
           <Text style={{ flex: 1 }}>{l.detail ? `${l.description}
 ${l.detail}` : l.description}</Text>
           {combined && <Text style={{ width: 70 }}>{LINE_KIND_LABEL[l.lineKind]}</Text>}
           {!goods && <Text style={{ width: 90 }}>{l.itemGroup ? `${l.category ?? '-'}
 ${l.itemGroup}` : (l.category ?? '-')}</Text>}
-          <Text style={{ width: 55, textAlign: 'right' }}>{Number(l.qty)}</Text>
-          <Text style={{ width: 50, textAlign: 'center' }}>{l.unitName}</Text>
+          <Text style={{ width: w.qty, textAlign: 'right' }}>{Number(l.qty)}</Text>
+          <Text style={{ width: w.unit, textAlign: 'center' }}>{l.unitName}</Text>
+          {goods && <Text style={{ width: w.needed, textAlign: 'center' }}>{needed(l.neededDate)}</Text>}
           {showPrices && <Text style={{ width: 70, textAlign: 'right' }}>{l.estUnitPrice ?? '-'}</Text>}
           {showPrices && <Text style={{ width: 50, textAlign: 'right' }}>{Number(l.discount) ? l.discount : '-'}</Text>}
           {showPrices && <Text style={{ width: 75, textAlign: 'right' }}>{(Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount)).toFixed(2)}</Text>}

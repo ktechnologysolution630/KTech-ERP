@@ -48,6 +48,8 @@ interface LineState {
   qty: string;
   estUnitPrice: string;
   discount: string;
+  /** When this line is needed; the goods form asks it per line */
+  neededDate: string;
   note: string;
 }
 
@@ -62,6 +64,7 @@ const emptyLine = (kind: PrLineKind): LineState => ({
   qty: '1',
   estUnitPrice: '',
   discount: '',
+  neededDate: '',
   note: '',
 });
 
@@ -140,6 +143,8 @@ export function PrForm({
   const priced = meta.priced;
   const hasWork = prType !== 'GOODS';
   const kinds: PrLineKind[] = prType === 'GOODS' ? ['GOODS'] : prType === 'LABOR' ? ['LABOR'] : ['GOODS', 'LABOR'];
+  /** The goods form asks when each line is needed; the forms with work keep one date in the header */
+  const perLineDate = prType === 'GOODS';
 
   const [projectId, setProjectId] = useState(existing?.projectId ?? '');
   const [docDate, setDocDate] = useState(existing?.docDate ?? today);
@@ -169,6 +174,8 @@ export function PrForm({
       qty: String(Number(l.qty)),
       estUnitPrice: l.estUnitPrice ? String(Number(l.estUnitPrice)) : '',
       discount: Number(l.discount) ? String(Number(l.discount)) : '',
+      // PRs written while the date sat in the header carry it there
+      neededDate: l.neededDate ?? existing.needBy ?? '',
       note: l.note ?? '',
     })) ?? kinds.map(emptyLine),
   );
@@ -236,11 +243,13 @@ export function PrForm({
       return;
     }
     setError(null);
+    // The header keeps the earliest date of the lines, for anything that reads one date per PR
+    const firstNeeded = lines.map((l) => l.neededDate).filter(Boolean).sort()[0] ?? '';
     const header = {
       prType,
       note,
       docDate: docDate || null,
-      needBy: needBy || null,
+      needBy: (perLineDate ? firstNeeded : needBy) || null,
       workEnd: hasWork ? workEnd || null : null,
       vendorId: vendorId || null,
       department,
@@ -261,7 +270,7 @@ export function PrForm({
         qty: l.qty,
         estUnitPrice: priced ? l.estUnitPrice || null : null,
         discount: priced ? l.discount || '0' : '0',
-        neededDate: needBy || null,
+        neededDate: (perLineDate ? l.neededDate : needBy) || null,
         note: l.note,
       })),
     };
@@ -306,20 +315,21 @@ export function PrForm({
             ส่วนที่ {work ? 2 : 1} · {LINE_KIND_LABEL[kind]}
           </p>
         )}
-        <table className={`w-full border-collapse text-sm ${priced ? (work ? 'min-w-[860px]' : 'min-w-[1020px]') : 'min-w-[780px]'}`}>
+        <table className={`w-full border-collapse text-sm ${priced ? (work ? 'min-w-[860px]' : 'min-w-[1020px]') : 'min-w-[920px]'}`}>
           <thead className="bg-[#102d72] text-xs text-white">
             <tr>
               <th className={`w-12 ${th}`}>ลำดับ</th>
               {!work && (
                 <>
-                  <th className={`w-40 ${th}`}>หมวด *</th>
-                  <th className={`w-44 ${th}`}>กลุ่ม</th>
+                  <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>หมวด *</th>
+                  <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>กลุ่ม</th>
                 </>
               )}
               <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
               {work && <th className={`w-40 ${th}`}>หมวดหมู่ *</th>}
               <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
               <th className={`w-20 ${th}`}>หน่วย</th>
+              {perLineDate && <th className={`w-32 ${th}`}>กำหนดใช้/รับของ</th>}
               {priced && (
                 <>
                   <th className={`w-28 ${th}`}>
@@ -420,6 +430,11 @@ export function PrForm({
                 <td className={td}>
                   <input value={line.unitName} onChange={(e) => setLine(idx, { unitName: e.target.value })} list={work ? 'pr-work-units' : undefined} aria-label={`หน่วย${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`} className={paperCell} />
                 </td>
+                {perLineDate && (
+                  <td className={td}>
+                    <DateInput value={line.neededDate} onChange={(e) => setLine(idx, { neededDate: e.target.value })} aria-label={`กำหนดใช้/รับของรายการที่ ${n + 1}`} className={paperCell} />
+                  </td>
+                )}
                 {priced && (
                   <>
                     <td className={td}>
@@ -464,7 +479,8 @@ export function PrForm({
         </table>
         <button
           type="button"
-          onClick={() => setLines((prev) => [...prev, emptyLine(kind)])}
+          // A new line starts on the date of the one above it; most of a requisition is needed together
+          onClick={() => setLines((prev) => [...prev, { ...emptyLine(kind), neededDate: prev.filter((l) => l.kind === kind).at(-1)?.neededDate ?? '' }])}
           className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50"
         >
           <Plus className="h-3.5 w-3.5" /> {work ? 'เพิ่มรายการงาน' : 'เพิ่มรายการ'}
@@ -545,9 +561,11 @@ export function PrForm({
             <MetaRow label="วันที่:">
               <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={paperInput} />
             </MetaRow>
-            <MetaRow label={prType === 'LABOR' ? 'กำหนดเริ่มงาน:' : prType === 'GOODS' ? 'กำหนดใช้/รับของ:' : 'กำหนดรับของ/เริ่มงาน:'}>
-              <DateInput value={needBy} onChange={(e) => setNeedBy(e.target.value)} className={paperInput} />
-            </MetaRow>
+            {!perLineDate && (
+              <MetaRow label={prType === 'LABOR' ? 'กำหนดเริ่มงาน:' : 'กำหนดรับของ/เริ่มงาน:'}>
+                <DateInput value={needBy} onChange={(e) => setNeedBy(e.target.value)} className={paperInput} />
+              </MetaRow>
+            )}
             {hasWork && (
               <MetaRow label="กำหนดแล้วเสร็จ:">
                 <DateInput value={workEnd} onChange={(e) => setWorkEnd(e.target.value)} className={paperInput} />
