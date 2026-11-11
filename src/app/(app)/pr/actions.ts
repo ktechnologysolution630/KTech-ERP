@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { addComment } from '@/server/services/attachments';
 import {
   approvePr,
@@ -28,7 +28,7 @@ export async function createPrAction(
     lines: PrLineInput[];
   } & PrHeaderInput,
 ): Promise<SaveResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   let created: { id: string };
   try {
@@ -46,7 +46,7 @@ export async function updatePrAction(
   id: string,
   input: { note?: string; submitNow?: boolean; lines: PrLineInput[] } & PrHeaderInput,
 ): Promise<SaveResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     await updatePr(db, actor, id, input);
@@ -61,7 +61,7 @@ export async function updatePrAction(
 }
 
 export async function submitPrAction(id: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await submitPr(db, actor, id);
   revalidatePath(`/pr/${id}`);
@@ -69,7 +69,7 @@ export async function submitPrAction(id: string) {
 }
 
 export async function approvePrAction(id: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await approvePr(db, actor, id);
   revalidatePath(`/pr/${id}`);
@@ -77,7 +77,7 @@ export async function approvePrAction(id: string) {
 }
 
 export async function rejectPrAction(id: string, reason: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await rejectPr(db, actor, id, reason);
   revalidatePath(`/pr/${id}`);
@@ -85,7 +85,7 @@ export async function rejectPrAction(id: string, reason: string) {
 }
 
 export async function cancelPrAction(id: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await cancelPr(db, actor, id);
   revalidatePath(`/pr/${id}`);
@@ -93,7 +93,7 @@ export async function cancelPrAction(id: string) {
 }
 
 export async function closePrAction(id: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await closePr(db, actor, id);
   revalidatePath(`/pr/${id}`);
@@ -101,7 +101,7 @@ export async function closePrAction(id: string) {
 }
 
 export async function addPrCommentAction(id: string, body: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await addComment(db, actor, { entityType: 'PR', entityId: id, body });
   revalidatePath(`/pr/${id}`);
@@ -111,7 +111,7 @@ export async function addPrCommentAction(id: string, body: string) {
 export async function deletePrsAction(
   ids: string[],
 ): Promise<{ ok: true; result: import('@/server/services/pr-delete').PrDeleteResult } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const { deletePrs } = await import('@/server/services/pr-delete');

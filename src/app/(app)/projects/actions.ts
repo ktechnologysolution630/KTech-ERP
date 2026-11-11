@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { PROJECT_STATUSES, type ProjectStatus } from '@/domain/project';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { createProject } from '@/server/services/master';
 
 export type CreateProjectResult = { ok: true; id: string } | { ok: false; error: string };
@@ -18,7 +18,7 @@ function dateOrNull(formData: FormData, key: string): string | null {
 }
 
 export async function createProjectAction(formData: FormData): Promise<CreateProjectResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const statusRaw = text(formData, 'status');
   const budgetRaw = text(formData, 'budget');

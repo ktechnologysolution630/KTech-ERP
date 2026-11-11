@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   upsertItem,
   upsertProject,
@@ -29,7 +29,7 @@ function optionalDate(formData: FormData, key: string): string | null | undefine
 }
 
 export async function saveProjectAction(formData: FormData): Promise<{ error?: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const budgetRaw = formData.get('budget');
   try {
@@ -53,7 +53,7 @@ export async function saveProjectAction(formData: FormData): Promise<{ error?: s
 }
 
 export async function saveVendorAction(formData: FormData) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await upsertVendor(db, actor, {
     id: String(formData.get('id') || '') || undefined,
@@ -85,7 +85,7 @@ export async function saveVendorAction(formData: FormData) {
 }
 
 export async function importVendorsAction(rows: Record<string, string>[]) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const res = await importVendors(db, actor, rows);
   revalidatePath('/master/vendors');
@@ -93,7 +93,7 @@ export async function importVendorsAction(rows: Record<string, string>[]) {
 }
 
 export async function saveItemAction(formData: FormData) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await upsertItem(db, actor, {
     id: String(formData.get('id') || '') || undefined,
@@ -108,7 +108,7 @@ export async function saveItemAction(formData: FormData) {
 }
 
 export async function importItemsAction(rows: Record<string, string>[]) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const res = await importItems(db, actor, rows);
   revalidatePath('/master/items');
@@ -128,7 +128,7 @@ async function directoryImport(fn: () => Promise<DirectoryImportResult>): Promis
 }
 
 export async function importVendorDirectoryAction(rows: VendorImportRow[]): Promise<DirectoryImportReply> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const reply = await directoryImport(() => importVendorDirectory(db, actor, rows));
   revalidatePath('/purchasing/vendors');
@@ -137,7 +137,7 @@ export async function importVendorDirectoryAction(rows: VendorImportRow[]): Prom
 }
 
 export async function importItemCatalogAction(rows: ItemImportRow[]): Promise<DirectoryImportReply> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const reply = await directoryImport(() => importItemCatalog(db, actor, rows));
   revalidatePath('/master/items');
@@ -160,19 +160,19 @@ async function userAction(fn: () => Promise<unknown>): Promise<UserActionResult>
 }
 
 export async function saveUserAction(input: UserInput): Promise<UserActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return userAction(() => upsertUser(db, actor, input));
 }
 
 export async function resetUserPasswordAction(userId: string, newPassword: string): Promise<UserActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return userAction(() => resetPassword(db, actor, userId, newPassword));
 }
 
 export async function saveSettingsAction(formData: FormData) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await updateSettings(db, actor, {
     companyName: String(formData.get('companyName') || ''),
@@ -186,7 +186,7 @@ export async function saveSettingsAction(formData: FormData) {
 
 /** Deletes ticked items from the register; items still on PR/PO lines are switched off instead. */
 export async function deleteItemsAction(ids: string[]): Promise<{ ok: true; result: ItemDeleteResult } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const result = await deleteItems(db, actor, ids);

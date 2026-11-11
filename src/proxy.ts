@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { blockedMenuFor, isMenuKey, menuKeysForPath, type MenuKey } from '@/domain/menu';
+import { isEditingPath, isViewOnlyRequest, VIEW_ONLY_COOKIE, VIEW_ONLY_MESSAGE, VIEW_ONLY_PATH } from '@/domain/view-only-device';
 import { loginUrlFor, RETURN_PATH_HEADER } from '@/lib/return-path';
 import { SESSION_COOKIE_NAME } from '@/server/auth/session';
 
@@ -48,6 +49,18 @@ export async function proxy(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
     return NextResponse.redirect(new URL(loginUrlFor(returnPath), req.url));
+  }
+
+  // An iPhone or iPad may only look. Uploads are refused here; a page made for writing is not opened at all.
+  // Server actions are judged where they run (requireWriter), because the ones that only read must stay open.
+  if (isViewOnlyRequest(req.headers.get('user-agent'), req.cookies.get(VIEW_ONLY_COOKIE)?.value)) {
+    const reading = req.method === 'GET' || req.method === 'HEAD';
+    if (!reading && pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: VIEW_ONLY_MESSAGE, code: 'VIEW_ONLY_DEVICE' }, { status: 403 });
+    }
+    if (reading && isEditingPath(pathname)) {
+      return NextResponse.redirect(new URL(VIEW_ONLY_PATH, req.url));
+    }
   }
 
   // Checked here because every request passes through: a layout does not run again when moving between pages

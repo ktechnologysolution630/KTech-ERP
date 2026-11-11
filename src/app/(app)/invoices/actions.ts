@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { DomainError } from '@/domain/errors';
 import { getDb } from '@/db/client';
 import { D } from '@/domain/money';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   cancelInvoice,
   createInvoice,
@@ -25,7 +25,7 @@ export async function createInvoiceAction(input: {
   vat: string;
   dueDate?: string;
 }): Promise<{ ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   let res: { id: string };
   try {
@@ -52,7 +52,7 @@ export async function matchInvoiceAction(
   invoiceId: string,
   matches: { payableId: string; gross: string }[],
 ) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await matchInvoice(
     db,
@@ -65,7 +65,7 @@ export async function matchInvoiceAction(
 }
 
 export async function cancelInvoiceAction(id: string, reason: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await cancelInvoice(db, actor, id, reason);
   revalidatePath(`/invoices/${id}`);
@@ -74,7 +74,7 @@ export async function cancelInvoiceAction(id: string, reason: string) {
 }
 
 export async function requestPrepaidAction(poId: string, note?: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await requestPrepaid(db, actor, poId, note);
   revalidatePath(`/po/${poId}`);
@@ -86,7 +86,7 @@ export async function requestInstallmentAction(
   installmentId: string,
   note?: string,
 ) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   await requestInstallment(db, actor, installmentId, note);
   revalidatePath(`/po/${poId}`);

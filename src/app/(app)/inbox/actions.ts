@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { createNews, deleteNews } from '@/server/services/news';
 
 export type NewsResult = { ok: true } | { ok: false; error: string };
@@ -21,7 +21,7 @@ async function run(fn: () => Promise<unknown>): Promise<NewsResult> {
 }
 
 export async function createNewsAction(formData: FormData): Promise<NewsResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const image = formData.get('image');
   return run(() =>
@@ -36,7 +36,7 @@ export async function createNewsAction(formData: FormData): Promise<NewsResult> 
 }
 
 export async function deleteNewsAction(id: string): Promise<NewsResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(() => deleteNews(db, actor, id));
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireUser, requireWriter } from '@/server/auth/current-user';
 import type { BoqDocumentDto, SaveBoqInput } from '@/server/services/boq';
 import {
   cancelVo,
@@ -42,7 +42,7 @@ export async function saveVoDocumentAction(
   voId: string | null,
   input: { vo: VoInput; boq: SaveBoqInput | null },
 ): Promise<{ ok: true; value: { id: string; number: string } } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => saveVoDocument(db, actor, projectId, voId, input));
 }
@@ -64,7 +64,7 @@ export async function loadVoDocumentAction(
 }
 
 export async function submitVoAction(projectId: string, voId: string): Promise<VoActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return done(await run(projectId, () => submitVo(db, actor, voId)));
 }
@@ -75,13 +75,13 @@ export async function decideVoAction(
   approve: boolean,
   note: string,
 ): Promise<VoActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return done(await run(projectId, () => decideVo(db, actor, voId, approve, note)));
 }
 
 export async function cancelVoAction(projectId: string, voId: string): Promise<VoActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return done(await run(projectId, () => cancelVo(db, actor, voId)));
 }
@@ -105,7 +105,7 @@ export async function saveVoBoqAction(
   voId: string,
   input: SaveBoqInput,
 ): Promise<{ ok: true; boq: BoqDocumentDto } | { ok: false; error: string; conflict: boolean }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const boq = await saveVoBoq(db, actor, voId, input);

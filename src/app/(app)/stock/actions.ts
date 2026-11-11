@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   createStockCount,
   decideStockAdjust,
@@ -31,38 +31,38 @@ async function run(fn: () => Promise<string | void>): Promise<StockActionResult>
 }
 
 export async function saveStockItemAction(input: StockItemFormInput): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(async () => (await upsertStockItem(db, actor, input)).id);
 }
 
 export async function recordStockMovementAction(input: RecordMovementInput): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(() => recordStockMovement(db, actor, input));
 }
 
 export async function requestStockAdjustAction(input: StockAdjustInput): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(async () => (await requestStockAdjust(db, actor, input)).requestNumber);
 }
 
 export async function decideStockAdjustAction(requestId: string, approve: boolean): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(() => decideStockAdjust(db, actor, requestId, approve));
 }
 
 export async function createStockCountAction(input: StockCountInput): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(async () => (await createStockCount(db, actor, input)).countNumber);
 }
 
 /** Saves a รับเข้า / จ่ายออก / โอนย้าย / ยืม document; value is "<id>|<number>" */
 export async function createStockDocAction(input: import('@/server/services/stock-docs').StockDocInput): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const { createStockDoc } = await import('@/server/services/stock-docs');
   return run(async () => {
@@ -72,7 +72,7 @@ export async function createStockDocAction(input: import('@/server/services/stoc
 }
 
 export async function setReorderPointsAction(input: { stockItemId: string; reorderPoint: number }[]): Promise<StockActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const { setReorderPoints } = await import('@/server/services/stock');
   return run(async () => String(await setReorderPoints(db, actor, input)));

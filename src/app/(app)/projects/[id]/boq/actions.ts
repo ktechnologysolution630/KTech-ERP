@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   saveProjectMainBoq,
   type BoqDocumentDto,
@@ -18,7 +18,7 @@ export async function saveBoqAction(
   projectId: string,
   input: SaveBoqInput,
 ): Promise<SaveBoqResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const boq = await saveProjectMainBoq(db, actor, projectId, input);

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireUser, requireWriter } from '@/server/auth/current-user';
 import { importAssets, type ImportResult } from '@/server/services/import';
 import type { InspectionResult } from '@/domain/asset';
 import {
@@ -29,7 +29,7 @@ async function run<T>(fn: () => Promise<T>): Promise<AssetResult<T>> {
 }
 
 export async function saveAssetAction(id: string | null, input: AssetInput): Promise<AssetResult<unknown>> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const result = await run<unknown>(() => (id ? updateAsset(db, actor, id, input) : createAsset(db, actor, input)));
   if (result.ok) revalidatePath('/assets');
@@ -37,7 +37,7 @@ export async function saveAssetAction(id: string | null, input: AssetInput): Pro
 }
 
 export async function deleteAssetsAction(ids: string[]): Promise<AssetResult<{ deleted: number }>> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const result = await run(() => deleteAssets(db, actor, ids));
   if (result.ok) revalidatePath('/assets');
@@ -45,7 +45,7 @@ export async function deleteAssetsAction(ids: string[]): Promise<AssetResult<{ d
 }
 
 export async function importAssetsAction(rows: Record<string, string>[]): Promise<ImportResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const result = await importAssets(db, actor, rows);
   revalidatePath('/assets');
@@ -53,7 +53,7 @@ export async function importAssetsAction(rows: Record<string, string>[]): Promis
 }
 
 export async function confirmAssetCheckAction(assetId: string, form: FormData): Promise<AssetResult<{ id: string }>> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   // A missing field must not turn into 0, which is a valid coordinate
   const coordinate = (key: string) => {

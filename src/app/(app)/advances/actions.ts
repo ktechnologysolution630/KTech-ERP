@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   addAdvanceExpense,
   cancelAdvance,
@@ -38,7 +38,7 @@ async function run<T>(fn: () => Promise<T>): Promise<AdvResult<T>> {
 }
 
 async function ctx() {
-  return { actor: await requireUser(), db: await getDb() };
+  return { actor: await requireWriter(), db: await getDb() };
 }
 
 export async function requestAdvanceAction(input: AdvanceInput) {

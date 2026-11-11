@@ -126,7 +126,7 @@ describe('hiding', () => {
 
 describe('every page and entry is accounted for', () => {
   /** Reachable by everyone on purpose. A new top-level page must be added here or given an entry. */
-  const ALWAYS_OPEN = ['inbox', 'master', 'no-access', 'profile', 'settings'];
+  const ALWAYS_OPEN = ['inbox', 'master', 'no-access', 'profile', 'settings', 'view-only'];
 
   test('a new page cannot slip past the block unnoticed', () => {
     const pages = readdirSync(join(process.cwd(), 'src/app/(app)'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);

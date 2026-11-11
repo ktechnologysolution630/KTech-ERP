@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireUser, requireWriter } from '@/server/auth/current-user';
 import {
   createDefect,
   listDefects,
@@ -29,6 +29,11 @@ async function run<T>(fn: () => Promise<T>, paths: string[] = []): Promise<Hando
 }
 
 async function ctx() {
+  return { actor: await requireWriter(), db: await getDb() };
+}
+
+/** For the actions that only read, which stay open on an iPhone or iPad */
+async function viewCtx() {
   return { actor: await requireUser(), db: await getDb() };
 }
 
@@ -38,7 +43,7 @@ export async function saveHandoverAction(projectId: string, input: HandoverInput
 }
 
 export async function loadDefectsAction(projectId: string) {
-  const { actor, db } = await ctx();
+  const { actor, db } = await viewCtx();
   return run(() => listDefects(db, actor, projectId));
 }
 

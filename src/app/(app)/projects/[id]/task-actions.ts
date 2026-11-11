@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   createTask,
   deleteTask,
@@ -30,7 +30,7 @@ export async function createTaskAction(
   projectId: string,
   input: CreateTaskInput,
 ): Promise<TaskActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => createTask(db, actor, projectId, input));
 }
@@ -40,13 +40,13 @@ export async function updateTaskAction(
   taskId: string,
   input: UpdateTaskInput,
 ): Promise<TaskActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => updateTask(db, actor, taskId, input));
 }
 
 export async function deleteTaskAction(projectId: string, taskId: string): Promise<TaskActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => deleteTask(db, actor, taskId));
 }

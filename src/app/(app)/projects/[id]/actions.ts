@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { type ProjectStatus } from '@/domain/project';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   setProjectCover,
   updateProjectDetails,
@@ -36,7 +36,7 @@ export async function updateProjectDetailsAction(
   projectId: string,
   input: ProjectDetailsFormInput,
 ): Promise<UpdateProjectResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const project = await updateProjectDetails(db, actor, projectId, input);
@@ -53,7 +53,7 @@ export async function updateProjectDetailsAction(
 export async function previewProjectDeletionAction(
   projectId: string,
 ): Promise<{ ok: true; preview: ProjectDeletionPreview } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     return { ok: true, preview: await previewProjectDeletion(db, actor, projectId) };
@@ -64,7 +64,7 @@ export async function previewProjectDeletionAction(
 }
 
 export async function deleteProjectAction(projectId: string, confirmCode: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     await deleteProject(db, actor, projectId, confirmCode);
@@ -84,7 +84,7 @@ export async function setProjectCoverAction(
   projectId: string,
   formData: FormData,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const file = formData.get('file');
   const preset = formData.get('preset');

@@ -3,12 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { upsertVendor } from '@/server/services/master';
 import { deleteVendors, type VendorDeleteResult } from '@/server/services/vendor-delete';
 
 export async function deleteContractorsAction(ids: string[]): Promise<{ ok: true; result: VendorDeleteResult } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const result = await deleteVendors(db, actor, ids);
@@ -22,7 +22,7 @@ export async function deleteContractorsAction(ids: string[]): Promise<{ ok: true
 }
 
 export async function createContractorAction(formData: FormData) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
 
   const code = (formData.get('code') as string)?.trim() || `CONT-${Date.now().toString().slice(-4)}`;

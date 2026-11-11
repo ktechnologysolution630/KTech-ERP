@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { type MilestoneKind } from '@/domain/milestone';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import {
   advanceMilestone,
   cancelMilestone,
@@ -31,37 +31,37 @@ async function run(projectId: string, fn: () => Promise<unknown>): Promise<Miles
 }
 
 export async function createMilestoneAction(projectId: string, kind: MilestoneKind, input: MilestoneInput) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => createMilestone(db, actor, projectId, kind, input));
 }
 
 export async function updateMilestoneAction(projectId: string, id: string, input: MilestoneInput) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => updateMilestone(db, actor, id, input));
 }
 
 export async function deleteMilestoneAction(projectId: string, id: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => deleteMilestone(db, actor, id));
 }
 
 export async function advanceMilestoneAction(projectId: string, id: string, date?: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => advanceMilestone(db, actor, id, date));
 }
 
 export async function cancelMilestoneAction(projectId: string, id: string, reason: string) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => cancelMilestone(db, actor, id, reason));
 }
 
 export async function generateMilestonesAction(projectId: string, kind: MilestoneKind, retentionPercent: number) {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   return run(projectId, () => generateMilestonesFromBoq(db, actor, projectId, kind, retentionPercent));
 }

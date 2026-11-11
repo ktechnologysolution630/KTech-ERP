@@ -35,6 +35,7 @@ import {
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
 import { logoutAction } from '@/app/login/actions';
+import { ViewOnlyNotice } from '@/components/view-only-notice';
 import {
   listMyNotificationsAction,
   markAllMyNotificationsReadAction,
@@ -1024,6 +1025,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
             </form>
           </div>
         </header>
+
+        <ViewOnlyNotice />
 
         {/* Page Content Body */}
         <main className="flex-1 p-4 md:p-6 overflow-x-hidden">{children}</main>

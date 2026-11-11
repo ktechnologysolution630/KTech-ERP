@@ -3,13 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { deleteVendors } from '@/server/services/vendor-delete';
 import type { VendorDeleteActionResult } from '@/components/vendor-delete';
 
 /** Deletes the ticked suppliers; ones still named on documents are kept and reported. */
 export async function deleteSuppliersAction(ids: string[]): Promise<VendorDeleteActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const result = await deleteVendors(db, actor, ids);

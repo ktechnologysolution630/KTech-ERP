@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { vendors } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { assertCan } from '@/server/policy';
 import { upsertVendor } from '@/server/services/master';
 import { updateVendor } from '@/server/services/vendor-detail';
@@ -80,7 +80,7 @@ export async function saveVendorProfileAction(
   id: string | null,
   values: VendorProfileValues,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     let savedId: string;

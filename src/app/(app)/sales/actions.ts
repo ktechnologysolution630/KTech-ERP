@@ -4,13 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { SALES_DOC_META } from '@/domain/sales-doc';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { cancelSalesDoc, createSalesDoc, type SalesDocInput } from '@/server/services/sales-docs';
 
 type Result = { ok: true; id: string } | { ok: false; error: string };
 
 export async function createSalesDocAction(input: SalesDocInput): Promise<Result> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const doc = await createSalesDoc(db, actor, input);
@@ -23,7 +23,7 @@ export async function createSalesDocAction(input: SalesDocInput): Promise<Result
 }
 
 export async function cancelSalesDocAction(id: string, slug: string, reason: string): Promise<Result> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     await cancelSalesDoc(db, actor, id, reason);
@@ -37,7 +37,7 @@ export async function cancelSalesDocAction(id: string, slug: string, reason: str
 }
 
 export async function saveCompanyAccountAction(input: import('@/server/services/sales-docs').CompanyAccountInput): Promise<Result> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const { saveCompanyAccount } = await import('@/server/services/sales-docs');
   try {
@@ -51,7 +51,7 @@ export async function saveCompanyAccountAction(input: import('@/server/services/
 }
 
 export async function saveAccountCategoryAction(input: import('@/server/services/account-categories').AccountCategoryInput): Promise<Result> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const { saveAccountCategory } = await import('@/server/services/account-categories');
   try {

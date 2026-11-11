@@ -3,13 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { createPrv, deletePrv, transitionPrv, type CreatePrvInput, type PrvTransition } from '@/server/services/prv';
 
 export type PrvActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
 export async function createPrvAction(input: CreatePrvInput): Promise<PrvActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     const prv = await createPrv(db, actor, input);
@@ -23,7 +23,7 @@ export async function createPrvAction(input: CreatePrvInput): Promise<PrvActionR
 }
 
 export async function deletePrvAction(id: string): Promise<PrvActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     await deletePrv(db, actor, id);
@@ -37,7 +37,7 @@ export async function deletePrvAction(id: string): Promise<PrvActionResult> {
 }
 
 export async function transitionPrvAction(id: string, action: PrvTransition, note = ''): Promise<PrvActionResult> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   try {
     await transitionPrv(db, actor, id, action, note);

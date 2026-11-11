@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
-import { requireUser } from '@/server/auth/current-user';
+import { requireWriter } from '@/server/auth/current-user';
 import { createReceipt } from '@/server/services/receipt';
 
 export async function createReceiptAction(input: {
@@ -13,7 +13,7 @@ export async function createReceiptAction(input: {
   note?: string;
   lines: { poLineId: string; qty: string }[];
 }): Promise<{ receiptId: string }> {
-  const actor = await requireUser();
+  const actor = await requireWriter();
   const db = await getDb();
   const filtered = input.lines.filter((l) => Number(l.qty) > 0);
   const created = await createReceipt(db, actor, {
