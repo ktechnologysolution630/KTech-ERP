@@ -86,10 +86,11 @@ export const MENU_TREE = [
     key: 'VEHICLES',
     label: 'การใช้รถ',
     children: [
-      { key: 'VEH_TRIPS', label: 'ขอใช้รถ / บันทึกการใช้รถ' },
-      { key: 'VEH_LIVE', label: 'ติดตามรถ Realtime' },
-      { key: 'VEH_REPORT', label: 'รายงานการใช้รถ' },
-      { key: 'VEH_FLEET', label: 'ทะเบียนรถ' },
+      // In the order the work happens: register the vehicle, use it, watch it, report on it
+      { key: 'VEH_FLEET', label: '1. ทะเบียนรถ' },
+      { key: 'VEH_TRIPS', label: '2. ขอใช้รถ / รับรถ / คืนรถ' },
+      { key: 'VEH_LIVE', label: '3. ติดตามรถ Realtime' },
+      { key: 'VEH_REPORT', label: '4. รายงานการใช้รถ' },
     ],
   },
   {

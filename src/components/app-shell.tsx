@@ -867,10 +867,11 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 {openVehicles && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
                     {([
-                      ['VEH_TRIPS', '/vehicles', 'ขอใช้รถ / บันทึกการใช้รถ', Car],
-                      ['VEH_LIVE', '/vehicles/live', 'ติดตามรถ Realtime', MapPin],
-                      ['VEH_REPORT', '/vehicles/report', 'รายงานการใช้รถ', FileText],
-                      ['VEH_FLEET', '/vehicles/fleet', 'ทะเบียนรถ', ClipboardList],
+                      // In the order the work happens: register the vehicle, use it, watch it, report on it
+                      ['VEH_FLEET', '/vehicles/fleet', '1. ทะเบียนรถ', ClipboardList],
+                      ['VEH_TRIPS', '/vehicles', '2. ขอใช้รถ / รับรถ / คืนรถ', Car],
+                      ['VEH_LIVE', '/vehicles/live', '3. ติดตามรถ Realtime', MapPin],
+                      ['VEH_REPORT', '/vehicles/report', '4. รายงานการใช้รถ', FileText],
                     ] as const).map(([key, href, label, Icon]) =>
                       canSee(key) ? (
                         <Link
