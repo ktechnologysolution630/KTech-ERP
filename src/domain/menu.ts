@@ -80,17 +80,12 @@ export const MENU_TREE = [
       { key: 'FIN_EXPORTS', label: 'รายงาน/50 ทวิ' },
       { key: 'FIN_ACCOUNTING_SETTINGS', label: 'ตั้งค่าบัญชีและภาษี' },
       { key: 'FIN_ASSETS', label: 'ตรวจเช็คทรัพย์สิน' },
-    ],
-  },
-  {
-    key: 'VEHICLES',
-    label: 'การใช้รถ',
-    children: [
+      // การใช้รถ, kept with the finance menu because its trips carry costs to be claimed
       // In the order the work happens: register the vehicle, use it, watch it, report on it
-      { key: 'VEH_FLEET', label: '1. ทะเบียนรถ' },
-      { key: 'VEH_TRIPS', label: '2. ขอใช้รถ / รับรถ / คืนรถ' },
-      { key: 'VEH_LIVE', label: '3. ติดตามรถ Realtime' },
-      { key: 'VEH_REPORT', label: '4. รายงานการใช้รถ' },
+      { key: 'VEH_FLEET', label: 'การใช้รถ 1. ทะเบียนรถ' },
+      { key: 'VEH_TRIPS', label: 'การใช้รถ 2. ขอใช้รถ / รับรถ / คืนรถ' },
+      { key: 'VEH_LIVE', label: 'การใช้รถ 3. ติดตามรถ Realtime' },
+      { key: 'VEH_REPORT', label: 'การใช้รถ 4. รายงานการใช้รถ' },
     ],
   },
   {

@@ -103,9 +103,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
     pathname.startsWith('/labor-payments') || pathname.startsWith('/prv') || pathname.startsWith('/payables'),
   );
   const [openFinance, setOpenFinance] = useState<boolean>(
-    pathname.startsWith('/invoices') || pathname.startsWith('/pv') || pathname.startsWith('/exports') || pathname.startsWith('/assets'),
+    pathname.startsWith('/invoices') || pathname.startsWith('/pv') || pathname.startsWith('/exports') || pathname.startsWith('/assets') || pathname.startsWith('/vehicles'),
   );
-  const [openVehicles, setOpenVehicles] = useState<boolean>(pathname.startsWith('/vehicles'));
   const [openAfterService, setOpenAfterService] = useState<boolean>(
     pathname.startsWith('/handover') || pathname.startsWith('/warranty'),
   );
@@ -737,7 +736,8 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     pathname.startsWith('/assets') ||
                     pathname.startsWith('/ar') ||
                     pathname.startsWith('/advances') ||
-                    pathname.startsWith('/receipt-substitutes')
+                    pathname.startsWith('/receipt-substitutes') ||
+                    pathname.startsWith('/vehicles')
                       ? 'bg-slate-100 text-slate-900 font-semibold'
                       : 'text-slate-700 hover:bg-slate-100'
                   }`}
@@ -842,30 +842,11 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <span>ตรวจเช็คทรัพย์สิน</span>
                     </Link>
                     )}
-                  </div>
-                )}
-              </div>
-              )}
-
-              {/* การใช้รถ (Accordion) */}
-              {canSee('VEHICLES') && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setOpenVehicles(!openVehicles)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                    pathname.startsWith('/vehicles') ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Car className="w-4 h-4 text-slate-600 shrink-0" />
-                    {!collapsed && <span>การใช้รถ</span>}
-                  </div>
-                  {!collapsed && <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${openVehicles ? 'rotate-180' : ''}`} />}
-                </button>
-
-                {openVehicles && !collapsed && (
-                  <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {(['VEH_FLEET', 'VEH_TRIPS', 'VEH_LIVE', 'VEH_REPORT'] as const).some((k) => canSee(k)) && (
+                      <p className="flex items-center gap-1.5 px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        <Car className="w-3 h-3" /> การใช้รถ
+                      </p>
+                    )}
                     {([
                       // In the order the work happens: register the vehicle, use it, watch it, report on it
                       ['VEH_FLEET', '/vehicles/fleet', '1. ทะเบียนรถ', ClipboardList],
