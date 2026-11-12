@@ -7,6 +7,7 @@ import { requireUser, requireUserOnAnyDevice } from '@/server/auth/current-user'
 import {
   addTripExpense,
   cancelTrip,
+  claimTripExpenses,
   decideTrip,
   getFleetLive,
   getTripRoute,
@@ -112,6 +113,12 @@ export async function addTripExpenseAction(tripId: string, form: FormData) {
       receipt: receipt instanceof File && receipt.size > 0 ? receipt : null,
     }),
   );
+}
+
+/** ขอเบิกค่าใช้จ่ายรถ: puts the trip's unclaimed costs on a reimbursement claim */
+export async function claimTripExpensesAction(tripId: string) {
+  const { actor, db } = await ctx();
+  return run(() => claimTripExpenses(db, actor, tripId), ['/advances']);
 }
 
 export async function removeTripExpenseAction(expenseId: string) {

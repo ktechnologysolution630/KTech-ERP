@@ -9,7 +9,7 @@ import { EXPENSE_KIND_LABEL, EXPENSE_KINDS, FUEL_LEVELS, type LiveState, type Tr
 import { shrinkPhoto } from '@/lib/shrink-photo';
 import { withRetry } from '@/lib/retry-action';
 import { MAX_ODOMETER_KM } from '@/domain/vehicle';
-import { addTripExpenseAction, cancelTripAction, decideTripAction, loadTripRouteAction, removeTripExpenseAction, returnTripAction, startTripAction } from '../actions';
+import { addTripExpenseAction, cancelTripAction, claimTripExpensesAction, decideTripAction, loadTripRouteAction, removeTripExpenseAction, returnTripAction, startTripAction } from '../actions';
 import { VehicleMap } from '../vehicle-map';
 
 const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#2453d4] focus:outline-none focus:ring-2 focus:ring-blue-100';
@@ -245,10 +245,14 @@ export interface ExpenseView {
   note: string;
   receiptUrl: string | null;
   canRemove: boolean;
+  /** The reimbursement claim it is on, if any */
+  claim: { number: string; label: string } | null;
 }
 
-/** Fuel, tolls and parking paid on the trip, each with its receipt */
-export function ExpensesPanel({ tripId, expenses, canAdd }: { tripId: string; expenses: ExpenseView[]; canAdd: boolean }) {
+/** Fuel, tolls and parking paid on the trip, each with its receipt, and claiming them back */
+export function ExpensesPanel({ tripId, expenses, canAdd, canClaim }: { tripId: string; expenses: ExpenseView[]; canAdd: boolean; canClaim: boolean }) {
+  const [claimed, setClaimed] = useState<string | null>(null);
+  const unclaimed = expenses.filter((e) => !e.claim).reduce((s, e) => s + e.amount, 0);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState<TripExpenseKind>('FUEL');
@@ -280,6 +284,23 @@ export function ExpensesPanel({ tripId, expenses, canAdd }: { tripId: string; ex
         router.refresh();
       } catch {
         setError('ไม่ได้รับคำตอบจากเซิร์ฟเวอร์ กรุณาโหลดหน้าใหม่ดูว่ารายการถูกบันทึกแล้วหรือไม่ ก่อนกดเพิ่มอีกครั้ง');
+      }
+    });
+  };
+
+  const claim = () => {
+    if (!window.confirm(`ขอเบิกค่าใช้จ่ายรถ ${formatMoneyDisplay(unclaimed.toFixed(2))} บาท?\nใบเบิกจะเข้าเมนูเงินทดรองจ่าย รออนุมัติและโอนเงินคืน`)) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        // Safe to send again: a claim that went through leaves nothing unclaimed for the second try
+        const r = await withRetry(() => claimTripExpensesAction(tripId), { onRetry: () => setError(RETRYING) });
+        setError(null);
+        if (!r.ok) return setError(r.error === 'ไม่มีค่าใช้จ่ายที่ยังไม่ได้ขอเบิก' ? null : r.error);
+        setClaimed(`${r.value.number} ${formatMoneyDisplay(r.value.amount.toFixed(2))} บาท`);
+        router.refresh();
+      } catch {
+        setError(NO_ANSWER);
       }
     });
   };
@@ -324,8 +345,15 @@ export function ExpensesPanel({ tripId, expenses, canAdd }: { tripId: string; ex
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {e.claim ? (
+                  <a href="/advances" className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 hover:underline" title="เปิดเมนูเงินทดรองจ่าย">
+                    เบิกแล้ว {e.claim.number} · {e.claim.label}
+                  </a>
+                ) : (
+                  canClaim && <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">ยังไม่เบิก</span>
+                )}
                 <span className="font-semibold text-slate-900">{formatMoneyDisplay(e.amount.toFixed(2))}</span>
-                {e.canRemove && (
+                {e.canRemove && !e.claim && (
                   <button type="button" onClick={() => remove(e.id)} disabled={pending} aria-label="ลบค่าใช้จ่าย" className="text-slate-400 hover:text-red-600">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -334,6 +362,25 @@ export function ExpensesPanel({ tripId, expenses, canAdd }: { tripId: string; ex
             </li>
           ))}
         </ul>
+      )}
+
+      {canClaim && unclaimed > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950">
+          <p>
+            ค่าใช้จ่ายที่ยังไม่ได้เบิก <strong>{formatMoneyDisplay(unclaimed.toFixed(2))} บาท</strong> กดขอเบิกเพื่อส่งให้อนุมัติและโอนเงินคืน
+          </p>
+          <button type="button" onClick={claim} disabled={pending} className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+            {pending ? 'กำลังส่ง...' : 'ขอเบิกค่าใช้จ่าย'}
+          </button>
+        </div>
+      )}
+      {claimed && (
+        <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+          ส่งใบเบิก {claimed} แล้ว ติดตามสถานะได้ที่{' '}
+          <a href="/advances" className="font-semibold underline">
+            เงินทดรองจ่าย
+          </a>
+        </p>
       )}
 
       {canAdd && (

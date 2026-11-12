@@ -152,6 +152,7 @@ export default async function VehicleTripPage({ params }: { params: Promise<{ id
         <ExpensesPanel
           tripId={trip.id}
           canAdd={canAddExpense}
+          canClaim={trip.canClaim}
           expenses={trip.expenses.map((e) => ({ ...e, canRemove: e.createdBy === actor.id || can(actor, 'vehicle.approve') }))}
         />
       )}

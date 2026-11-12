@@ -337,6 +337,13 @@
       "when": 1794389884366,
       "tag": "0047_vehicle_trips",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794451866018,
+      "tag": "0048_vehicle_expense_claims",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { boolean, date, doublePrecision, index, integer, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { type PositionSource, type TripExpenseKind, type TripStatus } from '@/domain/vehicle';
+import { advances } from './advances';
 import { assets } from './assets';
 import { users } from './core';
 import { projects } from './master';
@@ -100,10 +101,12 @@ export const vehicleTripExpenses = pgTable(
     liters: numeric('liters', { precision: 8, scale: 2 }),
     paidOn: date('paid_on').notNull(),
     note: text('note').default('').notNull(),
+    /** The reimbursement claim (a เงินทดรองจ่าย request) it was put on; free again if that claim is refused or cancelled */
+    claimId: uuid('claim_id').references(() => advances.id),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('vehicle_trip_expenses_trip_idx').on(t.tripId)],
+  (t) => [index('vehicle_trip_expenses_trip_idx').on(t.tripId), index('vehicle_trip_expenses_claim_idx').on(t.claimId)],
 );

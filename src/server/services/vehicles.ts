@@ -3,6 +3,8 @@ import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
+  advanceExpenses,
+  advances,
   assets,
   attachments,
   projects,
@@ -13,10 +15,12 @@ import {
   vehicleTrips,
   type SessionUser,
 } from '@/db/schema';
+import { ADVANCE_STATUS_LABELS, type AdvanceStatus } from '@/domain/advance';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
 import { bangkokDateString } from '@/domain/thai';
 import {
+  EXPENSE_KIND_LABEL,
   EXPENSE_KINDS,
   FUEL_LEVELS,
   HOLDING_STATUSES,
@@ -440,9 +444,88 @@ export async function removeTripExpense(db: Db, actor: SessionUser, expenseId: s
     const [e] = await tx.select().from(vehicleTripExpenses).where(eq(vehicleTripExpenses.id, expenseId)).limit(1);
     if (!e) throw new DomainError('NOT_FOUND', 'ไม่พบค่าใช้จ่าย', 404);
     if (e.createdBy !== actor.id && !can(actor, 'vehicle.approve')) throw new DomainError('FORBIDDEN', 'ลบได้เฉพาะรายการที่ตนเองบันทึก', 403);
+    const claim = e.claimId ? await liveClaim(tx, e.claimId) : null;
+    if (claim) throw new DomainError('EXPENSE_CLAIMED', `รายการนี้อยู่ในใบเบิก ${claim.number} แล้ว ต้องยกเลิกใบเบิกก่อนจึงจะลบได้`, 409);
     await tx.delete(attachments).where(and(eq(attachments.entityType, 'VEHICLE_EXPENSE'), eq(attachments.entityId, expenseId)));
     await tx.delete(vehicleTripExpenses).where(eq(vehicleTripExpenses.id, expenseId));
     await logActivity(tx, { entityType: 'VEHICLE_TRIP', entityId: e.tripId, action: 'expense.remove', userId: actor.id });
+  });
+}
+
+// ---------------------------------------------------------------- reimbursement
+
+/** A claim that was refused or cancelled gives its expenses back, to be claimed again */
+const DEAD_CLAIM: AdvanceStatus[] = ['REJECTED', 'CANCELLED'];
+
+async function liveClaim(tx: Db, claimId: string) {
+  const [c] = await tx.select({ number: advances.number, status: advances.status }).from(advances).where(eq(advances.id, claimId)).limit(1);
+  return c && !DEAD_CLAIM.includes(c.status) ? c : null;
+}
+
+/**
+ * ขอเบิกค่าใช้จ่ายรถ: the person who paid on the road claims it back once the vehicle is returned.
+ * The claim is an ordinary เงินทดรองจ่าย request, so it goes through the same approval and payment,
+ * with the expenses already on it: once finance pays, it is settled. Each expense is claimed once.
+ */
+export async function claimTripExpenses(db: Db, actor: SessionUser, tripId: string): Promise<{ advanceId: string; number: string; amount: number }> {
+  assertCan(actor, 'advance.request');
+  return db.transaction(async (tx) => {
+    const t = await lockTrip(tx, tripId);
+    if (!isInvolved(actor, t)) throw new DomainError('FORBIDDEN', 'ผู้ขับหรือผู้ขอใช้รถเท่านั้นที่ขอเบิกค่าใช้จ่ายได้', 403);
+    if (t.status !== 'RETURNED') throw new DomainError('INVALID_STATE', 'ขอเบิกได้หลังคืนรถแล้ว', 409);
+    const rows = await tx
+      .select({ e: vehicleTripExpenses, claimStatus: advances.status })
+      .from(vehicleTripExpenses)
+      .leftJoin(advances, eq(advances.id, vehicleTripExpenses.claimId))
+      .where(eq(vehicleTripExpenses.tripId, tripId))
+      .orderBy(asc(vehicleTripExpenses.paidOn), asc(vehicleTripExpenses.createdAt));
+    const open = rows.filter((r) => !r.e.claimId || (r.claimStatus !== null && DEAD_CLAIM.includes(r.claimStatus))).map((r) => r.e);
+    if (open.length === 0) throw new DomainError('NOTHING_TO_CLAIM', 'ไม่มีค่าใช้จ่ายที่ยังไม่ได้ขอเบิก');
+    const amount = open.reduce((sum, e) => sum.plus(D(e.amount)), D(0));
+
+    const [v] = await tx
+      .select({ code: assets.code, plateNo: vehicleProfiles.plateNo, serialNo: assets.serialNo })
+      .from(assets)
+      .leftJoin(vehicleProfiles, eq(vehicleProfiles.assetId, assets.id))
+      .where(eq(assets.id, t.assetId))
+      .limit(1);
+    const plate = v?.plateNo || v?.serialNo || v?.code || '';
+    const receipts = await tx
+      .select({ entityId: attachments.entityId })
+      .from(attachments)
+      .where(and(eq(attachments.entityType, 'VEHICLE_EXPENSE'), inArray(attachments.entityId, open.map((e) => e.id))));
+    const withReceipt = new Set(receipts.map((r) => r.entityId));
+
+    const number = await nextDocNumber(tx, 'ADV');
+    const [claim] = await tx
+      .insert(advances)
+      .values({
+        number,
+        payeeId: actor.id,
+        projectId: t.projectId,
+        requestDate: bangkokDateString(),
+        purpose: `เบิกค่าใช้จ่ายรถ ${t.number} ${plate} · ${t.purpose}`.slice(0, 1000),
+        amount: amount.toFixed(2),
+        createdBy: actor.id,
+      })
+      .returning();
+    await tx.insert(advanceExpenses).values(
+      open.map((e) => ({
+        advanceId: claim!.id,
+        spentOn: e.paidOn,
+        description: `${EXPENSE_KIND_LABEL[e.kind]}${e.liters ? ` ${Number(e.liters)} ลิตร` : ''}${e.note ? ` · ${e.note}` : ''}`.slice(0, 500),
+        amount: D(e.amount).toFixed(2),
+        evidence: withReceipt.has(e.id) ? ('RECEIPT' as const) : ('NONE' as const),
+        reference: t.number,
+        createdBy: actor.id,
+      })),
+    );
+    await tx.update(vehicleTripExpenses).set({ claimId: claim!.id }).where(inArray(vehicleTripExpenses.id, open.map((e) => e.id)));
+    await logActivity(tx, { entityType: 'ADVANCE', entityId: claim!.id, action: 'REQUEST', userId: actor.id, note: `จาก ${t.number}` });
+    await logActivity(tx, { entityType: 'VEHICLE_TRIP', entityId: tripId, action: 'claim', userId: actor.id, note: number });
+    const approvers = (await usersWithRole(tx, ['GENERAL_MANAGER', 'OWNER', 'ADMIN'])).filter((id) => id !== actor.id);
+    await notify(tx, approvers, { title: `${number} ขอเบิกค่าใช้จ่ายรถ ${amount.toFixed(2)} บาท (${t.number})`, href: '/advances', category: 'FINANCE' });
+    return { advanceId: claim!.id, number, amount: amount.toNumber() };
   });
 }
 
@@ -555,21 +638,26 @@ export async function getTrip(db: Db, actor: SessionUser, id: string) {
       .from(attachments)
       .where(and(eq(attachments.entityType, 'VEHICLE_TRIP'), eq(attachments.entityId, id)))
       .orderBy(asc(attachments.createdAt)),
-    db.select().from(vehicleTripExpenses).where(eq(vehicleTripExpenses.tripId, id)).orderBy(asc(vehicleTripExpenses.paidOn), asc(vehicleTripExpenses.createdAt)),
+    db
+      .select({ e: vehicleTripExpenses, claimNumber: advances.number, claimStatus: advances.status })
+      .from(vehicleTripExpenses)
+      .leftJoin(advances, eq(advances.id, vehicleTripExpenses.claimId))
+      .where(eq(vehicleTripExpenses.tripId, id))
+      .orderBy(asc(vehicleTripExpenses.paidOn), asc(vehicleTripExpenses.createdAt)),
     tripRoute(db, id).then((pts) => routeKm(pts)),
   ]);
   const receipts = expenses.length
     ? await db
         .select({ entityId: attachments.entityId, url: attachments.url })
         .from(attachments)
-        .where(and(eq(attachments.entityType, 'VEHICLE_EXPENSE'), inArray(attachments.entityId, expenses.map((e) => e.id))))
+        .where(and(eq(attachments.entityType, 'VEHICLE_EXPENSE'), inArray(attachments.entityId, expenses.map(({ e }) => e.id))))
     : [];
   const receiptBy = new Map(receipts.map((x) => [x.entityId, x.url]));
   return {
     ...shapeTrip(r),
     gpsKm,
     photos: photos.map((p): TripPhoto => ({ id: p.id, url: p.url, stage: p.folder === 'END' ? 'END' : 'START' })),
-    expenses: expenses.map((e) => ({
+    expenses: expenses.map(({ e, claimNumber, claimStatus }) => ({
       id: e.id,
       kind: e.kind as TripExpenseKind,
       amount: Number(e.amount),
@@ -578,11 +666,14 @@ export async function getTrip(db: Db, actor: SessionUser, id: string) {
       note: e.note,
       createdBy: e.createdBy,
       receiptUrl: receiptBy.get(e.id) ?? null,
+      /** The claim it is on, unless that claim was refused or cancelled */
+      claim: claimNumber && claimStatus && !DEAD_CLAIM.includes(claimStatus) ? { number: claimNumber, status: claimStatus, label: ADVANCE_STATUS_LABELS[claimStatus] } : null,
     })),
     canApprove: r.status === 'REQUESTED' && can(actor, 'vehicle.approve') && (r.requestedBy !== actor.id || actor.roles.includes('OWNER')),
     isDriver: r.driverId === actor.id,
     canHandle: r.driverId === actor.id || can(actor, 'vehicle.approve'),
     canCancel: (r.status === 'REQUESTED' || r.status === 'APPROVED') && (isInvolved(actor, r) || can(actor, 'vehicle.approve')),
+    canClaim: r.status === 'RETURNED' && isInvolved(actor, r),
   };
 }
 export type TripDetail = Awaited<ReturnType<typeof getTrip>>;

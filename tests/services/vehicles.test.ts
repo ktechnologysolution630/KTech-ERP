@@ -3,13 +3,15 @@ import { eq } from 'drizzle-orm';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics, type SeededBasics } from '../helpers/fixtures';
 import type { Db } from '@/db/client';
-import { notifications, vehiclePositions } from '@/db/schema';
+import { advanceExpenses, advances, notifications, vehiclePositions } from '@/db/schema';
+import { decideAdvance, payAdvance } from '@/server/services/advances';
 import { distanceKm, isOverdue, liveState, overlaps, routeKm, serviceDue, SIGNAL_LOST_AFTER_MS } from '@/domain/vehicle';
 import { createAsset } from '@/server/services/assets';
 import { assertEntityAccess } from '@/server/services/entity-access';
 import {
   addTripExpense,
   cancelTrip,
+  claimTripExpenses,
   decideTrip,
   getFleetLive,
   getTrip,
@@ -231,5 +233,51 @@ describe('using a company vehicle', () => {
     await expect(startTrip(db, f.users.foreman, trip.id, { odometerKm: 1, fuel: 100, photos: [photo()] })).rejects.toMatchObject({ status: 403 });
     await startTrip(db, f.users.otherForeman, trip.id, { odometerKm: 1, fuel: 100, photos: [photo()] });
     expect(await db.select().from(vehiclePositions)).toEqual([]);
+  });
+
+  test('trip costs are claimed back once, through the advance approval and payment', async () => {
+    const { db, f, pickup } = await setup();
+    const trip = await ask(db, f, pickup, 1, 4);
+    await decideTrip(db, f.users.admin, trip.id, true);
+    await startTrip(db, f.users.foreman, trip.id, { odometerKm: 100, fuel: 100, photos: [photo()] });
+    await addTripExpense(db, f.users.foreman, trip.id, { kind: 'FUEL', amount: 1200, liters: 35, note: 'ปตท.', receipt: photo() });
+    const toll = await addTripExpense(db, f.users.foreman, trip.id, { kind: 'TOLL', amount: 60 });
+
+    // Only after the vehicle is back, and only by the people on the trip
+    await expect(claimTripExpenses(db, f.users.foreman, trip.id)).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    await returnTrip(db, f.users.foreman, trip.id, { odometerKm: 180, fuel: 75, photos: [photo()] });
+    await expect(claimTripExpenses(db, f.users.pm, trip.id)).rejects.toMatchObject({ status: 403 });
+
+    const claim = await claimTripExpenses(db, f.users.foreman, trip.id);
+    expect(claim.number).toMatch(/^ADV-\d{4}-\d{4}$/);
+    expect(claim.amount).toBe(1260);
+    const [adv] = await db.select().from(advances).where(eq(advances.id, claim.advanceId));
+    expect(adv).toMatchObject({ payeeId: f.users.foreman.id, projectId: f.projectA, amount: '1260.00', status: 'PENDING' });
+    expect(adv!.purpose).toContain(trip.number);
+    const lines = await db.select().from(advanceExpenses).where(eq(advanceExpenses.advanceId, claim.advanceId));
+    expect(lines.map((l) => [l.amount, l.evidence, l.reference]).sort()).toEqual([['1200.00', 'RECEIPT', trip.number], ['60.00', 'NONE', trip.number]]);
+    expect((await db.select().from(notifications).where(eq(notifications.title, `${claim.number} ขอเบิกค่าใช้จ่ายรถ 1260.00 บาท (${trip.number})`))).length).toBeGreaterThan(0);
+
+    // Claimed once: nothing left to claim, and a claimed cost cannot be deleted from under it
+    await expect(claimTripExpenses(db, f.users.foreman, trip.id)).rejects.toMatchObject({ code: 'NOTHING_TO_CLAIM' });
+    await expect(removeTripExpense(db, f.users.foreman, toll.id)).rejects.toMatchObject({ code: 'EXPENSE_CLAIMED' });
+    expect((await getTrip(db, f.users.foreman, trip.id)).expenses.every((e) => e.claim?.number === claim.number)).toBe(true);
+
+    // Refused: the costs are free again and can be claimed anew
+    await decideAdvance(db, f.users.owner, claim.advanceId, false, 'ใบเสร็จไม่ชัด');
+    expect((await getTrip(db, f.users.foreman, trip.id)).expenses.every((e) => e.claim === null)).toBe(true);
+    const again = await claimTripExpenses(db, f.users.foreman, trip.id);
+    expect(again.amount).toBe(1260);
+
+    // Approved and paid: settled at once, since the money was already spent
+    await decideAdvance(db, f.users.owner, again.advanceId, true, '');
+    await payAdvance(db, f.users.finance, again.advanceId);
+    const [paid] = await db.select().from(advances).where(eq(advances.id, again.advanceId));
+    expect(paid!.status).toBe('CLEARED');
+    expect((await getTrip(db, f.users.foreman, trip.id)).expenses[0]!.claim).toMatchObject({ number: again.number, label: 'เคลียร์ครบ' });
+
+    // A cost added afterwards is claimed on its own
+    await addTripExpense(db, f.users.foreman, trip.id, { kind: 'PARKING', amount: 40 });
+    expect((await claimTripExpenses(db, f.users.foreman, trip.id)).amount).toBe(40);
   });
 });

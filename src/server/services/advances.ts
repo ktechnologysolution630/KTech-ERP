@@ -113,7 +113,13 @@ export async function payAdvance(db: Db, actor: SessionUser, id: string, paidOn?
     if (a.status !== 'APPROVED') throw new DomainError('INVALID_STATE', 'จ่ายได้เฉพาะใบที่อนุมัติแล้ว', 409);
     await tx.update(advances).set({ status: 'PAID', paidAt: date, paidBy: actor.id, updatedAt: new Date() }).where(eq(advances.id, id));
     await logActivity(tx, { entityType: 'ADVANCE', entityId: id, action: 'PAY', userId: actor.id });
-    await notify(tx, [a.payeeId], { title: `${a.number} จ่ายเงินแล้ว กรุณาเคลียร์เมื่อใช้จ่ายเสร็จ`, href: '/advances', category: 'FINANCE' });
+    // A claim for money already spent (vehicle trip costs) arrives with its expenses and is settled once paid
+    const { status } = await refreshAdvanceStatus(tx, { ...a, status: 'PAID' });
+    await notify(tx, [a.payeeId], {
+      title: status === 'CLEARED' ? `${a.number} โอนเงินคืนแล้ว` : `${a.number} จ่ายเงินแล้ว กรุณาเคลียร์เมื่อใช้จ่ายเสร็จ`,
+      href: '/advances',
+      category: 'FINANCE',
+    });
   });
 }
 

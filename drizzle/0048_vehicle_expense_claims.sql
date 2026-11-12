@@ -1,0 +1,3 @@
+ALTER TABLE "vehicle_trip_expenses" ADD COLUMN "claim_id" uuid;--> statement-breakpoint
+ALTER TABLE "vehicle_trip_expenses" ADD CONSTRAINT "vehicle_trip_expenses_claim_id_advances_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."advances"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "vehicle_trip_expenses_claim_idx" ON "vehicle_trip_expenses" USING btree ("claim_id");
