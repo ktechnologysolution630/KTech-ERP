@@ -23,6 +23,7 @@ import {
   isOverdue,
   liveState,
   MAX_ACCURACY_M,
+  MAX_ODOMETER_KM,
   MAX_POINTS_PER_SEND,
   overlaps,
   routeKm,
@@ -260,7 +261,7 @@ export async function cancelTrip(db: Db, actor: SessionUser, id: string): Promis
 
 const fuelSchema = z.number().refine((v) => FUEL_LEVELS.some((f) => f.value === v), 'กรุณาเลือกระดับน้ำมัน');
 const handoverSchema = z.object({
-  odometerKm: z.number({ invalid_type_error: 'กรุณากรอกเลขไมล์' }).finite().min(0, 'เลขไมล์ต้องไม่ติดลบ').max(9_999_999, 'เลขไมล์ไม่ถูกต้อง'),
+  odometerKm: z.number({ invalid_type_error: 'กรุณากรอกเลขไมล์' }).finite().min(0, 'เลขไมล์ต้องไม่ติดลบ').max(MAX_ODOMETER_KM, `เลขไมล์ต้องไม่เกิน ${MAX_ODOMETER_KM.toLocaleString('th-TH')} กม. กรุณาตรวจตัวเลขอีกครั้ง`),
   fuel: fuelSchema,
   note: z.string().trim().max(1000).default(''),
   damage: z.string().trim().max(1000).default(''),

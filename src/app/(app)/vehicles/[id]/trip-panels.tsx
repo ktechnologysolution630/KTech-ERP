@@ -7,12 +7,17 @@ import { formatMoneyDisplay } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import { EXPENSE_KIND_LABEL, EXPENSE_KINDS, FUEL_LEVELS, type LiveState, type TripExpenseKind } from '@/domain/vehicle';
 import { shrinkPhoto } from '@/lib/shrink-photo';
+import { withRetry } from '@/lib/retry-action';
+import { MAX_ODOMETER_KM } from '@/domain/vehicle';
 import { addTripExpenseAction, cancelTripAction, decideTripAction, loadTripRouteAction, removeTripExpenseAction, returnTripAction, startTripAction } from '../actions';
 import { VehicleMap } from '../vehicle-map';
 
 const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#2453d4] focus:outline-none focus:ring-2 focus:ring-blue-100';
 const labelCls = 'mb-1 block text-xs font-semibold text-slate-700';
 const MAX_PHOTOS = 6;
+/** Shown when the server did not answer even after trying again */
+const NO_ANSWER = 'ส่งข้อมูลไม่สำเร็จ เซิร์ฟเวอร์ไม่ตอบกลับ กรุณารอสักครู่แล้วกดอีกครั้ง';
+const RETRYING = 'กำลังเชื่อมต่อเซิร์ฟเวอร์อีกครั้ง...';
 
 function ErrorText({ error }: { error: string | null }) {
   return error ? (
@@ -34,11 +39,12 @@ export function DecisionPanel({ tripId }: { tripId: string }) {
     if (!approve && !note.trim()) return setError('กรุณาระบุเหตุผลที่ไม่อนุมัติ');
     startTransition(async () => {
       try {
-        const r = await decideTripAction(tripId, approve, note);
+        const r = await withRetry(() => decideTripAction(tripId, approve, note), { onRetry: () => setError(RETRYING) });
+        setError(null);
         if (!r.ok) return setError(r.error);
         router.refresh();
       } catch {
-        setError('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+        setError(NO_ANSWER);
       }
     });
   };
@@ -126,6 +132,7 @@ export function HandoverForm({ tripId, stage, minOdometer }: { tripId: string; s
     setError(null);
     const km = Number(odometer);
     if (odometer.trim() === '' || !Number.isFinite(km) || km < 0) return setError('กรุณากรอกเลขไมล์');
+    if (km > MAX_ODOMETER_KM) return setError(`เลขไมล์ต้องไม่เกิน ${MAX_ODOMETER_KM.toLocaleString('th-TH')} กม. กรุณาตรวจตัวเลขอีกครั้ง`);
     if (minOdometer !== null && km < minOdometer) return setError(`เลขไมล์ต้องไม่น้อยกว่า ${minOdometer.toLocaleString('th-TH')} กม.`);
     if (!fuel) return setError('กรุณาเลือกระดับน้ำมัน');
     if (photos.length === 0) return setError('กรุณาถ่ายรูปสภาพรถอย่างน้อย 1 รูป');
@@ -137,11 +144,13 @@ export function HandoverForm({ tripId, stage, minOdometer }: { tripId: string; s
     for (const p of photos) form.append('photos', p);
     startTransition(async () => {
       try {
-        const r = stage === 'START' ? await startTripAction(tripId, form) : await returnTripAction(tripId, form);
-        if (!r.ok) return setError(r.error);
+        const r = await withRetry(() => (stage === 'START' ? startTripAction(tripId, form) : returnTripAction(tripId, form)), { onRetry: () => setError(RETRYING) });
+        setError(null);
+        // A first try that went through makes the second one find the trip already moved on
+        if (!r.ok && !/สถานะ|ระหว่างใช้งาน/.test(r.error)) return setError(r.error);
         router.refresh();
       } catch {
-        setError('บันทึกไม่สำเร็จ กรุณาตรวจสอบสัญญาณอินเทอร์เน็ตแล้วลองใหม่');
+        setError(NO_ANSWER);
       }
     });
   };
@@ -270,7 +279,7 @@ export function ExpensesPanel({ tripId, expenses, canAdd }: { tripId: string; ex
         setReceipt(null);
         router.refresh();
       } catch {
-        setError('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+        setError('ไม่ได้รับคำตอบจากเซิร์ฟเวอร์ กรุณาโหลดหน้าใหม่ดูว่ารายการถูกบันทึกแล้วหรือไม่ ก่อนกดเพิ่มอีกครั้ง');
       }
     });
   };

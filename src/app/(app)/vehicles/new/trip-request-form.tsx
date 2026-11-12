@@ -69,7 +69,7 @@ export function TripRequestForm({
         if (!r.ok) return setError(r.error);
         router.push(`/vehicles/${r.value}`);
       } catch {
-        setError('ส่งคำขอไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        setError('ไม่ได้รับคำตอบจากเซิร์ฟเวอร์ กรุณารอสักครู่แล้วกดส่งอีกครั้ง (ถ้าคำขอถูกบันทึกไปแล้ว ระบบจะแจ้งว่ารถถูกจองช่วงนี้)');
       }
     });
   };

@@ -143,3 +143,6 @@ export function fromBangkokLocalInput(v: string): Date | null {
   const d = new Date(`${v}:00+07:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+/** No vehicle reads more than this; a bigger number is a typing slip */
+export const MAX_ODOMETER_KM = 9_999_999;
