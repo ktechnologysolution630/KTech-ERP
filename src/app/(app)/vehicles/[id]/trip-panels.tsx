@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, Check, Trash2, X } from 'lucide-react';
 import { formatMoneyDisplay } from '@/domain/money';
@@ -346,9 +347,9 @@ export function ExpensesPanel({ tripId, expenses, canAdd, canClaim }: { tripId: 
               </div>
               <div className="flex items-center gap-2">
                 {e.claim ? (
-                  <a href="/advances" className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 hover:underline" title="เปิดเมนูเงินทดรองจ่าย">
+                  <Link href="/advances" className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 hover:underline" title="เปิดเมนูเงินทดรองจ่าย">
                     เบิกแล้ว {e.claim.number} · {e.claim.label}
-                  </a>
+                  </Link>
                 ) : (
                   canClaim && <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">ยังไม่เบิก</span>
                 )}
@@ -377,9 +378,9 @@ export function ExpensesPanel({ tripId, expenses, canAdd, canClaim }: { tripId: 
       {claimed && (
         <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
           ส่งใบเบิก {claimed} แล้ว ติดตามสถานะได้ที่{' '}
-          <a href="/advances" className="font-semibold underline">
+          <Link href="/advances" className="font-semibold underline">
             เงินทดรองจ่าย
-          </a>
+          </Link>
         </p>
       )}
 

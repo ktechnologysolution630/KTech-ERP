@@ -88,14 +88,12 @@ export function VehicleMap({ markers, route, selectedId, onSelect, className = '
       layers.current = null;
       fitted.current = false;
     };
-     
   }, []);
 
   // New data replaces the pins and the route; the map itself stays
   useEffect(() => {
     latest.current = { markers, route, selectedId, onSelect };
     draw();
-     
   }, [markers, route, selectedId, onSelect]);
 
   return <div ref={box} role="application" aria-label="แผนที่ตำแหน่งรถ" className={`z-0 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${className}`} />;

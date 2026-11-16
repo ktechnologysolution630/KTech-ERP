@@ -32,6 +32,8 @@ const eslintConfig = defineConfig([
     '.uploads/**',
     '.superpowers/**',
     'public/ocr/**',
+    // Claude Code worktrees are whole checkouts with their own .next builds
+    '.claude/**',
   ]),
 ]);
 
