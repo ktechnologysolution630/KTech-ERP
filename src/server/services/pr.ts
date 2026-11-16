@@ -4,8 +4,10 @@ import { type Db } from '@/db/client';
 import {
   boqLines,
   prLines,
+  projectMembers,
   projects,
   prs,
+  userRoles,
   users,
   vendors,
   type PrStatus,
@@ -191,6 +193,23 @@ const createPrSchema = headerSchema.extend({
   note: z.string().optional(),
   lines: z.array(lineInputSchema).min(1, 'ต้องมีรายการสินค้าอย่างน้อย 1 รายการ'),
 });
+
+/**
+ * Projects (of those given, or all) with at least one active PM among their members. Their PRs wait
+ * for the PM; the owner stands in only on projects without one.
+ */
+export async function projectIdsWithPm(db: Db, projectIds?: string[]): Promise<Set<string>> {
+  if (projectIds && projectIds.length === 0) return new Set();
+  const rows = await db
+    .selectDistinct({ projectId: projectMembers.projectId })
+    .from(projectMembers)
+    .innerJoin(userRoles, and(eq(userRoles.userId, projectMembers.userId), eq(userRoles.role, 'PM')))
+    .innerJoin(users, and(eq(users.id, projectMembers.userId), eq(users.active, true)))
+    .where(projectIds ? inArray(projectMembers.projectId, projectIds) : undefined);
+  return new Set(rows.map((r) => r.projectId));
+}
+
+const hasPm = async (db: Db, projectId: string) => (await projectIdsWithPm(db, [projectId])).has(projectId);
 
 // Hook replaced in Task 7 when po_lines exists; kept modular so Task 6 runs standalone
 let orderedQtyResolver: (
@@ -399,9 +418,11 @@ export async function submitPr(db: Db, actor: SessionUser, id: string): Promise<
       userId: actor.id,
     });
 
+    // The project's PM decides; without one, the owner decides in the PM's place
     const pms = await usersWithRole(tx, ['PM'], pr.projectId);
-    await notify(tx, pms, {
-      title: `มีใบขอซื้อรออนุมัติ ${pr.number}`,
+    const approvers = pms.length > 0 ? pms : await usersWithRole(tx, ['OWNER']);
+    await notify(tx, approvers, {
+      title: `มีใบขอซื้อรออนุมัติ ${pr.number}${pms.length > 0 ? '' : ' (โครงการไม่มี PM)'}`,
       href: `/pr/${pr.id}`,
       category: 'PR',
       projectId: pr.projectId,
@@ -438,7 +459,7 @@ export async function approvePr(db: Db, actor: SessionUser, id: string): Promise
       return;
     }
 
-    assertCan(actor, 'pr.approve', { projectId: pr.projectId });
+    assertCan(actor, 'pr.approve', { projectId: pr.projectId, projectHasPm: await hasPm(tx, pr.projectId) });
     if (pr.status !== 'SUBMITTED') {
       throw new DomainError('INVALID_STATE', 'อนุมัติได้เฉพาะใบขอซื้อที่ส่งขออนุมัติแล้ว', 409);
     }
@@ -507,7 +528,7 @@ export async function rejectPr(
     if (atOwner) {
       assertCan(actor, 'pr.approveOverBoq', { projectId: pr.projectId });
     } else {
-      assertCan(actor, 'pr.approve', { projectId: pr.projectId });
+      assertCan(actor, 'pr.approve', { projectId: pr.projectId, projectHasPm: await hasPm(tx, pr.projectId) });
       if (pr.status !== 'SUBMITTED') {
         throw new DomainError('INVALID_STATE', 'ตีกลับได้เฉพาะใบขอซื้อที่รออนุมัติ', 409);
       }

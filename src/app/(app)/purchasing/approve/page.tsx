@@ -2,7 +2,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listBoqOverrunRequests } from '@/server/services/boq-overrun';
-import { listPrs } from '@/server/services/pr';
+import { listPrs, projectIdsWithPm } from '@/server/services/pr';
 import { listPos } from '@/server/services/po';
 import { ApproveClient } from './approve-client';
 
@@ -17,7 +17,13 @@ export default async function PurchasingApprovePage() {
     listBoqOverrunRequests(db, actor),
   ]);
 
-  const pendingPrs = [...overBoqPrs, ...submittedPrs].map((p) => ({
+  // The owner sees a submitted PR only on a project without a PM; until then it is the PM's
+  const withPm = await projectIdsWithPm(db, [...new Set(submittedPrs.map((p) => p.projectId))]);
+  const visibleSubmitted = submittedPrs.filter(
+    (p) => !actor.roles.includes('OWNER') || can(actor, 'pr.approve', { projectId: p.projectId, projectHasPm: withPm.has(p.projectId) }),
+  );
+
+  const pendingPrs = [...overBoqPrs, ...visibleSubmitted].map((p) => ({
     id: p.id,
     docNumber: p.number,
     type: 'PR' as const,

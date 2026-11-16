@@ -26,16 +26,17 @@ describe('approval centre', () => {
   test('lists a document only for those who may decide it', async () => {
     const { db, f, pr } = await seedPr();
     expect(await numbers(db, f.users.pm)).toEqual([pr.number]);
-    expect(await numbers(db, f.users.owner)).toEqual([pr.number]);
-    for (const other of [f.users.foreman, f.users.buyer, f.users.finance]) expect(await numbers(db, other)).toEqual([]);
+    // The project has a PM, so the owner only sees the PR once the PM passes it on
+    for (const other of [f.users.owner, f.users.foreman, f.users.buyer, f.users.finance]) expect(await numbers(db, other)).toEqual([]);
 
     const [row] = await listPendingApprovals(db, f.users.pm);
     expect(row).toMatchObject({ type: 'PR', id: pr.id, projectId: f.projectA, projectName: 'โครงการก่อสร้างคลังสินค้า A', requesterName: 'สมชาย หน้างาน', href: `/pr/${pr.id}` });
   });
 
-  test('a PM does not see another project', async () => {
-    const { db, f } = await seedPr('projectB');
+  test('a PM does not see another project; on a project without a PM the owner decides', async () => {
+    const { db, f, pr } = await seedPr('projectB');
     expect(await numbers(db, f.users.pm)).toEqual([]);
+    expect(await numbers(db, f.users.owner)).toEqual([pr.number]);
   });
 
   test('approving goes through the document workflow and leaves the list; a second decision is refused', async () => {

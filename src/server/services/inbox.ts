@@ -15,7 +15,7 @@ import { computeDocTotals, D, type Decimal } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import { can } from '@/server/policy';
 import { type SerializedPoRevisionPayload } from './po';
-import { orderedQtyByPrLine } from './pr';
+import { orderedQtyByPrLine, projectIdsWithPm } from './pr';
 import { listReceivablePos } from './receipt';
 import { getSettings } from './settings';
 
@@ -81,9 +81,10 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
     .where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']))
     .orderBy(desc(prs.createdAt));
 
-  // The PM decides submitted PRs; PRs over the BOQ then wait on the owner
+  // The PM decides submitted PRs (the owner only on a project without a PM); PRs over the BOQ then wait on the owner
+  const withPm = await projectIdsWithPm(db, [...new Set(pendingPrs.map((p) => p.projectId))]);
   const prToApprove = pendingPrs.filter((pr) =>
-    can(actor, pr.status === 'OWNER_REVIEW' ? 'pr.approveOverBoq' : 'pr.approve', { projectId: pr.projectId }),
+    can(actor, pr.status === 'OWNER_REVIEW' ? 'pr.approveOverBoq' : 'pr.approve', { projectId: pr.projectId, projectHasPm: withPm.has(pr.projectId) }),
   );
   if (prToApprove.length > 0) {
     groups.push({
