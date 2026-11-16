@@ -24,6 +24,10 @@ import { duplicatesOfOutstanding, formatQty, type OutstandingPrLine } from '@/do
 import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures, type PrLineKind, type PrType } from '@/domain/pr-type';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { classifyItem, groupOfItemCode, groupsOfCategory } from '@/domain/item-groups';
+import type { BoqQtyOption } from '@/server/services/pr-boq';
+
+/** Value of the BOQ picker for a goods line that is not in the BOQ */
+const OUTSIDE_BOQ = 'OUTSIDE';
 
 export interface PrItemOption {
   id: string;
@@ -45,6 +49,8 @@ interface LineState {
   category: string;
   /** Item group under the category; goods only */
   group: string;
+  /** BOQ line the goods line draws on, OUTSIDE_BOQ, or '' while not chosen */
+  boq: string;
   qty: string;
   estUnitPrice: string;
   discount: string;
@@ -61,6 +67,7 @@ const emptyLine = (kind: PrLineKind): LineState => ({
   unitName: kind === 'LABOR' ? 'งาน' : 'ชิ้น',
   category: '',
   group: '',
+  boq: '',
   qty: '1',
   estUnitPrice: '',
   discount: '',
@@ -98,6 +105,8 @@ export interface PrFormExisting {
     unitName: string;
     category: string | null;
     itemGroup: string | null;
+    boqLineId?: string | null;
+    outsideBoq?: boolean;
     qty: string;
     estUnitPrice: string | null;
     discount: string;
@@ -124,6 +133,7 @@ export function PrForm({
   today,
   existing,
   outstanding = [],
+  boqOptions = [],
 }: {
   /** Form for a new PR; an existing PR keeps its own */
   prType?: PrType;
@@ -136,6 +146,8 @@ export function PrForm({
   existing?: PrFormExisting;
   /** Lines of open PRs not received in full; a line asking for the same thing again is pointed out */
   outstanding?: OutstandingPrLine[];
+  /** BOQ material lines goods can be asked against, with what approved PRs already ask for */
+  boqOptions?: BoqQtyOption[];
 }) {
   const router = useRouter();
   const prType = existing?.prType ?? prTypeProp;
@@ -171,6 +183,7 @@ export function PrForm({
       unitName: l.unitName,
       category: l.category ?? '',
       group: l.itemGroup ?? '',
+      boq: l.boqLineId ?? (l.outsideBoq ? OUTSIDE_BOQ : ''),
       qty: String(Number(l.qty)),
       estUnitPrice: l.estUnitPrice ? String(Number(l.estUnitPrice)) : '',
       discount: Number(l.discount) ? String(Number(l.discount)) : '',
@@ -219,6 +232,26 @@ export function PrForm({
     () => lines.map((l) => (l.kind === 'GOODS' ? duplicatesOfOutstanding(l, outstanding, { projectId, exceptPrId: existing?.id }) : [])),
     [lines, outstanding, projectId, existing?.id],
   );
+  // BOQ of the chosen project; once it has one, every goods line names its BOQ line or "นอก BOQ"
+  const projectBoq = useMemo(() => boqOptions.filter((o) => o.projectId === projectId), [boqOptions, projectId]);
+  const hasBoq = projectBoq.length > 0;
+  /** The line's BOQ choice while it belongs to the chosen project */
+  const boqOf = (l: LineState) => (hasBoq && (l.boq === OUTSIDE_BOQ || projectBoq.some((o) => o.id === l.boq)) ? l.boq : '');
+  /** Per BOQ line: what this PR asks for and how much of it is beyond the BOQ quantity */
+  const boqUse = useMemo(() => {
+    const use = new Map<string, { option: BoqQtyOption; thisPr: number; over: number }>();
+    for (const l of lines) {
+      const option = l.kind === 'GOODS' ? projectBoq.find((o) => o.id === l.boq) : undefined;
+      if (!option) continue;
+      const u = use.get(option.id) ?? { option, thisPr: 0, over: 0 };
+      u.thisPr += num(l.qty).toNumber();
+      use.set(option.id, u);
+    }
+    for (const u of use.values()) u.over = Math.min(u.thisPr, Math.max(0, u.option.requested + u.thisPr - u.option.qty));
+    return use;
+  }, [lines, projectBoq]);
+  const overBoq = [...boqUse.values()].filter((u) => u.over > 0);
+  const outsideCount = lines.filter((l) => l.kind === 'GOODS' && boqOf(l) === OUTSIDE_BOQ).length;
   const repeatedLines = repeats.filter((r) => r.length > 0).length;
   const repeatedPrs = [...new Map(repeats.flat().map((o) => [o.prId, o.prNumber])).entries()];
 
@@ -235,6 +268,12 @@ export function PrForm({
     const missing = lines.findIndex((l) => !l.category);
     if (missing >= 0) {
       setError(`กรุณาเลือกหมวดหมู่ของรายการ "${lines[missing]!.description}"`);
+      return;
+    }
+    // Drafts may wait; a PR sent for approval names the BOQ line of every goods line
+    const noBoq = submitNow && hasBoq ? lines.find((l) => l.kind === 'GOODS' && !boqOf(l)) : undefined;
+    if (noBoq) {
+      setError(`กรุณาเลือกรายการ BOQ ของ "${noBoq.description}" หรือเลือก "นอก BOQ"`);
       return;
     }
     const unpriced = lines.find((l) => l.kind === 'LABOR' && !num(l.estUnitPrice).gt(0));
@@ -267,6 +306,8 @@ export function PrForm({
         unitName: l.unitName,
         category: l.category || null,
         itemGroup: l.group || null,
+        boqLineId: l.kind === 'GOODS' && boqOf(l) && boqOf(l) !== OUTSIDE_BOQ ? boqOf(l) : null,
+        outsideBoq: l.kind === 'GOODS' && boqOf(l) === OUTSIDE_BOQ,
         qty: l.qty,
         estUnitPrice: priced ? l.estUnitPrice || null : null,
         discount: priced ? l.discount || '0' : '0',
@@ -304,6 +345,55 @@ export function PrForm({
     </td>
   );
 
+  /** BOQ picker of a goods line, with what the BOQ allows and whether this PR goes beyond it */
+  const boqCell = (line: LineState, idx: number, n: number) => {
+    if (!projectId) return <p className="px-1.5 py-1 text-xs text-slate-400">เลือกโครงการก่อน</p>;
+    if (!hasBoq) return <p className="px-1.5 py-1 text-xs text-slate-400">โครงการนี้ยังไม่มี BOQ</p>;
+    const chosen = boqOf(line);
+    const use = chosen && chosen !== OUTSIDE_BOQ ? boqUse.get(chosen) : undefined;
+    return (
+      <>
+        <select
+          value={chosen}
+          onChange={(e) => {
+            const value = e.target.value;
+            const option = projectBoq.find((o) => o.id === value);
+            setLine(idx, {
+              boq: value,
+              // Quantities are counted in the BOQ's unit
+              ...(option?.unit ? { unitName: option.unit } : {}),
+              ...(option && !line.description.trim() ? { description: option.description } : {}),
+            });
+          }}
+          aria-label={`รายการ BOQ ที่ ${n + 1}`}
+          aria-invalid={!chosen}
+          className={`${paperCell} text-xs ${chosen ? '' : 'border-amber-400'}`}
+        >
+          <option value="">-- เลือกรายการ BOQ --</option>
+          {projectBoq.map((o) => (
+            <option key={o.id} value={o.id}>
+              {[o.no, o.description].filter(Boolean).join(' ')}
+              {o.source !== 'BOQ หลัก' ? ` (${o.source})` : ''}
+            </option>
+          ))}
+          <option value={OUTSIDE_BOQ}>นอก BOQ</option>
+        </select>
+        {use && (
+          <p className="mt-1 px-1 text-[11px] text-slate-500">
+            BOQ {formatQty(use.option.qty)} {use.option.unit} · ขอแล้ว {formatQty(use.option.requested)} · เหลือ{' '}
+            {formatQty(Math.max(0, use.option.remaining))}
+          </p>
+        )}
+        {use && use.over > 0 && (
+          <p className="mt-0.5 px-1 text-[11px] font-semibold text-red-600">
+            เกิน BOQ {formatQty(use.over)} {use.option.unit}
+          </p>
+        )}
+        {chosen === OUTSIDE_BOQ && <p className="mt-1 px-1 text-[11px] font-semibold text-orange-600">ไม่มีใน BOQ</p>}
+      </>
+    );
+  };
+
   /** The line table of one kind; in the combined form there is one for goods and one for work */
   const table = (kind: PrLineKind) => {
     const rows = lines.map((line, idx) => ({ line, idx })).filter((r) => r.line.kind === kind);
@@ -315,7 +405,7 @@ export function PrForm({
             ส่วนที่ {work ? 2 : 1} · {LINE_KIND_LABEL[kind]}
           </p>
         )}
-        <table className={`w-full border-collapse text-sm ${priced ? 'min-w-[1020px]' : 'min-w-[920px]'}`}>
+        <table className={`w-full border-collapse text-sm ${work ? 'min-w-[1020px]' : priced ? 'min-w-[1260px]' : 'min-w-[1160px]'}`}>
           <thead className="bg-[#102d72] text-xs text-white">
             <tr>
               <th className={`w-12 ${th}`}>ลำดับ</th>
@@ -323,6 +413,8 @@ export function PrForm({
               <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>{work ? 'หมวดหมู่ *' : 'หมวด *'}</th>
               <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>กลุ่ม</th>
               <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
+              {/* Goods draw on the BOQ; hired work is paid through milestones */}
+              {!work && <th className={`w-60 ${th}`}>รายการ BOQ{hasBoq ? ' *' : ''}</th>}
               <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
               <th className={`w-20 ${th}`}>หน่วย</th>
               {perLineDate && <th className={`w-32 ${th}`}>กำหนดใช้/รับของ</th>}
@@ -415,11 +507,21 @@ export function PrForm({
                     </ul>
                   )}
                 </td>
+                {!work && <td className={td}>{boqCell(line, idx, n)}</td>}
                 <td className={td}>
                   <input type="number" step="0.001" min={0} value={line.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`${work ? 'ปริมาณงาน' : 'จำนวนรายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
                 </td>
                 <td className={td}>
-                  <input value={line.unitName} onChange={(e) => setLine(idx, { unitName: e.target.value })} list={work ? 'pr-work-units' : undefined} aria-label={`หน่วย${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`} className={paperCell} />
+                  <input
+                    value={line.unitName}
+                    onChange={(e) => setLine(idx, { unitName: e.target.value })}
+                    list={work ? 'pr-work-units' : undefined}
+                    // A line on a BOQ line counts in the BOQ's unit
+                    readOnly={!work && !!boqOf(line) && boqOf(line) !== OUTSIDE_BOQ}
+                    title={!work && !!boqOf(line) && boqOf(line) !== OUTSIDE_BOQ ? 'ใช้หน่วยตาม BOQ' : undefined}
+                    aria-label={`หน่วย${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}
+                    className={`${paperCell} read-only:bg-slate-50 read-only:text-slate-600`}
+                  />
                 </td>
                 {perLineDate && (
                   <td className={td}>
@@ -459,7 +561,7 @@ export function PrForm({
           {priced && prType === 'GOODS_AND_LABOR' && (
             <tfoot>
               <tr className="bg-slate-50 text-sm font-semibold">
-                <td colSpan={8} className="border border-slate-200 px-2 py-1.5 text-right">
+                <td colSpan={work ? 8 : 9} className="border border-slate-200 px-2 py-1.5 text-right">
                   รวม{work ? 'ค่าจ้าง / ค่าแรง' : 'ค่าสินค้า / วัสดุ'}
                 </td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{formatMoneyDisplay(subtotalOf(kind).toFixed(2))}</td>
@@ -476,6 +578,20 @@ export function PrForm({
         >
           <Plus className="h-3.5 w-3.5" /> {work ? 'เพิ่มรายการงาน' : 'เพิ่มรายการ'}
         </button>
+        {!work && (overBoq.length > 0 || outsideCount > 0) && (
+          <div role="status" className="mt-3 rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-xs text-orange-900">
+            <p className="font-semibold">ใบขอซื้อนี้ขอเกิน BOQ: หลัง PM อนุมัติแล้ว ต้องให้เจ้าของอนุมัติอีกขั้น</p>
+            <ul className="mt-1 list-disc pl-5">
+              {overBoq.map((u) => (
+                <li key={u.option.id}>
+                  {[u.option.no, u.option.description].filter(Boolean).join(' ')}: เกิน {formatQty(u.over)} {u.option.unit} (BOQ{' '}
+                  {formatQty(u.option.qty)} · ขอแล้ว {formatQty(u.option.requested)} · ใบนี้ {formatQty(u.thisPr)})
+                </li>
+              ))}
+              {outsideCount > 0 && <li>นอก BOQ {outsideCount} รายการ</li>}
+            </ul>
+          </div>
+        )}
       </div>
     );
   };

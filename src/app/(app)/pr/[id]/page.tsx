@@ -13,6 +13,8 @@ import { VAT_MODE_LABEL } from '@/components/doc-paper';
 import { getPr } from '@/server/services/pr';
 import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
 import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
+import { listBoqQtyOptions } from '@/server/services/pr-boq';
+import { formatQty } from '@/domain/pr-outstanding';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
@@ -48,8 +50,11 @@ export default async function PrDetailPage({
     listVendors(db),
     getSettings(db),
   ]);
-  // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on
-  const outstanding = pr.status === 'DRAFT' || pr.status === 'REJECTED' ? await listOutstandingPrLines(db, actor, { projectId: pr.projectId }) : [];
+  // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on, and the BOQ to ask against
+  const editable = pr.status === 'DRAFT' || pr.status === 'REJECTED';
+  const [outstanding, boqOptions] = editable
+    ? await Promise.all([listOutstandingPrLines(db, actor, { projectId: pr.projectId }), listBoqQtyOptions(db, actor)])
+    : [[], []];
 
   // The goods form shows no prices, also on PRs written before the forms existed
   const showPrices = PR_TYPE_META[pr.prType].priced;
@@ -64,7 +69,19 @@ export default async function PrDetailPage({
   const signers = await prSigners(db, pr);
 
   const canApprove =
-    pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId });
+    (pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId })) ||
+    (pr.status === 'OWNER_REVIEW' && can(actor, 'pr.approveOverBoq', { projectId: pr.projectId }));
+  // Over the BOQ (or outside it): the owner approves after the PM
+  const { boqCheck } = pr;
+  const showBoqCheck =
+    boqCheck.needsOwner &&
+    (pr.status === 'SUBMITTED' || pr.status === 'OWNER_REVIEW' || ((pr.status === 'APPROVED' || pr.status === 'CLOSED') && !!pr.pmApprovedBy));
+  const boqHeading =
+    pr.status === 'SUBMITTED'
+      ? 'ใบนี้ขอเกิน BOQ: เมื่อ PM อนุมัติแล้ว จะส่งต่อให้เจ้าของอนุมัติอีกขั้น'
+      : pr.status === 'OWNER_REVIEW'
+      ? 'PM อนุมัติแล้ว รอเจ้าของอนุมัติ เพราะขอเกิน BOQ'
+      : 'เจ้าของอนุมัติให้ซื้อเกิน BOQ แล้ว';
   const canEdit =
     (pr.status === 'DRAFT' || pr.status === 'REJECTED') &&
     (pr.requestedBy === actor.id || actor.roles.includes('OWNER') || actor.roles.includes('ADMIN'));
@@ -122,10 +139,41 @@ export default async function PrDetailPage({
         </div>
       )}
 
-      {pr.status === 'SUBMITTED' && (
+      {showBoqCheck && (
+        <div role="status" className="rounded-xl border border-orange-300 bg-orange-50 p-4 text-xs text-orange-900">
+          <p className="font-semibold">{boqHeading}</p>
+          <ul className="mt-2 list-disc space-y-0.5 pl-5">
+            {boqCheck.over.map((o) => (
+              <li key={o.boqLineId}>
+                {[o.boqNo, o.description].filter(Boolean).join(' ')}: ใบนี้ขอ {formatQty(Number(o.thisPr))} · BOQ{' '}
+                {formatQty(Number(o.boqQty))} · PR อื่นที่อนุมัติแล้ว {formatQty(Number(o.requestedElsewhere))} ·{' '}
+                <strong>
+                  เกิน {formatQty(Number(o.over))} {o.unit}
+                </strong>
+              </li>
+            ))}
+            {boqCheck.outside.map((o, i) => (
+              <li key={`outside-${i}`}>
+                นอก BOQ: {o.description} {formatQty(Number(o.qty))} {o.unit}
+              </li>
+            ))}
+          </ul>
+          {pr.pmApprovedByName && pr.pmApprovedAt && (
+            <p className="mt-2 text-orange-800">
+              PM อนุมัติแล้ว: {pr.pmApprovedByName} · {formatThaiDate(pr.pmApprovedAt)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {(pr.status === 'SUBMITTED' || pr.status === 'OWNER_REVIEW') && (
         <ApprovalBar
           canApprove={canApprove}
-          approverHint="ต้องอนุมัติโดย PM ของโครงการนี้ หรือเจ้าของบริษัท"
+          approverHint={
+            pr.status === 'OWNER_REVIEW'
+              ? 'PM อนุมัติแล้ว ใบนี้ขอเกิน BOQ จึงต้องให้เจ้าของบริษัทอนุมัติ'
+              : 'ต้องอนุมัติโดย PM ของโครงการนี้ หรือเจ้าของบริษัท'
+          }
           onApprove={async () => {
             'use server';
             await approvePrAction(id);
@@ -146,6 +194,7 @@ export default async function PrDetailPage({
           currentUserName={pr.requesterName}
           today={bangkokDateString()}
           outstanding={outstanding}
+          boqOptions={boqOptions}
           existing={{
             id: pr.id,
             number: pr.number,
@@ -230,6 +279,11 @@ export default async function PrDetailPage({
                   <td className="px-4 py-3 font-medium">
                     {l.description}
                     {l.detail && <span className="block text-xs font-normal text-slate-500">{l.detail}</span>}
+                    {l.lineKind === 'GOODS' && (l.boq || l.outsideBoq) && (
+                      <span className={`block text-[11px] font-normal ${l.boq ? 'text-blue-700' : 'text-orange-700'}`}>
+                        {l.boq ? `BOQ: ${[l.boq.no, l.boq.description].filter(Boolean).join(' ')}` : 'นอก BOQ'}
+                      </span>
+                    )}
                   </td>
                   {pr.prType === 'GOODS_AND_LABOR' && <td className="px-4 py-3 text-xs">{LINE_KIND_LABEL[l.lineKind]}</td>}
                   {!goods && (

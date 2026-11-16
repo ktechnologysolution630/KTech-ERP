@@ -16,7 +16,7 @@ export async function listOutstandingPrLines(db: Db, actor: SessionUser, filters
       .select({ id: prs.id, number: prs.number, status: prs.status, projectId: prs.projectId, projectCode: projects.code, projectName: projects.name })
       .from(prs)
       .innerJoin(projects, eq(projects.id, prs.projectId))
-      .where(inArray(prs.status, ['SUBMITTED', 'APPROVED']))
+      .where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW', 'APPROVED']))
       .orderBy(asc(prs.number))
   ).filter((p) => {
     if (isSiteScopedOnly(actor) && !actor.projectIds.includes(p.projectId)) return false;

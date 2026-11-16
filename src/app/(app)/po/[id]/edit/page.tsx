@@ -50,6 +50,7 @@ export default async function EditPoPage({
           unitName: l.unitName,
           remainingQty: l.remainingQty.toFixed(3),
           estUnitPrice: l.estUnitPrice,
+          boqLineId: l.boqLineId,
         }))}
         existing={{
           id: po.id,

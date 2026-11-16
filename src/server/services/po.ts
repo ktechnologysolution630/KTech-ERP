@@ -295,6 +295,7 @@ async function validateAndComputePo(
       .select({
         id: prLines.id,
         qty: prLines.qty,
+        boqLineId: prLines.boqLineId,
         prId: prs.id,
         prStatus: prs.status,
         projectId: prs.projectId,
@@ -337,6 +338,8 @@ async function validateAndComputePo(
           409,
         );
       }
+      // A line ordered from a PR draws on the BOQ line the PR named, unless the buyer chose one
+      if (!l.boqLineId && meta.boqLineId) l.boqLineId = meta.boqLineId;
     }
   }
 

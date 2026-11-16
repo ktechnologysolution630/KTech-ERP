@@ -10,13 +10,14 @@ export default async function PurchasingApprovePage() {
   const actor = await requireUser();
   const db = await getDb();
 
-  const [prs, pos, overruns] = await Promise.all([
+  const [submittedPrs, overBoqPrs, pos, overruns] = await Promise.all([
     listPrs(db, actor, { status: 'SUBMITTED' }),
+    listPrs(db, actor, { status: 'OWNER_REVIEW' }),
     listPos(db, actor, { status: 'PENDING_APPROVAL' }),
     listBoqOverrunRequests(db, actor),
   ]);
 
-  const pendingPrs = prs.map((p) => ({
+  const pendingPrs = [...overBoqPrs, ...submittedPrs].map((p) => ({
     id: p.id,
     docNumber: p.number,
     type: 'PR' as const,

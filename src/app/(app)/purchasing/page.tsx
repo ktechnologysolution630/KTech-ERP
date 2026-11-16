@@ -14,7 +14,7 @@ export default async function PurchasingPage() {
     listPos(db, actor, {}),
   ]);
 
-  const pendingPrCount = prList.filter((p) => p.status === 'SUBMITTED').length;
+  const pendingPrCount = prList.filter((p) => p.status === 'SUBMITTED' || p.status === 'OWNER_REVIEW').length;
   const issuedPoCount = poList.filter((p) => p.status === 'APPROVED' || p.status === 'ORDERED').length;
   const pendingReceiveCount = poList.filter((p) => p.status === 'ORDERED').length;
 

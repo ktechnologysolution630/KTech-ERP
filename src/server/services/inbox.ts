@@ -78,11 +78,12 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
   const pendingPrs = await db
     .select()
     .from(prs)
-    .where(eq(prs.status, 'SUBMITTED'))
+    .where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']))
     .orderBy(desc(prs.createdAt));
 
+  // The PM decides submitted PRs; PRs over the BOQ then wait on the owner
   const prToApprove = pendingPrs.filter((pr) =>
-    can(actor, 'pr.approve', { projectId: pr.projectId }),
+    can(actor, pr.status === 'OWNER_REVIEW' ? 'pr.approveOverBoq' : 'pr.approve', { projectId: pr.projectId }),
   );
   if (prToApprove.length > 0) {
     groups.push({
