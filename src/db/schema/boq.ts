@@ -81,7 +81,11 @@ export const boqLines = pgTable(
     materialRate: numeric('material_rate', { precision: 14, scale: 2 }),
     laborRate: numeric('labor_rate', { precision: 14, scale: 2 }),
     note: text('note').default('').notNull(),
-    /** Highest quantity alert already sent to the PM and purchasing: 0, 50, 80, 100 or 101 (over the BOQ quantity) */
+    /**
+     * Highest alert already sent for this row: 0, 50, 80, 100 or 101 (over). On an item, the quantity
+     * asked for on PRs, told to the PM and purchasing; on a category row, the money its items' POs
+     * commit against the category's material budget, told to the owner.
+     */
     usageAlertLevel: integer('usage_alert_level').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

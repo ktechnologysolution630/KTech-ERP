@@ -60,6 +60,8 @@ export interface PolicyContext {
   createdBy?: string;
   gross?: Decimal;
   poApprovalLimit?: Decimal;
+  /** The project has an active PM; the owner only stands in for the PM where it has none */
+  projectHasPm?: boolean;
 }
 
 const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK', 'PM'];
@@ -106,8 +108,11 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
       return hasRole(u, SITE_ROLES) && isProjectMember(u, ctx.projectId);
     }
     case 'pr.approve': {
-      if (hasRole(u, ['OWNER', 'GENERAL_MANAGER'])) return true;
-      return hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId);
+      // The PM's step. The owner sees a PR only once the PM has passed it on (pr.approveOverBoq),
+      // except on a project with no PM, where the owner decides in the PM's place.
+      if (hasRole(u, ['GENERAL_MANAGER'])) return true;
+      if (hasRole(u, ['PM']) && isProjectMember(u, ctx.projectId)) return true;
+      return hasRole(u, ['OWNER']) && ctx.projectHasPm === false;
     }
     case 'po.manage':
     case 'payable.request': {

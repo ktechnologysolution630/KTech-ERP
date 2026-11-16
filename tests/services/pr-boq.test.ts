@@ -9,6 +9,7 @@ import { getProjectBoqSheet, saveProjectMainBoq } from '@/server/services/boq';
 import { approvePr, cancelPr, closePr, createPr, getPr, rejectPr, submitPr, type PrLineInput } from '@/server/services/pr';
 import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
 import { listBoqQtyOptions } from '@/server/services/pr-boq';
+import { listPendingApprovals } from '@/server/services/approvals';
 import { updateSettings } from '@/server/services/settings';
 
 /** Project A's BOQ: steel 100 bars, and a project B BOQ line for the cross-project check */
@@ -157,9 +158,32 @@ describe('PR over the BOQ quantity', () => {
     expect(await prNotes(db, f.users.pm.id, atOwner.number)).toContainEqual(expect.stringContaining('เจ้าของไม่อนุมัติซื้อเกิน BOQ'));
   });
 
-  test('the owner approving at the first step approves outright', async () => {
+  test('the owner does not see or decide a PR before the PM; it shows up once the PM passes it on', async () => {
     const { db, f, steel } = await setup();
     const pr = await submittedPr(db, f, [steelLine(steel.id, 150)]);
+    const ownerSees = async () => (await listPendingApprovals(db, f.users.owner)).filter((a) => a.type === 'PR').map((a) => a.id);
+
+    expect(await ownerSees()).toEqual([]);
+    expect(await prNotes(db, f.users.owner.id, pr.number)).toEqual([]);
+    await expect(approvePr(db, f.users.owner, pr.id)).rejects.toMatchObject({ status: 403 });
+    await expect(rejectPr(db, f.users.owner, pr.id, 'ไม่เอา')).rejects.toMatchObject({ status: 403 });
+
+    await approvePr(db, f.users.pm, pr.id);
+    expect(await ownerSees()).toEqual([pr.id]);
+  });
+
+  test('on a project without a PM, the owner is told, sees the PR and approves it outright', async () => {
+    const { db, f, cementB } = await setup();
+    // Project B has no PM; 60 bags is over its BOQ of 50
+    const pr = await createPr(db, f.users.otherForeman, {
+      projectId: f.projectB,
+      prType: 'GOODS',
+      lines: [{ description: 'ปูนซีเมนต์', unitName: 'ถุง', category: 'งานโครงสร้าง', qty: D(60), boqLineId: cementB.id }],
+    });
+    await submitPr(db, f.users.otherForeman, pr.id);
+    expect(await prNotes(db, f.users.owner.id, pr.number)).toEqual([expect.stringContaining('โครงการไม่มี PM')]);
+    expect((await listPendingApprovals(db, f.users.owner)).map((a) => a.id)).toContain(pr.id);
+
     await approvePr(db, f.users.owner, pr.id);
     expect((await getPr(db, f.users.owner, pr.id)).status).toBe('APPROVED');
   });

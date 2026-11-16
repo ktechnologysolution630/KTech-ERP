@@ -10,7 +10,7 @@ import { listItems, listProjects, listVendors } from '@/server/services/master';
 import { getSettings } from '@/server/services/settings';
 import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 import { VAT_MODE_LABEL } from '@/components/doc-paper';
-import { getPr } from '@/server/services/pr';
+import { getPr, projectIdsWithPm } from '@/server/services/pr';
 import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
 import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { listBoqQtyOptions } from '@/server/services/pr-boq';
@@ -68,8 +68,9 @@ export default async function PrDetailPage({
 
   const signers = await prSigners(db, pr);
 
+  const projectHasPm = pr.status === 'SUBMITTED' ? (await projectIdsWithPm(db, [pr.projectId])).has(pr.projectId) : true;
   const canApprove =
-    (pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId })) ||
+    (pr.status === 'SUBMITTED' && can(actor, 'pr.approve', { projectId: pr.projectId, projectHasPm })) ||
     (pr.status === 'OWNER_REVIEW' && can(actor, 'pr.approveOverBoq', { projectId: pr.projectId }));
   // Over the BOQ (or outside it): the owner approves after the PM
   const { boqCheck } = pr;
@@ -172,7 +173,9 @@ export default async function PrDetailPage({
           approverHint={
             pr.status === 'OWNER_REVIEW'
               ? 'PM อนุมัติแล้ว ใบนี้ขอเกิน BOQ จึงต้องให้เจ้าของบริษัทอนุมัติ'
-              : 'ต้องอนุมัติโดย PM ของโครงการนี้ หรือเจ้าของบริษัท'
+              : projectHasPm
+              ? 'ต้องอนุมัติโดย PM ของโครงการนี้ก่อน ถ้าขอเกิน BOQ จึงส่งต่อให้เจ้าของบริษัท'
+              : 'โครงการนี้ไม่มี PM เจ้าของบริษัทอนุมัติแทน'
           }
           onApprove={async () => {
             'use server';
