@@ -266,7 +266,7 @@ export function PrForm({
         detail: l.detail,
         unitName: l.unitName,
         category: l.category || null,
-        itemGroup: l.kind === 'GOODS' ? l.group || null : null,
+        itemGroup: l.group || null,
         qty: l.qty,
         estUnitPrice: priced ? l.estUnitPrice || null : null,
         discount: priced ? l.discount || '0' : '0',
@@ -315,18 +315,14 @@ export function PrForm({
             ส่วนที่ {work ? 2 : 1} · {LINE_KIND_LABEL[kind]}
           </p>
         )}
-        <table className={`w-full border-collapse text-sm ${priced ? (work ? 'min-w-[860px]' : 'min-w-[1020px]') : 'min-w-[920px]'}`}>
+        <table className={`w-full border-collapse text-sm ${priced ? 'min-w-[1020px]' : 'min-w-[920px]'}`}>
           <thead className="bg-[#102d72] text-xs text-white">
             <tr>
               <th className={`w-12 ${th}`}>ลำดับ</th>
-              {!work && (
-                <>
-                  <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>หมวด *</th>
-                  <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>กลุ่ม</th>
-                </>
-              )}
+              {/* Both tables read category > group > line */}
+              <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>{work ? 'หมวดหมู่ *' : 'หมวด *'}</th>
+              <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>กลุ่ม</th>
               <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
-              {work && <th className={`w-40 ${th}`}>หมวดหมู่ *</th>}
               <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
               <th className={`w-20 ${th}`}>หน่วย</th>
               {perLineDate && <th className={`w-32 ${th}`}>กำหนดใช้/รับของ</th>}
@@ -346,27 +342,23 @@ export function PrForm({
             {rows.map(({ line, idx }, n) => (
               <tr key={idx} className="align-top">
                 <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{n + 1}</td>
-                {!work && (
-                  <>
-                    {categoryCell(line, idx, n, work)}
-                    <td className={td}>
-                      <select
-                        value={line.group}
-                        onChange={(e) => setLine(idx, { group: e.target.value })}
-                        disabled={!line.category}
-                        aria-label={`กลุ่มรายการที่ ${n + 1}`}
-                        className={`${paperCell} text-xs disabled:bg-slate-50 disabled:text-slate-400`}
-                      >
-                        <option value="">{line.category ? '-- เลือกกลุ่ม --' : 'เลือกหมวดก่อน'}</option>
-                        {groupsOfCategory(line.category).map((g) => (
-                          <option key={g.code} value={g.name}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </>
-                )}
+                {categoryCell(line, idx, n, work)}
+                <td className={td}>
+                  <select
+                    value={line.group}
+                    onChange={(e) => setLine(idx, { group: e.target.value })}
+                    disabled={!line.category}
+                    aria-label={`กลุ่ม${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}
+                    className={`${paperCell} text-xs disabled:bg-slate-50 disabled:text-slate-400`}
+                  >
+                    <option value="">{line.category ? '-- เลือกกลุ่ม --' : 'เลือกหมวดก่อน'}</option>
+                    {groupsOfCategory(line.category).map((g) => (
+                      <option key={g.code} value={g.name}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td className={td}>
                   {work ? (
                     <input
@@ -423,7 +415,6 @@ export function PrForm({
                     </ul>
                   )}
                 </td>
-                {work && categoryCell(line, idx, n, work)}
                 <td className={td}>
                   <input type="number" step="0.001" min={0} value={line.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`${work ? 'ปริมาณงาน' : 'จำนวนรายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
                 </td>
@@ -468,7 +459,7 @@ export function PrForm({
           {priced && prType === 'GOODS_AND_LABOR' && (
             <tfoot>
               <tr className="bg-slate-50 text-sm font-semibold">
-                <td colSpan={work ? 7 : 8} className="border border-slate-200 px-2 py-1.5 text-right">
+                <td colSpan={8} className="border border-slate-200 px-2 py-1.5 text-right">
                   รวม{work ? 'ค่าจ้าง / ค่าแรง' : 'ค่าสินค้า / วัสดุ'}
                 </td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{formatMoneyDisplay(subtotalOf(kind).toFixed(2))}</td>
