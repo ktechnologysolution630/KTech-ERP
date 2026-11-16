@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
+  boqLines,
   prLines,
   projects,
   prs,
@@ -15,10 +16,19 @@ import { STOCK_CATEGORIES } from '@/domain/stock';
 import { groupsOfCategory } from '@/domain/item-groups';
 import { type PrLineKind, type PrType } from '@/domain/pr-type';
 import { D, round2, type Decimal } from '@/domain/money';
-import { assertCan, isSiteScopedOnly } from '@/server/policy';
+import { formatQty } from '@/domain/pr-outstanding';
+import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
 import { nextProjectDocNumber } from './numbering';
+import {
+  assertPrBoqLinesChosen,
+  assertPrBoqLinesValid,
+  boqFieldsOf,
+  checkBoqQtyAlerts,
+  checkPrBoq,
+  type PrBoqCheck,
+} from './pr-boq';
 
 export interface PrLineInput {
   itemId?: string | null;
@@ -28,6 +38,10 @@ export interface PrLineInput {
   category?: string | null;
   /** Name of one of ITEM_GROUPS under the category */
   itemGroup?: string | null;
+  /** BOQ material line a goods line draws on */
+  boqLineId?: string | null;
+  /** A goods line not in the BOQ; the owner approves it after the PM */
+  outsideBoq?: boolean;
   qty: Decimal | string | number;
   estUnitPrice?: Decimal | string | number | null;
   neededDate?: string | null;
@@ -65,6 +79,8 @@ const lineInputSchema = z.object({
     .nullable()
     .optional(),
   itemGroup: z.string().trim().max(200).nullable().optional(),
+  boqLineId: z.string().uuid().nullable().optional(),
+  outsideBoq: z.boolean().optional(),
   qty: z.custom<Decimal | string | number>((v) => {
     try {
       return D(v as Decimal.Value).gt(0);
@@ -139,7 +155,9 @@ const priceOf = (l: ParsedLine) => {
 function linesForType(type: PrType, lines: ParsedLine[], stripPrices: boolean): ParsedLine[] {
   const shaped = lines.map((l) => {
     const lineKind: PrLineKind = type === 'GOODS' ? 'GOODS' : type === 'LABOR' ? 'LABOR' : (l.lineKind ?? 'GOODS');
-    return type === 'GOODS' && stripPrices ? { ...l, lineKind, estUnitPrice: null, discount: 0 } : { ...l, lineKind };
+    // Only goods draw on the BOQ
+    const boq = boqFieldsOf({ lineKind, boqLineId: l.boqLineId, outsideBoq: l.outsideBoq });
+    return type === 'GOODS' && stripPrices ? { ...l, ...boq, lineKind, estUnitPrice: null, discount: 0 } : { ...l, ...boq, lineKind };
   });
   const misplaced = shaped.find((l) => l.itemGroup && !groupsOfCategory(l.category).some((g) => g.name === l.itemGroup));
   if (misplaced) throw new DomainError('INVALID_PR', `กลุ่ม "${misplaced.itemGroup}" ไม่อยู่ในหมวดของรายการ "${misplaced.description}"`);
@@ -149,6 +167,23 @@ function linesForType(type: PrType, lines: ParsedLine[], stripPrices: boolean): 
     throw new DomainError('INVALID_PR', 'ใบขอซื้อและจ้างทำงานต้องมีทั้งรายการสินค้าและรายการจ้างทำงาน');
   }
   return shaped;
+}
+
+/** The BOQ-relevant part of a shaped line */
+const boqLineOf = (l: ParsedLine) => ({
+  lineKind: l.lineKind ?? ('GOODS' as const),
+  description: l.description,
+  unitName: l.unitName,
+  qty: l.qty as Decimal.Value,
+  boqLineId: l.boqLineId,
+  outsideBoq: l.outsideBoq,
+});
+
+/** One line for notifications and the activity log, e.g. "เกิน BOQ 1.1 เหล็ก DB12 10 เส้น · นอก BOQ 2 รายการ" */
+function boqSummary(check: PrBoqCheck): string {
+  const parts = check.over.map((o) => `เกิน BOQ ${[o.boqNo, o.description].filter(Boolean).join(' ')} ${formatQty(Number(o.over))}${o.unit ? ` ${o.unit}` : ''}`);
+  if (check.outside.length > 0) parts.push(`นอก BOQ ${check.outside.length} รายการ`);
+  return parts.join(' · ');
 }
 
 const createPrSchema = headerSchema.extend({
@@ -198,6 +233,7 @@ export async function createPr(
       .where(eq(projects.id, d.projectId))
       .limit(1);
     if (!project) throw new DomainError('NOT_FOUND', 'ไม่พบโครงการ', 404);
+    await assertPrBoqLinesValid(tx, d.projectId, lines.map(boqLineOf));
     // PR-<project code>-0001, counting per project
     const number = await nextProjectDocNumber(tx, 'PR', project, async (candidate) => {
       const [taken] = await tx.select({ id: prs.id }).from(prs).where(eq(prs.number, candidate)).limit(1);
@@ -225,6 +261,8 @@ export async function createPr(
         unitName: l.unitName,
         category: l.category ?? null,
         itemGroup: l.itemGroup || null,
+        boqLineId: l.boqLineId ?? null,
+        outsideBoq: l.outsideBoq ?? false,
         qty: D(l.qty as Decimal.Value).toDecimalPlaces(3).toFixed(3),
         estUnitPrice:
           l.estUnitPrice !== undefined && l.estUnitPrice !== null && l.estUnitPrice !== ''
@@ -282,6 +320,7 @@ export async function updatePr(
 
     const prType: PrType = header.data.prType ?? pr.prType;
     const lines = linesForType(prType, linesCheck.data, header.data.prType === 'GOODS');
+    await assertPrBoqLinesValid(tx, pr.projectId, lines.map(boqLineOf));
 
     await tx
       .update(prs)
@@ -303,6 +342,8 @@ export async function updatePr(
         unitName: l.unitName,
         category: l.category ?? null,
         itemGroup: l.itemGroup || null,
+        boqLineId: l.boqLineId ?? null,
+        outsideBoq: l.outsideBoq ?? false,
         qty: D(l.qty as Decimal.Value).toDecimalPlaces(3).toFixed(3),
         estUnitPrice:
           l.estUnitPrice !== undefined && l.estUnitPrice !== null && l.estUnitPrice !== ''
@@ -337,12 +378,16 @@ export async function submitPr(db: Db, actor: SessionUser, id: string): Promise<
     if (lines.length === 0) {
       throw new DomainError('EMPTY_PR', 'ต้องมีรายการอย่างน้อย 1 รายการ');
     }
+    await assertPrBoqLinesChosen(tx, pr.projectId, lines);
 
     await tx
       .update(prs)
       .set({
         status: 'SUBMITTED',
         rejectReason: null,
+        // A resubmitted PR starts again at the PM
+        pmApprovedBy: null,
+        pmApprovedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(prs.id, id));
@@ -364,39 +409,83 @@ export async function submitPr(db: Db, actor: SessionUser, id: string): Promise<
   });
 }
 
+/**
+ * PM step, then the owner when the PR asks for more than the BOQ or for things outside it:
+ * SUBMITTED → APPROVED, or SUBMITTED → OWNER_REVIEW → APPROVED. The owner approving at the first
+ * step covers both.
+ */
 export async function approvePr(db: Db, actor: SessionUser, id: string): Promise<void> {
   await db.transaction(async (tx) => {
     const [pr] = await tx.select().from(prs).where(eq(prs.id, id)).limit(1);
     if (!pr) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอซื้อ', 404);
+    const lines = await tx.select().from(prLines).where(eq(prLines.prId, id));
+    const href = `/pr/${pr.id}`;
+
+    if (pr.status === 'OWNER_REVIEW') {
+      assertCan(actor, 'pr.approveOverBoq', { projectId: pr.projectId });
+      await tx
+        .update(prs)
+        .set({ status: 'APPROVED', approvedBy: actor.id, approvedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(prs.id, id), eq(prs.status, 'OWNER_REVIEW')));
+      await logActivity(tx, { entityType: 'PR', entityId: id, action: 'approve_over_boq', userId: actor.id });
+      const buyers = await usersWithRole(tx, ['PURCHASING', 'PURCHASING_HEAD']);
+      await notify(tx, [pr.requestedBy, pr.pmApprovedBy ?? '', ...buyers], {
+        title: `ใบขอซื้อ ${pr.number} เจ้าของอนุมัติซื้อเกิน BOQ แล้ว`,
+        href,
+        category: 'PR',
+        projectId: pr.projectId,
+      });
+      return;
+    }
+
     assertCan(actor, 'pr.approve', { projectId: pr.projectId });
     if (pr.status !== 'SUBMITTED') {
       throw new DomainError('INVALID_STATE', 'อนุมัติได้เฉพาะใบขอซื้อที่ส่งขออนุมัติแล้ว', 409);
     }
 
-    await tx
-      .update(prs)
-      .set({
-        status: 'APPROVED',
-        approvedBy: actor.id,
-        approvedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(prs.id, id));
-
-    await logActivity(tx, {
-      entityType: 'PR',
-      entityId: id,
-      action: 'approve',
-      userId: actor.id,
-    });
-
-    const buyers = await usersWithRole(tx, ['PURCHASING', 'PURCHASING_HEAD']);
-    await notify(tx, [pr.requestedBy, ...buyers], {
-      title: `ใบขอซื้อ ${pr.number} อนุมัติแล้ว`,
-      href: `/pr/${pr.id}`,
-      category: 'PR',
-      projectId: pr.projectId,
-    });
+    const check = await checkPrBoq(tx, pr.id, lines);
+    if (check.needsOwner && !can(actor, 'pr.approveOverBoq', { projectId: pr.projectId })) {
+      const summary = boqSummary(check);
+      await tx
+        .update(prs)
+        .set({ status: 'OWNER_REVIEW', pmApprovedBy: actor.id, pmApprovedAt: new Date(), updatedAt: new Date() })
+        .where(eq(prs.id, id));
+      await logActivity(tx, { entityType: 'PR', entityId: id, action: 'pm_approve', userId: actor.id, note: summary });
+      const owners = await usersWithRole(tx, ['OWNER']);
+      await notify(tx, owners, {
+        title: `ใบขอซื้อ ${pr.number} ขอซื้อเกิน BOQ รอเจ้าของอนุมัติ: ${summary}`,
+        href,
+        category: 'PR',
+        level: 'WARNING',
+        projectId: pr.projectId,
+      });
+      await notify(tx, [pr.requestedBy], {
+        title: `ใบขอซื้อ ${pr.number} PM อนุมัติแล้ว รอเจ้าของอนุมัติเพราะเกิน BOQ`,
+        href,
+        category: 'PR',
+        projectId: pr.projectId,
+      });
+    } else {
+      await tx
+        .update(prs)
+        .set({ status: 'APPROVED', approvedBy: actor.id, approvedAt: new Date(), updatedAt: new Date() })
+        .where(eq(prs.id, id));
+      await logActivity(tx, {
+        entityType: 'PR',
+        entityId: id,
+        action: 'approve',
+        userId: actor.id,
+        ...(check.needsOwner ? { note: boqSummary(check) } : {}),
+      });
+      const buyers = await usersWithRole(tx, ['PURCHASING', 'PURCHASING_HEAD']);
+      await notify(tx, [pr.requestedBy, ...buyers], {
+        title: `ใบขอซื้อ ${pr.number} อนุมัติแล้ว`,
+        href,
+        category: 'PR',
+        projectId: pr.projectId,
+      });
+    }
+    await checkBoqQtyAlerts(tx, lines.map((l) => l.boqLineId));
   });
 }
 
@@ -414,9 +503,14 @@ export async function rejectPr(
   await db.transaction(async (tx) => {
     const [pr] = await tx.select().from(prs).where(eq(prs.id, id)).limit(1);
     if (!pr) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอซื้อ', 404);
-    assertCan(actor, 'pr.approve', { projectId: pr.projectId });
-    if (pr.status !== 'SUBMITTED') {
-      throw new DomainError('INVALID_STATE', 'ตีกลับได้เฉพาะใบขอซื้อที่รออนุมัติ', 409);
+    const atOwner = pr.status === 'OWNER_REVIEW';
+    if (atOwner) {
+      assertCan(actor, 'pr.approveOverBoq', { projectId: pr.projectId });
+    } else {
+      assertCan(actor, 'pr.approve', { projectId: pr.projectId });
+      if (pr.status !== 'SUBMITTED') {
+        throw new DomainError('INVALID_STATE', 'ตีกลับได้เฉพาะใบขอซื้อที่รออนุมัติ', 409);
+      }
     }
 
     await tx
@@ -436,12 +530,18 @@ export async function rejectPr(
       note: cleanReason,
     });
 
-    await notify(tx, [pr.requestedBy], {
-      title: `ใบขอซื้อ ${pr.number} ถูกตีกลับ: ${cleanReason}`,
+    await notify(tx, [pr.requestedBy, atOwner ? pr.pmApprovedBy ?? '' : ''], {
+      title: `ใบขอซื้อ ${pr.number} ${atOwner ? 'เจ้าของไม่อนุมัติซื้อเกิน BOQ' : 'ถูกตีกลับ'}: ${cleanReason}`,
       href: `/pr/${pr.id}`,
       category: 'PR',
       projectId: pr.projectId,
     });
+
+    // Quantities waiting on the owner were counted against the BOQ until now
+    if (atOwner) {
+      const lines = await tx.select({ boqLineId: prLines.boqLineId }).from(prLines).where(eq(prLines.prId, id));
+      await checkBoqQtyAlerts(tx, lines.map((l) => l.boqLineId));
+    }
   });
 }
 
@@ -472,6 +572,7 @@ export async function cancelPr(db: Db, actor: SessionUser, id: string): Promise<
       action: 'cancel',
       userId: actor.id,
     });
+    await checkBoqQtyAlerts(tx, lines.map((l) => l.boqLineId));
   });
 }
 
@@ -501,6 +602,9 @@ export async function closePr(db: Db, actor: SessionUser, id: string): Promise<v
       action: 'close',
       userId: actor.id,
     });
+    // A closed PR only counts what was ordered against the BOQ
+    const lines = await tx.select({ boqLineId: prLines.boqLineId }).from(prLines).where(eq(prLines.prId, id));
+    await checkBoqQtyAlerts(tx, lines.map((l) => l.boqLineId));
   });
 }
 
@@ -517,6 +621,8 @@ export async function getPr(db: Db, actor: SessionUser, id: string) {
       status: prs.status,
       note: prs.note,
       rejectReason: prs.rejectReason,
+      pmApprovedBy: prs.pmApprovedBy,
+      pmApprovedAt: prs.pmApprovedAt,
       approvedBy: prs.approvedBy,
       approvedAt: prs.approvedAt,
       createdAt: prs.createdAt,
@@ -550,23 +656,41 @@ export async function getPr(db: Db, actor: SessionUser, id: string) {
   assertCan(actor, 'project.view', { projectId: pr.projectId });
 
   const rawLines = await db
-    .select()
+    .select({
+      line: prLines,
+      boqNo: boqLines.no,
+      boqDescription: boqLines.description,
+      boqUnit: boqLines.unit,
+    })
     .from(prLines)
+    .leftJoin(boqLines, eq(boqLines.id, prLines.boqLineId))
     .where(eq(prLines.prId, id))
     .orderBy(asc(prLines.createdAt));
 
-  const orderedMap = await orderedQtyByPrLine(
-    db,
-    rawLines.map((l) => l.id),
-  );
+  const [orderedMap, boqCheck, pmApprover] = await Promise.all([
+    orderedQtyByPrLine(
+      db,
+      rawLines.map((r) => r.line.id),
+    ),
+    checkPrBoq(
+      db,
+      id,
+      rawLines.map((r) => r.line),
+    ),
+    pr.pmApprovedBy
+      ? db.select({ name: users.name }).from(users).where(eq(users.id, pr.pmApprovedBy)).limit(1)
+      : Promise.resolve([]),
+  ]);
 
-  const lines = rawLines.map((l) => {
+  const lines = rawLines.map(({ line: l, boqNo, boqDescription, boqUnit }) => {
     const qtyDec = D(l.qty);
     const orderedQty = orderedMap.get(l.id) ?? D(0);
     const remaining = qtyDec.minus(orderedQty);
     const remainingQty = remaining.gt(0) ? remaining : D(0);
     return {
       ...l,
+      /** The BOQ line a goods line draws on, for display */
+      boq: l.boqLineId ? { no: boqNo ?? '', description: boqDescription ?? '', unit: boqUnit ?? '' } : null,
       orderedQty,
       remainingQty,
     };
@@ -582,8 +706,10 @@ export async function getPr(db: Db, actor: SessionUser, id: string) {
 
   return {
     ...pr,
+    pmApprovedByName: pmApprover[0]?.name ?? null,
     lines,
     orderProgress,
+    boqCheck,
   };
 }
 

@@ -10,6 +10,7 @@ function stage(o: OutstandingPrLine): { label: string; tone: string } {
   if (o.receivedQty > 0) return { label: 'รับบางส่วน', tone: 'bg-amber-100 text-amber-800' };
   if (o.orderedQty > 0) return { label: 'สั่งซื้อแล้ว รอของ', tone: 'bg-blue-50 text-blue-700' };
   if (o.prStatus === 'SUBMITTED') return { label: 'รออนุมัติ PR', tone: 'bg-slate-100 text-slate-600' };
+  if (o.prStatus === 'OWNER_REVIEW') return { label: 'รอเจ้าของอนุมัติ PR', tone: 'bg-orange-50 text-orange-700' };
   return { label: 'ยังไม่ได้ออก PO', tone: 'bg-slate-100 text-slate-600' };
 }
 

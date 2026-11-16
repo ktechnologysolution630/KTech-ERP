@@ -29,6 +29,7 @@ export type Action =
   | 'milestone.approve'
   | 'milestone.pay'
   | 'boqOverrun.approve'
+  | 'pr.approveOverBoq'
   | 'vo.manage'
   | 'vo.approve'
   | 'ar.manage'
@@ -175,6 +176,10 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'vo.approve':
     case 'boqOverrun.approve': {
       // Buying beyond the agreed BOQ is a commercial decision for the owner
+      return hasRole(u, ['OWNER']);
+    }
+    case 'pr.approveOverBoq': {
+      // After the PM, a PR asking for more than the BOQ (or for things outside it) needs the owner
       return hasRole(u, ['OWNER']);
     }
     case 'milestone.approve': {

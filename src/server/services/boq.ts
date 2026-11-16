@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { boqLines, boqs, poLines, projects, type BoqKind, type SessionUser } from '@/db/schema';
+import { boqLines, boqs, poLines, prLines, projects, type BoqKind, type SessionUser } from '@/db/schema';
 import { computeBoqTotals } from '@/domain/boq';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
@@ -269,22 +269,21 @@ export async function writeBoqDocument(
       .returning();
   }
 
-  // Line ids stay stable across saves because purchase orders reference them
+  // Line ids stay stable across saves because purchase requisitions and orders reference them
   const savedIds = new Set(
     (await tx.select({ id: boqLines.id }).from(boqLines).where(eq(boqLines.boqId, boq.id))).map((r) => r.id),
   );
   const keptIds = new Set(data.lines.map((l) => l.id).filter((id): id is string => !!id && savedIds.has(id)));
   const removedIds = [...savedIds].filter((id) => !keptIds.has(id));
   if (removedIds.length > 0) {
-    const [used] = await tx
-      .select({ id: poLines.id })
-      .from(poLines)
-      .where(inArray(poLines.boqLineId, removedIds))
-      .limit(1);
-    if (used) {
+    const [[usedByPo], [usedByPr]] = await Promise.all([
+      tx.select({ id: poLines.id }).from(poLines).where(inArray(poLines.boqLineId, removedIds)).limit(1),
+      tx.select({ id: prLines.id }).from(prLines).where(inArray(prLines.boqLineId, removedIds)).limit(1),
+    ]);
+    if (usedByPo || usedByPr) {
       throw new DomainError(
         'BOQ_LINE_IN_USE',
-        'มีรายการ BOQ ที่ถูกอ้างอิงในใบสั่งซื้อแล้ว จึงลบไม่ได้ (แก้ไขจำนวนหรือราคาแทน)',
+        `มีรายการ BOQ ที่ถูกอ้างอิงใน${usedByPo ? 'ใบสั่งซื้อ' : 'ใบขอซื้อ'}แล้ว จึงลบไม่ได้ (แก้ไขจำนวนหรือราคาแทน)`,
         409,
       );
     }

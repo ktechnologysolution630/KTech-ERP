@@ -47,6 +47,7 @@ export default async function NewPoPage({
           unitName: l.unitName,
           remainingQty: l.remainingQty.toFixed(3),
           estUnitPrice: l.estUnitPrice,
+          boqLineId: l.boqLineId,
         }))}
       />
     </div>

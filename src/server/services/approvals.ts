@@ -78,10 +78,13 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
 
   const result: ApprovalItem[] = [];
 
-  const prRows = await db.select().from(prs).where(eq(prs.status, 'SUBMITTED'));
+  // The PM decides submitted PRs; PRs over the BOQ then wait on the owner
+  const prRows = await db.select().from(prs).where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']));
   for (const pr of prRows) {
-    if (!can(actor, 'pr.approve', { projectId: pr.projectId })) continue;
-    result.push(item({ type: 'PR', id: pr.id, number: pr.number, title: 'ขออนุมัติซื้อวัสดุ', amount: null, href: `/pr/${pr.id}`, projectId: pr.projectId, createdAt: pr.createdAt, requesterId: pr.requestedBy }));
+    const atOwner = pr.status === 'OWNER_REVIEW';
+    if (!can(actor, atOwner ? 'pr.approveOverBoq' : 'pr.approve', { projectId: pr.projectId })) continue;
+    const title = atOwner ? 'ขออนุมัติซื้อเกิน BOQ (PM อนุมัติแล้ว)' : 'ขออนุมัติซื้อวัสดุ';
+    result.push(item({ type: 'PR', id: pr.id, number: pr.number, title, amount: null, href: `/pr/${pr.id}`, projectId: pr.projectId, createdAt: pr.createdAt, requesterId: pr.requestedBy }));
   }
 
   const poRows = await db.select().from(pos).orderBy(desc(pos.createdAt));

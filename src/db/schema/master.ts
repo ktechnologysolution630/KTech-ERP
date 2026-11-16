@@ -66,6 +66,8 @@ export const projects = pgTable(
     coverImageUrl: text('cover_image_url').default('').notNull(),
     // Billing customer (ลูกค้า); clientName stays as the free-text display name
     customerId: uuid('customer_id'),
+    /** Highest whole-project BOQ spend alert already sent to the owner: 0, 50, 80, 100 or 101 (over) */
+    boqUsageAlertLevel: integer('boq_usage_alert_level').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

@@ -34,6 +34,8 @@ export interface OrderablePrLineOption {
   unitName: string;
   remainingQty: string;
   estUnitPrice: string | null;
+  /** BOQ line the PR named; the PO line draws on it too */
+  boqLineId?: string | null;
 }
 
 export interface BoqMaterialPick {
@@ -230,6 +232,7 @@ export function PoForm({
       {
         ...emptyLine(),
         prLineId: prLine.id,
+        boqLineId: prLine.boqLineId ?? '',
         description: prLine.description,
         unitName: prLine.unitName,
         qty: String(Number(prLine.remainingQty)),
