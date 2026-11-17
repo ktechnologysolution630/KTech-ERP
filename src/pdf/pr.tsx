@@ -6,7 +6,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SIDE_WIDTH, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { Field, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -60,7 +60,7 @@ export function PrPdfDoc({
       <FormPage settings={settings} isDraft={isDraft}>
         <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
-        <View style={[fs.box, { flexDirection: 'row' }]}>
+        <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
             <Text style={[fs.bold, { marginBottom: 2 }]}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
             <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
@@ -97,16 +97,6 @@ export function PrPdfDoc({
               </View>
             )}
           </View>
-        </View>
-        <View style={[fs.box, fs.pad, { flexDirection: 'row', borderTopWidth: 0, marginBottom: 6 }]}>
-          <View style={{ flex: 1 }}>
-            <Field label="Contact" value={pr.vendorContactPerson || ''} labelWidth={40} />
-          </View>
-          {priced && (
-            <View style={{ width: SIDE_WIDTH }}>
-              <Field label="Currency" value="BAHT" labelWidth={44} />
-            </View>
-          )}
         </View>
 
         {goods ? (

@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { eq } from 'drizzle-orm';
 import { type Db } from '@/db/client';
-import { items, poLines, prLines, prs, type SessionUser } from '@/db/schema';
+import { items, poLines, prLines, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { ensureFontsRegistered } from '@/pdf/layout';
 import { PoPdfDoc, type PoLineRef } from '@/pdf/po';
@@ -86,13 +86,11 @@ export async function renderDocPdfWithMeta(
 /** The requisition each PO line came from and the item code it was bought as, by PO line */
 export async function poLineRefs(db: Db, poId: string): Promise<Map<string, PoLineRef>> {
   const rows = await db
-    .select({ id: poLines.id, prNumber: prs.number, itemCode: items.code })
+    .select({ id: poLines.id, itemCode: items.code })
     .from(poLines)
-    .leftJoin(prLines, eq(prLines.id, poLines.prLineId))
-    .leftJoin(prs, eq(prs.id, prLines.prId))
     .leftJoin(items, eq(items.id, poLines.itemId))
     .where(eq(poLines.poId, poId));
-  return new Map(rows.map((r) => [r.id, { prNumber: r.prNumber ?? '', itemCode: r.itemCode ?? '' }]));
+  return new Map(rows.map((r) => [r.id, { itemCode: r.itemCode ?? '' }]));
 }
 
 /** The item code each requisition line was picked as, by PR line */

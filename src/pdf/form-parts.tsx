@@ -16,7 +16,9 @@ export const LINE_WIDTH = 0.8;
 export const SIDE_WIDTH = 150;
 export const TOTALS_WIDTH = 225;
 /** Room for the logo, and the same on the right, leaving the company address one line where it can */
-const HEADER_SIDE_WIDTH = 90;
+const HEADER_SIDE_WIDTH = 100;
+/** The logo file is 368 x 338 px, enough for print at this size */
+const LOGO_SIZE = { width: 86, height: 79 };
 
 export const fs = StyleSheet.create({
   page: {
@@ -66,8 +68,10 @@ export function Field({ label, value, labelWidth = 56, bold }: { label: string; 
   );
 }
 
+const isHeadOffice = (branch: string) => !branch || branch === '00000';
+
 export function branchLabel(branch: string): string {
-  return !branch || branch === '00000' ? 'สำนักงานใหญ่' : `สาขา ${branch}`;
+  return isHeadOffice(branch) ? 'สำนักงานใหญ่' : `สาขา ${branch}`;
 }
 
 /** 6.00, or 2.125 when the quantity carries a third decimal */
@@ -105,7 +109,7 @@ export function FormPage({ settings, isDraft, children }: { settings: Settings; 
           {logo && (
             // A PDF image has no alt text
             // eslint-disable-next-line jsx-a11y/alt-text
-            <Image src={logo} style={{ width: 66, height: 60, objectFit: 'contain' }} />
+            <Image src={logo} style={{ ...LOGO_SIZE, objectFit: 'contain' }} />
           )}
         </View>
         <View style={{ flex: 1, alignItems: 'center', paddingTop: 2 }}>
@@ -113,7 +117,9 @@ export function FormPage({ settings, isDraft, children }: { settings: Settings; 
           <Text style={{ fontSize: 10.5, fontWeight: 'bold' }}>{COMPANY_NAME_EN}</Text>
           <Text style={{ textAlign: 'center' }}>{settings.companyAddress}</Text>
           <Text style={{ textAlign: 'center' }}>
-            {branchLabel(settings.companyBranch)} เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}
+            {/* Head office goes without saying on the form; a branch is still named */}
+            {isHeadOffice(settings.companyBranch) ? '' : `${branchLabel(settings.companyBranch)} `}
+            เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}
           </Text>
         </View>
         {/* Balances the logo so the company name stays centred */}
