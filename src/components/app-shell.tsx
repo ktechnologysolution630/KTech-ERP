@@ -1,7 +1,9 @@
 'use client';
 
 import React, { Suspense, use, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { LOGO_URL } from '@/domain/brand';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Briefcase,
@@ -152,9 +154,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
         {/* Brand / Logo Header */}
         <div className="h-14 border-b border-slate-200 px-3.5 flex items-center justify-between shrink-0">
           <Link href={canSee('DASHBOARD') ? '/dashboard' : '/inbox'} prefetch={false} className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-[#2453d4] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm shadow-blue-500/20">
-              KT
-            </div>
+            <Image src={LOGO_URL} alt="K Technology Solution" width={36} height={33} priority className="h-9 w-auto shrink-0 object-contain" />
             {!collapsed && (
               <div className="leading-tight">
                 <span className="font-bold text-slate-900 text-sm tracking-tight">K Tec ERP</span>

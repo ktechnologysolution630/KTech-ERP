@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import React from 'react';
 import {
@@ -32,6 +33,20 @@ export function ensureFontsRegistered() {
   });
   Font.registerHyphenationCallback((word) => [word]);
   fontsRegistered = true;
+}
+
+let logo: { data: Buffer; format: 'png' } | null | undefined;
+
+/** The company logo for document headers, read once; a missing file leaves the header without it */
+export function companyLogo(): { data: Buffer; format: 'png' } | null {
+  if (logo === undefined) {
+    try {
+      logo = { data: readFileSync(path.join(process.cwd(), 'src', 'pdf', 'logo.png')), format: 'png' };
+    } catch {
+      logo = null;
+    }
+  }
+  return logo;
 }
 
 export const pdfStyles = StyleSheet.create({
@@ -179,12 +194,19 @@ export function PdfShell({
         {isDraft && <Text style={pdfStyles.watermark}>ร่าง</Text>}
 
         <View style={pdfStyles.headerRow}>
-          <View>
-            <Text style={pdfStyles.companyName}>{settings.companyName}</Text>
-            <Text>{settings.companyAddress}</Text>
-            <Text>
-              เลขประจำตัวผู้เสียภาษี: {settings.companyTaxId} (สาขา {settings.companyBranch})
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {companyLogo() && (
+              // A PDF image has no alt text
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <Image src={companyLogo()!} style={{ width: 54, height: 50, objectFit: 'contain', marginRight: 10 }} />
+            )}
+            <View>
+              <Text style={pdfStyles.companyName}>{settings.companyName}</Text>
+              <Text>{settings.companyAddress}</Text>
+              <Text>
+                เลขประจำตัวผู้เสียภาษี: {settings.companyTaxId} (สาขา {settings.companyBranch})
+              </Text>
+            </View>
           </View>
           <View style={pdfStyles.docTitleBox}>
             <Text style={pdfStyles.docTitleTh}>{titleTh}</Text>
