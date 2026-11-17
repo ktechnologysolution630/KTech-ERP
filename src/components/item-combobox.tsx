@@ -13,7 +13,8 @@ const MAX_SHOWN = 50;
 
 /**
  * Text box that searches a list as you type. Picking an entry calls `onPick`; typing anything
- * else is free text (`onType`), so a line need not come from the list.
+ * else is free text (`onType`), so a line need not come from the list. "อื่นๆ" at the bottom of
+ * the list says so: it drops a picked entry and leaves the box for a name of one's own.
  */
 export function ItemCombobox({
   items,
@@ -37,15 +38,27 @@ export function ItemCombobox({
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  /** "อื่นๆ" was chosen: the box asks for a name of one's own */
+  const [other, setOther] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const q = value.trim().toLowerCase();
   // While an entry is picked, show the whole list so another can be chosen
   const matches = (selectedId || !q ? items : items.filter((i) => `${i.code} ${i.name}`.toLowerCase().includes(q))).slice(0, MAX_SHOWN);
+  /** "อื่นๆ" sits after the matches, so the keyboard reaches it last */
+  const otherIndex = matches.length;
 
   const pick = (item: ComboItem) => {
     onPick(item);
+    setOther(false);
     setOpen(false);
+  };
+  /** A picked entry gives way to an empty box; text already typed stays as the name */
+  const pickOther = () => {
+    if (selectedId) onType('');
+    setOther(true);
+    setOpen(false);
+    inputRef.current?.focus();
   };
 
   return (
@@ -57,9 +70,9 @@ export function ItemCombobox({
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={open && matches[active] ? `${listId}-${active}` : undefined}
+        aria-activedescendant={open ? (active === otherIndex ? `${listId}-other` : matches[active] ? `${listId}-${active}` : undefined) : undefined}
         value={value}
-        placeholder={placeholder}
+        placeholder={other && !selectedId ? 'ระบุชื่อรายการ' : placeholder}
         onChange={(e) => {
           onType(e.target.value);
           setActive(0);
@@ -72,10 +85,13 @@ export function ItemCombobox({
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             setOpen(true);
-            setActive((a) => Math.min(a + 1, matches.length - 1));
+            setActive((a) => Math.min(a + 1, otherIndex));
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setActive((a) => Math.max(a - 1, 0));
+          } else if (e.key === 'Enter' && open && active === otherIndex) {
+            e.preventDefault();
+            pickOther();
           } else if (e.key === 'Enter' && open && matches[active]) {
             e.preventDefault();
             pick(matches[active]);
@@ -138,6 +154,17 @@ export function ItemCombobox({
               </li>
             ))
           )}
+          <li
+            id={`${listId}-other`}
+            role="option"
+            aria-selected={false}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={pickOther}
+            onMouseEnter={() => setActive(otherIndex)}
+            className={`mt-1 cursor-pointer border-t border-slate-100 px-3 py-1.5 text-slate-700 ${active === otherIndex ? 'bg-blue-50' : ''}`}
+          >
+            อื่นๆ <span className="text-[11px] text-slate-400">— ระบุชื่อรายการเอง</span>
+          </li>
         </ul>
       )}
     </div>
