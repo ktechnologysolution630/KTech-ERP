@@ -33,6 +33,7 @@ import {
   PenLine,
   Car,
   MapPin,
+  Hash,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -963,7 +964,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 href="/settings"
                 prefetch={false}
                 className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname.startsWith('/settings')
+                  pathname === '/settings'
                     ? 'bg-blue-50 text-blue-700 font-semibold'
                     : 'text-slate-700 hover:bg-slate-100'
                 }`}
@@ -974,6 +975,25 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   {!collapsed && <span>ตั้งค่า</span>}
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Settings</span>}
+              </Link>
+              )}
+
+              {canManageSettings && (
+              <Link
+                href="/settings/doc-numbers"
+                prefetch={false}
+                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                  pathname.startsWith('/settings/doc-numbers')
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+                title="เลขที่เอกสาร"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Hash className="w-4 h-4 text-slate-500 shrink-0" />
+                  {!collapsed && <span>เลขที่เอกสาร</span>}
+                </div>
+                {!collapsed && <span className="text-[10px] text-slate-400">Doc No.</span>}
               </Link>
               )}
 
