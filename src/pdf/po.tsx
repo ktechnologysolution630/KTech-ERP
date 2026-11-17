@@ -59,7 +59,7 @@ export function PoPdfDoc({
 
   return (
     <Document>
-      <FormPage settings={settings} isDraft={isDraft}>
+      <FormPage settings={settings} isDraft={isDraft} docNumber={po.number}>
         <TitleRow titleTh="ใบสั่งซื้อ" titleEn="Purchase Order" number={po.number} date={formatThaiDate(po.docDate ?? po.createdAt)} />
 
         <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
@@ -68,7 +68,7 @@ export function PoPdfDoc({
             <Field label="ที่อยู่" value={po.vendorAddress || '-'} />
             <Field label="โทร" value={po.vendorPhone || '-'} />
             <Text>
-              <Text style={fs.bold}>เลขประจำตัวผู้เสียภาษี : </Text>
+              <Text style={fs.label}>เลขประจำตัวผู้เสียภาษี : </Text>
               {po.vendorTaxId || '-'}
               {po.vendorTaxId && po.vendorType === 'COMPANY' ? `  ${branchLabel(po.vendorBranch)}` : ''}
             </Text>
@@ -101,7 +101,7 @@ export function PoPdfDoc({
         </View>
 
         {lines.map((l, idx) => (
-          <View key={l.id} style={fs.tableRow} wrap={false}>
+          <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
             <Text style={{ width: COL.no, textAlign: 'center' }}>{idx + 1}</Text>
             <View style={{ flex: 1, paddingHorizontal: 3 }}>
               <Text>{l.description}</Text>
