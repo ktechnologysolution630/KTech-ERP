@@ -57,17 +57,17 @@ export function PrPdfDoc({
 
   return (
     <Document>
-      <FormPage settings={settings} isDraft={isDraft}>
+      <FormPage settings={settings} isDraft={isDraft} docNumber={pr.number}>
         <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
         <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-            <Text style={[fs.bold, { marginBottom: 2 }]}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
+            <Text style={fs.sectionTitle}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
             <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
             <Field label="ที่อยู่" value={pr.vendorAddress || '-'} />
             <Field label="โทร" value={pr.vendorPhone || '-'} />
             <Text>
-              <Text style={fs.bold}>เลขประจำตัวผู้เสียภาษี : </Text>
+              <Text style={fs.label}>เลขประจำตัวผู้เสียภาษี : </Text>
               {pr.vendorTaxId || '-'}
             </Text>
           </View>
@@ -124,7 +124,7 @@ export function PrPdfDoc({
           const itemCode = lineRefs?.get(l.id)?.itemCode;
           const place = [mixed ? LINE_KIND_LABEL[l.lineKind] : '', [l.category, l.itemGroup].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
           return (
-            <View key={l.id} style={fs.tableRow} wrap={false}>
+            <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
               <Text style={{ width: col.no, textAlign: 'center' }}>{idx + 1}</Text>
               <View style={{ flex: 1, paddingHorizontal: 3 }}>
                 <Text>{l.description}</Text>
