@@ -1,7 +1,7 @@
 import React from 'react';
 import { Document, Text, View } from '@react-pdf/renderer';
 import { computeDocTotals, D, formatMoneyDisplay } from '@/domain/money';
-import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures } from '@/domain/pr-type';
+import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures, prTitleEn } from '@/domain/pr-type';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
@@ -16,13 +16,6 @@ export interface PrLineRef {
 /** Fixed column widths of the two item tables; the description takes the rest */
 const GOODS_COL = { no: 26, boq: 70, qty: 76, needed: 74 };
 const PRICED_COL = { no: 26, boq: 60, qty: 66, price: 60, discount: 46, amount: 68 };
-
-/** PURCHASE REQUISITION → Purchase Requisition, to sit like the order's title */
-const titleCase = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/ And /g, ' and ');
 
 export function PrPdfDoc({
   pr,
@@ -58,7 +51,7 @@ export function PrPdfDoc({
   return (
     <Document>
       <FormPage settings={settings} isDraft={isDraft}>
-        <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
+        <TitleRow titleTh={meta.titleTh} titleEn={prTitleEn(pr.prType)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
         <View style={[fs.box, { flexDirection: 'row' }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>

@@ -7,7 +7,8 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, Field, FormPage, fs, HeaderCell, qtyText, SIDE_WIDTH, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { branchLabel } from '@/domain/brand';
+import { Field, FormPage, fs, HeaderCell, qtyText, SIDE_WIDTH, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
 
 /** Where a PO line came from: the requisition and the item code it was bought as; blank when it has neither */
 export interface PoLineRef {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { COMPANY_NAME_EN } from '@/domain/brand';
+import { branchLabel, COMPANY_NAME_EN } from '@/domain/brand';
 import { bahtText, D, formatMoneyDisplay, VAT_RATE, type VatMode } from '@/domain/money';
 import { type Signer } from '@/domain/signature';
 import { type Settings } from '@/server/services/settings';
@@ -64,10 +64,6 @@ export function Field({ label, value, labelWidth = 56, bold }: { label: string; 
       <Text style={[{ flex: 1 }, bold ? fs.bold : {}]}>{value}</Text>
     </View>
   );
-}
-
-export function branchLabel(branch: string): string {
-  return !branch || branch === '00000' ? 'สำนักงานใหญ่' : `สาขา ${branch}`;
 }
 
 /** 6.00, or 2.125 when the quantity carries a third decimal */

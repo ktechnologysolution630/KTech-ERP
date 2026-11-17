@@ -7,13 +7,16 @@ import { createPrAction, updatePrAction } from '@/app/(app)/pr/actions';
 import { DateInput } from '@/components/date-input';
 import { ItemCombobox } from '@/components/item-combobox';
 import {
-  AmountInWords,
-  DocPaper,
+  BiHeading,
+  BoxField,
+  BoxPair,
+  BoxValue,
+  FootBoxes,
+  FormSheet,
+  FormTotals,
   MetaRow,
-  SignatureRow,
-  TotalsBox,
+  PartyBoxes,
   VAT_MODE_LABEL,
-  VendorBlock,
   paperCell,
   paperInput,
   type CompanyHeader,
@@ -21,7 +24,7 @@ import {
 } from '@/components/doc-paper';
 import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMode } from '@/domain/money';
 import { duplicatesOfOutstanding, formatQty, type OutstandingPrLine } from '@/domain/pr-outstanding';
-import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures, type PrLineKind, type PrType } from '@/domain/pr-type';
+import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures, prTitleEn, type PrLineKind, type PrType } from '@/domain/pr-type';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { classifyItem, groupOfItemCode, groupsOfCategory } from '@/domain/item-groups';
 import type { BoqQtyOption } from '@/server/services/pr-boq';
@@ -273,6 +276,15 @@ export function PrForm({
   const repeatedLines = repeats.filter((r) => r.length > 0).length;
   const repeatedPrs = [...new Map(repeats.flat().map((o) => [o.prId, o.prNumber])).entries()];
 
+  const requesterLabel = prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ';
+  /** The note, which the printed form shows as its description */
+  const noteField = (placeholder: string | undefined) => (
+    <label className="block text-xs font-semibold text-slate-700">
+      คำอธิบาย / หมายเหตุ
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={placeholder} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
+    </label>
+  );
+
   function handleSave(submitNow: boolean) {
     if (!projectId) {
       setError('กรุณาเลือกโครงการ');
@@ -444,23 +456,47 @@ export function PrForm({
         <table className={`w-full border-collapse text-sm ${work ? 'min-w-[1020px]' : priced ? 'min-w-[1260px]' : 'min-w-[1160px]'}`}>
           <thead className="bg-[#102d72] text-xs text-white">
             <tr>
-              <th className={`w-12 ${th}`}>ลำดับ</th>
+              <th className={`w-12 ${th}`}>
+                <BiHeading th="ลำดับ" en="Item" />
+              </th>
               {/* Both tables read category > group > line */}
-              <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>{work ? 'หมวดหมู่ *' : 'หมวด *'}</th>
-              <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>กลุ่ม</th>
+              <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>
+                <BiHeading th={work ? 'หมวดหมู่ *' : 'หมวด *'} en="Category" />
+              </th>
+              <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>
+                <BiHeading th="กลุ่ม" en="Group" />
+              </th>
               {/* Goods draw on the BOQ, picked before the item itself; hired work is paid through milestones */}
-              {!work && <th className={`w-60 ${th}`}>รายการ BOQ{hasBoq ? ' *' : ''}</th>}
-              <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
-              <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
-              <th className={`w-20 ${th}`}>หน่วย</th>
-              {perLineDate && <th className={`w-32 ${th}`}>กำหนดใช้/รับของ</th>}
+              {!work && (
+                <th className={`w-60 ${th}`}>
+                  <BiHeading th={`รายการ BOQ${hasBoq ? ' *' : ''}`} en="BOQ No." />
+                </th>
+              )}
+              <th className={th}>
+                <BiHeading th={work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'} en="Description" />
+              </th>
+              <th className={`w-24 ${th}`}>
+                <BiHeading th={work ? 'ปริมาณ' : 'จำนวน'} en="Quantity" />
+              </th>
+              <th className={`w-20 ${th}`}>
+                <BiHeading th="หน่วย" en="Unit" />
+              </th>
+              {perLineDate && (
+                <th className={`w-32 ${th}`}>
+                  <BiHeading th="กำหนดใช้/รับของ" en="Required Date" />
+                </th>
+              )}
               {priced && (
                 <>
                   <th className={`w-28 ${th}`}>
-                    {work ? 'ค่าจ้างต่อหน่วย *' : 'ราคาต่อหน่วย'}
+                    <BiHeading th={work ? 'ค่าจ้างต่อหน่วย *' : 'ราคาต่อหน่วย'} en="Unit Price" />
                   </th>
-                  <th className={`w-24 ${th}`}>ส่วนลด</th>
-                  <th className={`w-28 ${th}`}>จำนวนเงิน</th>
+                  <th className={`w-24 ${th}`}>
+                    <BiHeading th="ส่วนลด" en="Discount" />
+                  </th>
+                  <th className={`w-28 ${th}`}>
+                    <BiHeading th="จำนวนเงิน" en="Amount" />
+                  </th>
                 </>
               )}
               <th className="w-8 border border-[#102d72]" aria-label="ลบ" />
@@ -689,17 +725,14 @@ export function PrForm({
         ))}
       </datalist>
 
-      <DocPaper
+      <FormSheet
         company={company}
         titleTh={meta.titleTh}
-        titleEn={meta.titleEn}
+        titleEn={prTitleEn(prType)}
         meta={
           <>
             <MetaRow label="เลขที่:">
               <input value={existing?.number ?? 'ออกเลขอัตโนมัติเมื่อบันทึก'} readOnly className={`${paperInput} text-slate-500`} />
-            </MetaRow>
-            <MetaRow label="แบบฟอร์ม:">
-              <input value={meta.short} readOnly className={`${paperInput} text-slate-500`} />
             </MetaRow>
             <MetaRow label="วันที่:">
               <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={paperInput} />
@@ -717,64 +750,61 @@ export function PrForm({
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          <VendorBlock
-            title={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : prType === 'GOODS' ? 'ซัพพลายเออร์อ้างอิง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
-            vendors={vendors}
-            vendorId={vendorId}
-            onChange={setVendorId}
-          />
-          <div className="space-y-2 text-sm">
-            <p className="text-xs font-semibold text-slate-600">
-              โครงการ / ผู้ขอ <span className="text-red-500">*</span>
-            </p>
-            <select
-              disabled={Boolean(existing)}
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              aria-label="โครงการ"
-              className={`${paperInput} font-semibold disabled:text-slate-500`}
-            >
-              <option value="">เลือกโครงการ</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} - {p.name}
-                </option>
-              ))}
-            </select>
-            <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
-            <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} aria-label={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} className={paperInput} />
-            <input
-              value={deliveryPlace}
-              onChange={(e) => setDeliveryPlace(e.target.value)}
-              placeholder={prType === 'LABOR' ? 'สถานที่ทำงาน' : prType === 'GOODS' ? 'สถานที่จัดส่ง' : 'สถานที่จัดส่ง / ทำงาน'}
-              aria-label={prType === 'LABOR' ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'}
-              className={paperInput}
-            />
-          </div>
-        </div>
+        <PartyBoxes
+          vendorTitle={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : prType === 'GOODS' ? 'ซัพพลายเออร์อ้างอิง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
+          vendors={vendors}
+          vendorId={vendorId}
+          onVendor={setVendorId}
+          currency={priced}
+          right={[
+            <BoxPair key="who">
+              <BoxField label={requesterLabel} labelWidth="w-16">
+                <input value={requester} onChange={(e) => setRequester(e.target.value)} aria-label={requesterLabel} className={paperInput} />
+              </BoxField>
+              <BoxField label="แผนก" labelWidth="w-10">
+                <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
+              </BoxField>
+            </BoxPair>,
+            <BoxField key="place" label={prType === 'LABOR' ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'}>
+              <input
+                value={deliveryPlace}
+                onChange={(e) => setDeliveryPlace(e.target.value)}
+                placeholder={prType === 'GOODS_AND_LABOR' ? 'สถานที่จัดส่ง / ทำงาน' : undefined}
+                aria-label={prType === 'LABOR' ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'}
+                className={paperInput}
+              />
+            </BoxField>,
+            <BoxField key="project" label="Project *">
+              <select
+                disabled={Boolean(existing)}
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                aria-label="โครงการ"
+                className={`${paperInput} font-semibold disabled:text-slate-500`}
+              >
+                <option value="">เลือกโครงการ</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} - {p.name}
+                  </option>
+                ))}
+              </select>
+            </BoxField>,
+          ]}
+        />
 
         {kinds.map(table)}
 
         {priced ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="space-y-3">
-              <AmountInWords amount={totals.gross} />
-              <label className="block text-xs font-semibold text-slate-600">
-                หมายเหตุ
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
-              </label>
-              <label className="block text-xs font-semibold text-slate-600">
-                {hasWork ? 'เงื่อนไขการจ่ายเงิน / งวดงาน' : 'เงื่อนไขการชำระเงิน'}
-                <input
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  placeholder={hasWork ? 'เช่น จ่ายเมื่องานแล้วเสร็จ / แบ่ง 2 งวด 50-50' : undefined}
-                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal"
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-xs font-semibold text-slate-600">
+          <FormTotals
+            totals={totals}
+            billDiscount={billDiscount}
+            onBillDiscount={setBillDiscount}
+            vatMode={vatMode}
+            left={
+              <>
+                {noteField(undefined)}
+                <label className="block max-w-xs text-xs font-semibold text-slate-700">
                   รูปแบบ VAT
                   <select value={vatMode} onChange={(e) => setVatMode(e.target.value as VatMode)} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal">
                     {(['EXCLUSIVE', 'INCLUSIVE', 'NONE'] as const).map((m) => (
@@ -784,26 +814,37 @@ export function PrForm({
                     ))}
                   </select>
                 </label>
-                <label className="block text-xs font-semibold text-slate-600">
-                  VAT (%)
-                  <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-normal text-slate-500" />
-                </label>
-              </div>
-            </div>
-            <TotalsBox totals={totals} billDiscount={billDiscount} onBillDiscount={setBillDiscount} vatMode={vatMode} />
-          </div>
+              </>
+            }
+          />
         ) : (
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-600">
-              หมายเหตุ
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="ระบุจุดใช้งานหรือความเร่งด่วน" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
-            </label>
+          <div className="space-y-2 border-t border-slate-400 pt-3">
+            {noteField('ระบุจุดใช้งานหรือความเร่งด่วน')}
             <p className="text-xs text-slate-500">ใบขอซื้อสินค้าไม่ต้องใส่ราคา ฝ่ายจัดซื้อจะหาราคาและออกใบสั่งซื้อ (PO) ให้หลังอนุมัติ</p>
           </div>
         )}
 
-        <SignatureRow roles={prSignatures(prType)} />
-      </DocPaper>
+        <FootBoxes
+          left={
+            <>
+              <BoxValue label="Contact Delivery" value={`${requester || '-'}${department ? ` (${department})` : ''}`} labelWidth="w-28" />
+              {priced && (
+                <BoxField label={hasWork ? 'เงื่อนไขการจ่ายเงิน' : 'เงื่อนไขการชำระเงิน'} labelWidth="w-28">
+                  <input
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    placeholder={hasWork ? 'เช่น จ่ายเมื่องานแล้วเสร็จ / แบ่ง 2 งวด 50-50' : undefined}
+                    aria-label={hasWork ? 'เงื่อนไขการจ่ายเงิน / งวดงาน' : 'เงื่อนไขการชำระเงิน'}
+                    className={paperInput}
+                  />
+                </BoxField>
+              )}
+            </>
+          }
+          right={<BoxValue label="Tel." value="" labelWidth="w-10" />}
+          roles={[prSignatures(prType)[0]!, 'ผู้จัดการโครงการ (PM)', 'ผู้บริหาร']}
+        />
+      </FormSheet>
     </div>
   );
 }

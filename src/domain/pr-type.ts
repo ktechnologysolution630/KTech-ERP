@@ -33,6 +33,13 @@ export const PR_TYPE_META: Record<PrType, { label: string; short: string; titleT
 
 export const LINE_KIND_LABEL: Record<PrLineKind, string> = { GOODS: 'สินค้า / วัสดุ', LABOR: 'จ้างทำงาน / ค่าแรง' };
 
+/** The English title as the boxed form sets it under the Thai one: PURCHASE REQUISITION → Purchase Requisition */
+export const prTitleEn = (type: PrType): string =>
+  PR_TYPE_META[type].titleEn
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/ And /g, ' and ');
+
 /** Who signs each form. The person asking also writes the document, so the two share one box. */
 export const prSignatures = (type: PrType): string[] => [`${type === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} / ผู้จัดทำ`, 'ผู้อนุมัติ'];
 
