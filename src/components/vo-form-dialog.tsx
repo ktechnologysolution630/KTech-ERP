@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useState, useTransition } from 'react';
+import Image from 'next/image';
 import { Plus, Trash2, X } from 'lucide-react';
+import { LOGO_URL } from '@/domain/brand';
 import { computeBoqTotals } from '@/domain/boq';
 import { bangkokDateString } from '@/domain/thai';
 import {
@@ -277,7 +279,7 @@ function VoFormBody({
       {/* Document header */}
       <div className="grid grid-cols-[72px_1fr_auto_auto] sm:grid-cols-[110px_1fr_auto_auto] border-2 border-[#173a7a] items-stretch">
         <div className="flex items-center justify-center p-2 border-r border-[#173a7a]">
-          <div className="w-10 h-10 rounded bg-[#2453d4] text-white font-black flex items-center justify-center tracking-tight">KT</div>
+          <Image src={LOGO_URL} alt="K Technology Solution" width={48} height={44} className="h-11 w-auto object-contain" />
         </div>
         <div className="bg-[#173a7a] text-white flex flex-col items-center justify-center py-2 px-2 text-center">
           <div className="font-bold text-sm">{voId ? 'งานเพิ่ม-ลด (VO)' : 'สร้างงานเพิ่ม-ลด (VO)'}</div>

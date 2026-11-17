@@ -1,8 +1,9 @@
+import { logoOf } from '@/domain/brand';
 import type { CompanyHeader, VendorRef } from './doc-paper';
 
-/** Letterhead for a document form, from the company settings */
+/** Letterhead for a document form, from the company settings; the company logo when none is set */
 export function companyHeaderFrom(s: { companyName: string; companyAddress: string; companyTaxId: string; logoUrl: string | null }): CompanyHeader {
-  return { name: s.companyName, address: s.companyAddress, taxId: s.companyTaxId, logoUrl: s.logoUrl };
+  return { name: s.companyName, address: s.companyAddress, taxId: s.companyTaxId, logoUrl: logoOf(s.logoUrl) };
 }
 
 /** Active vendors with what a document form shows under the chosen one */

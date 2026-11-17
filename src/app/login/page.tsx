@@ -1,7 +1,9 @@
 'use client';
 
 import { Suspense, useActionState, useState } from 'react';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
+import { LOGO_URL } from '@/domain/brand';
 import { loginAction } from './actions';
 
 export default function LoginPage() {
@@ -22,9 +24,7 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-6 sm:p-8">
         <div className="mb-6 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white font-bold text-xl mb-3 shadow-md shadow-blue-500/20">
-            KT
-          </div>
+          <Image src={LOGO_URL} alt="K Technology Solution" width={96} height={88} priority className="mx-auto mb-3 h-[88px] w-auto object-contain" />
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">K Tec ERP</h1>
           <p className="text-sm text-slate-500 mt-1">ระบบจัดซื้อ คลังสินค้า และการเงิน</p>
         </div>

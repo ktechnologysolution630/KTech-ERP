@@ -1,10 +1,11 @@
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
+import { eq } from 'drizzle-orm';
 import { type Db } from '@/db/client';
-import { type SessionUser } from '@/db/schema';
+import { items, poLines, prLines, prs, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { ensureFontsRegistered } from '@/pdf/layout';
-import { PoPdfDoc } from '@/pdf/po';
+import { PoPdfDoc, type PoLineRef } from '@/pdf/po';
 import { PrPdfDoc } from '@/pdf/pr';
 import { PvPdfDoc } from '@/pdf/pv';
 import { poSigners, prSigners, pvSigners } from './doc-signers';
@@ -52,7 +53,12 @@ export async function renderDocPdfWithMeta(
   if (kind === 'po') {
     const po = await getPo(db, actor, id);
     const buffer = await renderToBuffer(
-      PoPdfDoc({ po, settings, signers: await poSigners(db, po) }) as unknown as React.ReactElement<never>,
+      PoPdfDoc({
+        po,
+        settings,
+        signers: await poSigners(db, po),
+        lineRefs: await poLineRefs(db, id),
+      }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${po.number}.pdf` };
   }
@@ -74,6 +80,18 @@ export async function renderDocPdfWithMeta(
   }
 
   throw new DomainError('INVALID_KIND', 'ประเภทเอกสาร PDF ไม่ถูกต้อง', 400);
+}
+
+/** The requisition each PO line came from and the item code it was bought as, by PO line */
+export async function poLineRefs(db: Db, poId: string): Promise<Map<string, PoLineRef>> {
+  const rows = await db
+    .select({ id: poLines.id, prNumber: prs.number, itemCode: items.code })
+    .from(poLines)
+    .leftJoin(prLines, eq(prLines.id, poLines.prLineId))
+    .leftJoin(prs, eq(prs.id, prLines.prId))
+    .leftJoin(items, eq(items.id, poLines.itemId))
+    .where(eq(poLines.poId, poId));
+  return new Map(rows.map((r) => [r.id, { prNumber: r.prNumber ?? '', itemCode: r.itemCode ?? '' }]));
 }
 
 export async function renderDocPdf(

@@ -2,6 +2,7 @@
 
 import React, { useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { logoOf } from '@/domain/brand';
 import type { CurvePoint } from '@/domain/site-report';
 
 export const NAVY = '#173a7a';
@@ -46,11 +47,8 @@ export function A4Page({ children }: { children: React.ReactNode }) {
 }
 
 export function Logo({ name, url }: { name: string; url: string | null }) {
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name} className="h-10 w-10 object-contain" />;
-  }
-  return <div className="flex h-10 w-10 items-center justify-center rounded bg-[#2453d4] text-sm font-bold text-white">KT</div>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={logoOf(url)} alt={name} className="h-10 w-10 object-contain" />;
 }
 
 /** Section heading bar, as on the printed forms. */
