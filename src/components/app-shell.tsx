@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -33,6 +33,7 @@ import {
   PenLine,
   Car,
   MapPin,
+  Hash,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -51,11 +52,20 @@ interface AppShellProps {
   unreadCount?: number;
   /** From Settings; shown in the top bar */
   companyName: string;
-  /** Documents waiting on this user; null hides the menu from users who approve nothing */
-  pendingApprovalCount?: number | null;
+  /**
+   * Documents waiting on this user, still being counted when the page is sent so the page does not wait
+   * for it; null hides the menu from users who approve nothing
+   */
+  pendingApprovalCount?: Promise<number> | null;
   canManageUsers?: boolean;
   canManageSettings?: boolean;
   children: React.ReactNode;
+}
+
+/** The number on the K Tec Approve menu, shown once the server has counted it */
+function PendingBadge({ count }: { count: Promise<number> }) {
+  const n = use(count);
+  return n > 0 ? <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{n}</span> : null;
 }
 
 /** Receivables (ฝั่งขาย) pages in the finance menu */
@@ -236,8 +246,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     {!collapsed && <span>K Tec Approve</span>}
                   </div>
-                  {!collapsed && pendingApprovalCount > 0 && (
-                    <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{pendingApprovalCount}</span>
+                  {!collapsed && (
+                    <Suspense fallback={null}>
+                      <PendingBadge count={pendingApprovalCount} />
+                    </Suspense>
                   )}
                 </Link>
               )}
@@ -952,7 +964,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                 href="/settings"
                 prefetch={false}
                 className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname.startsWith('/settings')
+                  pathname === '/settings'
                     ? 'bg-blue-50 text-blue-700 font-semibold'
                     : 'text-slate-700 hover:bg-slate-100'
                 }`}
@@ -963,6 +975,25 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   {!collapsed && <span>ตั้งค่า</span>}
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Settings</span>}
+              </Link>
+              )}
+
+              {canManageSettings && (
+              <Link
+                href="/settings/doc-numbers"
+                prefetch={false}
+                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                  pathname.startsWith('/settings/doc-numbers')
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+                title="เลขที่เอกสาร"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Hash className="w-4 h-4 text-slate-500 shrink-0" />
+                  {!collapsed && <span>เลขที่เอกสาร</span>}
+                </div>
+                {!collapsed && <span className="text-[10px] text-slate-400">Doc No.</span>}
               </Link>
               )}
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
   closeShortRequests,
@@ -67,19 +67,34 @@ export function poPendingGross(po: typeof pos.$inferSelect): Decimal | null {
 
 export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]> {
   const groups: InboxGroup[] = [];
-  const settings = await getSettings(db);
+  // Names only, read side by side with what the first groups need
+  const [settings, allProjects, allVendors, pendingPrs, allPos] = await Promise.all([
+    getSettings(db),
+    db.select({ id: projects.id, name: projects.name }).from(projects),
+    db.select({ id: vendors.id, name: vendors.name }).from(vendors),
+    db
+      .select()
+      .from(prs)
+      .where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']))
+      .orderBy(desc(prs.createdAt)),
+    // POs waiting for approval (new, or with a revision), approved ones waiting to be ordered, and this user's rejected ones
+    db
+      .select()
+      .from(pos)
+      .where(
+        or(
+          inArray(pos.status, ['PENDING_APPROVAL', 'APPROVED']),
+          isNotNull(pos.pendingRevision),
+          and(eq(pos.status, 'REJECTED'), eq(pos.createdBy, actor.id)),
+        ),
+      )
+      .orderBy(desc(pos.createdAt)),
+  ]);
   const poLimit = D(settings.poApprovalLimit);
-  const allProjects = await db.select().from(projects);
   const projMap = new Map(allProjects.map((p) => [p.id, p]));
-  const allVendors = await db.select().from(vendors);
   const vendorMap = new Map(allVendors.map((v) => [v.id, v]));
 
   // 1. PR_TO_APPROVE
-  const pendingPrs = await db
-    .select()
-    .from(prs)
-    .where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']))
-    .orderBy(desc(prs.createdAt));
 
   // The PM decides submitted PRs (the owner only on a project without a PM); PRs over the BOQ then wait on the owner
   const withPm = await projectIdsWithPm(db, [...new Set(pendingPrs.map((p) => p.projectId))]);
@@ -144,11 +159,6 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
   }
 
   // 3. PO_TO_APPROVE
-  const allPos = await db
-    .select()
-    .from(pos)
-    .orderBy(desc(pos.createdAt));
-
   const poToApprove = allPos.filter((po) => {
     const gross = poPendingGross(po);
     if (!gross) return false;
@@ -238,10 +248,11 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
     }
   }
 
-  // 7. PV_TO_APPROVE & 8. PV_TO_PAY
+  // 7. PV_TO_APPROVE & 8. PV_TO_PAY, and this user's rejected PVs for group 9
   const allPvs = await db
     .select()
     .from(pvs)
+    .where(or(inArray(pvs.status, ['PENDING_APPROVAL', 'APPROVED']), and(eq(pvs.status, 'REJECTED'), eq(pvs.createdBy, actor.id))))
     .orderBy(desc(pvs.createdAt));
 
   if (can(actor, 'pv.approve')) {
@@ -332,20 +343,20 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
   // 10. CLOSE_SHORT_TO_APPROVE
   if (can(actor, 'closeShort.approve')) {
     const pendingCs = await db
-      .select()
+      .select({ r: closeShortRequests, poNumber: pos.number })
       .from(closeShortRequests)
+      .leftJoin(pos, eq(pos.id, closeShortRequests.poId))
       .where(eq(closeShortRequests.status, 'PENDING'))
       .orderBy(desc(closeShortRequests.createdAt));
 
-    const poMap = new Map(allPos.map((p) => [p.id, p]));
     if (pendingCs.length > 0) {
       groups.push({
         key: 'CLOSE_SHORT_TO_APPROVE',
         label: 'คำขอปิดยอดค้างรับรออนุมัติ',
         count: pendingCs.length,
-        items: pendingCs.map((r) => ({
+        items: pendingCs.map(({ r, poNumber }) => ({
           id: r.id,
-          number: poMap.get(r.poId)?.number ?? '',
+          number: poNumber ?? '',
           title: r.reason,
           href: `/po/${r.poId}`,
           date: formatThaiDate(r.createdAt),

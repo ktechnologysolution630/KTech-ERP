@@ -235,6 +235,16 @@ export function PrForm({
   // BOQ of the chosen project; once it has one, every goods line names its BOQ line or "นอก BOQ"
   const projectBoq = useMemo(() => boqOptions.filter((o) => o.projectId === projectId), [boqOptions, projectId]);
   const hasBoq = projectBoq.length > 0;
+  /** The picker's sections: consecutive lines under the same major group of the BOQ */
+  const boqGroups = useMemo(() => {
+    const groups: { label: string; options: BoqQtyOption[] }[] = [];
+    for (const o of projectBoq) {
+      const last = groups.at(-1);
+      if (last && last.label === o.group) last.options.push(o);
+      else groups.push({ label: o.group, options: [o] });
+    }
+    return groups;
+  }, [projectBoq]);
   /** The line's BOQ choice while it belongs to the chosen project */
   const boqOf = (l: LineState) => (hasBoq && (l.boq === OUTSIDE_BOQ || projectBoq.some((o) => o.id === l.boq)) ? l.boq : '');
   /** Per BOQ line: what this PR asks for and how much of it is beyond the BOQ quantity */
@@ -370,11 +380,14 @@ export function PrForm({
           className={`${paperCell} text-xs ${chosen ? '' : 'border-amber-400'}`}
         >
           <option value="">-- เลือกรายการ BOQ --</option>
-          {projectBoq.map((o) => (
-            <option key={o.id} value={o.id}>
-              {[o.no, o.description].filter(Boolean).join(' ')}
-              {o.source !== 'BOQ หลัก' ? ` (${o.source})` : ''}
-            </option>
+          {boqGroups.map((g, i) => (
+            <optgroup key={`${i}-${g.label}`} label={g.label}>
+              {g.options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {[o.no, o.description].filter(Boolean).join(' ')}
+                </option>
+              ))}
+            </optgroup>
           ))}
           <option value={OUTSIDE_BOQ}>นอก BOQ</option>
         </select>
@@ -412,9 +425,9 @@ export function PrForm({
               {/* Both tables read category > group > line */}
               <th className={`${perLineDate ? 'w-36' : 'w-40'} ${th}`}>{work ? 'หมวดหมู่ *' : 'หมวด *'}</th>
               <th className={`${perLineDate ? 'w-40' : 'w-44'} ${th}`}>กลุ่ม</th>
-              <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
-              {/* Goods draw on the BOQ; hired work is paid through milestones */}
+              {/* Goods draw on the BOQ, picked before the item itself; hired work is paid through milestones */}
               {!work && <th className={`w-60 ${th}`}>รายการ BOQ{hasBoq ? ' *' : ''}</th>}
+              <th className={th}>{work ? 'รายการงาน / ขอบเขตงาน' : 'รายการ'}</th>
               <th className={`w-24 ${th}`}>{work ? 'ปริมาณ' : 'จำนวน'}</th>
               <th className={`w-20 ${th}`}>หน่วย</th>
               {perLineDate && <th className={`w-32 ${th}`}>กำหนดใช้/รับของ</th>}
@@ -451,6 +464,7 @@ export function PrForm({
                     ))}
                   </select>
                 </td>
+                {!work && <td className={td}>{boqCell(line, idx, n)}</td>}
                 <td className={td}>
                   {work ? (
                     <input
@@ -507,7 +521,6 @@ export function PrForm({
                     </ul>
                   )}
                 </td>
-                {!work && <td className={td}>{boqCell(line, idx, n)}</td>}
                 <td className={td}>
                   <input type="number" step="0.001" min={0} value={line.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} aria-label={`${work ? 'ปริมาณงาน' : 'จำนวนรายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
                 </td>

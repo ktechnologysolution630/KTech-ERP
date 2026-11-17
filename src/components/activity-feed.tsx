@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   // A PR over the BOQ: the PM approves, then the owner
   pm_approve: 'PM อนุมัติ ส่งต่อให้เจ้าของ (เกิน BOQ)',
   approve_over_boq: 'เจ้าของอนุมัติซื้อเกิน BOQ',
+  renumber: 'เปลี่ยนเลขที่เอกสาร',
   // Services that log upper-case codes (looked up case-insensitively)
   created: 'สร้างเอกสาร',
   updated: 'แก้ไขเอกสาร',

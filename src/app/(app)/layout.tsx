@@ -1,7 +1,7 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
-import { isApprover, listPendingApprovals } from '@/server/services/approvals';
+import { countPendingApprovals, isApprover } from '@/server/services/approvals';
 import { checkAssetsDueOncePerDay } from '@/server/services/assets';
 import { countUnreadNotifications } from '@/server/services/notifications';
 import { getSettings } from '@/server/services/settings';
@@ -15,19 +15,16 @@ export default async function AuthenticatedLayout({
   const user = await requireUser();
   const db = await getDb();
   await checkAssetsDueOncePerDay(db);
-  const showApprovals = isApprover(user);
-  const [unreadCount, settings, pendingApprovals] = await Promise.all([
-    countUnreadNotifications(db, user.id),
-    getSettings(db),
-    showApprovals ? listPendingApprovals(db, user) : [],
-  ]);
+  // The approval count is not awaited: the page is sent first and the number streams in after it
+  const pendingApprovals = isApprover(user) ? countPendingApprovals(db, user).catch(() => 0) : null;
+  const [unreadCount, settings] = await Promise.all([countUnreadNotifications(db, user.id), getSettings(db)]);
 
   return (
     <AppShell
       user={user}
       unreadCount={unreadCount}
       companyName={settings.companyName}
-      pendingApprovalCount={showApprovals ? pendingApprovals.length : null}
+      pendingApprovalCount={pendingApprovals}
       canManageUsers={can(user, 'users.manage')}
       canManageSettings={can(user, 'settings.manage')}
     >

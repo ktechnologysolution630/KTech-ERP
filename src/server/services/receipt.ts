@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
   poLines,
@@ -281,18 +281,32 @@ export async function listReceivablePos(db: Db, actor: SessionUser) {
     .where(inArray(pos.status, ['APPROVED', 'ORDERED']))
     .orderBy(desc(pos.createdAt));
 
-  const allProjects = await db.select().from(projects);
-  const projMap = new Map(allProjects.map((p) => [p.id, p]));
-
   const allowed = candidates.filter((po) =>
     can(actor, 'receipt.create', { projectId: po.projectId }),
   );
+  if (allowed.length === 0) return [];
+
+  // Lines, what was received on them and project names for all these POs at once, not one PO at a time
+  const poIds = allowed.map((po) => po.id);
+  const projectIds = [...new Set(allowed.map((po) => po.projectId).filter((id): id is string => !!id))];
+  const [allLines, receivedRows, projectRows] = await Promise.all([
+    db.select({ id: poLines.id, poId: poLines.poId, qty: poLines.qty }).from(poLines).where(inArray(poLines.poId, poIds)),
+    db
+      .select({ poLineId: receiptLines.poLineId, qty: receiptLines.qty })
+      .from(receiptLines)
+      .innerJoin(receipts, and(eq(receipts.id, receiptLines.receiptId), inArray(receipts.poId, poIds), eq(receipts.status, 'CONFIRMED'))),
+    projectIds.length
+      ? db.select({ id: projects.id, code: projects.code, name: projects.name }).from(projects).where(inArray(projects.id, projectIds))
+      : Promise.resolve([]),
+  ]);
+  const projMap = new Map(projectRows.map((p) => [p.id, p]));
+  const receivedMap = new Map<string, Decimal>();
+  for (const r of receivedRows) receivedMap.set(r.poLineId, (receivedMap.get(r.poLineId) ?? D(0)).plus(D(r.qty)));
 
   const result = [];
   for (const po of allowed) {
-    const lines = await db.select().from(poLines).where(eq(poLines.poId, po.id));
-    const receivedMap = await receivedQtyByPoLine(db, po.id);
-    const remainingLines = lines.filter((l) => {
+    const remainingLines = allLines.filter((l) => {
+      if (l.poId !== po.id) return false;
       const rec = receivedMap.get(l.id) ?? D(0);
       return D(l.qty).gt(rec);
     });
