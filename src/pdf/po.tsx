@@ -8,6 +8,7 @@ import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
 import { branchLabel } from '@/domain/brand';
+import { PO_CONDITIONS, PO_SUPPLIER_CLAUSE } from '@/domain/po-conditions';
 import { Field, FormPage, fs, HeaderCell, qtyText, SIDE_WIDTH, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
 
 /** Where a PO line came from: the requisition and the item code it was bought as; blank when it has neither */
@@ -15,15 +16,6 @@ export interface PoLineRef {
   prNumber: string;
   itemCode: string;
 }
-
-const PO_CONDITIONS = [
-  { text: '1. โปรดระบุเลขที่ใบสั่งซื้อข้างต้น ในใบส่งของทุกฉบับ' },
-  { text: '2. การวางบิลและการรับเช็ค เป็นไปตามกำหนดเวลาที่บริษัทฯ กำหนดไว้' },
-  { text: '2.1 วางบิลวันที่ 20 - 25 ของเดือน', indented: true },
-  { text: '2.2 รับเช็ค สำหรับ Supplier วันที่ 30 ของเดือน', indented: true },
-  { text: '2.3 รับเช็ค สำหรับผู้รับเหมา วันที่ 15 และ 30 ของเดือน', indented: true },
-  { text: '3. การวางบิลเพื่อเรียกเก็บเงิน ให้แนบสำเนาใบสั่งซื้อกำกับมาด้วย' },
-];
 
 const PAYMENT_TYPE_LABEL: Record<PoPaymentType, string> = {
   CREDIT: 'เครดิต',
@@ -111,10 +103,7 @@ export function PoPdfDoc({
           </View>
         </View>
 
-        <Text style={{ fontSize: 8, marginTop: 4, marginBottom: 3 }}>
-          (ผู้ขายจะต้องส่งสินค้าให้เป็นไปตามเงื่อนไขที่ได้เสนอราคาไว้กับบริษัทฯ ดังต่อไปนี้) Supplier shall supply the following items in
-          good order and condition as per quotation namely
-        </Text>
+        <Text style={{ fontSize: 8, marginTop: 4, marginBottom: 3 }}>{PO_SUPPLIER_CLAUSE}</Text>
 
         <View style={fs.tableHeader}>
           <HeaderCell th="ลำดับ" en="Item" width={COL.no} />

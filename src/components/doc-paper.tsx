@@ -367,22 +367,28 @@ export function vatRowLabel(mode: VatMode): string {
 
 /**
  * The foot of a priced form: what is entered beside the figures, then the net amount with its words.
- * The special discount is typed into its row.
+ * The special discount, and shipping where the form has it, are typed into their rows.
  */
 export function FormTotals({
   totals,
   billDiscount,
   onBillDiscount,
+  shipping,
+  onShipping,
   vatMode,
   left,
 }: {
   totals: DocTotals;
   billDiscount: string;
   onBillDiscount: (v: string) => void;
+  /** Given only by a form that charges shipping */
+  shipping?: string;
+  onShipping?: (v: string) => void;
   vatMode: VatMode;
   left: ReactNode;
 }) {
   const row = 'flex items-center justify-between gap-4 py-1';
+  const amountInput = 'w-32 rounded border border-slate-200 px-2 py-0.5 text-right text-sm';
   return (
     <div className="space-y-2">
       <div className={`grid grid-cols-1 gap-4 border-t ${BOX} pt-3 md:grid-cols-[1fr_300px]`}>
@@ -402,14 +408,29 @@ export function FormTotals({
               onChange={(e) => onBillDiscount(e.target.value)}
               placeholder="0.00"
               aria-label="ส่วนลดพิเศษ"
-              className="w-32 rounded border border-slate-200 px-2 py-0.5 text-right text-sm"
+              className={amountInput}
             />
           </div>
           <div className={row}>
             <span className="text-slate-600">หลังหักส่วนลดพิเศษ</span>
             <span>{formatMoneyDisplay(totals.subtotal.minus(totals.billDiscount).toFixed(2))}</span>
           </div>
-          {vatMode === 'INCLUSIVE' && (
+          {onShipping && (
+            <div className={row}>
+              <span className="text-slate-600">ค่าขนส่ง</span>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={shipping ?? ''}
+                onChange={(e) => onShipping(e.target.value)}
+                placeholder="0.00"
+                aria-label="ค่าขนส่ง"
+                className={amountInput}
+              />
+            </div>
+          )}
+          {(vatMode === 'INCLUSIVE' || !totals.shipping.isZero()) && (
             <div className={row}>
               <span className="text-slate-600">มูลค่าก่อนภาษี</span>
               <span>{formatMoneyDisplay(totals.beforeVat.toFixed(2))}</span>

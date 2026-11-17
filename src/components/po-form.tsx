@@ -11,17 +11,21 @@ import { createPoAction, updatePoAction } from '@/app/(app)/po/actions';
 import { DateInput } from '@/components/date-input';
 import { PaymentTermsFields, type PaymentTermsValue } from '@/components/payment-terms-fields';
 import {
-  AmountInWords,
-  DocPaper,
+  BiHeading,
+  BoxField,
+  BoxPair,
+  FootBoxes,
+  FormSheet,
+  FormTotals,
   MetaRow,
-  SignatureRow,
+  PartyBoxes,
   VAT_MODE_LABEL,
-  VendorBlock,
   paperCell,
   paperInput,
   type CompanyHeader,
 } from '@/components/doc-paper';
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
+import { PO_CONDITIONS, PO_SUPPLIER_CLAUSE } from '@/domain/po-conditions';
 import { priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
 import { PriceIncreaseNote } from '@/components/price-increase';
 
@@ -389,56 +393,49 @@ export function PoForm({
         />
       )}
 
-      <DocPaper
+      <FormSheet
         company={company}
         titleTh="ใบสั่งซื้อ"
-        titleEn="PURCHASE ORDER"
+        titleEn="Purchase Order"
         meta={
           <>
             <MetaRow label="เลขที่:">
               <input value={existing?.number ?? 'ออกเลขอัตโนมัติเมื่อบันทึก'} readOnly className={`${paperInput} text-slate-500`} />
             </MetaRow>
-            <MetaRow label="ประเภท:">
-              <select
-                value="PO"
-                disabled={Boolean(existing)}
-                onChange={(e) => {
-                  if (e.target.value === 'PR') router.push('/pr/new');
-                }}
-                className={paperInput}
-              >
-                <option value="PR">PR</option>
-                <option value="PO">PO</option>
-              </select>
-            </MetaRow>
             <MetaRow label="วันที่:">
               <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={paperInput} />
-            </MetaRow>
-            <MetaRow label="กำหนดใช้/รับของ:">
-              <DateInput value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className={paperInput} />
             </MetaRow>
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          <VendorBlock title="ซัพพลายเออร์ / ผู้รับเหมา" vendors={activeVendors} vendorId={vendorId} onChange={pickVendor} required />
-          <div className="space-y-2 text-sm">
-            <p className="text-xs font-semibold text-slate-600">
-              โครงการ / ผู้ขอซื้อ <span className="text-red-500">*</span>
-            </p>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
-              <option value="">เลือกโครงการ</option>
-              <option value="OFFICE">สำนักงาน / ส่วนกลาง (ไม่มี PR)</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} - {p.name}
-                </option>
-              ))}
-            </select>
-            <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
-            <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={paperInput} />
-            <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="สถานที่จัดส่ง" aria-label="สถานที่จัดส่ง" className={paperInput} />
-          </div>
+        <div className="space-y-2">
+          <PartyBoxes
+            vendorTitle="ชื่อผู้ขาย *"
+            vendors={activeVendors}
+            vendorId={vendorId}
+            onVendor={pickVendor}
+            currency
+            right={[
+              <BoxField key="delivery-date" label="กำหนดส่งของ">
+                <DateInput value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} aria-label="กำหนดส่งของ" className={paperInput} />
+              </BoxField>,
+              <BoxField key="place" label="สถานที่จัดส่ง">
+                <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} aria-label="สถานที่จัดส่ง" className={paperInput} />
+              </BoxField>,
+              <BoxField key="project" label="Project *">
+                <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
+                  <option value="">เลือกโครงการ</option>
+                  <option value="OFFICE">สำนักงาน / ส่วนกลาง (ไม่มี PR)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code} - {p.name}
+                    </option>
+                  ))}
+                </select>
+              </BoxField>,
+            ]}
+          />
+          <p className="text-[11px] text-slate-500">{PO_SUPPLIER_CLAUSE}</p>
         </div>
 
         {matchingPrLines.length > 0 && (
@@ -463,13 +460,27 @@ export function PoForm({
           <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead className="bg-[#102d72] text-xs text-white">
               <tr>
-                <th className="w-12 border border-[#102d72] px-2 py-2">ลำดับ</th>
-                <th className="border border-[#102d72] px-2 py-2">รายการ</th>
-                <th className="w-24 border border-[#102d72] px-2 py-2">จำนวน</th>
-                <th className="w-20 border border-[#102d72] px-2 py-2">หน่วย</th>
-                <th className="w-28 border border-[#102d72] px-2 py-2">ราคาต่อหน่วย</th>
-                <th className="w-24 border border-[#102d72] px-2 py-2">ส่วนลด</th>
-                <th className="w-28 border border-[#102d72] px-2 py-2">จำนวนเงิน</th>
+                <th className="w-12 border border-[#102d72] px-2 py-2">
+                  <BiHeading th="ลำดับ" en="Item" />
+                </th>
+                <th className="border border-[#102d72] px-2 py-2">
+                  <BiHeading th="รายการ" en="Description" />
+                </th>
+                <th className="w-24 border border-[#102d72] px-2 py-2">
+                  <BiHeading th="จำนวน" en="Quantity" />
+                </th>
+                <th className="w-20 border border-[#102d72] px-2 py-2">
+                  <BiHeading th="หน่วย" en="Unit" />
+                </th>
+                <th className="w-28 border border-[#102d72] px-2 py-2">
+                  <BiHeading th="ราคา/หน่วย" en="Unit Price" />
+                </th>
+                <th className="w-24 border border-[#102d72] px-2 py-2">
+                  <BiHeading th="ส่วนลด" en="Discount" />
+                </th>
+                <th className="w-28 border border-[#102d72] px-2 py-2">
+                  <BiHeading th="จำนวนเงิน" en="Amount" />
+                </th>
                 <th className="w-8 border border-[#102d72]" aria-label="ลบ" />
               </tr>
             </thead>
@@ -495,7 +506,13 @@ export function PoForm({
                       aria-label={`รายละเอียดรายการที่ ${idx + 1}`}
                       className={`${paperCell} mt-1 resize-y text-xs text-slate-600`}
                     />
-                    {l.prLineId && <p className="px-1.5 text-[11px] text-blue-700">อ้างอิงใบขอซื้อ</p>}
+                    {l.prLineId && (
+                      <p className="px-1.5 text-[11px] text-blue-700">
+                        {orderablePrLines.find((pl) => pl.id === l.prLineId)?.prNumber
+                          ? `เลขที่ PR: ${orderablePrLines.find((pl) => pl.id === l.prLineId)!.prNumber}`
+                          : 'อ้างอิงใบขอซื้อ'}
+                      </p>
+                    )}
                     {dearer[idx] && <PriceIncreaseNote up={dearer[idx]} unitName={l.unitName} label={`ราคาสูงกว่ารอบที่แล้ว รายการที่ ${idx + 1}`} />}
                   </td>
                   <td className="border border-slate-200 px-1 py-1">
@@ -533,59 +550,20 @@ export function PoForm({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            <AmountInWords amount={totals.gross} />
-            <label className={footLabel}>
-              หมายเหตุ
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={footInput} />
-            </label>
-            <label className={footLabel}>
-              เงื่อนไขการชำระเงิน
-              <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="เช่น ชำระภายใน 30 วันหลังวางบิล" className={footInput} />
-            </label>
-            <div className="grid grid-cols-2 gap-3">
+        <FormTotals
+          totals={totals}
+          billDiscount={billDiscount}
+          onBillDiscount={setBillDiscount}
+          shipping={shipping}
+          onShipping={setShipping}
+          vatMode={vatMode}
+          left={
+            <>
               <label className={footLabel}>
-                การชำระ
-                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as PoPaymentType)} className={footInput}>
-                  <option value="CREDIT">เครดิต (รับของก่อนจ่าย)</option>
-                  <option value="PREPAID">เงินสด / จ่ายก่อนรับของ</option>
-                  <option value="INSTALLMENT">แบ่งจ่ายหลายงวด</option>
-                </select>
+                คำอธิบาย / หมายเหตุ
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={footInput} />
               </label>
-              {paymentType === 'CREDIT' ? (
-                <label className={footLabel}>
-                  เครดิต (วัน)
-                  <input type="number" min={0} value={creditDays} onChange={(e) => setCreditDays(Number(e.target.value))} className={`${footInput} text-right`} />
-                </label>
-              ) : (
-                <span />
-              )}
-              <label className={footLabel}>
-                วิธีชำระเงิน
-                <select
-                  value={terms?.payMethod ?? ''}
-                  onChange={(e) =>
-                    setTerms((t) => ({
-                      billingSchedule: t?.billingSchedule ?? '',
-                      creditBasis: t?.creditBasis ?? 'BILLING',
-                      chequeSchedule: t?.chequeSchedule ?? '',
-                      payMethod: e.target.value as PayMethod,
-                    }))
-                  }
-                  className={footInput}
-                >
-                  <option value="" disabled>
-                    เลือกวิธีการชำระเงิน
-                  </option>
-                  {PAY_METHODS.map((m) => (
-                    <option key={m} value={m}>
-                      {PAY_METHOD_LABEL[m]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={footLabel}>
+              <label className={`${footLabel} max-w-xs`}>
                 รูปแบบ VAT
                 <select value={vatMode} onChange={(e) => setVatMode(e.target.value as VatMode)} className={footInput}>
                   {(['EXCLUSIVE', 'INCLUSIVE', 'NONE'] as const).map((m) => (
@@ -595,36 +573,11 @@ export function PoForm({
                   ))}
                 </select>
               </label>
-              <label className={footLabel}>
-                VAT (%)
-                <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className={`${footInput} bg-slate-50 text-slate-500`} />
-              </label>
-            </div>
-            {paymentType === 'CREDIT' && terms && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 text-xs font-semibold text-slate-800">เงื่อนไขวางบิล / รับเช็ค (ดึงจากผู้ขาย แก้เฉพาะใบนี้ได้)</p>
-                <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
-                  <PaymentTermsFields key={termsKey} value={terms} onChange={setTerms} hidePayMethod />
-                </div>
-              </div>
-            )}
-          </div>
+            </>
+          }
+        />
 
-          <div className="space-y-2">
-            <div className="divide-y divide-slate-100 rounded border border-slate-200 text-sm">
-              <TotalRow label="รวมก่อนส่วนลด" value={totals.subtotal.toFixed(2)} />
-              <TotalInput label="ส่วนลด" value={billDiscount} onChange={setBillDiscount} />
-              <TotalInput label="ค่าขนส่ง" value={shipping} onChange={setShipping} />
-              <TotalRow label="รวมก่อน VAT" value={totals.beforeVat.toFixed(2)} />
-              <TotalRow label={vatMode === 'NONE' ? 'ภาษีมูลค่าเพิ่ม' : 'ภาษีมูลค่าเพิ่ม 7%'} value={totals.vat.toFixed(2)} />
-              <div className="flex items-center justify-between gap-4 bg-[#102d72] px-3 py-1.5 font-bold text-white">
-                <span>ยอดรวมทั้งสิ้น</span>
-                <span>{formatMoneyDisplay(totals.gross.toFixed(2))}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        {/* The printed form lists the installments as its down payment */}
         {paymentType === 'INSTALLMENT' && <InstallmentEditor rows={installments} onChange={setInstallments} grossTotal={totals.gross.toFixed(2)} />}
 
         {existing?.isApprovedRevision && (
@@ -639,35 +592,93 @@ export function PoForm({
           </label>
         )}
 
-        <SignatureRow roles={['ผู้ขอซื้อ', 'ผู้จัดทำ', 'ผู้อนุมัติ']} />
-      </DocPaper>
-    </div>
-  );
-}
+        <FootBoxes
+          left={
+            <div className="space-y-2 px-3 py-1.5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <label className={footLabel}>
+                  การชำระ
+                  <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as PoPaymentType)} className={footInput}>
+                    <option value="CREDIT">เครดิต (รับของก่อนจ่าย)</option>
+                    <option value="PREPAID">เงินสด / จ่ายก่อนรับของ</option>
+                    <option value="INSTALLMENT">แบ่งจ่ายหลายงวด</option>
+                  </select>
+                </label>
+                {paymentType === 'CREDIT' ? (
+                  <label className={footLabel}>
+                    เครดิต (วัน)
+                    <input type="number" min={0} value={creditDays} onChange={(e) => setCreditDays(Number(e.target.value))} className={`${footInput} text-right`} />
+                  </label>
+                ) : (
+                  <span className="hidden sm:block" />
+                )}
+                <label className={footLabel}>
+                  วิธีชำระเงิน
+                  <select
+                    value={terms?.payMethod ?? ''}
+                    onChange={(e) =>
+                      setTerms((t) => ({
+                        billingSchedule: t?.billingSchedule ?? '',
+                        creditBasis: t?.creditBasis ?? 'BILLING',
+                        chequeSchedule: t?.chequeSchedule ?? '',
+                        payMethod: e.target.value as PayMethod,
+                      }))
+                    }
+                    className={footInput}
+                  >
+                    <option value="" disabled>
+                      เลือกวิธีการชำระเงิน
+                    </option>
+                    {PAY_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {PAY_METHOD_LABEL[m]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className={footLabel}>
+                เงื่อนไขการชำระเงิน
+                <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="เช่น ชำระภายใน 30 วันหลังวางบิล" className={footInput} />
+              </label>
+              {paymentType === 'CREDIT' && terms && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-semibold text-slate-800">เงื่อนไขวางบิล / รับเช็ค (ดึงจากผู้ขาย แก้เฉพาะใบนี้ได้)</p>
+                  <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+                    <PaymentTermsFields key={termsKey} value={terms} onChange={setTerms} hidePayMethod />
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+          right={
+            <>
+              <p className="px-3 pt-1.5 text-xs font-semibold text-slate-700">Contact Delivery</p>
+              <BoxPair>
+                <BoxField label="ผู้ขอซื้อ" labelWidth="w-14">
+                  <input value={requester} onChange={(e) => setRequester(e.target.value)} aria-label="ผู้ขอซื้อ" className={paperInput} />
+                </BoxField>
+                <BoxField label="แผนก" labelWidth="w-10">
+                  <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
+                </BoxField>
+              </BoxPair>
+              <BoxField label="Tel." labelWidth="w-14">
+                <span className="text-sm text-slate-400">-</span>
+              </BoxField>
+            </>
+          }
+          roles={['ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม']}
+        />
 
-function TotalRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-3 py-1.5">
-      <span className="text-slate-600">{label}</span>
-      <span>{formatMoneyDisplay(value)}</span>
-    </div>
-  );
-}
-
-function TotalInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-3 py-1.5">
-      <span className="text-slate-600">{label}</span>
-      <input
-        type="number"
-        min={0}
-        step="0.01"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="0.00"
-        aria-label={label}
-        className="w-32 rounded border border-slate-200 px-2 py-0.5 text-right text-sm"
-      />
+        <div className="text-xs text-slate-600">
+          <p className="font-semibold text-slate-800">หมายเหตุ / เงื่อนไข :</p>
+          {PO_CONDITIONS.map((c) => (
+            <p key={c.text} className={c.indented ? 'pl-4' : undefined}>
+              {c.text}
+            </p>
+          ))}
+        </div>
+      </FormSheet>
     </div>
   );
 }
