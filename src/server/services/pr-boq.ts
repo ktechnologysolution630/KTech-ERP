@@ -15,7 +15,8 @@ import {
 import { boqUsageLevel, type BoqUsageLevel } from '@/domain/boq-overrun';
 import { DomainError } from '@/domain/errors';
 import { D, type Decimal } from '@/domain/money';
-import { computePrBoqOver, type PrBoqOverLine } from '@/domain/pr-boq';
+import { computePrBoqOver, stockCategoryOfBoq, type PrBoqOverLine } from '@/domain/pr-boq';
+import { type StockCategory } from '@/domain/stock';
 import { formatQty } from '@/domain/pr-outstanding';
 import { type PrLineKind } from '@/domain/pr-type';
 import { isSiteScopedOnly } from '@/server/policy';
@@ -239,6 +240,8 @@ export interface BoqQtyOption {
    * prefixed by the VO number for a variation order's BOQ; "BOQ หลัก" for a line above any category
    */
   group: string;
+  /** The PR category (หมวด) the group belongs to, which narrows the picker; null when its name does not say */
+  category: StockCategory | null;
   no: string;
   description: string;
   unit: string;
@@ -254,20 +257,20 @@ export async function listBoqQtyOptions(db: Db, actor: SessionUser): Promise<Boq
   const rows = isSiteScopedOnly(actor) ? all.filter((r) => actor.projectIds.includes(r.projectId)) : all;
 
   // Each line's group is the last category row above it in the same BOQ
-  const groupOf = new Map<string, string>();
+  const groupOf = new Map<string, { label: string; category: StockCategory | null }>();
   let boqId: string | null = null;
-  let category = '';
+  let heading: { label: string; category: StockCategory | null } = { label: '', category: null };
   for (const { line, kind, voNumber } of rows) {
     if (line.boqId !== boqId) {
       boqId = line.boqId;
-      category = '';
+      heading = { label: '', category: null };
     }
     if (line.isCategory) {
-      category = [line.no, line.description].filter(Boolean).join(' ');
+      heading = { label: [line.no, line.description].filter(Boolean).join(' '), category: stockCategoryOfBoq(line.description) };
       continue;
     }
     const source = kind === 'VO' && voNumber ? voNumber : '';
-    groupOf.set(line.id, [source, category].filter(Boolean).join(' · ') || 'BOQ หลัก');
+    groupOf.set(line.id, { label: [source, heading.label].filter(Boolean).join(' · ') || 'BOQ หลัก', category: heading.category });
   }
 
   const visible = rows.filter((r) => isPurchasable(r.line));
@@ -280,7 +283,8 @@ export async function listBoqQtyOptions(db: Db, actor: SessionUser): Promise<Boq
       id: line.id,
       projectId,
       source: kind === 'VO' && voNumber ? voNumber : 'BOQ หลัก',
-      group: groupOf.get(line.id) ?? 'BOQ หลัก',
+      group: groupOf.get(line.id)?.label ?? 'BOQ หลัก',
+      category: groupOf.get(line.id)?.category ?? null,
       no: line.no,
       description: line.description,
       unit: line.unit,

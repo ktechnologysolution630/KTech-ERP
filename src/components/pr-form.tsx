@@ -29,6 +29,9 @@ import type { BoqQtyOption } from '@/server/services/pr-boq';
 /** Value of the BOQ picker for a goods line that is not in the BOQ */
 const OUTSIDE_BOQ = 'OUTSIDE';
 
+/** A BOQ line's name as an item name: imported sheets often start sub-items with "- " */
+const boqName = (description: string) => description.replace(/^\s*-\s*/, '').trim();
+
 export interface PrItemOption {
   id: string;
   code: string;
@@ -235,16 +238,21 @@ export function PrForm({
   // BOQ of the chosen project; once it has one, every goods line names its BOQ line or "นอก BOQ"
   const projectBoq = useMemo(() => boqOptions.filter((o) => o.projectId === projectId), [boqOptions, projectId]);
   const hasBoq = projectBoq.length > 0;
+  /**
+   * BOQ lines a goods line of this category may pick: the BOQ groups of that category, and groups whose
+   * name names no category (so nothing in the BOQ is out of reach)
+   */
+  const boqFor = (category: string) => projectBoq.filter((o) => o.category === category || o.category === null);
   /** The picker's sections: consecutive lines under the same major group of the BOQ */
-  const boqGroups = useMemo(() => {
+  const groupBoq = (options: BoqQtyOption[]) => {
     const groups: { label: string; options: BoqQtyOption[] }[] = [];
-    for (const o of projectBoq) {
+    for (const o of options) {
       const last = groups.at(-1);
       if (last && last.label === o.group) last.options.push(o);
       else groups.push({ label: o.group, options: [o] });
     }
     return groups;
-  }, [projectBoq]);
+  };
   /** The line's BOQ choice while it belongs to the chosen project */
   const boqOf = (l: LineState) => (hasBoq && (l.boq === OUTSIDE_BOQ || projectBoq.some((o) => o.id === l.boq)) ? l.boq : '');
   /** Per BOQ line: what this PR asks for and how much of it is beyond the BOQ quantity */
@@ -339,7 +347,13 @@ export function PrForm({
         value={line.category}
         onChange={(e) => {
           const category = e.target.value;
-          setLine(idx, { category, group: groupsOfCategory(category).some((g) => g.name === line.group) ? line.group : '' });
+          // A BOQ line outside the new category no longer fits the line
+          const boqStays = !line.boq || line.boq === OUTSIDE_BOQ || boqFor(category).some((o) => o.id === line.boq);
+          setLine(idx, {
+            category,
+            group: groupsOfCategory(category).some((g) => g.name === line.group) ? line.group : '',
+            ...(boqStays ? {} : { boq: '' }),
+          });
         }}
         aria-label={`หมวด${work ? 'หมู่งาน' : 'รายการ'}ที่ ${n + 1}`}
         aria-invalid={!line.category}
@@ -361,36 +375,45 @@ export function PrForm({
     if (!hasBoq) return <p className="px-1.5 py-1 text-xs text-slate-400">โครงการนี้ยังไม่มี BOQ</p>;
     const chosen = boqOf(line);
     const use = chosen && chosen !== OUTSIDE_BOQ ? boqUse.get(chosen) : undefined;
+    // The category locks the picker to its own BOQ groups
+    const options = line.category ? boqFor(line.category) : [];
     return (
       <>
         <select
           value={chosen}
+          disabled={!line.category}
           onChange={(e) => {
             const value = e.target.value;
             const option = projectBoq.find((o) => o.id === value);
+            const previous = projectBoq.find((o) => o.id === line.boq);
+            // The item takes the BOQ line's name, unless someone wrote their own
+            const named = !line.description.trim() || (previous && line.description === boqName(previous.description));
             setLine(idx, {
               boq: value,
               // Quantities are counted in the BOQ's unit
               ...(option?.unit ? { unitName: option.unit } : {}),
-              ...(option && !line.description.trim() ? { description: option.description } : {}),
+              ...(option && named ? { description: boqName(option.description), itemId: '' } : {}),
             });
           }}
           aria-label={`รายการ BOQ ที่ ${n + 1}`}
           aria-invalid={!chosen}
-          className={`${paperCell} text-xs ${chosen ? '' : 'border-amber-400'}`}
+          className={`${paperCell} text-xs disabled:bg-slate-50 disabled:text-slate-400 ${chosen ? '' : 'border-amber-400'}`}
         >
-          <option value="">-- เลือกรายการ BOQ --</option>
-          {boqGroups.map((g, i) => (
+          <option value="">{line.category ? '-- เลือกรายการ BOQ --' : 'เลือกหมวดก่อน'}</option>
+          {groupBoq(options).map((g, i) => (
             <optgroup key={`${i}-${g.label}`} label={g.label}>
               {g.options.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {[o.no, o.description].filter(Boolean).join(' ')}
+                  {[o.no, boqName(o.description)].filter(Boolean).join(' ')}
                 </option>
               ))}
             </optgroup>
           ))}
           <option value={OUTSIDE_BOQ}>นอก BOQ</option>
         </select>
+        {line.category && options.length === 0 && (
+          <p className="mt-1 px-1 text-[11px] text-slate-500">BOQ ไม่มีรายการในหมวดนี้</p>
+        )}
         {use && (
           <p className="mt-1 px-1 text-[11px] text-slate-500">
             BOQ {formatQty(use.option.qty)} {use.option.unit} · ขอแล้ว {formatQty(use.option.requested)} · เหลือ{' '}

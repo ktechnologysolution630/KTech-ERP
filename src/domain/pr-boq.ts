@@ -1,4 +1,21 @@
 import { D, Decimal } from './money';
+import { type StockCategory } from './stock';
+
+/**
+ * The PR category (หมวด) a BOQ category heading belongs to, read from its name, e.g.
+ * "งานวิศวกรรมโครงสร้าง" → งานโครงสร้าง, "ระบบปรับอากาศและระบายอากาศ" → งานระบบปรับอากาศ.
+ * Null when the name says nothing a PR category covers; such lines are offered under every category.
+ */
+export function stockCategoryOfBoq(name: string): StockCategory | null {
+  const n = name.replace(/\s+/g, '');
+  if (/ปรับอากาศ|ระบายอากาศ/.test(n)) return 'งานระบบปรับอากาศ';
+  if (/สุขาภิบาล|ประปา|ระบายน้ำ|บำบัดน้ำ/.test(n)) return 'งานสุขาภิบาล';
+  if (/ไฟฟ้า|สื่อสาร|ภาพเสียง|เครื่องเสียง|โทรศัพท์|กล้องวงจรปิด|cctv/i.test(n)) return 'งานระบบไฟฟ้าและสื่อสาร';
+  if (/สถาปัตย/.test(n)) return 'งานสถาปัตยกรรม';
+  if (/โครงสร้าง|ฐานราก|เสาเข็ม/.test(n)) return 'งานโครงสร้าง';
+  if (/ครุภัณฑ์|เฟอร์นิเจอร์/.test(n)) return 'ครุภัณฑ์';
+  return null;
+}
 
 /** A BOQ material line as far as PR quantities are concerned */
 export interface BoqQtyLine {
