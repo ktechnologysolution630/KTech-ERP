@@ -6,9 +6,9 @@ import { items, poLines, prLines, prs, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { ensureFontsRegistered } from '@/pdf/layout';
 import { PoPdfDoc, type PoLineRef } from '@/pdf/po';
-import { PrPdfDoc } from '@/pdf/pr';
+import { PrPdfDoc, type PrLineRef } from '@/pdf/pr';
 import { PvPdfDoc } from '@/pdf/pv';
-import { poSigners, prSigners, pvSigners } from './doc-signers';
+import { poSigners, prPdfSigners, pvSigners } from './doc-signers';
 import { getPo } from './po';
 import { getPr } from './pr';
 import { getPv } from './pv';
@@ -44,8 +44,9 @@ export async function renderDocPdfWithMeta(
 
   if (kind === 'pr') {
     const pr = await getPr(db, actor, id);
+    const [signers, lineRefs] = await Promise.all([prPdfSigners(db, pr), prLineRefs(db, id)]);
     const buffer = await renderToBuffer(
-      PrPdfDoc({ pr, settings, signers: await prSigners(db, pr) }) as unknown as React.ReactElement<never>,
+      PrPdfDoc({ pr, settings, signers, lineRefs }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pr.number}.pdf` };
   }
@@ -92,6 +93,16 @@ export async function poLineRefs(db: Db, poId: string): Promise<Map<string, PoLi
     .leftJoin(items, eq(items.id, poLines.itemId))
     .where(eq(poLines.poId, poId));
   return new Map(rows.map((r) => [r.id, { prNumber: r.prNumber ?? '', itemCode: r.itemCode ?? '' }]));
+}
+
+/** The item code each requisition line was picked as, by PR line */
+export async function prLineRefs(db: Db, prId: string): Promise<Map<string, PrLineRef>> {
+  const rows = await db
+    .select({ id: prLines.id, itemCode: items.code })
+    .from(prLines)
+    .leftJoin(items, eq(items.id, prLines.itemId))
+    .where(eq(prLines.prId, prId));
+  return new Map(rows.map((r) => [r.id, { itemCode: r.itemCode ?? '' }]));
 }
 
 export async function renderDocPdf(
