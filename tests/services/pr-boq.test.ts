@@ -231,13 +231,15 @@ describe('PR over the BOQ quantity', () => {
     await approvePr(db, f.users.pm, pr.id);
     const options = await listBoqQtyOptions(db, f.users.foreman);
     // The foreman only sees project A
-    expect(options).toEqual([expect.objectContaining({ id: steel.id, group: '1 งานโครงสร้าง', unit: 'เส้น', qty: 100, requested: 30, remaining: 70 })]);
+    expect(options).toEqual([
+      expect.objectContaining({ id: steel.id, group: '1 งานโครงสร้าง', category: 'งานโครงสร้าง', unit: 'เส้น', qty: 100, requested: 30, remaining: 70 }),
+    ]);
   });
 
   test('a line above any category is grouped as the main BOQ', async () => {
     const { db, f, cementB } = await setup();
     const options = await listBoqQtyOptions(db, f.users.owner);
-    expect(options.find((o) => o.id === cementB.id)).toMatchObject({ group: 'BOQ หลัก', source: 'BOQ หลัก' });
+    expect(options.find((o) => o.id === cementB.id)).toMatchObject({ group: 'BOQ หลัก', source: 'BOQ หลัก', category: null });
   });
 });
 
