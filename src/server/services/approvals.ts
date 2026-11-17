@@ -1,4 +1,4 @@
-import { desc, eq, inArray, or } from 'drizzle-orm';
+import { desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
@@ -50,16 +50,81 @@ const money = (value: string): number => Number(value);
  * Each list applies the same rule as that workflow's decision, so what is shown can be decided.
  */
 export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<ApprovalItem[]> {
-  const [projectRows, userRows, vendorRows, settings] = await Promise.all([
-    db.select({ id: projects.id, name: projects.name }).from(projects),
-    db.select({ id: users.id, name: users.name }).from(users),
-    db.select({ id: vendors.id, name: vendors.name }).from(vendors),
-    getSettings(db),
+  // Every workflow's waiting documents in one round of queries run side by side, reading only what is
+  // waiting; names follow in a second round, for the documents found. A remote database answers each
+  // round trip with a delay, so this runs as two waits rather than one per workflow.
+  const none = Promise.resolve([] as never[]);
+  const [settings, prRows, poRows, pvRows, pvProjects, closeShortRows, overrunRows, voRows, advanceRows, substituteRows, adjustRows, prvRows] =
+    await Promise.all([
+      getSettings(db),
+      db.select().from(prs).where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW'])),
+      // A new PO waiting, or an approved one with a revision waiting
+      db
+        .select()
+        .from(pos)
+        .where(or(eq(pos.status, 'PENDING_APPROVAL'), isNotNull(pos.pendingRevision)))
+        .orderBy(desc(pos.createdAt)),
+      can(actor, 'pv.approve') ? db.select().from(pvs).where(eq(pvs.status, 'PENDING_APPROVAL')) : none,
+      can(actor, 'pv.approve')
+        ? db
+            .select({ pvId: pvLines.pvId, projectId: payables.projectId })
+            .from(pvLines)
+            .innerJoin(payables, eq(payables.id, pvLines.payableId))
+            .innerJoin(pvs, eq(pvs.id, pvLines.pvId))
+            .where(eq(pvs.status, 'PENDING_APPROVAL'))
+        : none,
+      can(actor, 'closeShort.approve')
+        ? db
+            .select({ r: closeShortRequests, poNumber: pos.number, poProjectId: pos.projectId })
+            .from(closeShortRequests)
+            .leftJoin(pos, eq(pos.id, closeShortRequests.poId))
+            .where(eq(closeShortRequests.status, 'PENDING'))
+        : none,
+      can(actor, 'boqOverrun.approve') ? db.select().from(boqOverrunRequests).where(eq(boqOverrunRequests.status, 'PENDING')) : none,
+      db.select().from(variationOrders).where(eq(variationOrders.status, 'PENDING')),
+      can(actor, 'advance.approve') ? db.select().from(advances).where(eq(advances.status, 'PENDING')) : none,
+      can(actor, 'advance.pay') ? db.select().from(receiptSubstitutes).where(eq(receiptSubstitutes.status, 'PENDING')) : none,
+      can(actor, 'stock.approveAdjust')
+        ? db
+            .select({ r: stockAdjustRequests, itemName: stockItems.name })
+            .from(stockAdjustRequests)
+            .innerJoin(stockItems, eq(stockItems.id, stockAdjustRequests.stockItemId))
+            .where(eq(stockAdjustRequests.status, 'PENDING'))
+        : none,
+      db.select().from(prvs).where(or(eq(prvs.status, 'SUBMITTED'), eq(prvs.status, 'PM_VERIFIED'))),
+    ]);
+  const poLimit = D(settings.poApprovalLimit);
+
+  // Names for the documents found, and which of their projects have a PM
+  const projectIds = new Set<string>();
+  const userIds = new Set<string>();
+  const vendorIds = new Set<string>();
+  const note = (projectId: string | null | undefined, userId: string | null | undefined, vendorId?: string | null) => {
+    if (projectId) projectIds.add(projectId);
+    if (userId) userIds.add(userId);
+    if (vendorId) vendorIds.add(vendorId);
+  };
+  prRows.forEach((r) => note(r.projectId, r.requestedBy));
+  poRows.forEach((r) => note(r.projectId, r.createdBy, r.vendorId));
+  pvRows.forEach((r) => note(null, r.createdBy, r.vendorId));
+  pvProjects.forEach((r) => note(r.projectId, null));
+  closeShortRows.forEach(({ r, poProjectId }) => note(poProjectId, r.requestedBy));
+  overrunRows.forEach((r) => note(r.projectId, r.requestedBy));
+  voRows.forEach((r) => note(r.projectId, r.requestedBy));
+  advanceRows.forEach((r) => note(r.projectId, r.payeeId));
+  substituteRows.forEach((r) => note(r.projectId, r.payerId));
+  adjustRows.forEach(({ r }) => note(r.projectId, r.requestedBy));
+  prvRows.forEach((r) => note(r.projectId, r.requestedBy));
+
+  const [withPm, projectRows, userRows, vendorRows] = await Promise.all([
+    projectIdsWithPm(db, [...new Set(prRows.map((p) => p.projectId))]),
+    projectIds.size ? db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, [...projectIds])) : none,
+    userIds.size ? db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, [...userIds])) : none,
+    vendorIds.size ? db.select({ id: vendors.id, name: vendors.name }).from(vendors).where(inArray(vendors.id, [...vendorIds])) : none,
   ]);
   const projectName = new Map(projectRows.map((p) => [p.id, p.name]));
   const userName = new Map(userRows.map((u) => [u.id, u.name]));
   const vendorName = new Map(vendorRows.map((v) => [v.id, v.name]));
-  const poLimit = D(settings.poApprovalLimit);
 
   const item = (
     fields: Pick<ApprovalItem, 'type' | 'id' | 'number' | 'title' | 'amount' | 'href'> & { projectId: string | null; createdAt: Date; requesterId: string },
@@ -78,10 +143,7 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
 
   const result: ApprovalItem[] = [];
 
-  // The PM decides submitted PRs; PRs over the BOQ then wait on the owner
-  const prRows = await db.select().from(prs).where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']));
-  // The owner sees a submitted PR only on a project without a PM
-  const withPm = await projectIdsWithPm(db, [...new Set(prRows.map((p) => p.projectId))]);
+  // The PM decides submitted PRs; PRs over the BOQ then wait on the owner, who sees a submitted PR only on a project without a PM
   for (const pr of prRows) {
     const atOwner = pr.status === 'OWNER_REVIEW';
     if (!can(actor, atOwner ? 'pr.approveOverBoq' : 'pr.approve', { projectId: pr.projectId, projectHasPm: withPm.has(pr.projectId) })) continue;
@@ -89,81 +151,47 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
     result.push(item({ type: 'PR', id: pr.id, number: pr.number, title, amount: null, href: `/pr/${pr.id}`, projectId: pr.projectId, createdAt: pr.createdAt, requesterId: pr.requestedBy }));
   }
 
-  const poRows = await db.select().from(pos).orderBy(desc(pos.createdAt));
-  const poById = new Map(poRows.map((p) => [p.id, p]));
   for (const po of poRows) {
     const gross = poPendingGross(po);
     if (!gross || !can(actor, 'po.approve', { gross, poApprovalLimit: poLimit, createdBy: po.createdBy })) continue;
     result.push(item({ type: 'PO', id: po.id, number: po.number, title: vendorName.get(po.vendorId) ?? '', amount: gross.toNumber(), href: `/po/${po.id}`, projectId: po.projectId, createdAt: po.createdAt, requesterId: po.createdBy }));
   }
 
-  if (can(actor, 'pv.approve')) {
-    const pvRows = await db.select().from(pvs).where(eq(pvs.status, 'PENDING_APPROVAL'));
-    const pvProjects = pvRows.length
-      ? await db
-          .select({ pvId: pvLines.pvId, projectId: payables.projectId })
-          .from(pvLines)
-          .innerJoin(payables, eq(payables.id, pvLines.payableId))
-          .where(inArray(pvLines.pvId, pvRows.map((p) => p.id)))
-      : [];
-    for (const pv of pvRows) {
-      const ids = new Set(pvProjects.filter((l) => l.pvId === pv.id).map((l) => l.projectId));
-      const projectId = ids.size === 1 ? [...ids][0]! : null;
-      result.push(item({ type: 'PV', id: pv.id, number: pv.number, title: vendorName.get(pv.vendorId) ?? '', amount: money(pv.net), href: `/pv/${pv.id}`, projectId, createdAt: pv.createdAt, requesterId: pv.createdBy }));
-    }
+  for (const pv of pvRows) {
+    const ids = new Set(pvProjects.filter((l) => l.pvId === pv.id).map((l) => l.projectId));
+    const projectId = ids.size === 1 ? [...ids][0]! : null;
+    result.push(item({ type: 'PV', id: pv.id, number: pv.number, title: vendorName.get(pv.vendorId) ?? '', amount: money(pv.net), href: `/pv/${pv.id}`, projectId, createdAt: pv.createdAt, requesterId: pv.createdBy }));
   }
 
-  if (can(actor, 'closeShort.approve')) {
-    const rows = await db.select().from(closeShortRequests).where(eq(closeShortRequests.status, 'PENDING'));
-    for (const r of rows) {
-      const po = poById.get(r.poId);
-      result.push(item({ type: 'CLOSE_SHORT', id: r.id, number: po?.number ?? '-', title: r.reason, amount: null, href: `/po/${r.poId}`, projectId: po?.projectId ?? null, createdAt: r.createdAt, requesterId: r.requestedBy }));
-    }
+  for (const { r, poNumber, poProjectId } of closeShortRows) {
+    result.push(item({ type: 'CLOSE_SHORT', id: r.id, number: poNumber ?? '-', title: r.reason, amount: null, href: `/po/${r.poId}`, projectId: poProjectId ?? null, createdAt: r.createdAt, requesterId: r.requestedBy }));
   }
 
-  if (can(actor, 'boqOverrun.approve')) {
-    const rows = await db.select().from(boqOverrunRequests).where(eq(boqOverrunRequests.status, 'PENDING'));
-    for (const r of rows) {
-      result.push(item({ type: 'BOQ_OVERRUN', id: r.id, number: r.number, title: r.reason, amount: money(r.overAmount), href: `/po/${r.poId}`, projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
-    }
+  for (const r of overrunRows) {
+    result.push(item({ type: 'BOQ_OVERRUN', id: r.id, number: r.number, title: r.reason, amount: money(r.overAmount), href: `/po/${r.poId}`, projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
   }
 
-  const voRows = await db.select().from(variationOrders).where(eq(variationOrders.status, 'PENDING'));
   for (const vo of voRows) {
     if (!can(actor, 'vo.approve', { projectId: vo.projectId })) continue;
     result.push(item({ type: 'VO', id: vo.id, number: vo.number, title: vo.title, amount: D(vo.addAmount).minus(vo.deductAmount).toNumber(), href: `/projects/${vo.projectId}?tab=vo`, projectId: vo.projectId, createdAt: vo.createdAt, requesterId: vo.requestedBy }));
   }
 
-  if (can(actor, 'advance.approve')) {
-    const rows = await db.select().from(advances).where(eq(advances.status, 'PENDING'));
-    for (const a of rows) {
-      // Nobody decides their own advance
-      if (a.payeeId === actor.id) continue;
-      result.push(item({ type: 'ADVANCE', id: a.id, number: a.number, title: a.purpose, amount: money(a.amount), href: `/advances/${a.id}`, projectId: a.projectId, createdAt: a.createdAt, requesterId: a.payeeId }));
-    }
+  for (const a of advanceRows) {
+    // Nobody decides their own advance
+    if (a.payeeId === actor.id) continue;
+    result.push(item({ type: 'ADVANCE', id: a.id, number: a.number, title: a.purpose, amount: money(a.amount), href: `/advances/${a.id}`, projectId: a.projectId, createdAt: a.createdAt, requesterId: a.payeeId }));
   }
 
-  if (can(actor, 'advance.pay')) {
-    const rows = await db.select().from(receiptSubstitutes).where(eq(receiptSubstitutes.status, 'PENDING'));
-    for (const rs of rows) {
-      if (rs.payerId === actor.id) continue;
-      result.push(item({ type: 'RECEIPT_SUBSTITUTE', id: rs.id, number: rs.number ?? '-', title: 'ค่าใช้จ่ายที่ไม่มีใบเสร็จ', amount: money(rs.total), href: `/receipt-substitutes/${rs.id}`, projectId: rs.projectId, createdAt: rs.createdAt, requesterId: rs.payerId }));
-    }
+  for (const rs of substituteRows) {
+    if (rs.payerId === actor.id) continue;
+    result.push(item({ type: 'RECEIPT_SUBSTITUTE', id: rs.id, number: rs.number ?? '-', title: 'ค่าใช้จ่ายที่ไม่มีใบเสร็จ', amount: money(rs.total), href: `/receipt-substitutes/${rs.id}`, projectId: rs.projectId, createdAt: rs.createdAt, requesterId: rs.payerId }));
   }
 
-  if (can(actor, 'stock.approveAdjust')) {
-    const rows = await db
-      .select({ r: stockAdjustRequests, itemName: stockItems.name })
-      .from(stockAdjustRequests)
-      .innerJoin(stockItems, eq(stockItems.id, stockAdjustRequests.stockItemId))
-      .where(eq(stockAdjustRequests.status, 'PENDING'));
-    for (const { r, itemName } of rows) {
-      if (r.requestedBy === actor.id) continue;
-      result.push(item({ type: 'STOCK_ADJUST', id: r.id, number: r.requestNumber, title: `${itemName}: ${r.reason}`, amount: null, href: '/stock?tab=stock-adjust', projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
-    }
+  for (const { r, itemName } of adjustRows) {
+    if (r.requestedBy === actor.id) continue;
+    result.push(item({ type: 'STOCK_ADJUST', id: r.id, number: r.requestNumber, title: `${itemName}: ${r.reason}`, amount: null, href: '/stock?tab=stock-adjust', projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
   }
 
-  const prvRows = await db.select().from(prvs).where(or(eq(prvs.status, 'SUBMITTED'), eq(prvs.status, 'PM_VERIFIED')));
   for (const prv of prvRows) {
     if (prv.requestedBy === actor.id) continue;
     const verifying = prv.status === 'SUBMITTED';
@@ -172,6 +200,11 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
   }
 
   return result.sort((a, b) => b.date.localeCompare(a.date) || a.number.localeCompare(b.number));
+}
+
+/** How many documents wait on this user: the number on the K Tec Approve menu */
+export async function countPendingApprovals(db: Db, actor: SessionUser): Promise<number> {
+  return (await listPendingApprovals(db, actor)).length;
 }
 
 const decisionSchema = z.object({

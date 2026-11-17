@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -51,11 +51,20 @@ interface AppShellProps {
   unreadCount?: number;
   /** From Settings; shown in the top bar */
   companyName: string;
-  /** Documents waiting on this user; null hides the menu from users who approve nothing */
-  pendingApprovalCount?: number | null;
+  /**
+   * Documents waiting on this user, still being counted when the page is sent so the page does not wait
+   * for it; null hides the menu from users who approve nothing
+   */
+  pendingApprovalCount?: Promise<number> | null;
   canManageUsers?: boolean;
   canManageSettings?: boolean;
   children: React.ReactNode;
+}
+
+/** The number on the K Tec Approve menu, shown once the server has counted it */
+function PendingBadge({ count }: { count: Promise<number> }) {
+  const n = use(count);
+  return n > 0 ? <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{n}</span> : null;
 }
 
 /** Receivables (ฝั่งขาย) pages in the finance menu */
@@ -236,8 +245,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     {!collapsed && <span>K Tec Approve</span>}
                   </div>
-                  {!collapsed && pendingApprovalCount > 0 && (
-                    <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{pendingApprovalCount}</span>
+                  {!collapsed && (
+                    <Suspense fallback={null}>
+                      <PendingBadge count={pendingApprovalCount} />
+                    </Suspense>
                   )}
                 </Link>
               )}
