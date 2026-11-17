@@ -37,24 +37,29 @@ const LEVEL_OF: Record<Exclude<BoqUsageLevel, 0>, NotificationLevel> = {
 type BoqLineRow = typeof boqLines.$inferSelect;
 
 /**
- * Lines a PR may draw on: material lines with a quantity in the project's main BOQ or in the BOQ of
- * an approved variation order. All projects when projectId is left out.
+ * Rows of the BOQs a PR may draw on, category rows included, in sheet order: the project's main BOQ,
+ * then the BOQs of its approved variation orders. All projects when projectId is left out.
  */
-async function purchasableBoqLines(tx: Db, projectId?: string) {
-  const rows = await tx
+async function purchasableBoqRows(tx: Db, projectId?: string) {
+  return tx
     .select({ line: boqLines, projectId: boqs.projectId, kind: boqs.kind, voNumber: variationOrders.number })
     .from(boqLines)
     .innerJoin(boqs, eq(boqs.id, boqLines.boqId))
     .leftJoin(variationOrders, eq(variationOrders.id, boqs.voId))
     .where(
       and(
-        eq(boqLines.isCategory, false),
         projectId ? eq(boqs.projectId, projectId) : undefined,
         or(eq(boqs.kind, 'MAIN'), and(eq(boqs.kind, 'VO'), eq(variationOrders.status, 'APPROVED'))),
       ),
     )
-    .orderBy(boqs.projectId, boqs.kind, boqLines.sort);
-  return rows.filter((r) => r.line.qty !== null && D(r.line.qty).gt(0));
+    .orderBy(boqs.projectId, boqs.kind, boqLines.boqId, boqLines.sort);
+}
+
+/** Lines a PR may draw on: material lines with a quantity */
+const isPurchasable = (line: BoqLineRow) => !line.isCategory && line.qty !== null && D(line.qty).gt(0);
+
+async function purchasableBoqLines(tx: Db, projectId?: string) {
+  return (await purchasableBoqRows(tx, projectId)).filter((r) => isPurchasable(r.line));
 }
 
 /**
@@ -229,6 +234,11 @@ export interface BoqQtyOption {
   projectId: string;
   /** "BOQ หลัก" or the VO number the line came from */
   source: string;
+  /**
+   * The major group the line sits under, for grouping the picker: its BOQ category ("1 งานฐานราก"),
+   * prefixed by the VO number for a variation order's BOQ; "BOQ หลัก" for a line above any category
+   */
+  group: string;
   no: string;
   description: string;
   unit: string;
@@ -238,10 +248,29 @@ export interface BoqQtyOption {
   remaining: number;
 }
 
-/** Material lines a PR can pick, with how much approved PRs already ask for */
+/** Material lines a PR can pick, in BOQ order under their major group, with how much approved PRs already ask for */
 export async function listBoqQtyOptions(db: Db, actor: SessionUser): Promise<BoqQtyOption[]> {
-  const rows = await purchasableBoqLines(db);
-  const visible = isSiteScopedOnly(actor) ? rows.filter((r) => actor.projectIds.includes(r.projectId)) : rows;
+  const all = await purchasableBoqRows(db);
+  const rows = isSiteScopedOnly(actor) ? all.filter((r) => actor.projectIds.includes(r.projectId)) : all;
+
+  // Each line's group is the last category row above it in the same BOQ
+  const groupOf = new Map<string, string>();
+  let boqId: string | null = null;
+  let category = '';
+  for (const { line, kind, voNumber } of rows) {
+    if (line.boqId !== boqId) {
+      boqId = line.boqId;
+      category = '';
+    }
+    if (line.isCategory) {
+      category = [line.no, line.description].filter(Boolean).join(' ');
+      continue;
+    }
+    const source = kind === 'VO' && voNumber ? voNumber : '';
+    groupOf.set(line.id, [source, category].filter(Boolean).join(' · ') || 'BOQ หลัก');
+  }
+
+  const visible = rows.filter((r) => isPurchasable(r.line));
   if (visible.length === 0) return [];
   const requested = await requestedQtyByBoqLine(db, visible.map((r) => r.line.id));
   return visible.map(({ line, projectId, kind, voNumber }) => {
@@ -251,6 +280,7 @@ export async function listBoqQtyOptions(db: Db, actor: SessionUser): Promise<Boq
       id: line.id,
       projectId,
       source: kind === 'VO' && voNumber ? voNumber : 'BOQ หลัก',
+      group: groupOf.get(line.id) ?? 'BOQ หลัก',
       no: line.no,
       description: line.description,
       unit: line.unit,
