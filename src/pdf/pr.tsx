@@ -1,105 +1,202 @@
 import React from 'react';
-import { Text, View } from '@react-pdf/renderer';
+import { Document, Text, View } from '@react-pdf/renderer';
+import { computeDocTotals, D, formatMoneyDisplay } from '@/domain/money';
+import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures } from '@/domain/pr-type';
+import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { PdfShell, pdfStyles } from './layout';
-import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures } from '@/domain/pr-type';
-import { type Signer } from '@/domain/signature';
+import { Field, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SIDE_WIDTH, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+
+/** The item code a requisition line was picked as; blank when it was typed in */
+export interface PrLineRef {
+  itemCode: string;
+}
+
+/** Fixed column widths of the two item tables; the description takes the rest */
+const GOODS_COL = { no: 26, boq: 70, qty: 76, needed: 74 };
+const PRICED_COL = { no: 26, boq: 60, qty: 66, price: 60, discount: 46, amount: 68 };
+
+/** PURCHASE REQUISITION → Purchase Requisition, to sit like the order's title */
+const titleCase = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/ And /g, ' and ');
 
 export function PrPdfDoc({
   pr,
   settings,
   signers,
+  lineRefs,
 }: {
   pr: Awaited<ReturnType<typeof getPr>>;
   settings: Settings;
-  /** Who has signed in the system; blank lines when left out */
+  /** The requester, the PM and the executive as signed in the system; blank lines when left out */
   signers?: Signer[];
+  lineRefs?: ReadonlyMap<string, PrLineRef>;
 }) {
   const isDraft = pr.status !== 'APPROVED' && pr.status !== 'CLOSED';
   const meta = PR_TYPE_META[pr.prType];
   // The goods form never prints prices, also for PRs written before the forms existed
-  const showPrices = meta.priced;
+  const priced = meta.priced;
   const goods = pr.prType === 'GOODS';
-  const combined = pr.prType === 'GOODS_AND_LABOR';
   const labor = pr.prType === 'LABOR';
-  // PRs written while the date sat in the header carry it there
-  const needed = (lineDate: string | null) => {
-    const d = lineDate ?? pr.needBy;
-    return d ? formatThaiDate(d) : '-';
-  };
-  // The goods table carries three more columns, so its narrow ones give way to the item name
-  const w = goods ? { no: 26, category: 90, group: 115, qty: 48, unit: 44, needed: 62 } : { no: 32, category: 0, group: 0, qty: 55, unit: 50, needed: 0 };
-  const total = pr.lines.reduce((s, l) => s + Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount), 0);
+  const mixed = pr.prType === 'GOODS_AND_LABOR';
+  const dateText = (d: string | null | undefined) => (d ? formatThaiDate(d) : '-');
+
+  const totals = computeDocTotals({
+    vatMode: pr.vatMode,
+    billDiscount: priced ? D(pr.billDiscount) : D(0),
+    shipping: D(0),
+    lines: pr.lines.map((l) => ({ qty: D(l.qty), unitPrice: D(l.estUnitPrice ?? 0), discount: D(l.discount) })),
+  });
+
+  const signatures: Signer[] = signers ?? [prSignatures(pr.prType)[0]!, 'ผู้จัดการโครงการ (PM)', 'ผู้บริหาร'].map((label) => ({ label }));
+  const requester = `${pr.requesterText || pr.requesterName}${pr.department ? ` (${pr.department})` : ''}`;
 
   return (
-    <PdfShell
-      settings={settings}
-      titleTh={meta.titleTh}
-      titleEn={meta.titleEn}
-      docNumber={pr.number}
-      docDate={formatThaiDate(pr.docDate ?? pr.createdAt)}
-      isDraft={isDraft}
-      signatures={signers ?? prSignatures(pr.prType)}
-    >
-      <View style={pdfStyles.metaGrid}>
-        <View style={pdfStyles.metaBox}>
-          <Text>
-            โครงการ: {pr.projectCode} - {pr.projectName}
-          </Text>
-          <Text>ผู้ขอซื้อ: {pr.requesterText || pr.requesterName}{pr.department ? ` (${pr.department})` : ''}</Text>
-          <Text>{labor ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'}: {pr.deliveryPlace || '-'}</Text>
-          {!goods && <Text>{labor ? 'กำหนดเริ่มงาน' : 'กำหนดรับของ/เริ่มงาน'}: {pr.needBy ? formatThaiDate(pr.needBy) : '-'}</Text>}
-          {pr.prType !== 'GOODS' && <Text>กำหนดแล้วเสร็จ: {pr.workEnd ? formatThaiDate(pr.workEnd) : '-'}</Text>}
-        </View>
-        <View style={pdfStyles.metaBox}>
-          <Text>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}: {pr.vendorName ?? '-'}</Text>
-          {pr.vendorName && <Text>{[pr.vendorAddress, pr.vendorPhone].filter(Boolean).join(' · ')}</Text>}
-          {showPrices && <Text>เงื่อนไขการชำระเงิน: {pr.paymentTerms || '-'}</Text>}
-          <Text>หมายเหตุ: {pr.note || '-'}</Text>
-        </View>
-      </View>
+    <Document>
+      <FormPage settings={settings} isDraft={isDraft}>
+        <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
-      <View style={pdfStyles.tableHeader}>
-        <Text style={{ width: w.no }}>#</Text>
-        {goods && <Text style={{ width: w.category }}>หมวด</Text>}
-        {goods && <Text style={{ width: w.group }}>กลุ่ม</Text>}
-        <Text style={{ flex: 1 }}>รายการ</Text>
-        {combined && <Text style={{ width: 70 }}>ประเภท</Text>}
-        {!goods && <Text style={{ width: 90 }}>หมวดหมู่</Text>}
-        <Text style={{ width: w.qty, textAlign: 'right' }}>จำนวน</Text>
-        <Text style={{ width: w.unit, textAlign: 'center' }}>หน่วย</Text>
-        {goods && <Text style={{ width: w.needed, textAlign: 'center' }}>กำหนดใช้/รับของ</Text>}
-        {showPrices && <Text style={{ width: 70, textAlign: 'right' }}>ราคา/หน่วย</Text>}
-        {showPrices && <Text style={{ width: 50, textAlign: 'right' }}>ส่วนลด</Text>}
-        {showPrices && <Text style={{ width: 75, textAlign: 'right' }}>จำนวนเงิน</Text>}
-      </View>
+        <View style={[fs.box, { flexDirection: 'row' }]}>
+          <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+            <Text style={[fs.bold, { marginBottom: 2 }]}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
+            <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
+            <Field label="ที่อยู่" value={pr.vendorAddress || '-'} />
+            <Field label="โทร" value={pr.vendorPhone || '-'} />
+            <Text>
+              <Text style={fs.bold}>เลขประจำตัวผู้เสียภาษี : </Text>
+              {pr.vendorTaxId || '-'}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
+              <View style={[fs.cellRight, fs.pad, { flex: 1.3 }]}>
+                <Field label={labor ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} value={pr.requesterText || pr.requesterName} labelWidth={46} />
+              </View>
+              <View style={[fs.pad, { flex: 1 }]}>
+                <Field label="แผนก" value={pr.department || '-'} labelWidth={30} />
+              </View>
+            </View>
+            <View style={[fs.cellBottom, fs.pad]}>
+              <Field label={labor ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'} value={pr.deliveryPlace || '-'} />
+            </View>
+            <View style={[goods ? {} : fs.cellBottom, fs.pad]}>
+              <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} />
+            </View>
+            {!goods && (
+              <View style={{ flexDirection: 'row' }}>
+                <View style={[fs.cellRight, fs.pad, { flex: 1 }]}>
+                  <Field label={labor ? 'กำหนดเริ่มงาน' : 'รับของ/เริ่มงาน'} value={dateText(pr.needBy)} labelWidth={62} />
+                </View>
+                <View style={[fs.pad, { flex: 1 }]}>
+                  <Field label="แล้วเสร็จ" value={dateText(pr.workEnd)} labelWidth={42} />
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={[fs.box, fs.pad, { flexDirection: 'row', borderTopWidth: 0, marginBottom: 6 }]}>
+          <View style={{ flex: 1 }}>
+            <Field label="Contact" value={pr.vendorContactPerson || ''} labelWidth={40} />
+          </View>
+          {priced && (
+            <View style={{ width: SIDE_WIDTH }}>
+              <Field label="Currency" value="BAHT" labelWidth={44} />
+            </View>
+          )}
+        </View>
 
-      {pr.lines.map((l, idx) => (
-        <View key={l.id} style={pdfStyles.tableRow}>
-          <Text style={{ width: w.no }}>{idx + 1}</Text>
-          {goods && <Text style={{ width: w.category, paddingRight: 4 }}>{l.category ?? '-'}</Text>}
-          {goods && <Text style={{ width: w.group, paddingRight: 4 }}>{l.itemGroup ?? '-'}</Text>}
-          <Text style={{ flex: 1 }}>{l.detail ? `${l.description}
-${l.detail}` : l.description}</Text>
-          {combined && <Text style={{ width: 70 }}>{LINE_KIND_LABEL[l.lineKind]}</Text>}
-          {!goods && <Text style={{ width: 90 }}>{l.itemGroup ? `${l.category ?? '-'}
-${l.itemGroup}` : (l.category ?? '-')}</Text>}
-          <Text style={{ width: w.qty, textAlign: 'right' }}>{Number(l.qty)}</Text>
-          <Text style={{ width: w.unit, textAlign: 'center' }}>{l.unitName}</Text>
-          {goods && <Text style={{ width: w.needed, textAlign: 'center' }}>{needed(l.neededDate)}</Text>}
-          {showPrices && <Text style={{ width: 70, textAlign: 'right' }}>{l.estUnitPrice ?? '-'}</Text>}
-          {showPrices && <Text style={{ width: 50, textAlign: 'right' }}>{Number(l.discount) ? l.discount : '-'}</Text>}
-          {showPrices && <Text style={{ width: 75, textAlign: 'right' }}>{(Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount)).toFixed(2)}</Text>}
+        {goods ? (
+          <View style={fs.tableHeader}>
+            <HeaderCell th="ลำดับ" en="Item" width={GOODS_COL.no} />
+            <HeaderCell th="รายการ" en="Description" align="left" />
+            <HeaderCell th="รายการ BOQ" en="BOQ No." width={GOODS_COL.boq} />
+            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={GOODS_COL.qty} align="right" />
+            <HeaderCell th="กำหนดใช้/รับของ" en="Required Date" width={GOODS_COL.needed} />
+          </View>
+        ) : (
+          <View style={fs.tableHeader}>
+            <HeaderCell th="ลำดับ" en="Item" width={PRICED_COL.no} />
+            <HeaderCell th="รายการ" en="Description" align="left" />
+            <HeaderCell th="รายการ BOQ" en="BOQ No." width={PRICED_COL.boq} />
+            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={PRICED_COL.qty} align="right" />
+            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={PRICED_COL.price} align="right" />
+            <HeaderCell th="ส่วนลด" en="Discount" width={PRICED_COL.discount} align="right" />
+            <HeaderCell th="จำนวนเงิน" en="Amount" width={PRICED_COL.amount} align="right" />
+          </View>
+        )}
+
+        {pr.lines.map((l, idx) => {
+          const col = goods ? GOODS_COL : PRICED_COL;
+          const itemCode = lineRefs?.get(l.id)?.itemCode;
+          const place = [mixed ? LINE_KIND_LABEL[l.lineKind] : '', [l.category, l.itemGroup].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
+          return (
+            <View key={l.id} style={fs.tableRow} wrap={false}>
+              <Text style={{ width: col.no, textAlign: 'center' }}>{idx + 1}</Text>
+              <View style={{ flex: 1, paddingHorizontal: 3 }}>
+                <Text>{l.description}</Text>
+                {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
+                {place ? <Text style={fs.small}>{place}</Text> : null}
+                {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
+              </View>
+              <Text style={{ width: col.boq, textAlign: 'center', fontSize: 8.5 }}>{l.boq?.no || '-'}</Text>
+              <Text style={{ width: col.qty, textAlign: 'right', paddingHorizontal: 3 }}>
+                {qtyText(l.qty)} {l.unitName}
+              </Text>
+              {goods ? (
+                // PRs written while the date sat in the header carry it there
+                <Text style={{ width: GOODS_COL.needed, textAlign: 'center' }}>{dateText(l.neededDate ?? pr.needBy)}</Text>
+              ) : (
+                <>
+                  <Text style={{ width: PRICED_COL.price, textAlign: 'right', paddingHorizontal: 3 }}>{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</Text>
+                  <Text style={{ width: PRICED_COL.discount, textAlign: 'right', paddingHorizontal: 3 }}>
+                    {D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}
+                  </Text>
+                  <Text style={{ width: PRICED_COL.amount, textAlign: 'right', paddingHorizontal: 3 }}>
+                    {formatMoneyDisplay(totals.lines[idx]!.amount.toFixed(2))}
+                  </Text>
+                </>
+              )}
+            </View>
+          );
+        })}
+
+        {/* Kept whole at the foot of the last page */}
+        <View wrap={false} style={{ marginTop: 'auto', paddingTop: 8 }}>
+          {priced ? (
+            <TotalsBlock
+              note={pr.note}
+              gross={totals.gross.toFixed(2)}
+              rows={[
+                ['ยอดรวมก่อนหักส่วนลด', totals.subtotal.toFixed(2)],
+                ['หักส่วนลดพิเศษ', totals.billDiscount.toFixed(2)],
+                ['หลังหักส่วนลดพิเศษ', totals.subtotal.minus(totals.billDiscount).toFixed(2)],
+                ...(pr.vatMode === 'INCLUSIVE' ? [['มูลค่าก่อนภาษี', totals.beforeVat.toFixed(2)] as [string, string]] : []),
+                [vatLabel(pr.vatMode), totals.vat.toFixed(2)],
+              ]}
+            />
+          ) : (
+            <View style={{ borderTopWidth: LINE_WIDTH, borderColor: LINE, paddingTop: 4 }}>
+              <Field label="คำอธิบาย" value={pr.note || '-'} labelWidth={46} />
+            </View>
+          )}
+
+          <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
+            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+              <Field label="Contact Delivery" value={requester} labelWidth={78} />
+              {priced && <Field label="เงื่อนไขการชำระเงิน" value={pr.paymentTerms || '-'} labelWidth={78} />}
+            </View>
+            <View style={[fs.pad, { flex: 1 }]}>
+              <Field label="Tel." value="" labelWidth={30} />
+            </View>
+          </View>
+
+          <SignatureRow signatures={signatures} />
         </View>
-      ))}
-      {showPrices && (
-        <View style={pdfStyles.tableRow}>
-          <Text style={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}>รวมก่อนส่วนลดท้ายบิลและ VAT</Text>
-          <Text style={{ width: 75, textAlign: 'right', fontWeight: 'bold' }}>{total.toFixed(2)}</Text>
-        </View>
-      )}
-    </PdfShell>
+      </FormPage>
+    </Document>
   );
 }
