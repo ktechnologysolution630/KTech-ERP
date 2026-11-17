@@ -1155,6 +1155,8 @@ export async function getPo(db: Db, actor: SessionUser, id: string) {
       vendorAltAddress: vendors.altAddress,
       vendorContactPerson: vendors.contactPerson,
       vendorTaxId: vendors.taxId,
+      vendorType: vendors.type,
+      vendorBranch: vendors.branch,
       vendorPhone: vendors.phone,
       vendorEmail: vendors.email,
       vendorFax: vendors.fax,

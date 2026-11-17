@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
 import { createPo, getPo, submitPo, approvePo } from '@/server/services/po';
-import { createPr } from '@/server/services/pr';
+import { approvePr, createPr, getPr, submitPr } from '@/server/services/pr';
 import { createInvoice } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
 import { createPv } from '@/server/services/pv';
-import { renderDocPdf } from '@/server/services/pdf';
+import { poLineRefs, renderDocPdf } from '@/server/services/pdf';
 import { createTestDb } from '../helpers/test-db';
 import { receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
@@ -68,6 +68,41 @@ describe('pdf service', () => {
     const pvBuf = await renderDocPdf(db, f.users.finance, 'pv', pv.id);
     expect(pvBuf.subarray(0, 4).toString()).toBe('%PDF');
     expect(pvBuf.length).toBeGreaterThan(2000);
+  });
+
+  test('each PO line on the PDF carries the PR it came from and its item code', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+
+    const pr = await createPr(db, f.users.foreman, {
+      projectId: f.projectA,
+      lines: [{ description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(20) }],
+    });
+    await submitPr(db, f.users.foreman, pr.id);
+    await approvePr(db, f.users.pm, pr.id);
+    const prDoc = await getPr(db, f.users.buyer, pr.id);
+
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      creditDays: 30,
+      vatMode: 'EXCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [
+        { prLineId: prDoc.lines[0]!.id, itemId: f.itemCement, description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(20), unitPrice: D(120), discount: D(0) },
+        { description: 'ค่าขนส่งพิเศษ', unitName: 'เที่ยว', qty: D(1), unitPrice: D(500), discount: D(0) },
+      ],
+    });
+    const lines = (await getPo(db, f.users.buyer, po.id)).lines;
+
+    const refs = await poLineRefs(db, po.id);
+    expect(refs.get(lines[0]!.id)).toEqual({ prNumber: prDoc.number, itemCode: 'MAT-001' });
+    expect(refs.get(lines[1]!.id)).toEqual({ prNumber: '', itemCode: '' });
+
+    const buf = await renderDocPdf(db, f.users.buyer, 'po', po.id);
+    expect(buf.subarray(0, 4).toString()).toBe('%PDF');
   });
 
   test('foreman of other project cannot fetch PO pdf', async () => {
