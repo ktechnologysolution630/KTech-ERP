@@ -7,22 +7,12 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, Field, FormPage, fs, HeaderCell, qtyText, SIDE_WIDTH, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { branchLabel, Field, FormPage, fs, HeaderCell, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
 
-/** Where a PO line came from: the requisition and the item code it was bought as; blank when it has neither */
+/** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {
-  prNumber: string;
   itemCode: string;
 }
-
-const PO_CONDITIONS = [
-  { text: '1. โปรดระบุเลขที่ใบสั่งซื้อข้างต้น ในใบส่งของทุกฉบับ' },
-  { text: '2. การวางบิลและการรับเช็ค เป็นไปตามกำหนดเวลาที่บริษัทฯ กำหนดไว้' },
-  { text: '2.1 วางบิลวันที่ 20 - 25 ของเดือน', indented: true },
-  { text: '2.2 รับเช็ค สำหรับ Supplier วันที่ 30 ของเดือน', indented: true },
-  { text: '2.3 รับเช็ค สำหรับผู้รับเหมา วันที่ 15 และ 30 ของเดือน', indented: true },
-  { text: '3. การวางบิลเพื่อเรียกเก็บเงิน ให้แนบสำเนาใบสั่งซื้อกำกับมาด้วย' },
-];
 
 const PAYMENT_TYPE_LABEL: Record<PoPaymentType, string> = {
   CREDIT: 'เครดิต',
@@ -31,7 +21,7 @@ const PAYMENT_TYPE_LABEL: Record<PoPaymentType, string> = {
 };
 
 /** Fixed column widths of the item table; the description takes the rest */
-const COL = { no: 26, pr: 76, qty: 66, price: 60, discount: 46, amount: 68 };
+const COL = { no: 26, qty: 66, price: 60, discount: 46, amount: 68 };
 
 export function PoPdfDoc({
   po,
@@ -64,7 +54,6 @@ export function PoPdfDoc({
   const [preparer, approver] = signers ?? [];
   const signatures: Signer[] = [
     { ...preparer, label: 'ผู้จัดซื้อ' },
-    { label: 'ผู้จัดการแผนกจัดซื้อ' },
     { ...approver, label: 'ผู้มีอำนาจลงนาม' },
   ];
 
@@ -73,7 +62,7 @@ export function PoPdfDoc({
       <FormPage settings={settings} isDraft={isDraft}>
         <TitleRow titleTh="ใบสั่งซื้อ" titleEn="Purchase Order" number={po.number} date={formatThaiDate(po.docDate ?? po.createdAt)} />
 
-        <View style={[fs.box, { flexDirection: 'row' }]}>
+        <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
             <Field label="ชื่อผู้ขาย" value={po.vendorName} bold />
             <Field label="ที่อยู่" value={po.vendorAddress || '-'} />
@@ -101,24 +90,10 @@ export function PoPdfDoc({
             </View>
           </View>
         </View>
-        <View style={[fs.box, fs.pad, { flexDirection: 'row', borderTopWidth: 0 }]}>
-          <View style={{ flex: 1 }}>
-            <Field label="Contact" value={po.vendorContactPerson || ''} labelWidth={40} />
-          </View>
-          <View style={{ width: SIDE_WIDTH }}>
-            <Field label="Currency" value="BAHT" labelWidth={44} />
-          </View>
-        </View>
-
-        <Text style={{ fontSize: 8, marginTop: 4, marginBottom: 3 }}>
-          (ผู้ขายจะต้องส่งสินค้าให้เป็นไปตามเงื่อนไขที่ได้เสนอราคาไว้กับบริษัทฯ ดังต่อไปนี้) Supplier shall supply the following items in
-          good order and condition as per quotation namely
-        </Text>
 
         <View style={fs.tableHeader}>
           <HeaderCell th="ลำดับ" en="Item" width={COL.no} />
           <HeaderCell th="รายการ" en="Description" align="left" />
-          <HeaderCell th="เลขที่ PR" en="PR. No." width={COL.pr} />
           <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} align="right" />
           <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" />
           <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" />
@@ -133,7 +108,6 @@ export function PoPdfDoc({
               {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
               {l.ref?.itemCode ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
             </View>
-            <Text style={{ width: COL.pr, textAlign: 'center', fontSize: 8.5 }}>{l.ref?.prNumber || '-'}</Text>
             <Text style={{ width: COL.qty, textAlign: 'right', paddingHorizontal: 3 }}>
               {qtyText(l.qty)} {l.unitName}
             </Text>
@@ -162,17 +136,14 @@ export function PoPdfDoc({
 
           <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
             <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-              {po.installments.length > 0 ? (
+              <Field label="กำหนดชำระเงิน" value={`${payment} · ${PAY_METHOD_LABEL[po.payMethod]}`} labelWidth={72} />
+              {po.installments.length > 0 && (
                 <Field
-                  label="Down Payment"
+                  label="แบ่งชำระ"
                   labelWidth={72}
                   value={po.installments.map((i) => `งวดที่ ${i.seq} ${i.name}  ${formatMoneyDisplay(i.amount)} บาท`).join('\n')}
                 />
-              ) : (
-                <Field label="Down Payment" value="" labelWidth={72} />
               )}
-              <Field label="Retention" value="" labelWidth={72} />
-              <Field label="กำหนดชำระเงิน" value={`${payment} · ${PAY_METHOD_LABEL[po.payMethod]}`} labelWidth={72} />
               {po.paymentType === 'CREDIT' && (
                 <Field
                   label="วางบิล / รับเช็ค"
@@ -193,15 +164,6 @@ export function PoPdfDoc({
           </View>
 
           <SignatureRow signatures={signatures} />
-
-          <View style={{ marginTop: 5, fontSize: 8 }}>
-            <Text style={fs.bold}>หมายเหตุ / เงื่อนไข :</Text>
-            {PO_CONDITIONS.map((c) => (
-              <Text key={c.text} style={c.indented ? { paddingLeft: 12 } : undefined}>
-                {c.text}
-              </Text>
-            ))}
-          </View>
         </View>
       </FormPage>
     </Document>
