@@ -113,14 +113,43 @@ export function MetaRow({ label, children }: { label: string; children: ReactNod
 }
 
 /** A "label : field" row in a box, ruled off from the next like the PDF's cells */
-export function BoxRow({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
+export function BoxRow({ label, required, labelWidth = 104, children }: { label: string; required?: boolean; labelWidth?: number; children: ReactNode }) {
   return (
-    <label className="grid grid-cols-[104px_1fr] items-center gap-2 border-b border-[#9db0c4] px-3 py-2 last:border-b-0">
+    <label
+      className="grid items-center gap-2 border-b border-[#9db0c4] px-3 py-2 last:border-b-0"
+      style={{ gridTemplateColumns: `${labelWidth}px 1fr` }}
+    >
       <span className="text-xs font-bold text-slate-700">
         {label} :{required && <span className="text-red-500"> *</span>}
       </span>
       {children}
     </label>
+  );
+}
+
+/** The register's active vendors as a picker, by name */
+export function VendorSelect({
+  label,
+  vendors,
+  vendorId,
+  onChange,
+}: {
+  label: string;
+  vendors: VendorRef[];
+  vendorId: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <select value={vendorId} onChange={(e) => onChange(e.target.value)} className={`${paperInput} font-semibold`} aria-label={label}>
+      <option value="">ยังไม่ระบุซัพพลายเออร์ / ผู้รับเหมา</option>
+      {[...vendors]
+        .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+        .map((x) => (
+          <option key={x.id} value={x.id}>
+            {x.name} ({x.code})
+          </option>
+        ))}
+    </select>
   );
 }
 
@@ -153,16 +182,7 @@ export function VendorBlock({
       </p>
       <div className="grid grid-cols-[136px_1fr] items-center gap-2">
         <span className="text-xs font-bold text-slate-700">ชื่อ :</span>
-        <select value={vendorId} onChange={(e) => onChange(e.target.value)} className={`${paperInput} font-semibold`} aria-label={title}>
-          <option value="">ยังไม่ระบุซัพพลายเออร์ / ผู้รับเหมา</option>
-          {[...vendors]
-            .sort((a, b) => a.name.localeCompare(b.name, 'th'))
-            .map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name} ({x.code})
-              </option>
-            ))}
-        </select>
+        <VendorSelect label={title} vendors={vendors} vendorId={vendorId} onChange={onChange} />
       </div>
       <dl className="space-y-1 text-xs">
         {fact('ที่อยู่', v?.address)}

@@ -93,7 +93,7 @@ export function PoPdfDoc({
 
         <View style={fs.tableHeader}>
           <HeaderCell th="ลำดับ" en="Item" width={COL.no} />
-          <HeaderCell th="รายการ" en="Description" align="left" />
+          <HeaderCell th="รายการ" en="Description" />
           <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} align="right" />
           <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" />
           <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" />

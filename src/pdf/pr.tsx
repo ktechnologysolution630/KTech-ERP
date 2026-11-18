@@ -62,18 +62,18 @@ export function PrPdfDoc({
         <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
         {goods ? (
-          // The goods form leaves the supplier to purchasing: it names who asks, where it goes and the project
+          // The goods form: the project with the reference supplier under it, then where it goes
           <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
-            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-              <Field label="ผู้ขอซื้อ" value={pr.requesterText || pr.requesterName} labelWidth={46} bold />
-            </View>
-            <View style={{ flex: 1 }}>
+            <View style={[fs.cellRight, { flex: 1.1 }]}>
               <View style={[fs.cellBottom, fs.pad]}>
-                <Field label="สถานที่จัดส่ง" value={pr.deliveryPlace || '-'} />
+                <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={92} bold />
               </View>
               <View style={fs.pad}>
-                <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} />
+                <Field label="ซัพพลายเออร์อ้างอิง" value={pr.vendorName ?? '-'} labelWidth={92} />
               </View>
+            </View>
+            <View style={[fs.pad, { flex: 1 }]}>
+              <Field label="สถานที่จัดส่ง" value={pr.deliveryPlace || '-'} />
             </View>
           </View>
         ) : (
@@ -118,7 +118,7 @@ export function PrPdfDoc({
         {goods ? (
           <View style={fs.tableHeader}>
             <HeaderCell th="ลำดับ" en="Item" width={GOODS_COL.no} />
-            <HeaderCell th="รายการ" en="Description" align="left" />
+            <HeaderCell th="รายการ" en="Description" />
             <HeaderCell th="รายการ BOQ" en="BOQ No." width={GOODS_COL.boq} />
             <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={GOODS_COL.qty} align="right" />
             <HeaderCell th="กำหนดใช้/รับของ" en="Required Date" width={GOODS_COL.needed} />
@@ -126,7 +126,7 @@ export function PrPdfDoc({
         ) : (
           <View style={fs.tableHeader}>
             <HeaderCell th="ลำดับ" en="Item" width={PRICED_COL.no} />
-            <HeaderCell th="รายการ" en="Description" align="left" />
+            <HeaderCell th="รายการ" en="Description" />
             <HeaderCell th="รายการ BOQ" en="BOQ No." width={PRICED_COL.boq} />
             <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={PRICED_COL.qty} align="right" />
             <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={PRICED_COL.price} align="right" />
