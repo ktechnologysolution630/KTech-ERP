@@ -130,10 +130,11 @@ describe('pdf service', () => {
 
 describe('PO and PR pdfs print the K TECH form', () => {
   // Matched against squashed text: no spaces, see pdfText
-  // สำนักงานใหญ่ follows the company's tax ID (the seeded settings: head office, 0105500000000)
-  const HEADER_SHOWN = ['KTECHNOLOGYSOLUTIONCO.,LTD.', 'เลขประจำตัวผู้เสียภาษี0105500000000สำนักงานใหญ่'];
-  // The head-office label used to sit before the company's tax ID in the header
-  const HEADER_GONE = ['KtechnologySolution', 'สำนักงานใหญ่เลขประจำตัวผู้เสียภาษี'];
+  // สำนักงานใหญ่ leads the company's address, the tax ID on the line below
+  // (the seeded settings: head office, กรุงเทพมหานคร, 0105500000000)
+  const HEADER_SHOWN = ['KTECHNOLOGYSOLUTIONCO.,LTD.', 'สำนักงานใหญ่กรุงเทพมหานครเลขประจำตัวผู้เสียภาษี0105500000000'];
+  // The head-office label used to sit before the company's tax ID, and then after it
+  const HEADER_GONE = ['KtechnologySolution', 'สำนักงานใหญ่เลขประจำตัวผู้เสียภาษี', 'เลขประจำตัวผู้เสียภาษี0105500000000สำนักงานใหญ่'];
 
   test('the PO has three signature boxes and none of the removed fields', async () => {
     const db = await createTestDb();
