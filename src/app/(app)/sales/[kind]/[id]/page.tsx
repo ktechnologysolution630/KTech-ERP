@@ -5,7 +5,7 @@ import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
 import { kindFromSlug, SALES_DOC_META } from '@/domain/sales-doc';
 import { requireUser } from '@/server/auth/current-user';
-import { getSalesDoc } from '@/server/services/sales-docs';
+import { getSalesDoc, SALES_EDIT_IN_PLACE } from '@/server/services/sales-docs';
 import { getSettings } from '@/server/services/settings';
 import { getFormTemplates } from '@/server/services/form-templates';
 import { labelSigners } from '@/domain/form-templates';
@@ -39,6 +39,13 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
     getFormTemplates(db),
   ]);
   const text = forms.texts[kind];
+  // A quotation or voucher is changed in place; a tax document is corrected by issuing a new one
+  const edit =
+    doc.status === 'ISSUED' && can(actor, 'ar.manage')
+      ? SALES_EDIT_IN_PLACE.includes(kind)
+        ? { href: `/sales/${slug}/${doc.id}/edit`, label: 'แก้ไข', hint: 'แก้ไขเอกสารนี้ เลขที่เดิม' }
+        : { href: `/sales/${slug}/new?from=${doc.id}`, label: 'แก้ไข (ออกใบใหม่)', hint: `เปิดฟอร์มที่กรอกข้อมูลเดิมไว้ เมื่อบันทึก ${doc.number} จะถูกยกเลิกและออกเลขใหม่แทน` }
+      : undefined;
 
   return (
     <div className="space-y-4">
@@ -64,6 +71,7 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
         company={companyHeaderFrom(settings, forms.header)}
         signers={labelSigners(signers, text.signatureLabels)}
         text={text}
+        edit={edit}
       />
       <div className="max-w-xl">
         <AttachmentsBox entityType="SALES_DOC" entityId={doc.id} items={attachments} />

@@ -55,9 +55,11 @@ const docSchema = z.object({
 });
 export type SalesDocInput = z.input<typeof docSchema>;
 
-/** Issues a sales document; the number runs per kind and month (e.g. QT-6911-0001) */
-export async function createSalesDoc(db: Db, actor: SessionUser, input: SalesDocInput): Promise<{ id: string; number: string }> {
-  assertCan(actor, 'ar.manage');
+type ParsedDoc = z.output<typeof docSchema>;
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/** The checks every saved document passes, whether it is new or changed */
+function parseDoc(input: SalesDocInput): ParsedDoc {
   const parsed = docSchema.safeParse(input);
   if (!parsed.success) throw new DomainError('INVALID_SALES_DOC', parsed.error.issues[0]!.message);
   const d = parsed.data;
@@ -68,7 +70,11 @@ export async function createSalesDoc(db: Db, actor: SessionUser, input: SalesDoc
   if (d.kind !== 'STI' && d.kind !== 'EXP' && !d.customerId && !d.customerName) throw new DomainError('INVALID_SALES_DOC', 'กรุณาเลือกลูกค้า');
   if (d.kind === 'DN' && !d.reference) throw new DomainError('INVALID_SALES_DOC', 'ใบเพิ่มหนี้ต้องอ้างอิงเลขที่ใบกำกับภาษีเดิม');
   if (d.kind === 'STI' && d.vatMode === 'EXCLUSIVE') throw new DomainError('INVALID_SALES_DOC', 'ใบกำกับภาษีอย่างย่อต้องเป็นราคารวม VAT');
+  return d;
+}
 
+/** The document's stored columns and lines, with the party filled in from its record and the totals worked out */
+async function docValues(tx: Tx, d: ParsedDoc) {
   const totals = computeSalesTotals({
     lines: d.lines,
     discountType: d.discountType,
@@ -79,102 +85,176 @@ export async function createSalesDoc(db: Db, actor: SessionUser, input: SalesDoc
   });
   const paid = d.kind === 'RC' || d.kind === 'INC' || d.kind === 'EXP';
 
+  let customer = { name: d.customerName, taxId: d.customerTaxId, branch: d.customerBranch, address: d.customerAddress, contact: d.contactName, phone: d.phone, email: d.email };
+  if (d.customerId) {
+    const [c] = await tx.select().from(customers).where(eq(customers.id, d.customerId)).limit(1);
+    if (!c) throw new DomainError('NOT_FOUND', 'ไม่พบลูกค้า', 404);
+    // What was typed on the form wins; blanks come from the customer record
+    customer = {
+      name: d.customerName || c.name,
+      taxId: d.customerTaxId || c.taxId || '',
+      branch: d.customerBranch || c.branch,
+      address: d.customerAddress || c.address,
+      contact: d.contactName || c.contactName,
+      phone: d.phone || c.phone,
+      email: d.email || c.email,
+    };
+  }
+  if (d.kind === 'EXP' && d.vendorId) {
+    const [v] = await tx.select().from(vendors).where(eq(vendors.id, d.vendorId)).limit(1);
+    if (!v) throw new DomainError('NOT_FOUND', 'ไม่พบผู้ขาย', 404);
+    customer = {
+      name: d.customerName || v.name,
+      taxId: d.customerTaxId || v.taxId || '',
+      branch: d.customerBranch || v.branch,
+      address: d.customerAddress || v.address,
+      contact: d.contactName || v.contactPerson,
+      phone: d.phone || v.phone,
+      email: d.email || v.email,
+    };
+  }
+  if (d.accountId) {
+    const [a] = await tx.select({ id: companyAccounts.id }).from(companyAccounts).where(eq(companyAccounts.id, d.accountId)).limit(1);
+    if (!a) throw new DomainError('NOT_FOUND', 'ไม่พบบัญชีธนาคาร', 404);
+  }
+  if (d.projectId) {
+    const [p] = await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, d.projectId)).limit(1);
+    if (!p) throw new DomainError('NOT_FOUND', 'ไม่พบโครงการ', 404);
+  }
+
+  const values = {
+    docDate: d.docDate,
+    dueDate: d.dueDate ?? null,
+    reference: d.reference,
+    customerId: d.kind === 'EXP' ? null : (d.customerId ?? null),
+    vendorId: d.kind === 'EXP' ? (d.vendorId ?? null) : null,
+    accountId: paid ? (d.accountId ?? null) : null,
+    retentionRate: D(d.kind === 'EXP' ? d.retentionRate : 0).toFixed(2),
+    retention: totals.retention.toFixed(2),
+    customerName: customer.name,
+    customerTaxId: customer.taxId,
+    customerBranch: customer.branch,
+    customerAddress: customer.address,
+    contactName: customer.contact,
+    phone: customer.phone,
+    email: customer.email,
+    projectId: d.projectId ?? null,
+    milestone: d.milestone,
+    accountCategory: d.accountCategory,
+    vatMode: d.vatMode,
+    discountType: d.discountType,
+    discountValue: round2(D(d.discountValue)).toFixed(2),
+    whtRate: D(d.whtRate).toFixed(2),
+    payMethod: paid ? (d.payMethod ?? 'TRANSFER') : null,
+    bank: paid ? d.bank : '',
+    bankBranch: paid ? d.bankBranch : '',
+    accountName: paid ? d.accountName : '',
+    accountNo: paid ? d.accountNo : '',
+    notes: d.notes,
+    subtotal: totals.subtotal.toFixed(2),
+    discount: totals.discount.toFixed(2),
+    beforeVat: totals.beforeVat.toFixed(2),
+    vat: totals.vat.toFixed(2),
+    total: totals.total.toFixed(2),
+    wht: totals.wht.toFixed(2),
+    payable: totals.payable.toFixed(2),
+  };
+  const lines = (docId: string) =>
+    d.lines.map((l, i) => ({
+      docId,
+      sort: i,
+      isSection: l.isSection,
+      name: l.name || (l.isSection ? 'พื้นที่' : ''),
+      detail: l.detail,
+      qty: l.isSection ? '0' : D(l.qty).toFixed(3),
+      unit: l.isSection ? '' : l.unit,
+      unitPrice: l.isSection ? '0' : round2(D(l.unitPrice)).toFixed(2),
+      amount: l.isSection ? '0' : round2(D(l.qty).times(D(l.unitPrice))).toFixed(2),
+    }));
+  return { values, lines };
+}
+
+/**
+ * Kinds changed in place once issued: a quotation and the receipt and payment vouchers are not tax
+ * documents. A receipt, tax invoice, debit note or abbreviated tax invoice is never written over; it is
+ * cancelled and a new one issued in its place (createSalesDoc with replacesId).
+ */
+export const SALES_EDIT_IN_PLACE: readonly SalesDocKind[] = ['QT', 'INC', 'EXP'];
+
+/**
+ * Issues a sales document; the number runs per kind and month (e.g. QT-6911-0001). With replacesId it
+ * is issued in place of an earlier document of the same kind, which is cancelled in the same step, so
+ * the old one is only cancelled once the new one exists.
+ */
+export async function createSalesDoc(
+  db: Db,
+  actor: SessionUser,
+  input: SalesDocInput,
+  opts: { replacesId?: string } = {},
+): Promise<{ id: string; number: string }> {
+  assertCan(actor, 'ar.manage');
+  const d = parseDoc(input);
+  if (opts.replacesId && !z.string().uuid().safeParse(opts.replacesId).success) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสารเดิม', 404);
+
   return db.transaction(async (tx) => {
-    let customer = { name: d.customerName, taxId: d.customerTaxId, branch: d.customerBranch, address: d.customerAddress, contact: d.contactName, phone: d.phone, email: d.email };
-    if (d.customerId) {
-      const [c] = await tx.select().from(customers).where(eq(customers.id, d.customerId)).limit(1);
-      if (!c) throw new DomainError('NOT_FOUND', 'ไม่พบลูกค้า', 404);
-      // What was typed on the form wins; blanks come from the customer record
-      customer = {
-        name: d.customerName || c.name,
-        taxId: d.customerTaxId || c.taxId || '',
-        branch: d.customerBranch || c.branch,
-        address: d.customerAddress || c.address,
-        contact: d.contactName || c.contactName,
-        phone: d.phone || c.phone,
-        email: d.email || c.email,
-      };
+    const replaced = opts.replacesId ? (await tx.select().from(salesDocs).where(eq(salesDocs.id, opts.replacesId)).for('update'))[0] : undefined;
+    if (opts.replacesId) {
+      if (!replaced) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสารเดิม', 404);
+      if (replaced.kind !== d.kind) throw new DomainError('INVALID_SALES_DOC', 'เอกสารใหม่ต้องเป็นประเภทเดียวกับใบเดิม');
+      if (replaced.status !== 'ISSUED') throw new DomainError('INVALID_STATUS', `${replaced.number} ถูกยกเลิกไปแล้ว`, 409);
     }
-    if (d.kind === 'EXP' && d.vendorId) {
-      const [v] = await tx.select().from(vendors).where(eq(vendors.id, d.vendorId)).limit(1);
-      if (!v) throw new DomainError('NOT_FOUND', 'ไม่พบผู้ขาย', 404);
-      customer = {
-        name: d.customerName || v.name,
-        taxId: d.customerTaxId || v.taxId || '',
-        branch: d.customerBranch || v.branch,
-        address: d.customerAddress || v.address,
-        contact: d.contactName || v.contactPerson,
-        phone: d.phone || v.phone,
-        email: d.email || v.email,
-      };
-    }
-    if (d.accountId) {
-      const [a] = await tx.select({ id: companyAccounts.id }).from(companyAccounts).where(eq(companyAccounts.id, d.accountId)).limit(1);
-      if (!a) throw new DomainError('NOT_FOUND', 'ไม่พบบัญชีธนาคาร', 404);
-    }
-    if (d.projectId) {
-      const [p] = await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, d.projectId)).limit(1);
-      if (!p) throw new DomainError('NOT_FOUND', 'ไม่พบโครงการ', 404);
-    }
+
+    const { values, lines } = await docValues(tx, d);
     const number = await nextDocNumber(tx, SALES_DOC_META[d.kind].prefix, new Date(`${d.docDate}T12:00:00+07:00`));
     const [doc] = await tx
       .insert(salesDocs)
-      .values({
-        kind: d.kind,
-        number,
-        docDate: d.docDate,
-        dueDate: d.dueDate ?? null,
-        reference: d.reference,
-        customerId: d.kind === 'EXP' ? null : (d.customerId ?? null),
-        vendorId: d.kind === 'EXP' ? (d.vendorId ?? null) : null,
-        accountId: paid ? (d.accountId ?? null) : null,
-        retentionRate: D(d.kind === 'EXP' ? d.retentionRate : 0).toFixed(2),
-        retention: totals.retention.toFixed(2),
-        customerName: customer.name,
-        customerTaxId: customer.taxId,
-        customerBranch: customer.branch,
-        customerAddress: customer.address,
-        contactName: customer.contact,
-        phone: customer.phone,
-        email: customer.email,
-        projectId: d.projectId ?? null,
-        milestone: d.milestone,
-        accountCategory: d.accountCategory,
-        vatMode: d.vatMode,
-        discountType: d.discountType,
-        discountValue: round2(D(d.discountValue)).toFixed(2),
-        whtRate: D(d.whtRate).toFixed(2),
-        payMethod: paid ? (d.payMethod ?? 'TRANSFER') : null,
-        bank: paid ? d.bank : '',
-        bankBranch: paid ? d.bankBranch : '',
-        accountName: paid ? d.accountName : '',
-        accountNo: paid ? d.accountNo : '',
-        notes: d.notes,
-        subtotal: totals.subtotal.toFixed(2),
-        discount: totals.discount.toFixed(2),
-        beforeVat: totals.beforeVat.toFixed(2),
-        vat: totals.vat.toFixed(2),
-        total: totals.total.toFixed(2),
-        wht: totals.wht.toFixed(2),
-        payable: totals.payable.toFixed(2),
-        createdBy: actor.id,
-      })
+      .values({ ...values, kind: d.kind, number, createdBy: actor.id })
       .returning();
-    await tx.insert(salesDocLines).values(
-      d.lines.map((l, i) => ({
-        docId: doc!.id,
-        sort: i,
-        isSection: l.isSection,
-        name: l.name || (l.isSection ? 'พื้นที่' : ''),
-        detail: l.detail,
-        qty: l.isSection ? '0' : D(l.qty).toFixed(3),
-        unit: l.isSection ? '' : l.unit,
-        unitPrice: l.isSection ? '0' : round2(D(l.unitPrice)).toFixed(2),
-        amount: l.isSection ? '0' : round2(D(l.qty).times(D(l.unitPrice))).toFixed(2),
-      })),
-    );
-    await logActivity(tx, { entityType: 'SALES_DOC', entityId: doc!.id, action: 'CREATE', userId: actor.id, note: `${SALES_DOC_META[d.kind].th} ${number}` });
+    await tx.insert(salesDocLines).values(lines(doc!.id));
+    await logActivity(tx, {
+      entityType: 'SALES_DOC',
+      entityId: doc!.id,
+      action: 'CREATE',
+      userId: actor.id,
+      note: replaced ? `${SALES_DOC_META[d.kind].th} ${number} ออกแทน ${replaced.number}` : `${SALES_DOC_META[d.kind].th} ${number}`,
+    });
+
+    if (replaced) {
+      const why = `แก้ไขโดยออกใบใหม่ ${number}`;
+      await tx.update(salesDocs).set({ status: 'CANCELLED', cancelReason: why, updatedAt: new Date() }).where(eq(salesDocs.id, replaced.id));
+      await logActivity(tx, { entityType: 'SALES_DOC', entityId: replaced.id, action: 'CANCEL', userId: actor.id, note: why });
+    }
     return { id: doc!.id, number };
+  });
+}
+
+/** Changes an issued quotation or voucher in place; it keeps its number */
+export async function updateSalesDoc(db: Db, actor: SessionUser, id: string, input: SalesDocInput): Promise<{ id: string; number: string }> {
+  assertCan(actor, 'ar.manage');
+  if (!z.string().uuid().safeParse(id).success) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสาร', 404);
+  const d = parseDoc(input);
+
+  return db.transaction(async (tx) => {
+    const [doc] = await tx.select().from(salesDocs).where(eq(salesDocs.id, id)).for('update');
+    if (!doc) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสาร', 404);
+    if (doc.kind !== d.kind) throw new DomainError('INVALID_SALES_DOC', 'เปลี่ยนประเภทเอกสารไม่ได้');
+    if (doc.status !== 'ISSUED') throw new DomainError('INVALID_STATUS', 'เอกสารที่ยกเลิกแล้วแก้ไขไม่ได้', 409);
+    if (!SALES_EDIT_IN_PLACE.includes(doc.kind)) {
+      throw new DomainError('INVALID_STATUS', `${SALES_DOC_META[doc.kind].th}ที่ออกแล้วแก้ทับไม่ได้ ให้ออกใบใหม่แทนใบเดิม`, 409);
+    }
+
+    const { values, lines } = await docValues(tx, d);
+    await tx.update(salesDocs).set({ ...values, updatedAt: new Date() }).where(eq(salesDocs.id, id));
+    await tx.delete(salesDocLines).where(eq(salesDocLines.docId, id));
+    await tx.insert(salesDocLines).values(lines(id));
+    await logActivity(tx, {
+      entityType: 'SALES_DOC',
+      entityId: id,
+      action: 'UPDATE',
+      userId: actor.id,
+      note: `${SALES_DOC_META[doc.kind].th} ${doc.number}: ${doc.payable} → ${values.payable} บาท`,
+    });
+    return { id, number: doc.number };
   });
 }
 

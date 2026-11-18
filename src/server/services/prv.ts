@@ -121,6 +121,79 @@ export async function createPrv(db: Db, actor: SessionUser, input: CreatePrvInpu
   });
 }
 
+/**
+ * Changes a claim while it is a draft or was sent back: the same fields it was opened with, its lines
+ * replaced and the totals worked out again. The number and the person asking stay. Whoever may send it
+ * may change it; moving it to another project needs the right to open claims there.
+ */
+export async function updatePrv(db: Db, actor: SessionUser, id: string, input: CreatePrvInput) {
+  if (!z.string().uuid().safeParse(id).success) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอเบิก', 404);
+  const data = parse(createSchema, input);
+  const totals = computePrvTotals(data.items, data);
+  if (totals.total.lte(0)) throw new DomainError('INVALID_PRV', 'ยอดขอเบิกต้องมากกว่า 0');
+
+  return db.transaction(async (tx) => {
+    const [prv] = await tx.select().from(prvs).where(eq(prvs.id, id)).for('update');
+    if (!prv) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอเบิก', 404);
+    if (prv.status !== 'DRAFT' && prv.status !== 'REJECTED') {
+      throw new DomainError('INVALID_STATE', 'แก้ไขใบขอเบิกได้เฉพาะใบร่างหรือใบที่ถูกตีกลับ', 409);
+    }
+    if (prv.requestedBy !== actor.id) assertCan(actor, 'prv.create', { projectId: prv.projectId });
+    if (data.projectId !== prv.projectId) assertCan(actor, 'prv.create', { projectId: data.projectId });
+
+    const [project] = await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, data.projectId)).limit(1);
+    if (!project) throw new DomainError('NOT_FOUND', 'ไม่พบโครงการ', 404);
+    const [vendor] = await tx.select({ id: vendors.id, name: vendors.name }).from(vendors).where(eq(vendors.id, data.vendorId)).limit(1);
+    if (!vendor) throw new DomainError('NOT_FOUND', 'ไม่พบผู้รับเงินที่เลือก', 404);
+
+    const [updated] = await tx
+      .update(prvs)
+      .set({
+        date: data.date ?? prv.date,
+        projectId: data.projectId,
+        vendorId: vendor.id,
+        payeeName: vendor.name,
+        category: data.category,
+        installmentNo: data.installmentNo,
+        totalAmount: totals.total.toFixed(2),
+        retentionPercent: data.retentionPercent.toFixed(2),
+        retentionAmount: totals.retention.toFixed(2),
+        whtRate: data.whtRate.toFixed(2),
+        whtAmount: totals.wht.toFixed(2),
+        vatAmount: totals.vat.toFixed(2),
+        netAmount: totals.net.toFixed(2),
+        payMethod: data.payMethod,
+        payBank: data.payBank,
+        notes: data.notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(prvs.id, id))
+      .returning();
+    await tx.delete(prvItems).where(eq(prvItems.prvId, id));
+    await tx.insert(prvItems).values(
+      data.items.map((it, i) => ({
+        prvId: id,
+        description: it.description,
+        documentNo: it.documentNo,
+        poNumber: it.poNumber,
+        quantity: it.quantity.toFixed(3),
+        unit: it.unit || 'งาน',
+        unitPrice: it.unitPrice.toFixed(2),
+        amount: totals.lineAmounts[i].toFixed(2),
+        progressPercent: it.progressPercent.toFixed(2),
+      })),
+    );
+    await logActivity(tx, {
+      entityType: 'PRV',
+      entityId: id,
+      action: 'UPDATE',
+      userId: actor.id,
+      note: `${prv.netAmount} → ${totals.net.toFixed(2)} บาท`,
+    });
+    return updated!;
+  });
+}
+
 export type PrvTransition = 'submit' | 'verify' | 'approve' | 'reject';
 
 const TRANSITIONS: Record<PrvTransition, { from: PrvStatus[]; to: PrvStatus }> = {
@@ -311,6 +384,8 @@ export async function getPrvById(db: Db, actor: SessionUser, id: string) {
     approvedByName: nameOf(prv.approvedBy),
     allowed: {
       submit: (prv.status === 'DRAFT' || prv.status === 'REJECTED') && (isRequester || can(actor, 'prv.create', { projectId: prv.projectId })),
+      // The same people, at the same stage, as sending it
+      edit: (prv.status === 'DRAFT' || prv.status === 'REJECTED') && (isRequester || can(actor, 'prv.create', { projectId: prv.projectId })),
       verify: prv.status === 'SUBMITTED' && !isRequester && can(actor, 'prv.verify', { projectId: prv.projectId }),
       approve: prv.status === 'PM_VERIFIED' && !isRequester && can(actor, 'prv.approve', { projectId: prv.projectId }),
       pay: prv.status === 'APPROVED' && can(actor, 'pv.manage'),

@@ -15,7 +15,7 @@ import {
   type PrvPayMethod,
 } from '@/domain/prv';
 import { bangkokDateString } from '@/domain/thai';
-import { createPrvAction } from '../actions';
+import { createPrvAction, updatePrvAction } from '../actions';
 import { DateInput } from '@/components/date-input';
 
 interface LineItem {
@@ -28,6 +28,24 @@ interface LineItem {
   progressPercent: number;
 }
 
+/** A saved claim opened for editing: what the form starts from */
+export interface PrvFormExisting {
+  id: string;
+  number: string;
+  date: string;
+  projectId: string;
+  vendorId: string;
+  category: (typeof PRV_NEW_CATEGORIES)[number];
+  installmentNo: number | null;
+  retentionPercent: number;
+  whtRate: number;
+  vatRate: number;
+  payMethod: PrvPayMethod | null;
+  payBank: PrvBankAccount | null;
+  notes: string;
+  items: LineItem[];
+}
+
 const newLine = (): LineItem => ({ description: '', documentNo: '', poNumber: '', quantity: 1, unit: 'งวด', unitPrice: 0, progressPercent: 100 });
 
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-slate-900 focus:border-blue-600 focus:outline-none';
@@ -38,26 +56,30 @@ export function PrvFormClient({
   projects,
   vendors,
   initialProjectId,
+  existing,
 }: {
   projects: Array<{ id: string; name: string }>;
   vendors: Array<{ id: string; name: string }>;
   initialProjectId?: string;
+  /** Editing a saved draft or sent-back claim; a new one when left out */
+  existing?: PrvFormExisting;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState(initialProjectId ?? projects[0]?.id ?? '');
-  const [vendorId, setVendorId] = useState('');
-  const [category, setCategory] = useState<(typeof PRV_NEW_CATEGORIES)[number]>('CONTRACTOR_PROGRESS');
-  const [installmentNo, setInstallmentNo] = useState(1);
-  const [date, setDate] = useState(bangkokDateString());
-  const [retentionPercent, setRetentionPercent] = useState(5);
-  const [whtRate, setWhtRate] = useState(3);
-  const [vatRate, setVatRate] = useState(7);
-  const [notes, setNotes] = useState('');
-  const [payMethod, setPayMethod] = useState<PrvPayMethod | null>(null);
-  const [payBank, setPayBank] = useState<PrvBankAccount | null>(null);
-  const [items, setItems] = useState<LineItem[]>([newLine()]);
+  const [projectId, setProjectId] = useState(existing?.projectId ?? initialProjectId ?? projects[0]?.id ?? '');
+  const [vendorId, setVendorId] = useState(existing?.vendorId ?? '');
+  const [category, setCategory] = useState<(typeof PRV_NEW_CATEGORIES)[number]>(existing?.category ?? 'CONTRACTOR_PROGRESS');
+  const [installmentNo, setInstallmentNo] = useState(existing?.installmentNo ?? 1);
+  const [date, setDate] = useState(existing?.date ?? bangkokDateString());
+  const [retentionPercent, setRetentionPercent] = useState(existing?.retentionPercent ?? 5);
+  const [whtRate, setWhtRate] = useState(existing?.whtRate ?? 3);
+  const [vatRate, setVatRate] = useState(existing?.vatRate ?? 7);
+  const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [payMethod, setPayMethod] = useState<PrvPayMethod | null>(existing?.payMethod ?? null);
+  const [payBank, setPayBank] = useState<PrvBankAccount | null>(existing?.payBank ?? null);
+  const [items, setItems] = useState<LineItem[]>(existing?.items.length ? existing.items : [newLine()]);
+  const backHref = existing ? `/prv/${existing.id}` : '/prv';
 
   const updateItem = <K extends keyof LineItem>(idx: number, key: K, value: LineItem[K]) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [key]: value } : it)));
@@ -72,9 +94,9 @@ export function PrvFormClient({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-        <Link href="/prv" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
+        <Link href={backHref} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
           <ArrowLeft className="h-4 w-4" />
-          กลับไปหน้ารายการ PRV
+          {existing ? `กลับไปหน้า ${existing.number}` : 'กลับไปหน้ารายการ PRV'}
         </Link>
         <span className="text-xs text-slate-400 font-mono">FORM: PAYMENT REQUEST VOUCHER</span>
       </div>
@@ -86,7 +108,7 @@ export function PrvFormClient({
               <Receipt className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">เปิดใบขอเบิกเงิน & เสนอจ่าย (PRV)</h1>
+              <h1 className="text-lg font-bold">{existing ? `แก้ไขใบขอเบิกเงิน ${existing.number}` : 'เปิดใบขอเบิกเงิน & เสนอจ่าย (PRV)'}</h1>
               <p className="text-xs text-blue-100">Payment Certificate รับรองผลงานเพื่อขออนุมัติจ่าย · ค่าของตาม PO ให้เบิกผ่านใบแจ้งหนี้/PO</p>
             </div>
           </div>
@@ -97,7 +119,7 @@ export function PrvFormClient({
             e.preventDefault();
             setError(null);
             startTransition(async () => {
-              const r = await createPrvAction({
+              const input = {
                 date,
                 projectId,
                 vendorId,
@@ -110,7 +132,8 @@ export function PrvFormClient({
                 payBank,
                 notes,
                 items,
-              });
+              };
+              const r = existing ? await updatePrvAction(existing.id, input) : await createPrvAction(input);
               if (!r.ok) {
                 setError(r.error);
                 return;
@@ -298,11 +321,11 @@ export function PrvFormClient({
             </p>
           )}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-            <Link href="/prv" className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+            <Link href={backHref} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
               ยกเลิก
             </Link>
             <button type="submit" disabled={isPending} className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm disabled:opacity-60">
-              {isPending ? 'กำลังบันทึก...' : 'บันทึกใบขอเบิกเงิน (PRV)'}
+              {isPending ? 'กำลังบันทึก...' : existing ? 'บันทึกการแก้ไข' : 'บันทึกใบขอเบิกเงิน (PRV)'}
             </button>
           </div>
         </form>

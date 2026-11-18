@@ -10,6 +10,8 @@ import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { getSettings } from '@/server/services/settings';
 import { getFormTemplates } from '@/server/services/form-templates';
 import { bangkokDateString } from '@/domain/thai';
+import Link from 'next/link';
+import { PO_EDITABLE } from '../../edit-rule';
 
 export default async function EditPoPage({
   params,
@@ -28,6 +30,21 @@ export default async function EditPoPage({
     getSettings(db),
     getFormTemplates(db),
   ]);
+
+  if (!PO_EDITABLE.includes(po.status)) {
+    return (
+      <div className="space-y-4">
+        <Link href={`/po/${po.id}`} className="text-xs font-semibold text-slate-600 hover:text-slate-900">
+          ← กลับไปหน้า {po.number}
+        </Link>
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+          {po.status === 'PENDING_REVIEW' || po.status === 'PENDING_APPROVAL'
+            ? 'ใบสั่งซื้อนี้กำลังรอตรวจหรือรออนุมัติ จึงแก้ไขไม่ได้ ถ้าต้องแก้ให้ผู้อนุมัติตีกลับก่อน'
+            : 'ใบสั่งซื้อที่ยกเลิกหรือปิดแล้วแก้ไขไม่ได้'}
+        </div>
+      </div>
+    );
+  }
 
   // Compared with what was bought before this order was first written, never with the order itself
   const lastPrices = await listLastPurchasePrices(db, { exceptPoId: po.id, before: po.createdAt });
