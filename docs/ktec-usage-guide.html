@@ -240,13 +240,36 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
   html { scroll-behavior: auto; }
   .card, .tile, .rolecard, tbody tr { transition: none; }
 }
+
+/* Image mode (#image): a still version for saving as pictures. No role bar or links to click; every
+   section carries the guide's name so a single section image still says what it is. */
+.only-image { display: none; }
+:root[data-mode="image"] .only-image { display: inline; }
+:root[data-mode="image"] .only-web,
+:root[data-mode="image"] .rolebar,
+:root[data-mode="image"] .toc,
+:root[data-mode="image"] .brief,
+:root[data-mode="image"] .rm { display: none !important; }
+:root[data-mode="image"] { scroll-behavior: auto; }
+:root[data-mode="image"] main.wrap { max-width: none; padding-left: 0; padding-right: 0; padding-bottom: 0; }
+:root[data-mode="image"] main > section { padding: 30px 40px 40px; background: var(--bg); }
+:root[data-mode="image"] main > section::before {
+  content: "คู่มือใช้งาน K Tec ERP · อัปเดต 18 พ.ย. 2569"; display: block; margin-bottom: 18px; padding-bottom: 10px;
+  border-bottom: 2px solid var(--brand); font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: var(--brand);
+}
+:root[data-mode="image"] .hero .wrap { max-width: none; padding-left: 40px; padding-right: 40px; }
+:root[data-mode="image"] footer .wrap { max-width: none; padding-left: 40px; padding-right: 40px; }
+:root[data-mode="image"] .rolecards { align-items: start; }
+:root[data-mode="image"] main a { color: inherit; text-decoration: none; font-weight: 600; }
+.rmenus { display: grid; gap: 3px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.rmenus b { color: var(--ink); font-weight: 600; }
 </style>
 
 <header class="hero">
   <div class="wrap">
     <div class="eyebrow-band">K TECHNOLOGY SOLUTION · ระบบบริหารงานก่อสร้าง</div>
     <h1>คู่มือใช้งาน K Tec ERP</h1>
-    <p class="lede">ทุกเมนู ทุกขั้นตอน และใครเป็นคนกดอะไร ตั้งแต่ขอซื้อของหน้างาน สั่งซื้อ รับของ จ่ายเงิน ไปจนถึงส่งมอบงานให้ลูกค้า เลือกตำแหน่งของคุณในแถบด้านล่าง ระบบจะไฮไลต์เฉพาะงานของคุณ</p>
+    <p class="lede">ทุกเมนู ทุกขั้นตอน และใครเป็นคนกดอะไร ตั้งแต่ขอซื้อของหน้างาน สั่งซื้อ รับของ จ่ายเงิน ไปจนถึงส่งมอบงานให้ลูกค้า<span class="only-web"> เลือกตำแหน่งของคุณในแถบด้านล่าง ระบบจะไฮไลต์เฉพาะงานของคุณ</span><span class="only-image"> ป้ายสีในแต่ละขั้นบอกว่าตำแหน่งไหนเป็นคนทำ</span></p>
     <div class="stamp"><span>อัปเดตตามระบบล่าสุด <b>18 พ.ย. 2569</b></span><span><b>11</b> ตำแหน่ง</span><span><b>9</b> กลุ่มเมนู</span><span><b>12</b> ประเภทเอกสารที่รออนุมัติใน K Tec Approve</span></div>
     <ol class="route" aria-label="เส้นทางเอกสารหลัก จากขอซื้อถึงจ่ายเงิน">
       <li class="key"><span class="dot"></span><span class="rt-name">ขอซื้อ <span class="rt-code">PR</span></span><span class="rt-who">หน้างาน / PM</span></li>
@@ -367,7 +390,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
     <div class="sec-head">
       <span class="eyebrow">เมนู ผู้ใช้งาน › ตั้งค่าตามตำแหน่ง</span>
       <h2>ตำแหน่งและสิทธิ์</h2>
-      <p>คนหนึ่งมีได้หลายตำแหน่ง ทีมหน้างานเห็นเฉพาะโครงการที่ถูกเพิ่มเข้าไว้ ส่วนทีมสำนักงานเห็นทุกโครงการ คลิกการ์ดเพื่อดูเมนูที่ตำแหน่งนั้นเห็นตามค่าเริ่มต้น</p>
+      <p>คนหนึ่งมีได้หลายตำแหน่ง ทีมหน้างานเห็นเฉพาะโครงการที่ถูกเพิ่มเข้าไว้ ส่วนทีมสำนักงานเห็นทุกโครงการ<span class="only-web"> คลิกการ์ดเพื่อดูเมนูที่ตำแหน่งนั้นเห็นตามค่าเริ่มต้น</span><span class="only-image"> ใต้แต่ละตำแหน่งคือเมนูที่เห็นตามค่าเริ่มต้น ผู้ดูแลระบบเปิดหรือปิดเพิ่มได้รายคน</span></p>
     </div>
     <div class="rolegroup">
       <div class="rolegroup-h"><span class="sw" style="--c:var(--r-site)"></span>หน้างาน (เฉพาะโครงการที่สังกัด)</div>
@@ -1029,6 +1052,28 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
   cards.forEach(function (c) {
     c.addEventListener('click', function () { setRole(c.getAttribute('data-role-card'), true); });
   });
+
+  // Image mode: everything shown, and each position card lists its menus instead of a click-to-see
+  if (location.hash === '#image') {
+    document.documentElement.setAttribute('data-mode', 'image');
+    cards.forEach(function (c) {
+      var role = c.getAttribute('data-role-card');
+      var list = el('span', 'rmenus');
+      if (!VISIBLE[role]) {
+        list.appendChild(el('b', null, 'เห็นทุกเมนู'));
+      } else {
+        visibleMenus(role).forEach(function (g) {
+          var line = el('span');
+          line.appendChild(el('b', null, g.label + ': '));
+          line.appendChild(document.createTextNode(g.kids.join(' · ')));
+          list.appendChild(line);
+        });
+      }
+      c.appendChild(list);
+    });
+    setRole('ALL', false);
+    return;
+  }
 
   var saved = 'ALL';
   try { saved = localStorage.getItem('ktec-guide-role') || 'ALL'; } catch (e) {}
