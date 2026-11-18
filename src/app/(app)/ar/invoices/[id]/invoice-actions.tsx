@@ -8,6 +8,7 @@ import {
   issueArCreditNoteAction,
   issueArInvoiceAction,
   recordArReceiptAction,
+  voidArCreditNoteAction,
   voidArInvoiceAction,
   voidArReceiptAction,
   type ArResult,
@@ -37,6 +38,27 @@ function useSubmit() {
     });
   };
   return { isPending, error, message, submit };
+}
+
+/** Cancels a credit note, e.g. one issued by mistake; the invoice owes its amount again */
+export function VoidCreditNoteButton({ invoiceId, creditNoteId, number }: { invoiceId: string; creditNoteId: string; number: string }) {
+  const { isPending, error, submit } = useSubmit();
+  return (
+    <>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => {
+          const reason = prompt(`เหตุผลที่ยกเลิก ${number}`);
+          if (reason !== null) submit(() => voidArCreditNoteAction(invoiceId, creditNoteId, reason));
+        }}
+        className="text-red-600 hover:underline"
+      >
+        ยกเลิก
+      </button>
+      {error && <span className="text-red-600">{error}</span>}
+    </>
+  );
 }
 
 export function VoidReceiptButton({ invoiceId, receiptId, number }: { invoiceId: string; receiptId: string; number: string }) {

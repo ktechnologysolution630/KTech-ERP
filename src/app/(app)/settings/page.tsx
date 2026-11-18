@@ -29,6 +29,11 @@ export default async function SettingsPage() {
           <Link href="/settings/doc-numbers" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
             ตั้งค่าเลขที่เอกสาร →
           </Link>
+          {can(actor, 'accounting.delete') && (
+            <Link href="/settings/accounting-wipe" className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50">
+              ล้างข้อมูลบัญชีทั้งหมด →
+            </Link>
+          )}
         </div>
       </div>
 

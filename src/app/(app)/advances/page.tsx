@@ -2,6 +2,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listAdvances } from '@/server/services/advances';
 import { listProjects } from '@/server/services/master';
+import { can } from '@/server/policy';
 import { AdvancesClient } from './advances-client';
 
 export default async function AdvancesPage() {
@@ -12,6 +13,7 @@ export default async function AdvancesPage() {
     <AdvancesClient
       data={data}
       currentUserId={actor.id}
+      canDelete={can(actor, 'accounting.delete')}
       projects={projects.map((p) => ({ id: p.id, label: `${p.code} - ${p.name}` }))}
     />
   );

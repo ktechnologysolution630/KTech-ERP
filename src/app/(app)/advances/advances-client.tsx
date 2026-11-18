@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Plus, X } from 'lucide-react';
 import { ADVANCE_STATUSES, ADVANCE_STATUS_LABELS, type AdvanceStatus } from '@/domain/advance';
 import type { AdvanceList } from '@/server/services/advances';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteAdvancesAction } from '@/app/(app)/accounting/delete-actions';
 import { requestAdvanceAction } from './actions';
 
 type Tab = 'all' | 'clearing' | 'outstanding';
@@ -17,10 +19,13 @@ export function AdvancesClient({
   data,
   currentUserId,
   projects,
+  canDelete = false,
 }: {
   data: AdvanceList;
   currentUserId: string;
   projects: { id: string; label: string }[];
+  /** Owner and admin: requests no money was paid on can be removed for good */
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -41,20 +46,23 @@ export function AdvancesClient({
     return true;
   });
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">เงินทดรองจ่าย</h1>
           <p className="text-xs text-slate-500">ขอเงินทดรอง → อนุมัติ → จ่ายเงิน → เคลียร์ด้วยใบเสร็จหรือใบรับรองแทนใบเสร็จ</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setForm({ purpose: '', amount: 0, projectId: '' })}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
-        >
-          <Plus className="w-3.5 h-3.5" /> ใบขอเงินทดรองจ่าย
-        </button>
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          <button
+            type="button"
+            onClick={() => setForm({ purpose: '', amount: 0, projectId: '' })}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
+          >
+            <Plus className="w-3.5 h-3.5" /> ใบขอเงินทดรองจ่าย
+          </button>
+        </div>
       </div>
 
       <nav className="flex gap-2 border-b border-slate-200 pb-2 text-xs">
@@ -121,6 +129,11 @@ export function AdvancesClient({
         <table className="w-full text-xs min-w-[900px]">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2">
+                  <SelectAllBox items={rows.map((r) => ({ id: r.id, label: `${r.number} · ${r.purpose}` }))} />
+                </th>
+              )}
               <th className="px-3 py-2 text-left">เลขที่ / วันที่ขอ</th>
               <th className="px-3 py-2 text-left">ผู้รับเงิน</th>
               <th className="px-3 py-2 text-left">โครงการ</th>
@@ -134,11 +147,16 @@ export function AdvancesClient({
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400">ไม่พบรายการเงินทดรองจ่าย</td>
+                <td colSpan={canDelete ? 9 : 8} className="py-12 text-center text-slate-400">ไม่พบรายการเงินทดรองจ่าย</td>
               </tr>
             )}
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
+                {canDelete && (
+                  <td className="px-3 py-2">
+                    <SelectBox id={r.id} label={`${r.number} · ${r.purpose}`} />
+                  </td>
+                )}
                 <td className="px-3 py-2">
                   <Link href={`/advances/${r.id}`} className="font-mono text-[#2453d4] hover:underline">
                     {r.number}
@@ -217,5 +235,16 @@ export function AdvancesClient({
         </div>
       )}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteAdvancesAction}
+      noun="ใบขอเงินทดรองจ่าย"
+      hint="ลบได้เฉพาะใบรออนุมัติ ใบที่ไม่อนุมัติ และใบที่ยกเลิกแล้ว ใบที่อนุมัติแล้วต้องยกเลิกก่อน ใบที่จ่ายเงินแล้วลบทีละใบไม่ได้ ค่าใช้จ่ายรถที่ผูกกับใบที่ลบจะกลับไปเบิกใหม่ได้"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

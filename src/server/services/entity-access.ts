@@ -43,7 +43,10 @@ const tripPeople = (tripIdColumn: PgColumn) =>
 /** Project of a PO-linked document, via its PO. */
 const viaPo = (poIdColumn: PgColumn) => sql<string | null>`(select ${pos.projectId} from ${pos} where ${pos.id} = ${poIdColumn})`;
 
-const LOOKUPS: Record<EntityType, Lookup> = {
+/** Recorded in the activity log only: nothing can be attached to them */
+type LogOnlyEntityType = 'CUSTOMER' | 'COMPANY_ACCOUNT' | 'ACCOUNT_CATEGORY' | 'ACCOUNTING';
+
+const LOOKUPS: Record<Exclude<EntityType, LogOnlyEntityType>, Lookup> = {
   PROJECT: { table: projects, id: projects.id, project: projects.id },
   PR: { table: prs, id: prs.id, project: prs.projectId },
   PO: { table: pos, id: pos.id, project: pos.projectId },

@@ -5,6 +5,7 @@ import { attachments, comments, closeShortRequests, invoices, notifications, pay
 import { DomainError } from '@/domain/errors';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
+import { deletedNumbersData } from './numbering';
 import { removeStoredFile } from './attachments';
 import { lockPo } from './po';
 import { type VendorDocument } from './vendor-delete';
@@ -110,7 +111,7 @@ export async function deletePo(db: Db, actor: SessionUser, id: string): Promise<
       await tx.delete(invoices).where(and(eq(invoices.poId, id), ne(invoices.status, 'ACTIVE')));
       await tx.delete(notifications).where(eq(notifications.href, `/po/${id}`));
       await tx.delete(pos).where(eq(pos.id, id));
-      await logActivity(tx, { entityType: 'PO', entityId: id, action: 'DELETE', userId: actor.id, note: `${po.number} ${po.gross} บาท สถานะ ${po.status}` });
+      await logActivity(tx, { entityType: 'PO', entityId: id, action: 'DELETE', userId: actor.id, note: `${po.number} ${po.gross} บาท สถานะ ${po.status}`, data: deletedNumbersData([po.number]) });
     });
   } catch (err) {
     // Something began pointing at the PO while this ran; nothing has been removed

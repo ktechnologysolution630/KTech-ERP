@@ -4,25 +4,38 @@ import { formatMoneyDisplay } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { listArCreditNotes, listCreditableInvoices } from '@/server/services/ar-credit-notes';
+import { can } from '@/server/policy';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteArCreditNotesAction } from '@/app/(app)/accounting/delete-actions';
 import { NewCreditNotePicker } from './new-credit-note-picker';
 
 export default async function CreditNotesPage() {
   const actor = await requireUser();
   const db = await getDb();
   const [notes, invoices] = await Promise.all([listArCreditNotes(db, actor), listCreditableInvoices(db, actor)]);
-  return (
+  // Owner and admin: a voided credit note can be removed for good
+  const canDelete = can(actor, 'accounting.delete');
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">ใบลดหนี้</h1>
           <p className="text-xs text-slate-500">ลดยอดจากใบแจ้งหนี้ที่วางบิลไปแล้ว เช่น ลดราคา คืนงาน หรือคิดเงินเกิน</p>
         </div>
-        <NewCreditNotePicker invoices={invoices.map((i) => ({ id: i.id, label: `${i.number ?? '-'} · ${i.customerName}` }))} />
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          <NewCreditNotePicker invoices={invoices.map((i) => ({ id: i.id, label: `${i.number ?? '-'} · ${i.customerName}` }))} />
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[900px] text-xs">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2.5">
+                  <SelectAllBox items={notes.map((c) => ({ id: c.id, label: c.number }))} />
+                </th>
+              )}
               {['เลขที่', 'วันที่', 'ลูกค้า', 'โครงการ', 'อ้างอิงใบแจ้งหนี้', 'เหตุผล', 'ยอดรวม', 'สถานะ'].map((h) => (
                 <th key={h} className={`px-3 py-2.5 font-medium ${h === 'ยอดรวม' ? 'text-right' : 'text-left'}`}>
                   {h}
@@ -33,13 +46,18 @@ export default async function CreditNotesPage() {
           <tbody className="divide-y divide-slate-100">
             {notes.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400">
+                <td colSpan={canDelete ? 9 : 8} className="py-12 text-center text-slate-400">
                   ไม่มีรายการ
                 </td>
               </tr>
             ) : (
               notes.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50">
+                  {canDelete && (
+                    <td className="px-3 py-2.5">
+                      <SelectBox id={c.id} label={c.number} />
+                    </td>
+                  )}
                   <td className="px-3 py-2.5 font-mono font-semibold">{c.number}</td>
                   <td className="px-3 py-2.5">{formatThaiDate(c.docDate)}</td>
                   <td className="px-3 py-2.5">{c.customerName}</td>
@@ -63,5 +81,12 @@ export default async function CreditNotesPage() {
         </table>
       </div>
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider action={deleteArCreditNotesAction} noun="ใบลดหนี้" hint="ลบได้เฉพาะใบลดหนี้ที่ยกเลิกแล้ว (ยกเลิกได้ที่หน้าใบแจ้งหนี้ที่อ้างถึง) ใบแจ้งหนี้ที่อ้างถึงยังอยู่เหมือนเดิม">
+      {page}
+    </BulkDeleteProvider>
   );
 }

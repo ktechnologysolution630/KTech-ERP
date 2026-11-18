@@ -1,30 +1,44 @@
 import Link from 'next/link';
 import { AR_INVOICE_STATUS_LABELS } from '@/domain/ar';
 import { listArInvoices } from '@/server/services/ar';
+import { can } from '@/server/policy';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteArInvoicesAction } from '@/app/(app)/accounting/delete-actions';
 import { baht, requireArUser } from '../ar-guard';
 
 export default async function ArInvoicesPage() {
   const { actor, db } = await requireArUser();
   const rows = await listArInvoices(db, actor);
+  // Owner and admin: a draft, or a voided invoice, can be removed for good
+  const canDelete = can(actor, 'accounting.delete');
+  const label = (r: (typeof rows)[number]) => r.number ?? `ร่าง ${r.customerName}`;
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">ใบแจ้งหนี้ / ใบวางบิล (ลูกค้า)</h1>
           <p className="text-xs text-slate-500">เรียกเก็บเงินลูกค้าตามงวดงาน · วางบิลจากงวดงานรับได้ที่หน้าค่าแรง/งวดงาน</p>
         </div>
-        <Link
-          href="/ar/invoices/new"
-          className="px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
-        >
-          + สร้างใบแจ้งหนี้
-        </Link>
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          <Link
+            href="/ar/invoices/new"
+            className="px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
+          >
+            + สร้างใบแจ้งหนี้
+          </Link>
+        </div>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs min-w-[900px]">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2">
+                  <SelectAllBox items={rows.map((r) => ({ id: r.id, label: label(r) }))} />
+                </th>
+              )}
               <th className="px-3 py-2 text-left">เลขที่</th>
               <th className="px-3 py-2 text-left">วันที่</th>
               <th className="px-3 py-2 text-left">ครบกำหนด</th>
@@ -38,11 +52,16 @@ export default async function ArInvoicesPage() {
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400">ไม่มีรายการ</td>
+                <td colSpan={canDelete ? 9 : 8} className="py-12 text-center text-slate-400">ไม่มีรายการ</td>
               </tr>
             )}
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
+                {canDelete && (
+                  <td className="px-3 py-2">
+                    <SelectBox id={r.id} label={label(r)} />
+                  </td>
+                )}
                 <td className="px-3 py-2">
                   <Link href={`/ar/invoices/${r.id}`} className="font-mono text-[#2453d4] hover:underline">
                     {r.number ?? '(ร่าง)'}
@@ -61,5 +80,16 @@ export default async function ArInvoicesPage() {
         </table>
       </div>
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteArInvoicesAction}
+      noun="ใบแจ้งหนี้"
+      hint="ลบได้เฉพาะใบร่าง และใบที่ยกเลิกแล้ว (ใบเสร็จและใบลดหนี้ที่ยกเลิกแล้วของใบนั้นจะถูกลบด้วย) ใบที่ยังใช้งานต้องยกเลิกก่อน"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

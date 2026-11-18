@@ -5,6 +5,9 @@ import { ADVANCE_STATUS_LABELS, EXPENSE_EVIDENCE_LABELS } from '@/domain/advance
 import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { getAdvance, listUsableSubstitutes } from '@/server/services/advances';
+import { can } from '@/server/policy';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteAdvancesAction } from '@/app/(app)/accounting/delete-actions';
 import { AdvanceActions, RemoveExpenseButton } from './advance-actions';
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,9 +27,22 @@ export default async function AdvanceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-4 text-xs">
-      <Link href="/advances" className="text-slate-500 hover:text-slate-800">
-        ← เงินทดรองจ่ายทั้งหมด
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/advances" className="text-slate-500 hover:text-slate-800">
+          ← เงินทดรองจ่ายทั้งหมด
+        </Link>
+        {/* No money paid on it: the owner or admin can remove it for good */}
+        {['PENDING', 'REJECTED', 'CANCELLED'].includes(adv.status) && can(actor, 'accounting.delete') && (
+          <DeleteDocButton
+            action={deleteAdvancesAction}
+            id={adv.id}
+            label={adv.number}
+            noun="ใบขอเงินทดรองจ่าย"
+            hint="ใบขอเงินทดรองจ่ายนี้จะถูกลบออกจากระบบ ค่าใช้จ่ายรถที่ผูกกับใบนี้จะกลับไปเบิกใหม่ได้"
+            backTo="/advances"
+          />
+        )}
+      </div>
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

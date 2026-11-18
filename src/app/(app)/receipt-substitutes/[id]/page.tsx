@@ -5,6 +5,9 @@ import { DomainError } from '@/domain/errors';
 import { requireUser } from '@/server/auth/current-user';
 import { listAdvances, getReceiptSubstitute } from '@/server/services/advances';
 import { listProjects } from '@/server/services/master';
+import { can } from '@/server/policy';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteReceiptSubstitutesAction } from '@/app/(app)/accounting/delete-actions';
 import { SubstituteEditor, type SubstituteEditorData } from './substitute-editor';
 
 export default async function ReceiptSubstitutePage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,9 +28,22 @@ export default async function ReceiptSubstitutePage({ params }: { params: Promis
 
   return (
     <div className="space-y-4 text-xs">
-      <Link href="/receipt-substitutes" className="text-slate-500 hover:text-slate-800">
-        ← ใบรับรองแทนใบเสร็จทั้งหมด
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/receipt-substitutes" className="text-slate-500 hover:text-slate-800">
+          ← ใบรับรองแทนใบเสร็จทั้งหมด
+        </Link>
+        {/* Not approved, or cancelled: the owner or admin can remove it for good */}
+        {doc && doc.status !== 'APPROVED' && can(actor, 'accounting.delete') && (
+          <DeleteDocButton
+            action={deleteReceiptSubstitutesAction}
+            id={doc.id}
+            label={doc.number ?? `ร่าง ${doc.payerName}`}
+            noun="ใบรับรองแทนใบเสร็จ"
+            hint="ใบรับรองแทนใบเสร็จนี้จะถูกลบออกจากระบบ"
+            backTo="/receipt-substitutes"
+          />
+        )}
+      </div>
       <SubstituteEditor
         doc={doc}
         projects={projects.map((p) => ({ id: p.id, label: `${p.code} - ${p.name}` }))}
