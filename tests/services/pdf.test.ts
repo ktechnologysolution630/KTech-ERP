@@ -129,7 +129,8 @@ describe('pdf service', () => {
 
 describe('PO and PR pdfs print the K TECH form', () => {
   // Matched against squashed text: no spaces, see pdfText
-  const HEADER_SHOWN = ['KTECHNOLOGYSOLUTIONCO.,LTD.', 'เลขประจำตัวผู้เสียภาษี'];
+  // สำนักงานใหญ่ follows the company's tax ID (the seeded settings: head office, 0105500000000)
+  const HEADER_SHOWN = ['KTECHNOLOGYSOLUTIONCO.,LTD.', 'เลขประจำตัวผู้เสียภาษี0105500000000สำนักงานใหญ่'];
   // The head-office label used to sit before the company's tax ID in the header
   const HEADER_GONE = ['KtechnologySolution', 'สำนักงานใหญ่เลขประจำตัวผู้เสียภาษี'];
 
