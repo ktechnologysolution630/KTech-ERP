@@ -146,9 +146,8 @@ export function FormPage({
             <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{COMPANY_NAME_EN}</Text>
             <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>{settings.companyAddress}</Text>
             <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>
-              {/* Head office goes without saying on the form; a branch is still named */}
-              {isHeadOffice(settings.companyBranch) ? '' : `${branchLabel(settings.companyBranch)} `}
-              เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}
+              {/* สำนักงานใหญ่, or the branch, follows the tax ID */}
+              เลขประจำตัวผู้เสียภาษี {settings.companyTaxId} {branchLabel(settings.companyBranch)}
             </Text>
           </View>
           {/* Balances the logo so the company name stays centred */}

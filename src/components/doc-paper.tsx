@@ -14,7 +14,14 @@ export interface CompanyHeader {
   name: string;
   address: string;
   taxId: string;
+  /** Branch number from the company settings; 00000 or blank is the head office */
+  branch?: string;
   logoUrl: string | null;
+}
+
+/** สำนักงานใหญ่, or the branch, as printed after the tax ID */
+export function companyBranchLabel(branch: string | undefined): string {
+  return !branch || branch === '00000' ? 'สำนักงานใหญ่' : `สาขา ${branch}`;
 }
 
 export interface VendorRef {
@@ -69,7 +76,9 @@ export function DocPaper({
             <p className="text-xl font-bold text-[#0e4677]">{company.name}</p>
             <p className="text-sm font-bold tracking-wide text-[#1668a8]">{COMPANY_NAME_EN}</p>
             <p className="mt-0.5 text-xs text-slate-500">{company.address || '-'}</p>
-            <p className="text-xs text-slate-500">เลขประจำตัวผู้เสียภาษี {company.taxId || '-'}</p>
+            <p className="text-xs text-slate-500">
+              เลขประจำตัวผู้เสียภาษี {company.taxId || '-'} {companyBranchLabel(company.branch)}
+            </p>
           </div>
           {/* Balances the logo so the company name stays centred */}
           <span className="hidden sm:block" />
