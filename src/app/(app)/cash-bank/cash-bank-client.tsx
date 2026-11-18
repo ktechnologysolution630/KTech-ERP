@@ -10,13 +10,18 @@ import { SALES_DOC_META, type SalesDocKind } from '@/domain/sales-doc';
 import { formatThaiDate } from '@/domain/thai';
 import { THAI_BANKS } from '@/domain/vendor-profile';
 import type { AccountSummary } from '@/server/services/sales-docs';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteCompanyAccountsAction } from '@/app/(app)/accounting/delete-actions';
 import { saveCompanyAccountAction } from '../sales/actions';
 
 const TYPE_LABEL: Record<string, string> = { SAVINGS: 'ออมทรัพย์', CURRENT: 'กระแสรายวัน', FIXED: 'ฝากประจำ', CASH: 'เงินสด', OTHER: 'อื่น ๆ' };
 const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-[#2453d4] focus:outline-none';
 
-/** Company bank and cash accounts with balance from opening, receipts and payment vouchers */
-export function CashBankClient({ accounts }: { accounts: AccountSummary[] }) {
+/**
+ * Company bank and cash accounts with balance from opening, receipts and payment vouchers. `canDelete`: owner and
+ * admin may remove an account no document records money against.
+ */
+export function CashBankClient({ accounts, canDelete = false }: { accounts: AccountSummary[]; canDelete?: boolean }) {
   const [editing, setEditing] = useState<AccountSummary | 'new' | null>(null);
   const total = accounts.filter((a) => a.active).reduce((s, a) => s + a.balance, 0);
   return (
@@ -64,9 +69,21 @@ export function CashBankClient({ accounts }: { accounts: AccountSummary[] }) {
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => setEditing(a)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={`แก้ไข ${a.bank} ${a.accountNo}`}>
-                  <Pencil className="h-4 w-4" />
-                </button>
+                <div className="flex shrink-0 items-start gap-1">
+                  {canDelete && (
+                    <DeleteDocButton
+                      action={deleteCompanyAccountsAction}
+                      id={a.id}
+                      label={`${a.bank} ${a.accountNo}`}
+                      noun="บัญชี"
+                      hint="บัญชีที่มีเอกสารรับ-จ่ายผ่านอยู่จะไม่ถูกลบ (ใช้ปิดการใช้งานแทน)"
+                      backTo="/cash-bank"
+                    />
+                  )}
+                  <button type="button" onClick={() => setEditing(a)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={`แก้ไข ${a.bank} ${a.accountNo}`}>
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <dl className="mt-3 grid grid-cols-4 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
                 <div>

@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listAccountCategories, listDocRunning } from '@/server/services/account-categories';
+import { can } from '@/server/policy';
 import { CategoriesClient } from './categories-client';
 
 export default async function AccountingSettingsPage() {
@@ -39,7 +40,9 @@ export default async function AccountingSettingsPage() {
         </div>
         <p className="px-4 py-2 text-[11px] text-slate-400">เลขที่ประกอบด้วย ตัวย่อเอกสาร - ปี พ.ศ. สองหลักและเดือน - ลำดับ 4 หลัก เริ่มนับใหม่ทุกเดือน และออกให้อัตโนมัติเมื่อบันทึกเอกสาร</p>
       </section>
-      <CategoriesClient categories={categories.map((c) => ({ id: c.id, code: c.code, name: c.name, type: c.type, groupName: c.groupName, vatDefault: c.vatDefault, whtRate: Number(c.whtRate), active: c.active }))} />
+      <CategoriesClient
+        canDelete={can(actor, 'accounting.delete')}
+        categories={categories.map((c) => ({ id: c.id, code: c.code, name: c.name, type: c.type, groupName: c.groupName, vatDefault: c.vatDefault, whtRate: Number(c.whtRate), active: c.active }))} />
     </div>
   );
 }

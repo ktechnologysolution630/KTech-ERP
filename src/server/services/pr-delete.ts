@@ -5,6 +5,7 @@ import { attachments, comments, notifications, poLines, prLines, prs, pos, type 
 import { DomainError } from '@/domain/errors';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
+import { deletedNumbersData } from './numbering';
 import { removeStoredFile } from './attachments';
 
 const idsSchema = z.array(z.string().uuid()).min(1, 'กรุณาเลือกใบขอซื้อที่จะลบ').max(1000, 'เลือกได้ครั้งละไม่เกิน 1,000 ใบ');
@@ -51,7 +52,7 @@ export async function deletePrs(db: Db, actor: SessionUser, ids: string[]): Prom
       // Lines go with their PR (on delete cascade)
       await tx.delete(prs).where(inArray(prs.id, removeIds));
       for (const t of removable) {
-        await logActivity(tx, { entityType: 'PR', entityId: t.id, action: 'DELETE', userId: actor.id, note: `ลบ ${t.number} (สถานะ ${t.status})` });
+        await logActivity(tx, { entityType: 'PR', entityId: t.id, action: 'DELETE', userId: actor.id, note: `ลบ ${t.number} (สถานะ ${t.status})`, data: deletedNumbersData([t.number]) });
       }
     }
     return { deleted: removable.map((t) => ({ id: t.id, number: t.number })), kept };

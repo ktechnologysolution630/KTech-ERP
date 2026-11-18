@@ -27,7 +27,12 @@ export type EntityType =
   | 'STOCK_DOC'
   | 'SALES_DOC'
   | 'VEHICLE_TRIP'
-  | 'VEHICLE_EXPENSE';
+  | 'VEHICLE_EXPENSE'
+  | 'CUSTOMER'
+  | 'COMPANY_ACCOUNT'
+  | 'ACCOUNT_CATEGORY'
+  /** The wipe of all accounting documents */
+  | 'ACCOUNTING';
 
 /** Project workspace files: documents (folders, versions by name) or photos (albums). */
 export type AttachmentKind = 'FILE' | 'PHOTO';

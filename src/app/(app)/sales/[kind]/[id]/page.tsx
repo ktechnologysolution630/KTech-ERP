@@ -12,6 +12,9 @@ import { SalesDocView } from './sales-doc-view';
 import { listAttachments } from '@/server/services/attachments';
 import { AttachmentsBox } from '@/components/attachments';
 import { salesDocSigners } from '@/server/services/doc-signers';
+import { can } from '@/server/policy';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteSalesDocsAction } from '@/app/(app)/accounting/delete-actions';
 
 export default async function SalesDocPage({ params }: { params: Promise<{ kind: string; id: string }> }) {
   const { kind: slug, id } = await params;
@@ -31,9 +34,22 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
 
   return (
     <div className="space-y-4">
-      <Link href={`/sales/${slug}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
-        <ArrowLeft className="h-4 w-4" /> กลับไปหน้า{SALES_DOC_META[kind].th}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href={`/sales/${slug}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4" /> กลับไปหน้า{SALES_DOC_META[kind].th}
+        </Link>
+        {/* Once cancelled, the owner or admin can remove it for good */}
+        {doc.status === 'CANCELLED' && can(actor, 'accounting.delete') && (
+          <DeleteDocButton
+            action={deleteSalesDocsAction}
+            id={doc.id}
+            label={doc.number}
+            noun={SALES_DOC_META[kind].th}
+            hint={`${SALES_DOC_META[kind].th}ที่ยกเลิกแล้วจะถูกลบออกจากระบบ`}
+            backTo={`/sales/${slug}?cancelled=1`}
+          />
+        )}
+      </div>
       <SalesDocView doc={doc} slug={slug} company={companyHeaderFrom(settings)} signers={signers} />
       <div className="max-w-xl">
         <AttachmentsBox entityType="SALES_DOC" entityId={doc.id} items={attachments} />

@@ -5,13 +5,18 @@ import { requireUser } from '@/server/auth/current-user';
 import { listPvs } from '@/server/services/pv';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
+import { can } from '@/server/policy';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deletePvsAction } from '@/app/(app)/accounting/delete-actions';
 
 export default async function PvListPage() {
   const actor = await requireUser();
   const db = await getDb();
   const items = await listPvs(db, actor);
+  // Owner and admin: a voucher not yet approved, or a cancelled one, can be removed for good
+  const canDelete = can(actor, 'accounting.delete');
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
@@ -22,18 +27,26 @@ export default async function PvListPage() {
             รวบรวมรายการตั้งหนี้ คำนวณภาษีหัก ณ ที่จ่าย ส่งเจ้าของอนุมัติ และบันทึกการโอนเงิน
           </p>
         </div>
-        <Link
-          href="/pv/new"
-          className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-medium"
-        >
-          + สร้างใบสำคัญจ่าย (PV)
-        </Link>
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          <Link
+            href="/pv/new"
+            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-medium"
+          >
+            + สร้างใบสำคัญจ่าย (PV)
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600 text-xs">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-4 py-3">
+                  <SelectAllBox items={items.map((pv) => ({ id: pv.id, label: `${pv.number} · ${pv.vendorName}` }))} />
+                </th>
+              )}
               <th className="px-4 py-3 text-left">เลขที่ PV</th>
               <th className="px-4 py-3 text-left">ผู้ขาย</th>
               <th className="px-4 py-3 text-right">ยอดรวม</th>
@@ -46,13 +59,18 @@ export default async function PvListPage() {
           <tbody className="divide-y divide-slate-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={canDelete ? 8 : 7} className="px-4 py-8 text-center text-slate-500">
                   ยังไม่มีใบสำคัญจ่าย
                 </td>
               </tr>
             ) : (
               items.map((pv) => (
                 <tr key={pv.id} className="hover:bg-slate-50">
+                  {canDelete && (
+                    <td className="px-4 py-3">
+                      <SelectBox id={pv.id} label={`${pv.number} · ${pv.vendorName}`} />
+                    </td>
+                  )}
                   <td className="px-4 py-3 font-medium">
                     <Link
                       href={`/pv/${pv.id}`}
@@ -84,5 +102,16 @@ export default async function PvListPage() {
         </table>
       </div>
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deletePvsAction}
+      noun="ใบสำคัญจ่าย"
+      hint="ลบได้เฉพาะใบร่าง ใบรออนุมัติ ใบที่ถูกตีกลับ และใบที่ยกเลิกแล้ว รายการตั้งจ่ายในใบจะกลับไปรอตั้งจ่ายตามเดิม ใบที่อนุมัติหรือจ่ายเงินแล้วต้องยกเลิกก่อน"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

@@ -465,6 +465,23 @@ export async function issueArCreditNote(
   });
 }
 
+/** Cancels a credit note: the invoice owes its amount again. The reason is kept in the activity log. */
+export async function voidArCreditNote(db: Db, actor: SessionUser, creditNoteId: string, reason: string): Promise<void> {
+  assertCan(actor, 'ar.manage');
+  const why = reason.trim();
+  if (!why) throw new DomainError('REASON_REQUIRED', 'กรุณาระบุเหตุผลที่ยกเลิก');
+  uuidOr404(creditNoteId, 'ใบลดหนี้');
+  await db.transaction(async (tx) => {
+    const [cn] = await tx.select().from(arCreditNotes).where(eq(arCreditNotes.id, creditNoteId)).limit(1);
+    if (!cn) throw new DomainError('NOT_FOUND', 'ไม่พบใบลดหนี้', 404);
+    if (cn.voided) throw new DomainError('INVALID_STATE', 'ใบลดหนี้นี้ยกเลิกแล้ว', 409);
+    const inv = await lockInvoice(tx, cn.invoiceId);
+    await tx.update(arCreditNotes).set({ voided: true }).where(eq(arCreditNotes.id, creditNoteId));
+    await refreshInvoiceStatus(tx, inv, cn.docDate);
+    await logActivity(tx, { entityType: 'AR_INVOICE', entityId: inv.id, action: 'CREDIT_NOTE_VOID', userId: actor.id, note: `${cn.number}: ${why}` });
+  });
+}
+
 // ───────────────────────────── Queries ─────────────────────────────
 
 export interface ArInvoiceRow {

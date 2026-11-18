@@ -3,6 +3,8 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Plus, X } from 'lucide-react';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteCustomersAction } from '@/app/(app)/accounting/delete-actions';
 import { saveCustomerAction } from '../actions';
 
 export interface CustomerRow {
@@ -34,7 +36,8 @@ const EMPTY: Omit<CustomerRow, 'id'> & { id?: string } = {
 
 const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
 
-export function CustomersClient({ customers }: { customers: CustomerRow[] }) {
+/** `canDelete`: owner and admin may remove customers no invoice is made out to */
+export function CustomersClient({ customers, canDelete = false }: { customers: CustomerRow[]; canDelete?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<(Omit<CustomerRow, 'id'> & { id?: string }) | null>(null);
@@ -46,7 +49,7 @@ export function CustomersClient({ customers }: { customers: CustomerRow[] }) {
     (c) => !q || c.name.toLowerCase().includes(q.toLowerCase()) || c.code.toLowerCase().includes(q.toLowerCase()),
   );
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -54,6 +57,7 @@ export function CustomersClient({ customers }: { customers: CustomerRow[] }) {
           <p className="text-xs text-slate-500">ข้อมูลลูกค้าสำหรับใบแจ้งหนี้ ใบเสร็จรับเงิน/ใบกำกับภาษี และใบลดหนี้</p>
         </div>
         <div className="flex gap-2">
+          {canDelete && <BulkDeleteBar />}
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -75,6 +79,11 @@ export function CustomersClient({ customers }: { customers: CustomerRow[] }) {
         <table className="w-full text-xs min-w-[800px]">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2">
+                  <SelectAllBox items={shown.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))} />
+                </th>
+              )}
               <th className="px-3 py-2 text-left">รหัส</th>
               <th className="px-3 py-2 text-left">ลูกค้า</th>
               <th className="px-3 py-2 text-left">เลขประจำตัวผู้เสียภาษี</th>
@@ -89,11 +98,16 @@ export function CustomersClient({ customers }: { customers: CustomerRow[] }) {
           <tbody className="divide-y divide-slate-100">
             {shown.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-400">ยังไม่มีลูกค้า</td>
+                <td colSpan={canDelete ? 10 : 9} className="py-12 text-center text-slate-400">ยังไม่มีลูกค้า</td>
               </tr>
             )}
             {shown.map((c) => (
               <tr key={c.id}>
+                {canDelete && (
+                  <td className="px-3 py-2">
+                    <SelectBox id={c.id} label={`${c.code} ${c.name}`} />
+                  </td>
+                )}
                 <td className="px-3 py-2 font-mono">{c.code}</td>
                 <td className="px-3 py-2 font-medium">{c.name}</td>
                 <td className="px-3 py-2 font-mono">{c.taxId || '-'}</td>
@@ -191,5 +205,17 @@ export function CustomersClient({ customers }: { customers: CustomerRow[] }) {
         </div>
       )}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteCustomersAction}
+      noun="ลูกค้า"
+      unit="ราย"
+      hint="ลูกค้าที่มีใบแจ้งหนี้อยู่จะไม่ถูกลบ (ใช้ปิดการใช้งานแทน) ใบเสนอราคาและใบเสร็จที่ออกไปแล้วยังเก็บชื่อลูกค้าไว้ตามเดิม"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

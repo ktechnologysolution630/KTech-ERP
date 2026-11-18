@@ -4,7 +4,10 @@ import { AGING_LABELS, AR_INVOICE_STATUS_LABELS, PAY_METHOD_LABELS } from '@/dom
 import { DomainError } from '@/domain/errors';
 import { getArInvoice } from '@/server/services/ar';
 import { baht, requireArUser } from '../../ar-guard';
-import { InvoiceActions, VoidReceiptButton } from './invoice-actions';
+import { can } from '@/server/policy';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteArInvoicesAction } from '@/app/(app)/accounting/delete-actions';
+import { InvoiceActions, VoidCreditNoteButton, VoidReceiptButton } from './invoice-actions';
 
 export default async function ArInvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,9 +22,22 @@ export default async function ArInvoiceDetailPage({ params }: { params: Promise<
 
   return (
     <div className="space-y-4 text-xs">
-      <Link href="/ar/invoices" className="text-slate-500 hover:text-slate-800">
-        ← ใบแจ้งหนี้ทั้งหมด
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/ar/invoices" className="text-slate-500 hover:text-slate-800">
+          ← ใบแจ้งหนี้ทั้งหมด
+        </Link>
+        {/* A draft, or once voided, the owner or admin can remove it for good */}
+        {(inv.status === 'DRAFT' || inv.status === 'VOID') && can(actor, 'accounting.delete') && (
+          <DeleteDocButton
+            action={deleteArInvoicesAction}
+            id={inv.id}
+            label={inv.number ?? 'ใบแจ้งหนี้ (ร่าง)'}
+            noun="ใบแจ้งหนี้"
+            hint="ใบแจ้งหนี้นี้ และใบเสร็จกับใบลดหนี้ที่ยกเลิกแล้วของใบนี้ จะถูกลบออกจากระบบ"
+            backTo="/ar/invoices"
+          />
+        )}
+      </div>
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -111,11 +127,12 @@ export default async function ArInvoiceDetailPage({ params }: { params: Promise<
           <h2 className="font-bold text-sm">ใบลดหนี้</h2>
           {inv.creditNotes.length === 0 && <p className="text-slate-400">ยังไม่มี</p>}
           {inv.creditNotes.map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-2 border-b border-slate-50 py-1.5">
+            <div key={c.id} className={`flex flex-wrap items-center gap-2 border-b border-slate-50 py-1.5 ${c.voided ? 'opacity-50 line-through' : ''}`}>
               <span className="font-mono font-semibold">{c.number}</span>
               <span>{c.docDate}</span>
               <span className="text-slate-500">{c.reason}</span>
               <span className="ml-auto font-mono">{baht(c.gross)}</span>
+              {!c.voided && <VoidCreditNoteButton invoiceId={inv.id} creditNoteId={c.id} number={c.number} />}
             </div>
           ))}
         </section>

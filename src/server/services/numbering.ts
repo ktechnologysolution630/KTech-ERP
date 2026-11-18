@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { type Db } from '@/db/client';
 import {
+  activityLogs,
   advances,
   arCreditNotes,
   arInvoices,
@@ -93,12 +94,29 @@ export const NUMBERED_DOCS: Partial<Record<DocPrefix, { table: PgTable; column: 
   VO: { table: variationOrders, column: variationOrders.number },
 };
 
-/** Whether a document of this kind already carries the number */
+/**
+ * The activity-log entry of a delete lists the numbers that went, so they are never handed out again
+ * even when the counter is set back by hand
+ */
+export const deletedNumbersData = (numbers: string[]) => ({ deletedNumbers: numbers });
+
+export async function wasDeleted(tx: Db, number: string): Promise<boolean> {
+  const [hit] = await tx
+    .select({ one: sql<number>`1` })
+    .from(activityLogs)
+    .where(sql`${activityLogs.data} -> 'deletedNumbers' @> jsonb_build_array(${number}::text)`)
+    .limit(1);
+  return Boolean(hit);
+}
+
+/** Whether a document of this kind already carries the number, or one that carried it was deleted */
 export async function isDocNumberTaken(tx: Db, prefix: DocPrefix, number: string): Promise<boolean> {
   const where = NUMBERED_DOCS[prefix];
-  if (!where) return false;
-  const [hit] = await tx.select({ one: sql<number>`1` }).from(where.table).where(eq(where.column, number)).limit(1);
-  return Boolean(hit);
+  if (where) {
+    const [hit] = await tx.select({ one: sql<number>`1` }).from(where.table).where(eq(where.column, number)).limit(1);
+    if (hit) return true;
+  }
+  return wasDeleted(tx, number);
 }
 
 /** PO-6911-0001: prefix, Thai year and month, then the count in that month */

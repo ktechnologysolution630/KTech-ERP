@@ -24,7 +24,7 @@ import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { removeStoredFile } from './attachments';
 import { notify, usersWithRole } from './notifications';
-import { nextDocNumber } from './numbering';
+import { deletedNumbersData, nextDocNumber } from './numbering';
 
 export type { PrvCategory, PrvStatus };
 
@@ -258,7 +258,7 @@ export async function deletePrv(db: Db, actor: SessionUser, id: string): Promise
     for (const file of files) await removeStoredFile(tx, file.url);
 
     await tx.delete(prvs).where(eq(prvs.id, id));
-    await logActivity(tx, { entityType: 'PRV', entityId: id, action: 'DELETE', userId: actor.id, note: `${prv.prvNumber} ${prv.payeeName} ${prv.netAmount} บาท` });
+    await logActivity(tx, { entityType: 'PRV', entityId: id, action: 'DELETE', userId: actor.id, note: `${prv.prvNumber} ${prv.payeeName} ${prv.netAmount} บาท`, data: deletedNumbersData([prv.prvNumber]) });
   });
 }
 
