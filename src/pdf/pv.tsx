@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
-import { bahtText, D } from '@/domain/money';
+import { bahtText, D, formatMoneyDisplay as money } from '@/domain/money';
 import { labelSigners, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
@@ -70,13 +70,13 @@ export function PvPdfDoc({
             {l.payableNote} {l.poNumber ? `(PO: ${l.poNumber})` : ''}{' '}
             {l.invoiceNo ? `[IV: ${l.invoiceNo}]` : ''}
           </Text>
-          <Text style={{ width: 70, textAlign: 'right' }}>{l.beforeVat}</Text>
-          <Text style={{ width: 55, textAlign: 'right' }}>{l.vat}</Text>
-          <Text style={{ width: 70, textAlign: 'right' }}>{l.gross}</Text>
+          <Text style={{ width: 70, textAlign: 'right' }}>{money(l.beforeVat)}</Text>
+          <Text style={{ width: 55, textAlign: 'right' }}>{money(l.vat)}</Text>
+          <Text style={{ width: 70, textAlign: 'right' }}>{money(l.gross)}</Text>
           <Text style={{ width: 65, textAlign: 'right' }}>
-            {l.wht} ({l.whtRate}%)
+            {money(l.wht)} ({l.whtRate}%)
           </Text>
-          <Text style={{ width: 75, textAlign: 'right' }}>{l.net}</Text>
+          <Text style={{ width: 75, textAlign: 'right' }}>{money(l.net)}</Text>
         </View>
       ))}
 
@@ -89,23 +89,23 @@ export function PvPdfDoc({
         <View style={pdfStyles.numbersBox}>
           <View style={pdfStyles.numberRow}>
             <Text>รวมยอดก่อน VAT:</Text>
-            <Text>{pv.beforeVat}</Text>
+            <Text>{money(pv.beforeVat)}</Text>
           </View>
           <View style={pdfStyles.numberRow}>
             <Text>รวม VAT:</Text>
-            <Text>{pv.vat}</Text>
+            <Text>{money(pv.vat)}</Text>
           </View>
           <View style={pdfStyles.numberRow}>
             <Text>รวมทั้งสิ้น (Gross):</Text>
-            <Text>{pv.gross}</Text>
+            <Text>{money(pv.gross)}</Text>
           </View>
           <View style={pdfStyles.numberRow}>
             <Text>หักภาษี ณ ที่จ่าย:</Text>
-            <Text>-{pv.wht}</Text>
+            <Text>-{money(pv.wht)}</Text>
           </View>
           <View style={[pdfStyles.numberRow, { fontWeight: 'bold', borderTopWidth: 1, borderTopColor: '#94a3b8' }]}>
             <Text>ยอดจ่ายสุทธิ (Net):</Text>
-            <Text>฿{pv.net}</Text>
+            <Text>฿{money(pv.net)}</Text>
           </View>
         </View>
       </View>
