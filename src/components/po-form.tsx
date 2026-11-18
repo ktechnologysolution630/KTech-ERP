@@ -172,6 +172,8 @@ export function PoForm({
   );
   // No vendor is picked for the user: with a long list, the first one would slip through unnoticed
   const [vendorId, setVendorId] = useState(existing?.vendorId ?? '');
+  // Typed on the PO and kept in the vendor register when the PO is saved
+  const [vendorContact, setVendorContact] = useState(() => vendors.find((v) => v.id === existing?.vendorId)?.contactPerson ?? '');
   const activeVendors = useMemo(() => vendors.filter((v) => v.active || v.id === existing?.vendorId), [vendors, existing?.vendorId]);
   const [paymentType, setPaymentType] = useState<PoPaymentType>(existing?.paymentType ?? 'CREDIT');
   const [creditDays, setCreditDays] = useState<number>(existing?.creditDays ?? 30);
@@ -232,6 +234,7 @@ export function PoForm({
   function pickVendor(id: string) {
     setVendorId(id);
     const v = vendors.find((x) => x.id === id);
+    setVendorContact(v?.contactPerson ?? '');
     if (v) {
       setCreditDays(v.defaultCreditDays);
       setTerms({ billingSchedule: v.billingSchedule, creditBasis: v.creditBasis, chequeSchedule: v.chequeSchedule, payMethod: v.defaultPayMethod });
@@ -271,6 +274,7 @@ export function PoForm({
     const payload = {
       projectId: projectId === 'OFFICE' ? null : projectId,
       vendorId,
+      vendorContact,
       paymentType,
       creditDays: paymentType === 'CREDIT' ? creditDays : null,
       terms: terms ?? undefined,
@@ -436,7 +440,15 @@ export function PoForm({
         {/* Two boxes side by side as on the PDF: the vendor, then where, for which project and who asks */}
         <div className={`${paperBox} grid grid-cols-1 md:grid-cols-[1.1fr_1fr]`}>
           <div className="border-b border-[#9db0c4] md:border-b-0 md:border-r">
-            <VendorBlock title="ซัพพลายเออร์ / ผู้รับเหมา" vendors={activeVendors} vendorId={vendorId} onChange={pickVendor} required />
+            <VendorBlock
+              title="ซัพพลายเออร์ / ผู้รับเหมา"
+              vendors={activeVendors}
+              vendorId={vendorId}
+              onChange={pickVendor}
+              required
+              contact={vendorContact}
+              onContactChange={setVendorContact}
+            />
           </div>
           <div className="text-sm">
             <BoxRow label="สถานที่จัดส่ง">

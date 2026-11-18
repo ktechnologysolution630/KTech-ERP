@@ -165,12 +165,17 @@ export function VendorBlock({
   vendorId,
   onChange,
   required,
+  contact,
+  onContactChange,
 }: {
   title: string;
   vendors: VendorRef[];
   vendorId: string;
   onChange: (id: string) => void;
   required?: boolean;
+  /** The contact typed on the form; with onContactChange the ผู้ติดต่อ row is a field instead of the register's value */
+  contact?: string;
+  onContactChange?: (value: string) => void;
 }) {
   const v = vendors.find((x) => x.id === vendorId);
   const fact = (label: string, value: string | null | undefined) => (
@@ -193,7 +198,27 @@ export function VendorBlock({
         {fact('ที่อยู่', v?.address)}
         {fact('โทร', v?.phone)}
         {fact('เลขประจำตัวผู้เสียภาษี', v?.taxId)}
-        {fact('ผู้ติดต่อ', [v?.contactPerson, v?.email].filter(Boolean).join(' · '))}
+        {onContactChange ? (
+          <>
+            <div className="grid grid-cols-[136px_1fr] items-center gap-2">
+              <label htmlFor="vendor-contact" className="font-bold text-slate-700">
+                ผู้ติดต่อ :
+              </label>
+              <input
+                id="vendor-contact"
+                value={contact ?? ''}
+                onChange={(e) => onContactChange(e.target.value)}
+                disabled={!vendorId}
+                placeholder={vendorId ? 'ชื่อผู้ติดต่อ' : 'เลือกผู้ขายก่อน'}
+                maxLength={200}
+                className={`${paperInput} text-xs`}
+              />
+            </div>
+            {v?.email ? fact('อีเมล', v.email) : null}
+          </>
+        ) : (
+          fact('ผู้ติดต่อ', [v?.contactPerson, v?.email].filter(Boolean).join(' · '))
+        )}
       </dl>
     </div>
   );

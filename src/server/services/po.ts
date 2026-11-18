@@ -107,8 +107,29 @@ export interface PoInput {
   deliveryAddress?: string;
   note?: string;
   reason?: string;
+  /** The vendor's contact as typed on the form; a change is kept in the vendor register */
+  vendorContact?: string;
   lines: PoLineInput[];
   installments?: PoInstallmentInput[];
+}
+
+/**
+ * Keeps the contact typed on a PO in the vendor register, so the next document starts from it. Whoever
+ * may save a PO may also edit vendors (master.manage covers every po.manage role).
+ */
+async function saveVendorContact(tx: Db, actor: SessionUser, vendorId: string, contact: string | undefined) {
+  if (contact === undefined) return;
+  const name = contact.trim().slice(0, 200);
+  const [vendor] = await tx.select({ id: vendors.id, contactPerson: vendors.contactPerson }).from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor || vendor.contactPerson === name) return;
+  await tx.update(vendors).set({ contactPerson: name, updatedAt: new Date() }).where(eq(vendors.id, vendorId));
+  await logActivity(tx, {
+    userId: actor.id,
+    entityType: 'VENDOR',
+    entityId: vendorId,
+    action: 'UPDATE',
+    note: `ผู้ติดต่อ: ${vendor.contactPerson || '-'} → ${name || '-'} (จากใบสั่งซื้อ)`,
+  });
 }
 
 export interface SerializedPoRevisionPayload {
@@ -396,6 +417,7 @@ export async function createPo(
   assertCan(actor, 'po.manage');
   return db.transaction(async (tx) => {
     const { totals, creditDays, installmentAmounts, terms } = await validateAndComputePo(tx, input);
+    await saveVendorContact(tx as unknown as Db, actor, input.vendorId, input.vendorContact);
     const number = await nextDocNumber(tx, 'PO');
 
     const [created] = await tx
@@ -489,6 +511,7 @@ export async function updatePo(
       input,
       id,
     );
+    await saveVendorContact(tx as unknown as Db, actor, input.vendorId, input.vendorContact);
 
     if (po.status === 'DRAFT' || po.status === 'REJECTED') {
       await tx
