@@ -8,7 +8,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, Field, FormNote, FormPage, fs, HeaderCell, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { branchLabel, Field, FormNote, FormPage, fs, HeaderCell, qtyText, SignatureRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
 
 /** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {
@@ -23,6 +23,8 @@ const PAYMENT_TYPE_LABEL: Record<PoPaymentType, string> = {
 
 /** Fixed column widths of the item table; the description takes the rest */
 const COL = { no: 26, qty: 66, price: 60, discount: 46, amount: 68 };
+/** The payment-terms cell beside Quotation No.: about half the right-hand box on an A4 page */
+const TERMS_CELL = 128;
 
 export function PoPdfDoc({
   po,
@@ -63,9 +65,14 @@ export function PoPdfDoc({
 
   return (
     <Document>
-      <FormPage settings={settings} header={header} isDraft={isDraft} docNumber={po.number}>
-        <TitleRow titleTh={text.titleTh} titleEn={text.titleEn} number={po.number} date={formatThaiDate(po.docDate ?? po.createdAt)} />
-
+      <FormPage
+        settings={settings}
+        header={header}
+        isDraft={isDraft}
+        docNumber={po.number}
+        // The PO's name, number and date sit in the letterhead, beside the company
+        docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: po.number, date: formatThaiDate(po.docDate ?? po.createdAt) }}
+      >
         <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
             {/* The labels flush right, against their values */}
@@ -83,9 +90,17 @@ export function PoPdfDoc({
               <View style={[fs.cellRight, fs.pad, { flex: 1 }]}>
                 <Field label="Quotation No." value="" labelWidth={64} />
               </View>
-              <View style={[fs.pad, { flex: 1 }]}>
-                <Field label="กำหนดส่งของ" value={po.deliveryDate ? formatThaiDate(po.deliveryDate) : '-'} labelWidth={60} />
+              {/* The payment terms typed on the PO, under their label: the label alone fills the cell */}
+              <View style={[fs.pad, { width: TERMS_CELL }]}>
+                <Text style={fs.label}>เงื่อนไขการชำระเงิน :</Text>
+                {/* Thai typed without spaces still wraps inside the cell; WrapText's own inset undone */}
+                <View style={{ marginLeft: -3 }}>
+                  <WrapText text={po.paymentTerms || '-'} width={TERMS_CELL - 6} />
+                </View>
               </View>
+            </View>
+            <View style={[fs.cellBottom, fs.pad]}>
+              <Field label="กำหนดส่งของ" value={po.deliveryDate ? formatThaiDate(po.deliveryDate) : '-'} labelWidth={60} />
             </View>
             <View style={[fs.cellBottom, fs.pad]}>
               <Field label="สถานที่จัดส่ง" value={po.deliveryAddress || '-'} />
@@ -156,7 +171,6 @@ export function PoPdfDoc({
                   labelWidth={72}
                 />
               )}
-              {po.paymentTerms ? <Field label="เงื่อนไข" value={po.paymentTerms} labelWidth={72} /> : null}
             </View>
             <View style={[fs.pad, { flex: 1 }]}>
               <Field

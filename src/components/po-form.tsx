@@ -424,6 +424,7 @@ export function PoForm({
         company={company}
         titleTh={formText.titleTh}
         titleEn={formText.titleEn}
+        titleInLetterhead
         meta={
           <>
             <MetaRow label="เลขที่:">

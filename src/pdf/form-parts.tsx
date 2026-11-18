@@ -186,6 +186,7 @@ export function FormPage({
   header,
   isDraft,
   docNumber,
+  docTitle,
   children,
 }: {
   settings: Settings;
@@ -193,11 +194,18 @@ export function FormPage({
   header?: FormHeader;
   isDraft: boolean;
   docNumber: string;
+  /**
+   * The document's name, number and date, set in the letterhead's right-hand side with the company
+   * flush left beside the logo. Left out, the company is centred and the page draws its own TitleRow.
+   */
+  docTitle?: DocTitle;
   children: React.ReactNode;
 }) {
   const contact = contactLine(header);
   const logo = companyLogo();
   const footText = { fontSize: TYPE.tiny, color: '#94a3b8' };
+  const align = docTitle ? 'left' : 'center';
+  const companyLine = { textAlign: align, fontSize: TYPE.small, color: MUTED } as const;
   return (
     <Page size="A4" style={fs.page}>
       {isDraft && (
@@ -208,25 +216,29 @@ export function FormPage({
 
       <View fixed style={{ marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: HEADER_SIDE_WIDTH }}>
+          <View style={{ width: docTitle ? LOGO_SIZE.width + 10 : HEADER_SIDE_WIDTH }}>
             {logo && (
               // A PDF image has no alt text
               // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={logo} style={{ ...LOGO_SIZE, objectFit: 'contain' }} />
             )}
           </View>
-          <View style={{ flex: 1, alignItems: 'center' }}>
+          <View style={{ flex: 1, alignItems: docTitle ? 'flex-start' : 'center', paddingRight: docTitle ? 10 : 0 }}>
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: BRAND_DARK }}>{settings.companyName}</Text>
             <Text style={{ fontSize: 13, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{header?.companyNameEn || COMPANY_NAME_EN}</Text>
-            <Text style={{ textAlign: 'center', fontSize: TYPE.small, color: MUTED }}>
+            <Text style={companyLine}>
               {/* สำนักงานใหญ่, or the branch, leads the address */}
               {branchLabel(settings.companyBranch)} {settings.companyAddress}
             </Text>
-            <Text style={{ textAlign: 'center', fontSize: TYPE.small, color: MUTED }}>เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}</Text>
-            {contact ? <Text style={{ textAlign: 'center', fontSize: TYPE.small, color: MUTED }}>{contact}</Text> : null}
+            <Text style={companyLine}>เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}</Text>
+            {contact ? <Text style={companyLine}>{contact}</Text> : null}
           </View>
-          {/* Balances the logo so the company name stays centred */}
-          <View style={{ width: HEADER_SIDE_WIDTH }} />
+          {docTitle ? (
+            <LetterheadTitle {...docTitle} />
+          ) : (
+            // Balances the logo so the company name stays centred
+            <View style={{ width: HEADER_SIDE_WIDTH }} />
+          )}
         </View>
         {/* The letterhead rule: a brand-blue line over a thin pale one */}
         <View style={{ marginTop: 6, height: 2, backgroundColor: BRAND }} />
@@ -243,8 +255,47 @@ export function FormPage({
   );
 }
 
+/** A document's name in Thai and English, with its number and date */
+export interface DocTitle {
+  titleTh: string;
+  titleEn: string;
+  number: string;
+  date: string;
+}
+
+/** The document's number and date in a pale blue box */
+function NumberBox({ number, date }: { number: string; date: string }) {
+  return (
+    <View
+      style={{
+        width: SIDE_WIDTH,
+        borderWidth: LINE_WIDTH,
+        borderColor: BRAND,
+        borderRadius: RADIUS,
+        backgroundColor: BRAND_TINT,
+        paddingHorizontal: 7,
+        paddingVertical: 4,
+      }}
+    >
+      <Field label="เลขที่" value={number} labelWidth={36} bold />
+      <Field label="วันที่" value={date} labelWidth={36} />
+    </View>
+  );
+}
+
+/** The letterhead's right-hand side: the document name flush right, its number and date boxed under it */
+function LetterheadTitle({ titleTh, titleEn, number, date }: DocTitle) {
+  return (
+    <View style={{ width: SIDE_WIDTH, alignItems: 'flex-end' }}>
+      <Text style={{ fontSize: 23, fontWeight: 'bold', color: BRAND_DARK }}>{titleTh}</Text>
+      <Text style={{ fontSize: TYPE.small, color: '#64748b', letterSpacing: 1.2, marginBottom: 4 }}>{titleEn.toUpperCase()}</Text>
+      <NumberBox number={number} date={date} />
+    </View>
+  );
+}
+
 /** The document name centred, its number and date boxed to the right */
-export function TitleRow({ titleTh, titleEn, number, date }: { titleTh: string; titleEn: string; number: string; date: string }) {
+export function TitleRow({ titleTh, titleEn, number, date }: DocTitle) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
       <View style={{ width: SIDE_WIDTH }} />
@@ -252,20 +303,7 @@ export function TitleRow({ titleTh, titleEn, number, date }: { titleTh: string; 
         <Text style={{ fontSize: 23, fontWeight: 'bold', color: BRAND_DARK }}>{titleTh}</Text>
         <Text style={{ fontSize: TYPE.small, color: '#64748b', letterSpacing: 1.2 }}>{titleEn.toUpperCase()}</Text>
       </View>
-      <View
-        style={{
-          width: SIDE_WIDTH,
-          borderWidth: LINE_WIDTH,
-          borderColor: BRAND,
-          borderRadius: RADIUS,
-          backgroundColor: BRAND_TINT,
-          paddingHorizontal: 7,
-          paddingVertical: 4,
-        }}
-      >
-        <Field label="เลขที่" value={number} labelWidth={36} bold />
-        <Field label="วันที่" value={date} labelWidth={36} />
-      </View>
+      <NumberBox number={number} date={date} />
     </View>
   );
 }
