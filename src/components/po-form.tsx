@@ -11,14 +11,22 @@ import { createPoAction, updatePoAction } from '@/app/(app)/po/actions';
 import { DateInput } from '@/components/date-input';
 import { PaymentTermsFields, type PaymentTermsValue } from '@/components/payment-terms-fields';
 import {
-  AmountInWords,
+  AmountAndNet,
+  BoxRow,
   DocPaper,
   MetaRow,
+  PaperTh,
   SignatureRow,
+  TotalInput,
+  TotalLine,
   VAT_MODE_LABEL,
   VendorBlock,
+  paperBox,
   paperCell,
   paperInput,
+  paperTableHead,
+  paperTableRow,
+  vatRowLabel,
   type CompanyHeader,
 } from '@/components/doc-paper';
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
@@ -420,24 +428,32 @@ export function PoForm({
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          <VendorBlock title="ซัพพลายเออร์ / ผู้รับเหมา" vendors={activeVendors} vendorId={vendorId} onChange={pickVendor} required />
-          <div className="space-y-2 text-sm">
-            <p className="text-xs font-semibold text-slate-600">
-              โครงการ / ผู้ขอซื้อ <span className="text-red-500">*</span>
-            </p>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
-              <option value="">เลือกโครงการ</option>
-              <option value="OFFICE">สำนักงาน / ส่วนกลาง (ไม่มี PR)</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} - {p.name}
-                </option>
-              ))}
-            </select>
-            <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
-            <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={paperInput} />
-            <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="สถานที่จัดส่ง" aria-label="สถานที่จัดส่ง" className={paperInput} />
+        {/* Two boxes side by side as on the PDF: the vendor, then where, for which project and who asks */}
+        <div className={`${paperBox} grid grid-cols-1 md:grid-cols-[1.1fr_1fr]`}>
+          <div className="border-b border-[#9db0c4] md:border-b-0 md:border-r">
+            <VendorBlock title="ซัพพลายเออร์ / ผู้รับเหมา" vendors={activeVendors} vendorId={vendorId} onChange={pickVendor} required />
+          </div>
+          <div className="text-sm">
+            <BoxRow label="สถานที่จัดส่ง">
+              <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="สถานที่จัดส่ง" aria-label="สถานที่จัดส่ง" className={paperInput} />
+            </BoxRow>
+            <BoxRow label="Project" required>
+              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
+                <option value="">เลือกโครงการ</option>
+                <option value="OFFICE">สำนักงาน / ส่วนกลาง (ไม่มี PR)</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} - {p.name}
+                  </option>
+                ))}
+              </select>
+            </BoxRow>
+            <BoxRow label="ผู้ขอซื้อ">
+              <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={paperInput} />
+            </BoxRow>
+            <BoxRow label="แผนก">
+              <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
+            </BoxRow>
           </div>
         </div>
 
@@ -461,21 +477,21 @@ export function PoForm({
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse text-sm">
-            <thead className="bg-[#102d72] text-xs text-white">
+            <thead className={paperTableHead}>
               <tr>
-                <th className="w-12 border border-[#102d72] px-2 py-2">ลำดับ</th>
-                <th className="border border-[#102d72] px-2 py-2">รายการ</th>
-                <th className="w-24 border border-[#102d72] px-2 py-2">จำนวน</th>
-                <th className="w-20 border border-[#102d72] px-2 py-2">หน่วย</th>
-                <th className="w-28 border border-[#102d72] px-2 py-2">ราคาต่อหน่วย</th>
-                <th className="w-24 border border-[#102d72] px-2 py-2">ส่วนลด</th>
-                <th className="w-28 border border-[#102d72] px-2 py-2">จำนวนเงิน</th>
-                <th className="w-8 border border-[#102d72]" aria-label="ลบ" />
+                <PaperTh th="ลำดับ" en="Item" className="w-12" />
+                <PaperTh th="รายการ" en="Description" />
+                <PaperTh th="จำนวน" en="Quantity" className="w-24" />
+                <PaperTh th="หน่วย" en="Unit" className="w-20" />
+                <PaperTh th="ราคา/หน่วย" en="Unit Price" className="w-28" />
+                <PaperTh th="ส่วนลด" en="Discount" className="w-24" />
+                <PaperTh th="จำนวนเงิน" en="Amount" className="w-28" />
+                <th className="w-8 border border-[#1668a8]" aria-label="ลบ" />
               </tr>
             </thead>
             <tbody>
               {lines.map((l, idx) => (
-                <tr key={idx} className="align-top">
+                <tr key={idx} className={paperTableRow}>
                   <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{idx + 1}</td>
                   <td className="border border-slate-200 px-1 py-1">
                     {l.boqLineId && (
@@ -527,102 +543,100 @@ export function PoForm({
           <button
             type="button"
             onClick={() => setLines((prev) => [...prev, emptyLine()])}
-            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50"
+            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-[#1668a8] px-3 py-1.5 text-xs font-medium text-[#1668a8] hover:bg-[#eaf2fa]"
           >
             <Plus className="h-3.5 w-3.5" /> เพิ่มรายการ
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            <AmountInWords amount={totals.gross} />
-            <label className={footLabel}>
-              หมายเหตุ
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={footInput} />
-            </label>
-            <label className={footLabel}>
-              เงื่อนไขการชำระเงิน
-              <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="เช่น ชำระภายใน 30 วันหลังวางบิล" className={footInput} />
-            </label>
-            <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-3">
               <label className={footLabel}>
-                การชำระ
-                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as PoPaymentType)} className={footInput}>
-                  <option value="CREDIT">เครดิต (รับของก่อนจ่าย)</option>
-                  <option value="PREPAID">เงินสด / จ่ายก่อนรับของ</option>
-                  <option value="INSTALLMENT">แบ่งจ่ายหลายงวด</option>
-                </select>
+                คำอธิบาย
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={footInput} />
               </label>
-              {paymentType === 'CREDIT' ? (
+              <label className={footLabel}>
+                เงื่อนไขการชำระเงิน
+                <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="เช่น ชำระภายใน 30 วันหลังวางบิล" className={footInput} />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
                 <label className={footLabel}>
-                  เครดิต (วัน)
-                  <input type="number" min={0} value={creditDays} onChange={(e) => setCreditDays(Number(e.target.value))} className={`${footInput} text-right`} />
+                  การชำระ
+                  <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as PoPaymentType)} className={footInput}>
+                    <option value="CREDIT">เครดิต (รับของก่อนจ่าย)</option>
+                    <option value="PREPAID">เงินสด / จ่ายก่อนรับของ</option>
+                    <option value="INSTALLMENT">แบ่งจ่ายหลายงวด</option>
+                  </select>
                 </label>
-              ) : (
-                <span />
-              )}
-              <label className={footLabel}>
-                วิธีชำระเงิน
-                <select
-                  value={terms?.payMethod ?? ''}
-                  onChange={(e) =>
-                    setTerms((t) => ({
-                      billingSchedule: t?.billingSchedule ?? '',
-                      creditBasis: t?.creditBasis ?? 'BILLING',
-                      chequeSchedule: t?.chequeSchedule ?? '',
-                      payMethod: e.target.value as PayMethod,
-                    }))
-                  }
-                  className={footInput}
-                >
-                  <option value="" disabled>
-                    เลือกวิธีการชำระเงิน
-                  </option>
-                  {PAY_METHODS.map((m) => (
-                    <option key={m} value={m}>
-                      {PAY_METHOD_LABEL[m]}
+                {paymentType === 'CREDIT' ? (
+                  <label className={footLabel}>
+                    เครดิต (วัน)
+                    <input type="number" min={0} value={creditDays} onChange={(e) => setCreditDays(Number(e.target.value))} className={`${footInput} text-right`} />
+                  </label>
+                ) : (
+                  <span />
+                )}
+                <label className={footLabel}>
+                  วิธีชำระเงิน
+                  <select
+                    value={terms?.payMethod ?? ''}
+                    onChange={(e) =>
+                      setTerms((t) => ({
+                        billingSchedule: t?.billingSchedule ?? '',
+                        creditBasis: t?.creditBasis ?? 'BILLING',
+                        chequeSchedule: t?.chequeSchedule ?? '',
+                        payMethod: e.target.value as PayMethod,
+                      }))
+                    }
+                    className={footInput}
+                  >
+                    <option value="" disabled>
+                      เลือกวิธีการชำระเงิน
                     </option>
-                  ))}
-                </select>
-              </label>
-              <label className={footLabel}>
-                รูปแบบ VAT
-                <select value={vatMode} onChange={(e) => setVatMode(e.target.value as VatMode)} className={footInput}>
-                  {(['EXCLUSIVE', 'INCLUSIVE', 'NONE'] as const).map((m) => (
-                    <option key={m} value={m}>
-                      {VAT_MODE_LABEL[m]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={footLabel}>
-                VAT (%)
-                <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className={`${footInput} bg-slate-50 text-slate-500`} />
-              </label>
-            </div>
-            {paymentType === 'CREDIT' && terms && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 text-xs font-semibold text-slate-800">เงื่อนไขวางบิล / รับเช็ค (ดึงจากผู้ขาย แก้เฉพาะใบนี้ได้)</p>
-                <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
-                  <PaymentTermsFields key={termsKey} value={terms} onChange={setTerms} hidePayMethod />
+                    {PAY_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {PAY_METHOD_LABEL[m]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={footLabel}>
+                  รูปแบบ VAT
+                  <select value={vatMode} onChange={(e) => setVatMode(e.target.value as VatMode)} className={footInput}>
+                    {(['EXCLUSIVE', 'INCLUSIVE', 'NONE'] as const).map((m) => (
+                      <option key={m} value={m}>
+                        {VAT_MODE_LABEL[m]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={footLabel}>
+                  VAT (%)
+                  <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className={`${footInput} bg-slate-50 text-slate-500`} />
+                </label>
+              </div>
+              {paymentType === 'CREDIT' && terms && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-semibold text-slate-800">เงื่อนไขวางบิล / รับเช็ค (ดึงจากผู้ขาย แก้เฉพาะใบนี้ได้)</p>
+                  <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+                    <PaymentTermsFields key={termsKey} value={terms} onChange={setTerms} hidePayMethod />
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <div className="divide-y divide-slate-100 rounded border border-slate-200 text-sm">
-              <TotalRow label="รวมก่อนส่วนลด" value={totals.subtotal.toFixed(2)} />
-              <TotalInput label="ส่วนลด" value={billDiscount} onChange={setBillDiscount} />
+            {/* The rows the printed PO shows, in its order */}
+            <div className="border-t border-[#9db0c4] pt-2">
+              <TotalLine label="ยอดรวมก่อนหักส่วนลด">{formatMoneyDisplay(totals.subtotal.toFixed(2))}</TotalLine>
+              <TotalInput label="หักส่วนลดพิเศษ" value={billDiscount} onChange={setBillDiscount} />
+              <TotalLine label="หลังหักส่วนลดพิเศษ">{formatMoneyDisplay(totals.subtotal.minus(totals.billDiscount).toFixed(2))}</TotalLine>
               <TotalInput label="ค่าขนส่ง" value={shipping} onChange={setShipping} />
-              <TotalRow label="รวมก่อน VAT" value={totals.beforeVat.toFixed(2)} />
-              <TotalRow label={vatMode === 'NONE' ? 'ภาษีมูลค่าเพิ่ม' : 'ภาษีมูลค่าเพิ่ม 7%'} value={totals.vat.toFixed(2)} />
-              <div className="flex items-center justify-between gap-4 bg-[#102d72] px-3 py-1.5 font-bold text-white">
-                <span>ยอดรวมทั้งสิ้น</span>
-                <span>{formatMoneyDisplay(totals.gross.toFixed(2))}</span>
-              </div>
+              {(!totals.shipping.isZero() || vatMode === 'INCLUSIVE') && <TotalLine label="มูลค่าก่อนภาษี">{formatMoneyDisplay(totals.beforeVat.toFixed(2))}</TotalLine>}
+              <TotalLine label={vatRowLabel(vatMode)}>{formatMoneyDisplay(totals.vat.toFixed(2))}</TotalLine>
             </div>
           </div>
+          <AmountAndNet amount={totals.gross} />
         </div>
 
         {paymentType === 'INSTALLMENT' && <InstallmentEditor rows={installments} onChange={setInstallments} grossTotal={totals.gross.toFixed(2)} />}
@@ -639,35 +653,9 @@ export function PoForm({
           </label>
         )}
 
-        <SignatureRow roles={['ผู้ขอซื้อ', 'ผู้จัดทำ', 'ผู้อนุมัติ']} />
+        {/* The same boxes the printed PO carries */}
+        <SignatureRow roles={['ผู้จัดซื้อ', 'ผู้มีอำนาจลงนาม']} />
       </DocPaper>
-    </div>
-  );
-}
-
-function TotalRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-3 py-1.5">
-      <span className="text-slate-600">{label}</span>
-      <span>{formatMoneyDisplay(value)}</span>
-    </div>
-  );
-}
-
-function TotalInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-3 py-1.5">
-      <span className="text-slate-600">{label}</span>
-      <input
-        type="number"
-        min={0}
-        step="0.01"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="0.00"
-        aria-label={label}
-        className="w-32 rounded border border-slate-200 px-2 py-0.5 text-right text-sm"
-      />
     </div>
   );
 }
