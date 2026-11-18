@@ -6,16 +6,21 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { Field, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
   itemCode: string;
 }
 
-/** Fixed column widths of the two item tables; the description takes the rest */
-const GOODS_COL = { no: 26, boq: 70, qty: 76, needed: 74 };
-const PRICED_COL = { no: 26, boq: 60, qty: 66, price: 60, discount: 46, amount: 68 };
+/**
+ * Fixed column widths of the two item tables; the description takes the rest. Category and group come
+ * first, as on the form, the priced table narrower to leave the description room.
+ */
+const GOODS_COL = { no: 26, category: 66, group: 76, boq: 58, qty: 68, needed: 66 };
+const PRICED_COL = { no: 24, category: 56, group: 64, boq: 46, qty: 58, price: 54, discount: 42, amount: 60 };
+/** The small type of the category and group cells, which often run to two lines */
+const PLACE_CELL = { fontSize: 8, color: '#334155' };
 
 /** PURCHASE REQUISITION → Purchase Requisition, to sit like the order's title */
 const titleCase = (s: string) =>
@@ -118,6 +123,8 @@ export function PrPdfDoc({
         {goods ? (
           <View style={fs.tableHeader}>
             <HeaderCell th="ลำดับ" en="Item" width={GOODS_COL.no} />
+            <HeaderCell th="หมวด" en="Category" width={GOODS_COL.category} />
+            <HeaderCell th="กลุ่ม" en="Group" width={GOODS_COL.group} />
             <HeaderCell th="รายการ" en="Description" />
             <HeaderCell th="รายการ BOQ" en="BOQ No." width={GOODS_COL.boq} />
             <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={GOODS_COL.qty} align="right" />
@@ -126,6 +133,8 @@ export function PrPdfDoc({
         ) : (
           <View style={fs.tableHeader}>
             <HeaderCell th="ลำดับ" en="Item" width={PRICED_COL.no} />
+            <HeaderCell th="หมวด" en="Category" width={PRICED_COL.category} />
+            <HeaderCell th="กลุ่ม" en="Group" width={PRICED_COL.group} />
             <HeaderCell th="รายการ" en="Description" />
             <HeaderCell th="รายการ BOQ" en="BOQ No." width={PRICED_COL.boq} />
             <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={PRICED_COL.qty} align="right" />
@@ -138,14 +147,16 @@ export function PrPdfDoc({
         {pr.lines.map((l, idx) => {
           const col = goods ? GOODS_COL : PRICED_COL;
           const itemCode = lineRefs?.get(l.id)?.itemCode;
-          const place = [mixed ? LINE_KIND_LABEL[l.lineKind] : '', [l.category, l.itemGroup].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
           return (
             <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
               <Text style={{ width: col.no, textAlign: 'center' }}>{idx + 1}</Text>
+              <WrapText text={l.category || '-'} width={col.category} style={PLACE_CELL} />
+              <WrapText text={l.itemGroup || '-'} width={col.group} style={PLACE_CELL} />
               <View style={{ flex: 1, paddingHorizontal: 3 }}>
                 <Text>{l.description}</Text>
                 {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
-                {place ? <Text style={fs.small}>{place}</Text> : null}
+                {/* The combined form says which part each line belongs to */}
+                {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
                 {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
               </View>
               <Text style={{ width: col.boq, textAlign: 'center', fontSize: 8.5 }}>{l.boq?.no || '-'}</Text>
