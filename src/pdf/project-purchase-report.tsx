@@ -4,7 +4,11 @@ import { formatThaiDate } from '@/domain/thai';
 import type { ProjectPurchaseReport } from '@/server/services/project-purchase-report';
 import { type Settings } from '@/server/services/settings';
 import { STATUS_MAP } from '@/components/doc-status-badge';
+import { WrapText } from './form-parts';
 import { PdfShell, pdfStyles } from './layout';
+
+/** The line table's fixed columns; a long category such as งานระบบไฟฟ้าและสื่อสาร wraps inside its own */
+const LINE_COL = { category: 96, qty: 70, received: 60, amount: 80 };
 
 const money = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const qty = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 3 });
@@ -82,10 +86,10 @@ export function ProjectPurchaseReportPdf({ report, settings }: { report: Project
       <Text style={{ fontWeight: 'bold', marginTop: 10, marginBottom: 4 }}>รายละเอียดใบสั่งซื้อ</Text>
       <View style={pdfStyles.tableHeader}>
         <Text style={{ flex: 1 }}>รายการ</Text>
-        <Text style={{ width: 80 }}>หมวด</Text>
-        <Text style={{ width: 55, textAlign: 'right' }}>จำนวน</Text>
-        <Text style={{ width: 55, textAlign: 'right' }}>รับแล้ว</Text>
-        <Text style={{ width: 80, textAlign: 'right' }}>มูลค่า</Text>
+        <Text style={{ width: LINE_COL.category }}>หมวด</Text>
+        <Text style={{ width: LINE_COL.qty, textAlign: 'right' }}>จำนวน</Text>
+        <Text style={{ width: LINE_COL.received, textAlign: 'right' }}>รับแล้ว</Text>
+        <Text style={{ width: LINE_COL.amount, textAlign: 'right' }}>มูลค่า</Text>
       </View>
       {report.pos.map((po) => (
         <View key={po.id}>
@@ -93,17 +97,17 @@ export function ProjectPurchaseReportPdf({ report, settings }: { report: Project
             <Text style={{ flex: 1, fontWeight: 'bold' }}>
               {po.number} · {formatThaiDate(po.date)} · {po.vendorName} · {STATUS_MAP[po.status]?.label ?? po.status}
             </Text>
-            <Text style={{ width: 80, textAlign: 'right', fontWeight: 'bold' }}>{money(po.amount)}</Text>
+            <Text style={{ width: LINE_COL.amount, textAlign: 'right', fontWeight: 'bold' }}>{money(po.amount)}</Text>
           </View>
           {po.lines.map((l, i) => (
             <View key={i} style={pdfStyles.tableRow} wrap={false}>
               <Text style={{ flex: 1, paddingLeft: 8 }}>{l.description}</Text>
-              <Text style={{ width: 80 }}>{l.category}</Text>
-              <Text style={{ width: 55, textAlign: 'right' }}>
+              <WrapText text={l.category} width={LINE_COL.category} />
+              <Text style={{ width: LINE_COL.qty, textAlign: 'right' }}>
                 {qty(l.qty)} {l.unit}
               </Text>
-              <Text style={{ width: 55, textAlign: 'right' }}>{qty(l.receivedQty)}</Text>
-              <Text style={{ width: 80, textAlign: 'right' }}>{money(l.amount)}</Text>
+              <Text style={{ width: LINE_COL.received, textAlign: 'right' }}>{qty(l.receivedQty)}</Text>
+              <Text style={{ width: LINE_COL.amount, textAlign: 'right' }}>{money(l.amount)}</Text>
             </View>
           ))}
         </View>

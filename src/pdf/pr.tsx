@@ -7,7 +7,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
+import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -20,9 +20,9 @@ export interface PrLineRef {
  * no BOQ column: ลำดับ, หมวด, กลุ่ม, รายการ, จำนวน/หน่วย, กำหนดใช้/รับของ.
  */
 const GOODS_COL = { no: 26, category: 72, group: 84, qty: 72, needed: 70 };
-const PRICED_COL = { no: 24, category: 56, group: 64, boq: 46, qty: 58, price: 54, discount: 42, amount: 60 };
+const PRICED_COL = { no: 24, category: 56, group: 64, boq: 50, qty: 66, price: 54, discount: 42, amount: 60 };
 /** The category and group cells: centred under their headings, a touch smaller than the description so long names fit */
-const PLACE_CELL = { fontSize: 9 };
+const PLACE_CELL = { fontSize: TYPE.small };
 
 export function PrPdfDoc({
   pr,
@@ -159,7 +159,7 @@ export function PrPdfDoc({
                 {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
                 {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
               </View>
-              {!goods && <Text style={{ width: PRICED_COL.boq, textAlign: 'center', fontSize: 8.5 }}>{l.boq?.no || '-'}</Text>}
+              {!goods && <Text style={{ width: PRICED_COL.boq, textAlign: 'center', fontSize: TYPE.small }}>{l.boq?.no || '-'}</Text>}
               <Text style={{ width: col.qty, textAlign: 'right', paddingHorizontal: 3 }}>
                 {qtyText(l.qty)} {l.unitName}
               </Text>
