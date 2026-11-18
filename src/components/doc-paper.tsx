@@ -57,50 +57,88 @@ export function DocPaper({
   titleTh,
   titleEn,
   meta,
+  titleInLetterhead = false,
   children,
 }: {
   company: CompanyHeader;
   titleTh: string;
   titleEn: string;
   meta: ReactNode;
+  /**
+   * The document's name and its number box in the letterhead's right-hand side, the company flush
+   * left beside the logo, as the printed PO has it. Left out, the company is centred and the title
+   * gets a row of its own under the rule.
+   */
+  titleInLetterhead?: boolean;
   children: ReactNode;
 }) {
   const initials = company.name.replace(/^บริษัท\s*/, '').slice(0, 2);
+  const logo = company.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={company.logoUrl} alt="" className="h-28 w-28 shrink-0 object-contain" />
+  ) : (
+    <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-[#1668a8] text-2xl font-bold text-white">{initials}</div>
+  );
+  const companyLines = (
+    <>
+      <p className="text-xl font-bold text-[#0e4677]">{company.name}</p>
+      <p className="text-sm font-bold tracking-wide text-[#1668a8]">{company.nameEn || COMPANY_NAME_EN}</p>
+      <p className="mt-0.5 text-xs text-slate-500">
+        {companyBranchLabel(company.branch)} {company.address || '-'}
+      </p>
+      <p className="text-xs text-slate-500">เลขประจำตัวผู้เสียภาษี {company.taxId || '-'}</p>
+      {company.contact && <p className="text-xs text-slate-500">{company.contact}</p>}
+    </>
+  );
+  const title = (
+    <>
+      <h1 className="text-3xl font-bold text-[#0e4677]">{titleTh}</h1>
+      <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{titleEn}</p>
+    </>
+  );
+  const metaBox = <div className="w-full space-y-1.5 rounded-md border border-[#1668a8] bg-[#eaf2fa] px-3 py-2 text-sm">{meta}</div>;
+  const rule = (
+    <>
+      {/* The letterhead rule: a brand-blue line over a thin pale one */}
+      <div className="mt-4 h-[3px] bg-[#1668a8]" />
+      <div className="mt-[2px] h-px bg-[#9ec3e6]" />
+    </>
+  );
+
   return (
     <div className="mx-auto w-full max-w-[1000px] rounded-sm border border-slate-200 bg-white px-4 py-6 shadow-sm sm:px-10 sm:py-8">
-      <header>
-        <div className="flex flex-col items-center gap-3 sm:grid sm:grid-cols-[120px_1fr_120px] sm:items-center">
-          {company.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={company.logoUrl} alt="" className="h-28 w-28 object-contain" />
-          ) : (
-            <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-[#1668a8] text-2xl font-bold text-white">{initials}</div>
-          )}
-          <div className="text-center">
-            <p className="text-xl font-bold text-[#0e4677]">{company.name}</p>
-            <p className="text-sm font-bold tracking-wide text-[#1668a8]">{company.nameEn || COMPANY_NAME_EN}</p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {companyBranchLabel(company.branch)} {company.address || '-'}
-            </p>
-            <p className="text-xs text-slate-500">เลขประจำตัวผู้เสียภาษี {company.taxId || '-'}</p>
-            {company.contact && <p className="text-xs text-slate-500">{company.contact}</p>}
+      {titleInLetterhead ? (
+        <header className="mb-5">
+          {/* Stacked and centred on a narrow screen; one row from lg up, as on the printed page */}
+          <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-center">
+            {logo}
+            <div className="min-w-0 flex-1 text-center lg:text-left">{companyLines}</div>
+            <div className="flex w-full flex-col items-center gap-2 sm:max-w-[320px] lg:w-[300px] lg:items-end">
+              <div className="text-center lg:text-right">{title}</div>
+              {metaBox}
+            </div>
           </div>
-          {/* Balances the logo so the company name stays centred */}
-          <span className="hidden sm:block" />
-        </div>
-        {/* The letterhead rule: a brand-blue line over a thin pale one */}
-        <div className="mt-4 h-[3px] bg-[#1668a8]" />
-        <div className="mt-[2px] h-px bg-[#9ec3e6]" />
-      </header>
+          {rule}
+        </header>
+      ) : (
+        <>
+          <header>
+            <div className="flex flex-col items-center gap-3 sm:grid sm:grid-cols-[120px_1fr_120px] sm:items-center">
+              {logo}
+              <div className="text-center">{companyLines}</div>
+              {/* Balances the logo so the company name stays centred */}
+              <span className="hidden sm:block" />
+            </div>
+            {rule}
+          </header>
 
-      <div className="my-5 flex flex-col items-center gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-        <span className="hidden sm:block" />
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-[#0e4677]">{titleTh}</h1>
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{titleEn}</p>
-        </div>
-        <div className="w-full space-y-1.5 rounded-md border border-[#1668a8] bg-[#eaf2fa] px-3 py-2 text-sm sm:ml-auto sm:max-w-[320px]">{meta}</div>
-      </div>
+          <div className="my-5 flex flex-col items-center gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <span className="hidden sm:block" />
+            <div className="text-center">{title}</div>
+            <div className="w-full sm:ml-auto sm:max-w-[320px]">{metaBox}</div>
+          </div>
+        </>
+      )}
 
       <div className="space-y-6">{children}</div>
     </div>

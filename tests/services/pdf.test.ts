@@ -136,7 +136,7 @@ describe('PO and PR pdfs print the K TECH form', () => {
   // The head-office label used to sit before the company's tax ID, and then after it
   const HEADER_GONE = ['KtechnologySolution', 'สำนักงานใหญ่เลขประจำตัวผู้เสียภาษี', 'เลขประจำตัวผู้เสียภาษี0105500000000สำนักงานใหญ่'];
 
-  test('the PO has three signature boxes and none of the removed fields', async () => {
+  test('the PO has the conditions box, its three signers and none of the removed fields', async () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
 
@@ -166,12 +166,33 @@ describe('PO and PR pdfs print the K TECH form', () => {
 
     const text = await pdfText(await renderDocPdf(db, f.users.buyer, 'po', po.id));
 
-    for (const shown of [...HEADER_SHOWN, 'ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม', 'กำหนดชำระเงิน:', 'ContactDelivery:', 'รหัสสินค้าMAT-001']) {
+    for (const shown of [
+      ...HEADER_SHOWN,
+      'ผู้จัดซื้อ',
+      'ผู้จัดการแผนกจัดซื้อ',
+      'ผู้มีอำนาจลงนาม',
+      // The standing billing and cheque days beside the signers
+      'เงื่อนไข/CONDITION',
+      'การวางบิลวันที่20-25ของเดือน',
+      'รับเช็คสำหรับSupplierวันที่30ของเดือน',
+      'รับเช็คสำหรับผู้รับเหมาวันที่15และ30ของเดือน',
+      // Beside the vendor: Quotation No. over the delivery date, the payment terms, then where and who
+      'QuotationNo.:กำหนดส่งของ:',
+      'เงื่อนไขการชำระเงิน:',
+      'ผู้ติดต่อ:',
+      'Contact:',
+      'หมายเหตุ:',
+      'รหัสสินค้าMAT-001',
+    ]) {
       expect(text).toContain(shown);
     }
     for (const gone of [
       ...HEADER_GONE,
-      'Contact:',
+      // The payment box at the foot is gone
+      'กำหนดชำระเงิน:',
+      'วางบิล/รับเช็ค:',
+      'ContactDelivery:',
+      'คำอธิบาย:',
       'Currency',
       'Suppliershall',
       'PR.No.',
@@ -184,7 +205,7 @@ describe('PO and PR pdfs print the K TECH form', () => {
     }
   });
 
-  test('an installment PO lists its installments under แบ่งชำระ', async () => {
+  test('an installment PO no longer prints its installments', async () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
 
@@ -204,10 +225,11 @@ describe('PO and PR pdfs print the K TECH form', () => {
 
     const text = await pdfText(await renderDocPdf(db, f.users.buyer, 'po', po.id));
 
-    expect(text).toContain('แบ่งชำระ:');
-    expect(text).toContain('งวดที่1มัดจำ3,000.00บาท');
-    expect(text).toContain('งวดที่2ส่งมอบ7,000.00บาท');
+    // The installments went with the payment box at the foot; they stay on the PO record
+    expect(text).not.toContain('แบ่งชำระ:');
+    expect(text).not.toContain('งวดที่1มัดจำ');
     expect(text).not.toContain('DownPayment');
+    expect(text).toContain('เงื่อนไข/CONDITION');
   });
 
   test('the PR has the same header and no Contact row', async () => {

@@ -424,6 +424,7 @@ export function PoForm({
         company={company}
         titleTh={formText.titleTh}
         titleEn={formText.titleEn}
+        titleInLetterhead
         meta={
           <>
             <MetaRow label="เลขที่:">
@@ -584,7 +585,7 @@ export function PoForm({
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-3">
               <label className={footLabel}>
-                คำอธิบาย
+                หมายเหตุ
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={footInput} />
               </label>
               <label className={footLabel}>
