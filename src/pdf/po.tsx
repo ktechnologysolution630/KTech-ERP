@@ -54,6 +54,8 @@ export function PoPdfDoc({
   const [preparer, approver] = signers ?? [];
   const signatures: Signer[] = [
     { ...preparer, label: 'ผู้จัดซื้อ' },
+    // Signed by hand: the system has no purchasing-manager step, the owner approves every PO
+    { label: 'ผู้จัดการแผนกจัดซื้อ' },
     { ...approver, label: 'ผู้มีอำนาจลงนาม' },
   ];
 
