@@ -20,8 +20,8 @@ export interface PrLineRef {
  */
 const GOODS_COL = { no: 26, category: 72, group: 84, qty: 72, needed: 70 };
 const PRICED_COL = { no: 24, category: 56, group: 64, boq: 46, qty: 58, price: 54, discount: 42, amount: 60 };
-/** The small type of the category and group cells, which often run to two lines */
-const PLACE_CELL = { fontSize: 8, color: '#334155' };
+/** The category and group cells: centred under their headings, a touch smaller than the description so long names fit */
+const PLACE_CELL = { fontSize: 9 };
 
 /** PURCHASE REQUISITION → Purchase Requisition, to sit like the order's title */
 const titleCase = (s: string) =>
@@ -150,8 +150,8 @@ export function PrPdfDoc({
           return (
             <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
               <Text style={{ width: col.no, textAlign: 'center' }}>{idx + 1}</Text>
-              <WrapText text={l.category || '-'} width={col.category} style={PLACE_CELL} />
-              <WrapText text={l.itemGroup || '-'} width={col.group} style={PLACE_CELL} />
+              <WrapText text={l.category || '-'} width={col.category} style={PLACE_CELL} align="center" />
+              <WrapText text={l.itemGroup || '-'} width={col.group} style={PLACE_CELL} align="center" />
               <View style={{ flex: 1, paddingHorizontal: 3 }}>
                 <Text>{l.description}</Text>
                 {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
