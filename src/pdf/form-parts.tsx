@@ -79,9 +79,29 @@ const thaiWords = new Intl.Segmenter('th', { granularity: 'word' });
  * as งานระบบไฟฟ้าและสื่อสาร and it runs into the next column; here each word is laid out on its own
  * and the cell wraps between them.
  */
-export function WrapText({ text, width, style }: { text: string; width: number; style?: { fontSize?: number; color?: string } }) {
+export function WrapText({
+  text,
+  width,
+  style,
+  align = 'left',
+}: {
+  text: string;
+  width: number;
+  style?: { fontSize?: number; color?: string };
+  /** centre: each line sits in the middle of the cell, under a centred heading */
+  align?: 'left' | 'center';
+}) {
   return (
-    <View style={{ width, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingHorizontal: 3 }}>
+    <View
+      style={{
+        width,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignContent: 'flex-start',
+        justifyContent: align === 'center' ? 'center' : 'flex-start',
+        paddingHorizontal: 3,
+      }}
+    >
       {[...thaiWords.segment(text)].map(({ segment }, i) =>
         // A space between words keeps its gap; a line may also break there
         segment.trim() ? (
