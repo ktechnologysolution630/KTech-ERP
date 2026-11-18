@@ -7,7 +7,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
+import { ColumnLines, Field, FormNote, FormPage, fs, HEADER_LINE, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -21,6 +21,12 @@ export interface PrLineRef {
  */
 const GOODS_COL = { no: 26, category: 72, group: 84, qty: 72, needed: 70 };
 const PRICED_COL = { no: 24, category: 56, group: 64, boq: 46, qty: 58, price: 54, discount: 42, amount: 60 };
+/** Where the column lines fall, either side of the description */
+const GOODS_GRID = { before: [GOODS_COL.no, GOODS_COL.category, GOODS_COL.group], after: [GOODS_COL.qty, GOODS_COL.needed] };
+const PRICED_GRID = {
+  before: [PRICED_COL.no, PRICED_COL.category, PRICED_COL.group],
+  after: [PRICED_COL.boq, PRICED_COL.qty, PRICED_COL.price, PRICED_COL.discount, PRICED_COL.amount],
+};
 /** The category and group cells: centred under their headings, a touch smaller than the description so long names fit */
 const PLACE_CELL = { fontSize: 9 };
 
@@ -129,6 +135,7 @@ export function PrPdfDoc({
             <HeaderCell th="รายการ" en="Description" />
             <HeaderCell th="จำนวน/หน่วย" en="Quantity / Unit" width={GOODS_COL.qty} align="right" />
             <HeaderCell th="กำหนดใช้/รับของ" en="Required Date" width={GOODS_COL.needed} />
+            <ColumnLines {...GOODS_GRID} color={HEADER_LINE} />
           </View>
         ) : (
           <View style={fs.tableHeader}>
@@ -141,6 +148,7 @@ export function PrPdfDoc({
             <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={PRICED_COL.price} align="right" />
             <HeaderCell th="ส่วนลด" en="Discount" width={PRICED_COL.discount} align="right" />
             <HeaderCell th="จำนวนเงิน" en="Amount" width={PRICED_COL.amount} align="right" />
+            <ColumnLines {...PRICED_GRID} color={HEADER_LINE} />
           </View>
         )}
 
@@ -148,7 +156,8 @@ export function PrPdfDoc({
           const col = goods ? GOODS_COL : PRICED_COL;
           const itemCode = lineRefs?.get(l.id)?.itemCode;
           return (
-            <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
+            <View key={l.id} style={fs.tableRow} wrap={false}>
+              <ColumnLines {...(goods ? GOODS_GRID : PRICED_GRID)} />
               <Text style={{ width: col.no, textAlign: 'center' }}>{idx + 1}</Text>
               <WrapText text={l.category || '-'} width={col.category} style={PLACE_CELL} align="center" />
               <WrapText text={l.itemGroup || '-'} width={col.group} style={PLACE_CELL} align="center" />

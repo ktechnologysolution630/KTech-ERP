@@ -47,9 +47,10 @@ export const paperCell = 'w-full rounded border border-transparent bg-transparen
 export const paperBox = 'overflow-hidden rounded-md border border-[#9db0c4] bg-white';
 /** A heading inside a box, e.g. ซัพพลายเออร์อ้างอิง */
 export const paperBoxTitle = 'text-sm font-bold text-[#0e4677]';
-/** The item table: a blue header like the PDF's, every other row tinted */
+/** The item table: a blue header like the PDF's */
 export const paperTableHead = 'bg-[#1668a8] text-xs text-white';
-export const paperTableRow = 'align-top even:bg-[#f6f9fc]';
+/** Item rows ruled all round like the printed grid, with no tint between them */
+export const paperTableRow = 'align-top [&>td]:border [&>td]:border-[#9db0c4]';
 
 /** A form laid out like the printed document: letterhead, title and the document's number and dates */
 export function DocPaper({

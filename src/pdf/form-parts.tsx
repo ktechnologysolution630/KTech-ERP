@@ -66,10 +66,20 @@ export const fs = StyleSheet.create({
     fontWeight: 'bold',
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
+    // As wide as a row's border, so the column lines of the heading and the rows meet
+    borderLeftWidth: LINE_WIDTH,
+    borderRightWidth: LINE_WIDTH,
+    borderColor: BRAND,
   },
-  tableRow: { flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 0.5, borderColor: '#dbe4ee' },
-  /** Every other item row, tinted so a long line is easy to follow across */
-  tableRowAlt: { backgroundColor: '#f6f9fc' },
+  /** An item row, ruled all round like a printed grid */
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+    borderLeftWidth: LINE_WIDTH,
+    borderRightWidth: LINE_WIDTH,
+    borderBottomWidth: LINE_WIDTH,
+    borderColor: LINE,
+  },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 },
 });
 
@@ -154,6 +164,28 @@ export function qtyText(qty: string): string {
 export function vatLabel(mode: VatMode): string {
   return mode === 'NONE' ? 'VAT (ไม่คิดภาษี)' : mode === 'INCLUSIVE' ? `VAT ${VAT_RATE}% (รวมในราคา)` : `VAT ${VAT_RATE}%`;
 }
+
+/**
+ * The column lines of a table row, drawn over it so the cells stay as they are: the fixed-width columns before the
+ * description, and those after it, by width. The description takes what is left, so the lines after it are
+ * measured from the right.
+ */
+export function ColumnLines({ before, after, color = LINE }: { before: number[]; after: number[]; color?: string }) {
+  const line = { position: 'absolute' as const, top: 0, bottom: 0, width: LINE_WIDTH, backgroundColor: color };
+  return (
+    <>
+      {before.map((_, i) => (
+        <View key={`b${i}`} style={{ ...line, left: before.slice(0, i + 1).reduce((s, w) => s + w, 0) }} />
+      ))}
+      {after.map((_, i) => (
+        <View key={`a${i}`} style={{ ...line, right: after.slice(i).reduce((s, w) => s + w, 0) }} />
+      ))}
+    </>
+  );
+}
+
+/** Column lines on the blue heading */
+export const HEADER_LINE = '#9ec3e6';
 
 /** A column heading in Thai over English */
 export function HeaderCell({ th, en, width, align = 'center' }: { th: string; en: string; width?: number; align?: 'left' | 'center' | 'right' }) {
