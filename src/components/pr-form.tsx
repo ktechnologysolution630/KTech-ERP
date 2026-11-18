@@ -16,6 +16,7 @@ import {
   TotalsBox,
   VAT_MODE_LABEL,
   VendorBlock,
+  VendorSelect,
   paperBox,
   paperCell,
   paperInput,
@@ -634,6 +635,24 @@ export function PrForm({
     );
   };
 
+  /** The project of a new PR; fixed once the PR is saved */
+  const projectPicker = (
+    <select
+      disabled={Boolean(existing)}
+      value={projectId}
+      onChange={(e) => setProjectId(e.target.value)}
+      aria-label="โครงการ"
+      className={`${paperInput} font-semibold disabled:text-slate-500`}
+    >
+      <option value="">เลือกโครงการ</option>
+      {projects.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.code} - {p.name}
+        </option>
+      ))}
+    </select>
+  );
+
   return (
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
@@ -719,14 +738,21 @@ export function PrForm({
           </>
         }
       >
-        {/* Two boxes side by side as on the PDF: the vendor (who asks, on the goods form), then where and for which project */}
+        {/*
+          Two boxes side by side as on the PDF. The goods form: the project with the reference supplier under it,
+          then where it goes. The others: the vendor, then who asks, where and for which project.
+        */}
         <div className={`${paperBox} grid grid-cols-1 md:grid-cols-[1.1fr_1fr]`}>
           <div className="border-b border-[#9db0c4] md:border-b-0 md:border-r">
             {prType === 'GOODS' ? (
-              // The goods form leaves the supplier to purchasing, as the printed PR does: it names who asks
-              <BoxRow label="ผู้ขอซื้อ">
-                <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={`${paperInput} font-semibold`} />
-              </BoxRow>
+              <>
+                <BoxRow label="Project" required labelWidth={136}>
+                  {projectPicker}
+                </BoxRow>
+                <BoxRow label="ซัพพลายเออร์อ้างอิง" labelWidth={136}>
+                  <VendorSelect label="ซัพพลายเออร์อ้างอิง" vendors={vendors} vendorId={vendorId} onChange={setVendorId} />
+                </BoxRow>
+              </>
             ) : (
               <VendorBlock
                 title={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
@@ -756,22 +782,11 @@ export function PrForm({
                 className={paperInput}
               />
             </BoxRow>
-            <BoxRow label="Project" required>
-              <select
-                disabled={Boolean(existing)}
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                aria-label="โครงการ"
-                className={`${paperInput} font-semibold disabled:text-slate-500`}
-              >
-                <option value="">เลือกโครงการ</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} - {p.name}
-                  </option>
-                ))}
-              </select>
-            </BoxRow>
+            {prType !== 'GOODS' && (
+              <BoxRow label="Project" required>
+                {projectPicker}
+              </BoxRow>
+            )}
           </div>
         </div>
 
