@@ -8,7 +8,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, Field, FormNote, FormPage, fs, HeaderCell, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { branchLabel, ColumnLines, Field, FormNote, FormPage, fs, HEADER_LINE, HeaderCell, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
 
 /** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {
@@ -23,6 +23,8 @@ const PAYMENT_TYPE_LABEL: Record<PoPaymentType, string> = {
 
 /** Fixed column widths of the item table; the description takes the rest */
 const COL = { no: 26, qty: 66, price: 60, discount: 46, amount: 68 };
+/** Where the column lines fall, either side of the description */
+const GRID = { before: [COL.no], after: [COL.qty, COL.price, COL.discount, COL.amount] };
 
 export function PoPdfDoc({
   po,
@@ -103,10 +105,12 @@ export function PoPdfDoc({
           <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" />
           <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" />
           <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} align="right" />
+          <ColumnLines before={GRID.before} after={GRID.after} color={HEADER_LINE} />
         </View>
 
         {lines.map((l, idx) => (
-          <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
+          <View key={l.id} style={fs.tableRow} wrap={false}>
+            <ColumnLines before={GRID.before} after={GRID.after} />
             <Text style={{ width: COL.no, textAlign: 'center' }}>{idx + 1}</Text>
             <View style={{ flex: 1, paddingHorizontal: 3 }}>
               <Text>{l.description}</Text>
