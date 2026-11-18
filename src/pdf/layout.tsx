@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
+import { contactLine, type FormHeader } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { type Settings } from '@/server/services/settings';
 
@@ -175,8 +176,11 @@ export function PdfShell({
   signatures,
   children,
   footer,
+  header,
 }: {
   settings: Settings;
+  /** The contact line set in the form settings */
+  header?: FormHeader;
   titleTh: string;
   titleEn: string;
   docNumber: string;
@@ -206,6 +210,7 @@ export function PdfShell({
               <Text>
                 เลขประจำตัวผู้เสียภาษี: {settings.companyTaxId} (สาขา {settings.companyBranch})
               </Text>
+              {contactLine(header) ? <Text>{contactLine(header)}</Text> : null}
             </View>
           </View>
           <View style={pdfStyles.docTitleBox}>
@@ -219,10 +224,10 @@ export function PdfShell({
         {children}
 
         <View style={pdfStyles.signaturesRow}>
-          {signatures.map((entry) => {
+          {signatures.map((entry, i) => {
             const s: Signer = typeof entry === 'string' ? { label: entry } : entry;
             return (
-              <View key={s.label} style={pdfStyles.signatureBox} wrap={false}>
+              <View key={i} style={pdfStyles.signatureBox} wrap={false}>
                 <View style={pdfStyles.signatureSpace}>
                   {s.image ? (
                     // eslint-disable-next-line jsx-a11y/alt-text

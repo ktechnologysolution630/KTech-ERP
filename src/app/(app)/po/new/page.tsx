@@ -7,6 +7,7 @@ import { listLastPurchasePrices } from '@/server/services/price-history';
 import { PoForm } from '@/components/po-form';
 import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { getSettings } from '@/server/services/settings';
+import { getFormTemplates } from '@/server/services/form-templates';
 import { bangkokDateString } from '@/domain/thai';
 
 export default async function NewPoPage({
@@ -17,13 +18,14 @@ export default async function NewPoPage({
   const actor = await requireUser();
   const db = await getDb();
   const params = await searchParams;
-  const [projects, vendors, orderable, boqMaterials, settings, lastPrices] = await Promise.all([
+  const [projects, vendors, orderable, boqMaterials, settings, lastPrices, forms] = await Promise.all([
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),
     listBoqMaterialOptions(db, actor),
     getSettings(db),
     listLastPurchasePrices(db),
+    getFormTemplates(db),
   ]);
 
   return (
@@ -32,7 +34,8 @@ export default async function NewPoPage({
       <PoForm
         projects={projects}
         vendors={vendors}
-        company={companyHeaderFrom(settings)}
+        company={companyHeaderFrom(settings, forms.header)}
+        forms={{ PO: forms.texts.PO }}
         currentUserName={actor.name}
         today={bangkokDateString()}
         initialProjectId={params.projectId}

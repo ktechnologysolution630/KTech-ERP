@@ -27,7 +27,8 @@ import {
 } from '@/components/doc-paper';
 import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMode } from '@/domain/money';
 import { duplicatesOfOutstanding, formatQty, type OutstandingPrLine } from '@/domain/pr-outstanding';
-import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures, type PrLineKind, type PrType } from '@/domain/pr-type';
+import { prFormKind, resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
+import { LINE_KIND_LABEL, PR_TYPE_META, type PrLineKind, type PrType } from '@/domain/pr-type';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { classifyItem, groupOfItemCode, groupsOfCategory } from '@/domain/item-groups';
 import type { BoqQtyOption } from '@/server/services/pr-boq';
@@ -142,7 +143,10 @@ export function PrForm({
   existing,
   outstanding = [],
   boqOptions = [],
+  forms,
 }: {
+  /** The words set for each form in the settings; the defaults when left out */
+  forms?: Partial<Record<FormKind, FormText>>;
   /** Form for a new PR; an existing PR keeps its own */
   prType?: PrType;
   projects: { id: string; code: string; name: string }[];
@@ -160,6 +164,7 @@ export function PrForm({
   const router = useRouter();
   const prType = existing?.prType ?? prTypeProp;
   const meta = PR_TYPE_META[prType];
+  const formText = forms?.[prFormKind(prType)] ?? resolveFormText(prFormKind(prType));
   const priced = meta.priced;
   const hasWork = prType !== 'GOODS';
   const kinds: PrLineKind[] = prType === 'GOODS' ? ['GOODS'] : prType === 'LABOR' ? ['LABOR'] : ['GOODS', 'LABOR'];
@@ -712,8 +717,8 @@ export function PrForm({
 
       <DocPaper
         company={company}
-        titleTh={meta.titleTh}
-        titleEn={meta.titleEn}
+        titleTh={formText.titleTh}
+        titleEn={formText.titleEn}
         meta={
           <>
             <MetaRow label="เลขที่:">
@@ -841,7 +846,7 @@ export function PrForm({
         )}
 
         {/* The same boxes the printed PR carries */}
-        <SignatureRow roles={[prSignatures(prType)[0]!, 'ผู้จัดการโครงการ (PM)']} />
+        <SignatureRow roles={formText.signatureLabels} />
       </DocPaper>
     </div>
   );

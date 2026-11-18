@@ -17,6 +17,10 @@ export interface CompanyHeader {
   /** Branch number from the company settings; 00000 or blank is the head office */
   branch?: string;
   logoUrl: string | null;
+  /** The English name from the form settings; the built-in one when left out */
+  nameEn?: string;
+  /** The phone and e-mail line from the form settings */
+  contact?: string;
 }
 
 /** สำนักงานใหญ่, or the branch, as printed before the company address */
@@ -74,11 +78,12 @@ export function DocPaper({
           )}
           <div className="text-center">
             <p className="text-xl font-bold text-[#0e4677]">{company.name}</p>
-            <p className="text-sm font-bold tracking-wide text-[#1668a8]">{COMPANY_NAME_EN}</p>
+            <p className="text-sm font-bold tracking-wide text-[#1668a8]">{company.nameEn || COMPANY_NAME_EN}</p>
             <p className="mt-0.5 text-xs text-slate-500">
               {companyBranchLabel(company.branch)} {company.address || '-'}
             </p>
             <p className="text-xs text-slate-500">เลขประจำตัวผู้เสียภาษี {company.taxId || '-'}</p>
+            {company.contact && <p className="text-xs text-slate-500">{company.contact}</p>}
           </div>
           {/* Balances the logo so the company name stays centred */}
           <span className="hidden sm:block" />

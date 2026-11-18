@@ -3,11 +3,12 @@ import { Document, Text, View } from '@react-pdf/renderer';
 import { type PoPaymentType } from '@/db/schema';
 import { D, formatMoneyDisplay, round2, sum } from '@/domain/money';
 import { CREDIT_BASIS_LABEL, PAY_METHOD_LABEL, describeSchedule } from '@/domain/payment-terms';
+import { resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, Field, FormPage, fs, HeaderCell, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
+import { branchLabel, Field, FormNote, FormPage, fs, HeaderCell, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel } from './form-parts';
 
 /** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {
@@ -28,9 +29,14 @@ export function PoPdfDoc({
   settings,
   signers,
   lineRefs,
+  form,
+  header,
 }: {
   po: Awaited<ReturnType<typeof getPo>>;
   settings: Settings;
+  /** The words set for the PO in the settings; the defaults when left out */
+  form?: FormText;
+  header?: FormHeader;
   /** Who has signed in the system: preparer, purchasing head, approver; blank lines when left out */
   signers?: Signer[];
   lineRefs?: ReadonlyMap<string, PoLineRef>;
@@ -52,17 +58,13 @@ export function PoPdfDoc({
       : PAYMENT_TYPE_LABEL[po.paymentType];
 
   // The purchaser who sent it, the purchasing head who checked it, the owner who approved it
-  const [preparer, reviewer, approver] = signers ?? [];
-  const signatures: Signer[] = [
-    { ...preparer, label: 'ผู้จัดซื้อ' },
-    { ...reviewer, label: 'ผู้จัดการแผนกจัดซื้อ' },
-    { ...approver, label: 'ผู้มีอำนาจลงนาม' },
-  ];
+  const text = form ?? resolveFormText('PO');
+  const signatures: Signer[] = text.signatureLabels.map((label, i) => ({ ...signers?.[i], label }));
 
   return (
     <Document>
-      <FormPage settings={settings} isDraft={isDraft} docNumber={po.number}>
-        <TitleRow titleTh="ใบสั่งซื้อ" titleEn="Purchase Order" number={po.number} date={formatThaiDate(po.docDate ?? po.createdAt)} />
+      <FormPage settings={settings} header={header} isDraft={isDraft} docNumber={po.number}>
+        <TitleRow titleTh={text.titleTh} titleEn={text.titleEn} number={po.number} date={formatThaiDate(po.docDate ?? po.createdAt)} />
 
         <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
@@ -167,6 +169,7 @@ export function PoPdfDoc({
           </View>
 
           <SignatureRow signatures={signatures} />
+          <FormNote text={text.footerNote} />
         </View>
       </FormPage>
     </Document>

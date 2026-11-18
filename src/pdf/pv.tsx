@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { bahtText, D } from '@/domain/money';
+import { labelSigners, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPv } from '@/server/services/pv';
@@ -11,23 +12,31 @@ export function PvPdfDoc({
   pv,
   settings,
   signers,
+  form,
+  header,
 }: {
   pv: Awaited<ReturnType<typeof getPv>>;
   settings: Settings;
+  /** The words set for the PV in the settings; the defaults when left out */
+  form?: FormText;
+  header?: FormHeader;
   /** Who has signed in the system; blank lines when left out */
   signers?: Signer[];
 }) {
   const isDraft = pv.status !== 'APPROVED' && pv.status !== 'PAID';
+  const text = form ?? resolveFormText('PV');
 
   return (
     <PdfShell
       settings={settings}
-      titleTh="ใบสำคัญจ่าย"
-      titleEn="Payment Voucher"
+      header={header}
+      titleTh={text.titleTh}
+      titleEn={text.titleEn}
       docNumber={pv.number}
       docDate={pv.paidAt ? formatThaiDate(pv.paidAt) : formatThaiDate(pv.createdAt)}
       isDraft={isDraft}
-      signatures={signers ?? ['ผู้จัดทำ', 'ผู้อนุมัติ', 'ผู้รับเงิน']}
+      signatures={labelSigners(signers ?? text.signatureLabels.map((label) => ({ label })), text.signatureLabels)}
+      footer={text.footerNote ? <Text style={{ fontSize: 10, color: '#475569' }}>{text.footerNote}</Text> : undefined}
     >
       <View style={pdfStyles.metaGrid}>
         <View style={pdfStyles.metaBox}>

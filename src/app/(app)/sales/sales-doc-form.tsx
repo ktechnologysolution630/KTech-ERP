@@ -8,6 +8,7 @@ import { AmountInWords, DocPaper, MetaRow, SignatureRow, paperCell, paperInput, 
 import { formatMoneyDisplay } from '@/domain/money';
 import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type CategoryOption, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { THAI_BANKS } from '@/domain/vendor-profile';
+import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
 import { createSalesDocAction } from './actions';
 
 export interface SalesCustomerOption {
@@ -63,7 +64,10 @@ export function SalesDocForm({
   categories,
   projects,
   today,
+  forms,
 }: {
+  /** The words set for each form in the settings; the defaults when left out */
+  forms?: Partial<Record<FormKind, FormText>>;
   kind: SalesDocKind;
   company: CompanyHeader;
   customers: SalesCustomerOption[];
@@ -77,6 +81,7 @@ export function SalesDocForm({
 }) {
   const router = useRouter();
   const meta = SALES_DOC_META[kind];
+  const formText = forms?.[kind] ?? resolveFormText(kind);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [docDate, setDocDate] = useState(today);
@@ -202,8 +207,8 @@ export function SalesDocForm({
 
       <DocPaper
         company={company}
-        titleTh={meta.th}
-        titleEn={meta.en}
+        titleTh={formText.titleTh}
+        titleEn={formText.titleEn}
         meta={
           <>
             <MetaRow label="เลขที่:">
@@ -452,7 +457,7 @@ export function SalesDocForm({
           </div>
         </div>
 
-        <SignatureRow roles={['ผู้จัดทำ', 'ผู้อนุมัติ', isExpense ? 'ผู้รับเงิน' : 'ลูกค้า']} />
+        <SignatureRow roles={formText.signatureLabels} />
       </DocPaper>
     </div>
   );

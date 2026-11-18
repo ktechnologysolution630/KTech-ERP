@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Printer, XCircle } from 'lucide-react';
 import { PrintRoot } from '@/components/project-site/report-sheet';
 import { bahtText, D, formatMoneyDisplay } from '@/domain/money';
-import { SALES_DOC_META, SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
+import { SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { formatThaiDate } from '@/domain/thai';
 import type { CompanyHeader } from '@/components/doc-paper';
 import { SignedRow } from '@/components/signed-row';
 import type { Signer } from '@/domain/signature';
+import type { FormText } from '@/domain/form-templates';
 import { cancelSalesDocAction } from '../../actions';
 
 export interface SalesDocViewData {
@@ -54,8 +55,7 @@ export interface SalesDocViewData {
 
 const PAY_LABEL = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค', PROMPTPAY: 'พร้อมเพย์', CARD: 'บัตรเครดิต' } as const;
 
-function Paper({ doc, company, signers }: { doc: SalesDocViewData; company: CompanyHeader; signers: Signer[] }) {
-  const meta = SALES_DOC_META[doc.kind];
+function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company: CompanyHeader; signers: Signer[]; text: FormText }) {
   const nos = doc.lines.reduce<number[]>((acc, l, i) => [...acc, (acc[i - 1] ?? 0) + (l.isSection ? 0 : 1)], []);
   const money = (v: string) => formatMoneyDisplay(v);
   return (
@@ -72,11 +72,12 @@ function Paper({ doc, company, signers }: { doc: SalesDocViewData; company: Comp
             <p className="text-sm font-bold text-slate-900">{company.name}</p>
             <p>ที่อยู่ : {company.address || '-'}</p>
             <p>เลขประจำตัวผู้เสียภาษีอากร: {company.taxId || '-'}</p>
+            {company.contact && <p>{company.contact}</p>}
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-[#102d72]">{meta.th}</p>
-          <p className="text-[10px] tracking-widest text-slate-500">{meta.en}</p>
+          <p className="text-2xl font-bold text-[#102d72]">{text.titleTh}</p>
+          <p className="text-[10px] uppercase tracking-widest text-slate-500">{text.titleEn}</p>
           <table className="ml-auto mt-2 text-xs">
             <tbody>
               <tr>
@@ -220,13 +221,14 @@ function Paper({ doc, company, signers }: { doc: SalesDocViewData; company: Comp
         </table>
       </div>
       <SignedRow signers={signers} className="mt-10" />
+      {text.footerNote && <p className="mt-6 whitespace-pre-line text-xs text-slate-600">{text.footerNote}</p>}
       {doc.status === 'CANCELLED' && <p className="mt-6 text-center text-lg font-bold text-red-600">ยกเลิกแล้ว: {doc.cancelReason}</p>}
     </div>
   );
 }
 
 /** The issued document with print and cancel */
-export function SalesDocView({ doc, slug, company, signers }: { doc: SalesDocViewData; slug: string; company: CompanyHeader; signers: Signer[] }) {
+export function SalesDocView({ doc, slug, company, signers, text }: { doc: SalesDocViewData; slug: string; company: CompanyHeader; signers: Signer[]; text: FormText }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [cancelling, setCancelling] = useState(false);
@@ -274,10 +276,10 @@ export function SalesDocView({ doc, slug, company, signers }: { doc: SalesDocVie
         </div>
       )}
       <div className="rounded-sm border border-slate-200 shadow-sm">
-        <Paper doc={doc} company={company} signers={signers} />
+        <Paper doc={doc} company={company} signers={signers} text={text} />
       </div>
       <PrintRoot>
-        <Paper doc={doc} company={company} signers={signers} />
+        <Paper doc={doc} company={company} signers={signers} text={text} />
       </PrintRoot>
     </div>
   );

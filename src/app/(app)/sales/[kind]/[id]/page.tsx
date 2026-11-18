@@ -7,6 +7,8 @@ import { kindFromSlug, SALES_DOC_META } from '@/domain/sales-doc';
 import { requireUser } from '@/server/auth/current-user';
 import { getSalesDoc } from '@/server/services/sales-docs';
 import { getSettings } from '@/server/services/settings';
+import { getFormTemplates } from '@/server/services/form-templates';
+import { labelSigners } from '@/domain/form-templates';
 import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { SalesDocView } from './sales-doc-view';
 import { listAttachments } from '@/server/services/attachments';
@@ -30,7 +32,13 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
     throw err;
   }
   if (doc.kind !== kind) notFound();
-  const [settings, attachments, signers] = await Promise.all([getSettings(db), listAttachments(db, 'SALES_DOC', id), salesDocSigners(db, doc)]);
+  const [settings, attachments, signers, forms] = await Promise.all([
+    getSettings(db),
+    listAttachments(db, 'SALES_DOC', id),
+    salesDocSigners(db, doc),
+    getFormTemplates(db),
+  ]);
+  const text = forms.texts[kind];
 
   return (
     <div className="space-y-4">
@@ -50,7 +58,13 @@ export default async function SalesDocPage({ params }: { params: Promise<{ kind:
           />
         )}
       </div>
-      <SalesDocView doc={doc} slug={slug} company={companyHeaderFrom(settings)} signers={signers} />
+      <SalesDocView
+        doc={doc}
+        slug={slug}
+        company={companyHeaderFrom(settings, forms.header)}
+        signers={labelSigners(signers, text.signatureLabels)}
+        text={text}
+      />
       <div className="max-w-xl">
         <AttachmentsBox entityType="SALES_DOC" entityId={doc.id} items={attachments} />
       </div>

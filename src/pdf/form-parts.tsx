@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import { COMPANY_NAME_EN } from '@/domain/brand';
+import { contactLine, type FormHeader } from '@/domain/form-templates';
 import { bahtText, D, formatMoneyDisplay, VAT_RATE, type VatMode } from '@/domain/money';
 import { type Signer } from '@/domain/signature';
 import { type Settings } from '@/server/services/settings';
@@ -170,15 +171,19 @@ export function HeaderCell({ th, en, width, align = 'center' }: { th: string; en
  */
 export function FormPage({
   settings,
+  header,
   isDraft,
   docNumber,
   children,
 }: {
   settings: Settings;
+  /** The English name and contact lines set in the form settings; the defaults when left out */
+  header?: FormHeader;
   isDraft: boolean;
   docNumber: string;
   children: React.ReactNode;
 }) {
+  const contact = contactLine(header);
   const logo = companyLogo();
   const footText = { fontSize: 7.5, color: '#94a3b8' };
   return (
@@ -200,12 +205,13 @@ export function FormPage({
           </View>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: BRAND_DARK }}>{settings.companyName}</Text>
-            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{COMPANY_NAME_EN}</Text>
+            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{header?.companyNameEn || COMPANY_NAME_EN}</Text>
             <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>
               {/* สำนักงานใหญ่, or the branch, leads the address */}
               {branchLabel(settings.companyBranch)} {settings.companyAddress}
             </Text>
             <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}</Text>
+            {contact ? <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>{contact}</Text> : null}
           </View>
           {/* Balances the logo so the company name stays centred */}
           <View style={{ width: HEADER_SIDE_WIDTH }} />
@@ -289,8 +295,8 @@ export function TotalsBlock({ note, rows, gross }: { note: string; rows: [string
 export function SignatureRow({ signatures }: { signatures: Signer[] }) {
   return (
     <View style={{ flexDirection: 'row', marginTop: 6, gap: 6 }}>
-      {signatures.map((sig) => (
-        <View key={sig.label} style={[fs.box, { flex: 1, alignItems: 'center', paddingBottom: 5 }]}>
+      {signatures.map((sig, i) => (
+        <View key={i} style={[fs.box, { flex: 1, alignItems: 'center', paddingBottom: 5 }]}>
           <View
             style={{
               alignSelf: 'stretch',
@@ -320,4 +326,10 @@ export function SignatureRow({ signatures }: { signatures: Signer[] }) {
       ))}
     </View>
   );
+}
+
+/** The note set for the form in the settings, under the signature boxes; nothing when blank */
+export function FormNote({ text }: { text: string }) {
+  if (!text.trim()) return null;
+  return <Text style={{ marginTop: 5, fontSize: 8.5, color: MUTED }}>{text}</Text>;
 }

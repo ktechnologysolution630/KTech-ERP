@@ -36,6 +36,7 @@ import {
   Car,
   MapPin,
   Hash,
+  FileCog,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -994,6 +995,25 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   {!collapsed && <span>เลขที่เอกสาร</span>}
                 </div>
                 {!collapsed && <span className="text-[10px] text-slate-400">Doc No.</span>}
+              </Link>
+              )}
+
+              {canManageSettings && (
+              <Link
+                href="/settings/forms"
+                prefetch={false}
+                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                  pathname.startsWith('/settings/forms')
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+                title="แบบฟอร์มเอกสาร"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileCog className="w-4 h-4 text-slate-500 shrink-0" />
+                  {!collapsed && <span>แบบฟอร์มเอกสาร</span>}
+                </div>
+                {!collapsed && <span className="text-[10px] text-slate-400">Forms</span>}
               </Link>
               )}
 

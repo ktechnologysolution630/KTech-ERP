@@ -32,6 +32,7 @@ import {
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
 import { PriceIncreaseNote } from '@/components/price-increase';
+import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
 
 export interface OrderablePrLineOption {
   id: string;
@@ -116,7 +117,10 @@ export function PoForm({
   lastPrices = [],
   initialProjectId,
   existing,
+  forms,
 }: {
+  /** The words set for each form in the settings; the defaults when left out */
+  forms?: Partial<Record<FormKind, FormText>>;
   /** What each thing cost the last time it was bought; a line priced above it is pointed out */
   lastPrices?: LastPurchasePrice[];
   projects: { id: string; code: string; name: string }[];
@@ -162,6 +166,7 @@ export function PoForm({
   };
 }) {
   const router = useRouter();
+  const formText = forms?.PO ?? resolveFormText('PO');
   const [projectId, setProjectId] = useState<string>(
     existing ? (existing.projectId ?? 'OFFICE') : initialProjectId === null ? 'OFFICE' : initialProjectId || '',
   );
@@ -399,8 +404,8 @@ export function PoForm({
 
       <DocPaper
         company={company}
-        titleTh="ใบสั่งซื้อ"
-        titleEn="PURCHASE ORDER"
+        titleTh={formText.titleTh}
+        titleEn={formText.titleEn}
         meta={
           <>
             <MetaRow label="เลขที่:">
@@ -654,7 +659,7 @@ export function PoForm({
         )}
 
         {/* The same boxes the printed PO carries */}
-        <SignatureRow roles={['ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม']} />
+        <SignatureRow roles={formText.signatureLabels} />
       </DocPaper>
     </div>
   );

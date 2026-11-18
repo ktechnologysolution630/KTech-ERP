@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Hammer, Layers, ShoppingCart } from 'lucide-react';
 import { getDb } from '@/db/client';
+import { prFormKind } from '@/domain/form-templates';
 import { isPrType, PR_TYPE_META, PR_TYPES, type PrType } from '@/domain/pr-type';
 import { bangkokDateString } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
@@ -8,6 +9,7 @@ import { listItems, listProjects, listVendors } from '@/server/services/master';
 import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { listBoqQtyOptions } from '@/server/services/pr-boq';
 import { getSettings } from '@/server/services/settings';
+import { getFormTemplates } from '@/server/services/form-templates';
 import { PrForm } from '@/components/pr-form';
 import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 
@@ -22,13 +24,14 @@ export default async function NewPrPage({ searchParams }: { searchParams: Promis
   const prType: PrType = isPrType(sp.type) ? sp.type : 'GOODS';
   const actor = await requireUser();
   const db = await getDb();
-  const [projects, items, vendors, settings, outstanding, boqOptions] = await Promise.all([
+  const [projects, items, vendors, settings, outstanding, boqOptions, forms] = await Promise.all([
     listProjects(db, actor),
     listItems(db),
     listVendors(db),
     getSettings(db),
     listOutstandingPrLines(db, actor),
     listBoqQtyOptions(db, actor),
+    getFormTemplates(db),
   ]);
 
   return (
@@ -60,7 +63,8 @@ export default async function NewPrPage({ searchParams }: { searchParams: Promis
         projects={projects}
         items={items}
         vendors={vendorRefsFrom(vendors)}
-        company={companyHeaderFrom(settings)}
+        company={companyHeaderFrom(settings, forms.header)}
+        forms={{ [prFormKind(prType)]: forms.texts[prFormKind(prType)] }}
         currentUserName={actor.name}
         today={bangkokDateString()}
         outstanding={outstanding}

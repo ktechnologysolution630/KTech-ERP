@@ -85,6 +85,17 @@ export const settings = pgTable('settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * The words the owner changed on a printed form, one row per form (src/domain/form-templates.ts), and
+ * the row HEADER for the letterhead lines every form shares. A form with no row prints its defaults.
+ */
+export const formTemplates = pgTable('form_templates', {
+  kind: text('kind').primaryKey(),
+  fields: jsonb('fields').$type<Record<string, unknown>>().default({}).notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const docCounters = pgTable(
   'doc_counters',
   {
