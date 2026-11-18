@@ -9,6 +9,8 @@ import { PROJECT_STATUS_LABELS } from '@/domain/project';
 import type { HandoverRow } from '@/server/services/handover';
 import { saveHandoverAction } from './actions';
 import { DateInput } from '@/components/date-input';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteHandoversAction } from '@/app/(app)/delete-actions';
 
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:border-blue-600 focus:outline-none';
 const thaiDate = (iso: string) => {
@@ -136,7 +138,16 @@ function HandoverDialog({ row, today, onClose }: { row: HandoverRow; today: stri
   );
 }
 
-export function HandoverClient({ rows, today }: { rows: HandoverRow[]; today: string }) {
+export function HandoverClient({
+  rows,
+  today,
+  canDelete = false,
+}: {
+  rows: HandoverRow[];
+  today: string;
+  /** Owner and admin: a handover the customer has not accepted can be removed for good */
+  canDelete?: boolean;
+}) {
   const [editing, setEditing] = useState<HandoverRow | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ACCEPTED'>('ALL');
@@ -147,13 +158,18 @@ export function HandoverClient({ rows, today }: { rows: HandoverRow[]; today: st
     const q = query.trim().toLowerCase();
     return !q || `${r.code} ${r.name} ${r.customer}`.toLowerCase().includes(q);
   });
+  // A project with no handover recorded has nothing to delete
+  const deletable = shown.flatMap((r) => (r.handover ? [{ id: r.handover.id, label: `${r.code} ${r.name}` }] : []));
 
-  return (
+  const page = (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      <div>
-        <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">AFTER SERVICE & HANDOVER</div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1">ส่งมอบโครงการ</h1>
-        <p className="text-xs text-slate-500 mt-0.5">นัดส่งมอบ บันทึกการตรวจรับของลูกค้า และเริ่มระยะรับประกันผลงาน</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">AFTER SERVICE & HANDOVER</div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1">ส่งมอบโครงการ</h1>
+          <p className="text-xs text-slate-500 mt-0.5">นัดส่งมอบ บันทึกการตรวจรับของลูกค้า และเริ่มระยะรับประกันผลงาน</p>
+        </div>
+        {canDelete && <BulkDeleteBar />}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -173,6 +189,11 @@ export function HandoverClient({ rows, today }: { rows: HandoverRow[]; today: st
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-[#102d72] text-white">
+                {canDelete && (
+                  <th className="w-8 py-3 px-4">
+                    <SelectAllBox items={deletable} />
+                  </th>
+                )}
                 <th className="py-3 px-4 font-medium">โครงการ</th>
                 <th className="py-3 px-4 font-medium">ผู้ว่าจ้าง / ลูกค้า</th>
                 <th className="py-3 px-4 font-medium">วันที่ส่งมอบ</th>
@@ -184,7 +205,7 @@ export function HandoverClient({ rows, today }: { rows: HandoverRow[]; today: st
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-slate-400 text-sm">
+                  <td colSpan={canDelete ? 7 : 6} className="py-16 text-center text-slate-400 text-sm">
                     ไม่มีโครงการตามเงื่อนไข
                   </td>
                 </tr>
@@ -193,6 +214,7 @@ export function HandoverClient({ rows, today }: { rows: HandoverRow[]; today: st
                 const s = r.handover?.status ?? 'NONE';
                 return (
                   <tr key={r.projectId} className="hover:bg-slate-50">
+                    {canDelete && <td className="py-3 px-4">{r.handover && <SelectBox id={r.handover.id} label={`${r.code} ${r.name}`} />}</td>}
                     <td className="py-3 px-4">
                       <Link href={`/projects/${r.projectId}`} className="font-semibold text-slate-800 hover:text-[#2453d4] hover:underline">
                         {r.name}
@@ -235,5 +257,17 @@ export function HandoverClient({ rows, today }: { rows: HandoverRow[]; today: st
 
       {editing && <HandoverDialog row={editing} today={today} onClose={() => setEditing(null)} />}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteHandoversAction}
+      noun="รายการส่งมอบ"
+      unit="รายการ"
+      hint="ลบได้เฉพาะรายการที่ลูกค้ายังไม่รับมอบ รายการที่รับมอบแล้ว (ออกใบรับประกันแล้ว) ลบไม่ได้"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

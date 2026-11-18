@@ -5,6 +5,8 @@ import { formatThaiDateTime, TRIP_STATUS_LABEL, TRIP_STATUS_TONE, type TripStatu
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listTrips } from '@/server/services/vehicles';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteVehicleTripsAction } from '@/app/(app)/delete-actions';
 
 const FILTERS: { key: string; label: string; statuses?: TripStatus[] }[] = [
   { key: 'open', label: 'ยังไม่ปิด', statuses: ['REQUESTED', 'APPROVED', 'IN_USE'] },
@@ -23,17 +25,22 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
   const filter = FILTERS.find((f) => f.key === params.filter) ?? FILTERS[0]!;
   const trips = await listTrips(await getDb(), actor, { scope, status: filter.statuses });
   const href = (p: { scope?: string; filter?: string }) => `/vehicles?scope=${p.scope ?? scope}&filter=${p.filter ?? filter.key}`;
+  // Owner and admin: a trip not under way can be removed for good
+  const canDelete = can(actor, 'data.delete');
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">การใช้รถ</h1>
           <p className="text-xs text-slate-500">ขอใช้รถ รอการอนุมัติ รับรถ ส่งตำแหน่งระหว่างขับ และคืนรถ</p>
         </div>
-        <Link href="/vehicles/new" prefetch={false} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab]">
-          <Plus className="h-4 w-4" /> ขอใช้รถ
-        </Link>
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          <Link href="/vehicles/new" prefetch={false} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab]">
+            <Plus className="h-4 w-4" /> ขอใช้รถ
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -51,6 +58,11 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
             {f.label}
           </Link>
         ))}
+        {canDelete && trips.length > 0 && (
+          <label className="ml-auto inline-flex items-center gap-1.5 text-slate-600">
+            <SelectAllBox items={trips.map((t) => ({ id: t.id, label: t.number }))} /> เลือกทั้งหมด
+          </label>
+        )}
       </div>
 
       {trips.length === 0 ? (
@@ -58,7 +70,13 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
       ) : (
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {trips.map((t) => (
-            <li key={t.id}>
+            <li key={t.id} className="relative">
+              {/* Beside the card, not inside it: a tick must not open the trip */}
+              {canDelete && (
+                <span className="absolute bottom-4 right-4 z-10">
+                  <SelectBox id={t.id} label={t.number} />
+                </span>
+              )}
               <Link href={`/vehicles/${t.id}`} prefetch={false} className="block h-full rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-xs transition hover:border-[#2453d4]">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -99,5 +117,17 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
         </ul>
       )}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteVehicleTripsAction}
+      noun="รายการใช้รถ"
+      unit="รายการ"
+      hint="ลบได้เฉพาะรายการที่ขอไว้ ไม่อนุมัติ ยกเลิก หรือคืนรถแล้ว รายการที่อนุมัติแล้วต้องยกเลิกก่อน รายการที่กำลังใช้รถหรือมีค่าใช้จ่ายที่เบิกเงินทดรองไปแล้วจะไม่ถูกลบ"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

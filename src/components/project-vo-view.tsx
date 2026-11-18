@@ -6,6 +6,8 @@ import { Eye, FileSpreadsheet, Pencil, Plus } from 'lucide-react';
 import { VO_STATUSES, VO_STATUS_LABELS, isVoEditable, type VoStatus } from '@/domain/variation-order';
 import type { ProjectVoList } from '@/server/services/variation-orders';
 import { VoFormDialog } from '@/components/vo-form-dialog';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteVariationOrdersAction } from '@/app/(app)/delete-actions';
 import {
   cancelVoAction,
   decideVoAction,
@@ -16,6 +18,8 @@ import {
 interface Props {
   data: ProjectVoList;
   location?: string;
+  /** Owner and admin: a VO not approved can be removed for good, with its BOQ */
+  canDelete?: boolean;
 }
 
 const STATUS_BADGE: Record<VoStatus, string> = {
@@ -28,7 +32,7 @@ const STATUS_BADGE: Record<VoStatus, string> = {
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function ProjectVoView({ data, location = '' }: Props) {
+export function ProjectVoView({ data, location = '', canDelete = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +72,7 @@ export function ProjectVoView({ data, location = '' }: Props) {
     ['วันขยายเวลา', `${contract.extensionDays} วัน`],
   ];
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {kpis.map(([label, value, tone]) => (
@@ -86,6 +90,7 @@ export function ProjectVoView({ data, location = '' }: Props) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 flex flex-wrap items-center gap-2 border-b border-slate-100">
+          {canDelete && <BulkDeleteBar />}
           {canManage && (
             <button
               type="button"
@@ -129,6 +134,11 @@ export function ProjectVoView({ data, location = '' }: Props) {
           <table className="w-full text-xs min-w-[1000px]">
             <thead className="bg-[#102d72] text-white">
               <tr>
+                {canDelete && (
+                  <th className="w-8 px-3 py-2">
+                    <SelectAllBox items={filtered.map((v) => ({ id: v.id, label: v.number }))} />
+                  </th>
+                )}
                 <th className="px-3 py-2 text-left">เลขที่ VO / วันที่</th>
                 <th className="px-3 py-2 text-left">ประเภท / รายละเอียด</th>
                 <th className="px-3 py-2 text-left">ผู้ร้องขอ</th>
@@ -143,7 +153,7 @@ export function ProjectVoView({ data, location = '' }: Props) {
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={canDelete ? 10 : 9} className="py-12 text-center text-slate-400">
                     ยังไม่พบรายการ VO
                   </td>
                 </tr>
@@ -152,6 +162,11 @@ export function ProjectVoView({ data, location = '' }: Props) {
                 const editable = canManage && isVoEditable(v.status);
                 return (
                   <tr key={v.id} className={v.status === 'CANCELLED' ? 'opacity-60' : ''}>
+                    {canDelete && (
+                      <td className="px-3 py-2">
+                        <SelectBox id={v.id} label={v.number} />
+                      </td>
+                    )}
                     <td className="px-3 py-2">
                       <div className="font-mono font-semibold">{v.number}</div>
                       <div className="text-slate-400">{v.requestDate}</div>
@@ -270,5 +285,17 @@ export function ProjectVoView({ data, location = '' }: Props) {
         />
       )}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteVariationOrdersAction}
+      noun="VO"
+      unit="รายการ"
+      hint="ลบได้เฉพาะ VO ที่ยังไม่อนุมัติ BOQ ของ VO จะถูกลบไปด้วย VO ที่อนุมัติแล้ว หรือที่มีใบขอซื้อ/ใบสั่งซื้อซื้อตาม BOQ ของ VO จะไม่ถูกลบ"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

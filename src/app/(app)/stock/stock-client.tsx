@@ -65,7 +65,8 @@ function deltaAt(m: StockMovementDto, key: string | undefined): number {
 const card = 'overflow-hidden rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.3)]';
 const tableHead = 'bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0';
 
-export function StockClient({ data, docOptions }: { data: StockPageData; docOptions: StockDocOptions }) {
+/** `canDelete`: owner and admin may remove stock counts and adjustment requests not approved */
+export function StockClient({ data, docOptions, canDelete = false }: { data: StockPageData; docOptions: StockDocOptions; canDelete?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
@@ -176,10 +177,10 @@ export function StockClient({ data, docOptions }: { data: StockPageData; docOpti
           onCreateDoc={canMoveAnything ? () => setMovementDialog({ kind: 'RECEIVE' }) : undefined}
         />
       )}
-      {currentTab === 'stock-count' && <StockCountTab data={data} />}
+      {currentTab === 'stock-count' && <StockCountTab data={data} canDelete={canDelete} />}
       {/* document-history is the old address of the adjustment list, kept for links in notifications */}
       {(currentTab === 'stock-adjust' || currentTab === 'document-history') && (
-        <StockAdjustTab data={data} onCreate={canMoveAnything ? () => setMovementDialog({ kind: 'ADJUST' }) : undefined} />
+        <StockAdjustTab data={data} canDelete={canDelete} onCreate={canMoveAnything ? () => setMovementDialog({ kind: 'ADJUST' }) : undefined} />
       )}
 
       {movementDialog &&

@@ -21,12 +21,15 @@ export function ReportsPanel({
   today,
   preparedBy,
   logoUrl,
+  canDelete = false,
 }: {
   project: DailyProject;
   tasks: DailyTaskOption[];
   today: string;
   preparedBy: string;
   logoUrl: string | null;
+  /** Owner and admin may remove daily reports */
+  canDelete?: boolean;
 }) {
   const [tab, setTab] = useState<ReportTab>('DAILY');
 
@@ -63,6 +66,7 @@ export function ReportsPanel({
           today={today}
           preparedBy={preparedBy}
           logoUrl={logoUrl}
+          canDelete={canDelete}
           renderToolbar={(onNew) => (
             <div className="flex flex-wrap items-stretch rounded-b-xl border border-t-0 border-slate-200 bg-white shadow-xs">
               <RibbonGroup caption="ประเภทรายงาน">

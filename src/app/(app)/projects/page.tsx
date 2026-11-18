@@ -28,6 +28,7 @@ export default async function ProjectsPage() {
         startDate: p.startDate,
         endDate: p.endDate,
         createdAt: p.createdAt,
+        canDelete: can(actor, 'project.delete', { projectId: p.id }),
       }))}
     />
   );

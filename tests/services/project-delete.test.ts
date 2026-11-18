@@ -28,6 +28,7 @@ import {
   stockBalances,
   stockItems,
   stockMovements,
+  vehicleTripExpenses,
   whtCerts,
 } from '@/db/schema';
 import { type Db } from '@/db/client';
@@ -330,5 +331,27 @@ describe('deleting a project', () => {
     expect(rows.filter((r) => r.on_delete === 'c').map((r) => r.table_name).sort()).toEqual(
       ['boqs', 'daily_reports', 'milestones', 'notifications', 'project_events', 'project_handovers', 'project_members', 'project_tasks', 'stock_balances', 'stock_count_lines', 'variation_orders', 'warranty_defects'].sort(),
     );
+  });
+});
+
+describe('trip costs claimed on the project', () => {
+  test("a project whose advance carries a vehicle's trip costs can be deleted, and the costs can be claimed again", async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const { createAsset } = await import('@/server/services/assets');
+    const { requestAdvance } = await import('@/server/services/advances');
+    const { requestTrip, saveVehicleProfile, VEHICLE_CATEGORY } = await import('@/server/services/vehicles');
+    const pickup = (await createAsset(db, f.users.admin, { name: 'กระบะ', category: VEHICLE_CATEGORY, serialNo: 'กข 1' })).id;
+    await saveVehicleProfile(db, f.users.admin, pickup, { plateNo: '1กข 1', odometerKm: 1000, serviceEveryKm: null, lastServiceKm: null, bookable: true });
+    const trip = await requestTrip(db, f.users.foreman, { assetId: pickup, projectId: f.projectA, purpose: 'ขนปูน', plannedStart: new Date(Date.now() + 3_600_000), plannedEnd: new Date(Date.now() + 7_200_000) });
+    const claim = await requestAdvance(db, f.users.foreman, { projectId: f.projectA, purpose: 'เบิกค่าน้ำมัน', amount: 500 });
+    const [cost] = await db.insert(vehicleTripExpenses).values({ tripId: trip.id, kind: 'FUEL', amount: '500', paidOn: '2026-11-18', claimId: claim.id, createdBy: f.users.foreman.id }).returning();
+
+    const [row] = await db.select().from(projects).where(eq(projects.id, f.projectA));
+    await deleteProject(db, f.users.admin, f.projectA, row!.code);
+
+    expect(await exists(db, f.projectA)).toBe(false);
+    const [after] = await db.select().from(vehicleTripExpenses).where(eq(vehicleTripExpenses.id, cost!.id));
+    expect(after!.claimId).toBeNull();
   });
 });

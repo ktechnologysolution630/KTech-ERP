@@ -11,6 +11,7 @@ import { countProjectSite } from '@/server/services/project-site';
 import { getSettings } from '@/server/services/settings';
 import { computeProjectProgress } from '@/domain/schedule';
 import { bangkokDateString } from '@/domain/thai';
+import { can } from '@/server/policy';
 import { loadProjectOr404 } from './load-project';
 import { ProjectWorkspaceClient, type WorkspaceTab } from './project-workspace-client';
 
@@ -85,6 +86,7 @@ export default async function ProjectWorkspacePage({ params, searchParams }: Pag
       allUsers={allUsers.map((u) => ({ id: u.id, name: u.name, email: u.email }))}
       initialBoq={boqSheet.boq}
       canEditBoq={boqSheet.canEdit}
+      canDelete={can(actor, 'data.delete')}
     />
   );
 }

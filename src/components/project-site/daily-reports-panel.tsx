@@ -17,6 +17,8 @@ import {
 import { A4Page, Band, Logo, PrintRoot, ReportPhoto } from './report-sheet';
 import { replacePhotoFile, uploadFile, useSiteLoader } from './use-site-loader';
 import { DateInput } from '@/components/date-input';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox, type DeleteAction } from '@/components/bulk-delete';
+import { deleteDailyReportsAction } from '@/app/(app)/delete-actions';
 
 const WEATHER: Record<DailyWeather, string> = { SUNNY: 'แดด', CLOUDY: 'เมฆครึ้ม', RAIN: 'ฝนตก', HEAVY_RAIN: 'ฝนตกหนัก', OTHER: 'อื่นๆ' };
 const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-[#2453d4] focus:outline-none bg-white disabled:bg-slate-50';
@@ -53,6 +55,7 @@ export function DailyReportsPanel({
   preparedBy,
   logoUrl,
   renderToolbar,
+  canDelete = false,
 }: {
   project: DailyProject;
   tasks: DailyTaskOption[];
@@ -60,6 +63,7 @@ export function DailyReportsPanel({
   preparedBy: string;
   logoUrl: string | null;
   renderToolbar: (onNew: () => void) => React.ReactNode;
+  canDelete?: boolean;
 }) {
   const [view, setView] = useState<View>({ kind: 'list' });
   const [editing, setEditing] = useState<Editing>(null);
@@ -72,7 +76,7 @@ export function DailyReportsPanel({
       {view.kind === 'view' ? (
         <ReportView key={`${view.id}-${revision}`} project={project} reportId={view.id} tasks={tasks} logoUrl={logoUrl} onBack={() => setView({ kind: 'list' })} onEdit={() => setEditing({ id: view.id })} />
       ) : (
-        <ReportList key={revision} projectId={project.id} onOpen={(id) => setView({ kind: 'view', id })} />
+        <ReportList key={revision} projectId={project.id} canDelete={canDelete} onOpen={(id) => setView({ kind: 'view', id })} />
       )}
       {editing && (
         <ReportEditor
@@ -94,15 +98,34 @@ export function DailyReportsPanel({
   );
 }
 
-function ReportList({ projectId, onOpen }: { projectId: string; onOpen: (id: string) => void }) {
-  const { data, error } = useSiteLoader(() => loadDailyReportsAction(projectId), [projectId]);
-  return (
+function ReportList({ projectId, canDelete, onOpen }: { projectId: string; canDelete: boolean; onOpen: (id: string) => void }) {
+  const { data, error, reload } = useSiteLoader(() => loadDailyReportsAction(projectId), [projectId]);
+  // The list is loaded here rather than drawn by the server, so a refresh alone would not drop what was deleted
+  const deleteReports: DeleteAction = async (ids) => {
+    const r = await deleteDailyReportsAction(ids);
+    if (r.ok) await reload();
+    return r;
+  };
+  const label = (r: { number: string; reportDate: string }) => `${r.number} · ${dateText(r.reportDate)}`;
+  const cols = canDelete ? 7 : 6;
+
+  const list = (
     <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
+      {canDelete && (
+        <div className="flex justify-end border-b border-slate-100 p-2">
+          <BulkDeleteBar />
+        </div>
+      )}
       {error && <p className="p-3 text-xs text-red-600">{error}</p>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-xs">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2">
+                  <SelectAllBox items={(data ?? []).map((r) => ({ id: r.id, label: label(r) }))} />
+                </th>
+              )}
               <th className="px-3 py-2 text-left font-medium">เลขที่ / วันที่</th>
               <th className="px-3 py-2 text-left font-medium">สภาพอากาศ</th>
               <th className="px-3 py-2 text-right font-medium">คนงาน</th>
@@ -114,19 +137,24 @@ function ReportList({ projectId, onOpen }: { projectId: string; onOpen: (id: str
           <tbody className="divide-y divide-slate-100">
             {!data ? (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-slate-400">
+                <td colSpan={cols} className="py-10 text-center text-slate-400">
                   กำลังโหลด...
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-500">
+                <td colSpan={cols} className="py-12 text-center text-slate-500">
                   ยังไม่มีรายงานสำหรับโครงการนี้ — กด &quot;สร้างรายงาน&quot; เพื่อเริ่ม
                 </td>
               </tr>
             ) : (
               data.map((r) => (
                 <tr key={r.id} onClick={() => onOpen(r.id)} className="hover:bg-slate-50 cursor-pointer">
+                  {canDelete && (
+                    <td className="px-3 py-2">
+                      <SelectBox id={r.id} label={label(r)} />
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <div className="font-mono font-semibold text-[#2453d4]">{r.number}</div>
                     <div className="text-slate-500">{dateText(r.reportDate)}</div>
@@ -153,6 +181,17 @@ function ReportList({ projectId, onOpen }: { projectId: string; onOpen: (id: str
         </table>
       </div>
     </div>
+  );
+
+  if (!canDelete) return list;
+  return (
+    <BulkDeleteProvider
+      action={deleteReports}
+      noun="รายงานประจำวัน"
+      hint="รายงานที่เลือกจะถูกลบ ความคืบหน้างานที่บันทึกจากรายงานที่ส่งแล้วยังคงอยู่ในงาน"
+    >
+      {list}
+    </BulkDeleteProvider>
   );
 }
 

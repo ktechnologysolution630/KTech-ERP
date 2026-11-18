@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ShoppingCart, Search, Folder, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import type { PoStatus } from '@/db/schema';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deletePosAction } from '@/app/(app)/delete-actions';
 
 interface PoItem {
   id: string;
@@ -33,9 +35,12 @@ interface ProjectStat {
 export function PoListClient({
   projectStats,
   allPos,
+  canDelete = false,
 }: {
   projectStats: ProjectStat[];
   allPos: PoItem[];
+  /** Admin only: a PO nothing depends on can be removed for good */
+  canDelete?: boolean;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
@@ -61,7 +66,7 @@ export function PoListClient({
     );
   });
 
-  return (
+  const page = (
     <div className="space-y-4 font-sans text-slate-800">
       {/* Header (Image 2) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -73,6 +78,7 @@ export function PoListClient({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {canDelete && <BulkDeleteBar />}
           {/* Search Box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -163,30 +169,33 @@ export function PoListClient({
                           <tr>
                             <td colSpan={5} className="bg-slate-50/70 p-3 pl-10 border-t border-slate-100">
                               <div className="space-y-1.5">
-                                <div className="text-[11px] font-semibold text-slate-500 mb-2">
+                                <div className="text-[11px] font-semibold text-slate-500 mb-2 flex items-center gap-2">
+                                  {canDelete && <SelectAllBox items={p.pos.map((po) => ({ id: po.id, label: po.number }))} />}
                                   รายการใบสั่งซื้อในโครงการ ({p.pos.length} ฉบับ):
                                 </div>
                                 <div className="grid grid-cols-1 gap-2">
                                   {p.pos.map((po) => (
-                                    <Link
-                                      key={po.id}
-                                      href={`/po/${po.id}`}
-                                      className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#2453d4] hover:shadow-xs transition"
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <FileText className="w-4 h-4 text-slate-400" />
-                                        <span className="font-mono font-bold text-[#2453d4]">{po.number}</span>
-                                        <span className="text-slate-600 truncate max-w-xs">
-                                          ผู้ขาย: {po.vendorName}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-4">
-                                        <span className="font-bold text-slate-900 text-xs">
-                                          ฿{Number(po.gross).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                                        </span>
-                                        <DocStatusBadge status={po.status} />
-                                      </div>
-                                    </Link>
+                                    <div key={po.id} className="flex items-center gap-2">
+                                      {canDelete && <SelectBox id={po.id} label={po.number} />}
+                                      <Link
+                                        href={`/po/${po.id}`}
+                                        className="flex flex-1 items-center justify-between p-2.5 rounded-lg bg-white border border-slate-200 hover:border-[#2453d4] hover:shadow-xs transition"
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <FileText className="w-4 h-4 text-slate-400" />
+                                          <span className="font-mono font-bold text-[#2453d4]">{po.number}</span>
+                                          <span className="text-slate-600 truncate max-w-xs">
+                                            ผู้ขาย: {po.vendorName}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                          <span className="font-bold text-slate-900 text-xs">
+                                            ฿{Number(po.gross).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                                          </span>
+                                          <DocStatusBadge status={po.status} />
+                                        </div>
+                                      </Link>
+                                    </div>
                                   ))}
                                 </div>
                               </div>
@@ -206,6 +215,11 @@ export function PoListClient({
             <table className="w-full min-w-[700px] text-xs">
               <thead className="bg-[#102d72] text-xs text-white">
                 <tr>
+                  {canDelete && (
+                    <th className="w-8 px-4 py-3">
+                      <SelectAllBox items={filteredAllPos.map((po) => ({ id: po.id, label: po.number }))} />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left font-medium">เลขที่ PO</th>
                   <th className="px-4 py-3 text-left font-medium">โครงการ</th>
                   <th className="px-4 py-3 text-left font-medium">ผู้ขาย</th>
@@ -217,13 +231,18 @@ export function PoListClient({
               <tbody className="divide-y divide-slate-100">
                 {filteredAllPos.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                    <td colSpan={canDelete ? 7 : 6} className="py-12 text-center text-slate-400 text-xs">
                       ยังไม่มีรายการใบสั่งซื้อ PO
                     </td>
                   </tr>
                 ) : (
                   filteredAllPos.map((po) => (
                     <tr key={po.id} className="hover:bg-slate-50 transition">
+                      {canDelete && (
+                        <td className="px-4 py-3">
+                          <SelectBox id={po.id} label={po.number} />
+                        </td>
+                      )}
                       <td className="px-4 py-3 font-mono font-bold text-[#2453d4]">
                         <Link href={`/po/${po.id}`} className="hover:underline">
                           {po.number}
@@ -253,5 +272,16 @@ export function PoListClient({
         )}
       </div>
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deletePosAction}
+      noun="ใบสั่งซื้อ"
+      hint="ใบสั่งซื้อที่มีการรับของ ใบแจ้งหนี้ ใบสำคัญจ่าย หรือใบขอเบิกอ้างถึง จะไม่ถูกลบ (ใช้ยกเลิกแทน)"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

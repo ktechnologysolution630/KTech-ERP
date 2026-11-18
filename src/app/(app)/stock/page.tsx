@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client';
 import { bangkokDateString } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listVendors } from '@/server/services/master';
 import { getStockPageData } from '@/server/services/stock';
 import { listBoqTreeForStock, listStockDocs } from '@/server/services/stock-docs';
@@ -13,6 +14,7 @@ export default async function StockPage() {
   return (
     <StockClient
       data={data}
+      canDelete={can(actor, 'data.delete')}
       docOptions={{
         vendors: vendors.filter((v) => v.active).map((v) => ({ id: v.id, code: v.code, name: v.name })),
         boqTree,

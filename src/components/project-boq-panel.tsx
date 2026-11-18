@@ -7,6 +7,8 @@ import type { BoqDocumentDto } from '@/server/services/boq';
 import type { VoBoqSheet } from '@/server/services/variation-orders';
 import { BoqSheetEditor } from '@/components/boq-sheet-editor';
 import { loadVoBoqAction } from '@/app/(app)/projects/[id]/vo-actions';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteBoqsAction } from '@/app/(app)/delete-actions';
 
 export interface VoBoqRow {
   voId: string;
@@ -26,6 +28,8 @@ interface ProjectBoqPanelProps {
   mainBoq: BoqDocumentDto | null;
   canEdit: boolean;
   voBoqs?: VoBoqRow[];
+  /** Owner and admin: the main BOQ nothing was bought against can be removed for good */
+  canDelete?: boolean;
 }
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -98,6 +102,7 @@ export function ProjectBoqPanel({
   mainBoq,
   canEdit,
   voBoqs = [],
+  canDelete = false,
 }: ProjectBoqPanelProps) {
   const [open, setOpen] = useState<{ kind: 'MAIN' } | { kind: 'VO'; voId: string } | null>(null);
 
@@ -148,16 +153,29 @@ export function ProjectBoqPanel({
           <h3 className="text-base font-bold text-slate-900">BOQ</h3>
           <p className="text-xs text-slate-500 mt-0.5">รายการ BOQ ของโครงการ แยก BOQ หลักและ BOQ ที่สร้างจาก VO</p>
         </div>
-        {(mainBoq || canEdit) && (
-          <button
-            type="button"
-            onClick={() => setOpen({ kind: 'MAIN' })}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition"
-          >
-            {mainBoq ? <FileText className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {mainBoq ? 'เปิด BOQ หลัก' : 'สร้าง BOQ หลัก'}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* A VO's BOQ goes with its VO, on the VO tab */}
+          {canDelete && mainBoq && (
+            <DeleteDocButton
+              action={deleteBoqsAction}
+              id={mainBoq.id}
+              label={mainBoq.number}
+              noun="BOQ"
+              hint="BOQ ทั้งชุดและทุกรายการจะถูกลบ ถ้ามีใบขอซื้อหรือใบสั่งซื้อซื้อตามรายการใน BOQ นี้แล้วจะลบไม่ได้"
+              backTo={`/projects/${projectId}?tab=boq`}
+            />
+          )}
+          {(mainBoq || canEdit) && (
+            <button
+              type="button"
+              onClick={() => setOpen({ kind: 'MAIN' })}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition"
+            >
+              {mainBoq ? <FileText className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {mainBoq ? 'เปิด BOQ หลัก' : 'สร้าง BOQ หลัก'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
