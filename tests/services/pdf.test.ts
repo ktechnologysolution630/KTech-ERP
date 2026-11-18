@@ -186,6 +186,8 @@ describe('PO and PR pdfs print the K TECH form', () => {
     ]) {
       expect(text).toContain(shown);
     }
+    // The approver signs in the left-hand slot, the purchaser and the purchasing head to the right
+    expect(text).toMatch(/เงื่อนไข\/CONDITION.*ผู้มีอำนาจลงนาม.*ผู้จัดซื้อ.*ผู้จัดการแผนกจัดซื้อ/);
     for (const gone of [
       ...HEADER_GONE,
       // The payment box at the foot is gone
