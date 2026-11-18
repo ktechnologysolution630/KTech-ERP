@@ -4,6 +4,8 @@ import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listBoqOverrunRequests } from '@/server/services/boq-overrun';
 import { ApDecisionButtons } from '@/components/boq-overrun-panel';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteBoqOverrunRequestsAction } from '@/app/(app)/delete-actions';
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -14,6 +16,8 @@ export default async function PurchasingApPage() {
   const db = await getDb();
   const requests = await listBoqOverrunRequests(db, actor);
   const canDecide = can(actor, 'boqOverrun.approve');
+  // Owner and admin: a request not approved can be removed for good
+  const canDelete = can(actor, 'data.delete');
 
   // Per-project roll-up: counts by status and the total approved over-BOQ value
   const byProject = new Map<
@@ -40,11 +44,16 @@ export default async function PurchasingApPage() {
     byProject.set(r.projectId, row);
   }
 
-  return (
+  const label = (r: (typeof requests)[number]) => `${r.number} · ${r.projectName}`;
+
+  const page = (
     <div className="space-y-4 font-sans text-slate-800">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">ใบ AP</h1>
-        <p className="text-xs text-slate-500 mt-0.5">ติดตามใบขออนุมัติสั่งซื้อเพิ่มเติมจาก BOQ</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">ใบ AP</h1>
+          <p className="text-xs text-slate-500 mt-0.5">ติดตามใบขออนุมัติสั่งซื้อเพิ่มเติมจาก BOQ</p>
+        </div>
+        {canDelete && <BulkDeleteBar />}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -93,6 +102,11 @@ export default async function PurchasingApPage() {
             <table className="w-full min-w-[900px] text-xs">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
+                  {canDelete && (
+                    <th className="w-8 px-4 py-2">
+                      <SelectAllBox items={requests.map((r) => ({ id: r.id, label: label(r) }))} />
+                    </th>
+                  )}
                   <th className="px-4 py-2 text-left">เลขที่ / วันที่</th>
                   <th className="px-4 py-2 text-left">โครงการ</th>
                   <th className="px-4 py-2 text-left">PO</th>
@@ -105,6 +119,11 @@ export default async function PurchasingApPage() {
               <tbody className="divide-y divide-slate-100">
                 {requests.map((r) => (
                   <tr key={r.id}>
+                    {canDelete && (
+                      <td className="px-4 py-2">
+                        <SelectBox id={r.id} label={label(r)} />
+                      </td>
+                    )}
                     <td className="px-4 py-2">
                       <div className="font-mono font-semibold">{r.number}</div>
                       <div className="text-slate-400">{new Date(r.createdAt).toLocaleDateString('th-TH')}</div>
@@ -133,5 +152,16 @@ export default async function PurchasingApPage() {
         </div>
       )}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteBoqOverrunRequestsAction}
+      noun="ใบ AP"
+      hint="ลบได้เฉพาะใบ AP ที่ยังไม่อนุมัติ (รออนุมัติ / ไม่อนุมัติ / ยกเลิก) ใบที่อนุมัติแล้วเป็นหลักฐานการอนุมัติใบสั่งซื้อ จึงลบไม่ได้"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

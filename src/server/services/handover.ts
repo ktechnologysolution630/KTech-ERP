@@ -57,6 +57,7 @@ export interface HandoverRow {
   projectStatus: ProjectStatus;
   canManage: boolean;
   handover: {
+    id: string;
     status: HandoverStatus;
     handoverDate: string;
     receivedBy: string;
@@ -93,6 +94,7 @@ export async function listHandovers(db: Db, actor: SessionUser): Promise<Handove
         canManage: can(actor, 'project.manage', { projectId: p.id }),
         handover: h
           ? {
+              id: h.id,
               status: h.status,
               handoverDate: h.handoverDate,
               receivedBy: h.receivedBy,

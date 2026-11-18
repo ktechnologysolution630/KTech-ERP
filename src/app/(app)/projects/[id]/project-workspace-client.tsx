@@ -106,6 +106,8 @@ interface ProjectWorkspaceProps {
   allUsers?: { id: string; name: string; email: string }[];
   initialBoq?: BoqDocumentDto | null;
   canEditBoq?: boolean;
+  /** Owner and admin: VOs, the main BOQ and daily reports can be removed for good */
+  canDelete?: boolean;
   taskList: ProjectTaskList;
   /** Bangkok date `yyyy-mm-dd`, computed on the server so overdue checks match */
   today: string;
@@ -130,6 +132,7 @@ export function ProjectWorkspaceClient({
   allUsers = [],
   initialBoq = null,
   canEditBoq = false,
+  canDelete = false,
   taskList,
   today,
   initialTab = 'overview',
@@ -739,6 +742,7 @@ export function ProjectWorkspaceClient({
               location={project.location}
               mainBoq={initialBoq}
               canEdit={canEditBoq}
+              canDelete={canDelete}
               voBoqs={voData.vos.map((v) => ({
                 voId: v.id,
                 voNumber: v.number,
@@ -770,7 +774,7 @@ export function ProjectWorkspaceClient({
         {/* Tab 5: งานเพิ่ม/ลด (VO) - Matching reference Screenshot media_1793676877859_b0f738bb.png */}
         {activeTab === 'vo' && (
           <div className="animate-glass-card">
-            <ProjectVoView data={voData} location={project.location} />
+            <ProjectVoView data={voData} location={project.location} canDelete={canDelete} />
           </div>
         )}
 
@@ -796,6 +800,7 @@ export function ProjectWorkspaceClient({
             today={today}
             preparedBy={meName}
             logoUrl={companyLogoUrl}
+            canDelete={canDelete}
             // Only leaf tasks carry progress; a parent just groups its children
             tasks={tasks.filter((t) => !tasks.some((c) => c.parentId === t.id)).map((t) => ({ id: t.id, wbs: t.wbs, title: t.title, progress: t.progress }))}
           />

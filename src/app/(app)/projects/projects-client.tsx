@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, CheckCircle, Table as TableIcon, Plus, Folder, Building2, Calendar, MapPin, ArrowRight } from 'lucide-react';
+import { Search, Filter, CheckCircle, Table as TableIcon, Plus, Folder, Building2, Calendar, MapPin, ArrowRight, Trash2 } from 'lucide-react';
 import { PROJECT_STATUSES, PROJECT_STATUS_LABELS, isProjectClosed, type ProjectStatus } from '@/domain/project';
 import { CreateProjectDialog } from '@/components/create-project-dialog';
 
@@ -19,6 +20,8 @@ interface Project {
   startDate: string | null;
   endDate: string | null;
   createdAt: Date;
+  /** Owner and admin; the delete itself (preview and typed code) is on the project's settings tab */
+  canDelete: boolean;
 }
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
@@ -59,6 +62,19 @@ export function ProjectsClient({
     }
     return true;
   });
+  const showDelete = initialProjects.some((p) => p.canDelete);
+  // Inside a clickable row or card: the click must not also open the project
+  const deleteLink = (p: Project) => (
+    <Link
+      href={`/projects/${p.id}?tab=settings`}
+      onClick={(e) => e.stopPropagation()}
+      title={`ลบโครงการ ${p.code}`}
+      aria-label={`ลบโครงการ ${p.code}`}
+      className="inline-flex rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-700"
+    >
+      <Trash2 className="w-3.5 h-3.5" />
+    </Link>
+  );
 
   return (
     <div className="space-y-4">
@@ -172,6 +188,7 @@ export function ProjectsClient({
                 <th className="px-4 py-3 text-left font-medium">ความคืบหน้า</th>
                 <th className="px-4 py-3 text-left font-medium">สถานะ</th>
                 <th className="px-4 py-3 text-left font-medium">วันที่บันทึก</th>
+                {showDelete && <th className="w-10 px-2 py-3" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -214,6 +231,7 @@ export function ProjectsClient({
                       year: 'numeric',
                     })}
                   </td>
+                  {showDelete && <td className="px-2 py-3 text-center">{p.canDelete && deleteLink(p)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -266,9 +284,12 @@ export function ProjectsClient({
                     })}
                   </span>
                 </div>
-                <span className="text-[#2453d4] font-medium flex items-center gap-1">
-                  เข้าสู่โครงการ <ArrowRight className="w-3 h-3" />
-                </span>
+                <div className="flex items-center gap-2">
+                  {p.canDelete && deleteLink(p)}
+                  <span className="text-[#2453d4] font-medium flex items-center gap-1">
+                    เข้าสู่โครงการ <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
               </div>
             </div>
           ))}

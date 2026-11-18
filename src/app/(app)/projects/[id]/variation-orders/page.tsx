@@ -1,5 +1,6 @@
 import { getDb } from '@/db/client';
 import { listProjectVos } from '@/server/services/variation-orders';
+import { can } from '@/server/policy';
 import { ProjectVoView } from '@/components/project-vo-view';
 import { loadProjectOr404 } from '../load-project';
 
@@ -15,7 +16,7 @@ export default async function ProjectVariationOrdersPage({ params }: PageProps) 
 
   return (
     <div className="space-y-4">
-      <ProjectVoView data={data} location={project.location} />
+      <ProjectVoView data={data} location={project.location} canDelete={can(actor, 'data.delete')} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   arReceipts,
   assets,
   vehicleTrips,
+  vehicleTripExpenses,
   attachments,
   boqLines,
   boqOverrunRequests,
@@ -289,6 +290,8 @@ export async function deleteProject(db: Db, actor: SessionUser, projectId: strin
       await tx.update(advanceExpenses).set({ substituteId: null }).where(inArray(advanceExpenses.substituteId, d.substituteIds));
       await tx.delete(receiptSubstitutes).where(inArray(receiptSubstitutes.id, d.substituteIds));
       await tx.update(receiptSubstitutes).set({ advanceId: null }).where(inArray(receiptSubstitutes.advanceId, d.advanceIds));
+      // Trip costs claimed on these advances can be claimed again
+      await tx.update(vehicleTripExpenses).set({ claimId: null }).where(inArray(vehicleTripExpenses.claimId, d.advanceIds));
       await tx.delete(advances).where(inArray(advances.id, d.advanceIds));
 
       await tx.delete(stockAdjustRequests).where(eq(stockAdjustRequests.projectId, projectId));

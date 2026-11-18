@@ -7,6 +7,8 @@ import { agoText, formatThaiDateTime, fuelLabel, LIVE_STATE_LABEL, TRIP_STATUS_L
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { getTrip, listVehicles } from '@/server/services/vehicles';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteVehicleTripsAction } from '@/app/(app)/delete-actions';
 import { DriverTracker } from './driver-tracker';
 import { CancelTripButton, DecisionPanel, ExpensesPanel, HandoverForm, TripRouteMap } from './trip-panels';
 
@@ -53,6 +55,18 @@ export default async function VehicleTripPage({ params }: { params: Promise<{ id
         <div className="flex flex-col items-end gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${TRIP_STATUS_TONE[trip.status]}`}>{TRIP_STATUS_LABEL[trip.status]}</span>
           {trip.canCancel && <CancelTripButton tripId={trip.id} />}
+          {/* Not under way: the owner or admin can remove it for good */}
+          {['REQUESTED', 'REJECTED', 'CANCELLED', 'RETURNED'].includes(trip.status) && can(actor, 'data.delete') && (
+            <DeleteDocButton
+              action={deleteVehicleTripsAction}
+              id={trip.id}
+              label={`${trip.number} · ${trip.plateNo || trip.vehicleCode}`}
+              noun="รายการใช้รถ"
+              unit="รายการ"
+              hint="ลบได้เฉพาะรายการที่ขอไว้ ไม่อนุมัติ ยกเลิก หรือคืนรถแล้ว รายการที่อนุมัติแล้วต้องยกเลิกก่อน รายการที่กำลังใช้รถหรือมีค่าใช้จ่ายที่เบิกเงินทดรองไปแล้วจะไม่ถูกลบ"
+              backTo="/vehicles"
+            />
+          )}
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, X } from 'lucide-react';
-import type { DeleteOutcome } from '@/server/services/accounting-delete';
+import type { DeleteOutcome } from '@/server/services/record-delete';
 
 /**
  * Tick-and-delete for a list the server draws: the page wraps its table in BulkDeleteProvider and puts a SelectBox in
@@ -253,6 +253,9 @@ export function ConfirmDelete({
   );
 }
 
+/** ลบใบสำคัญจ่าย, but ลบ BOQ: a Latin name gets a space */
+const deleteWord = (noun: string) => (/^[A-Za-z]/.test(noun) ? `ลบ ${noun}` : `ลบ${noun}`);
+
 /** The delete button of one document's own page; back to the list once it is gone */
 export function DeleteDocButton({
   action,
@@ -261,6 +264,7 @@ export function DeleteDocButton({
   noun,
   hint,
   backTo,
+  unit = 'ใบ',
 }: {
   action: DeleteAction;
   id: string;
@@ -268,6 +272,8 @@ export function DeleteDocButton({
   noun: string;
   hint: string;
   backTo: string;
+  /** Counting word in the result, e.g. รายการ */
+  unit?: string;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -282,14 +288,14 @@ export function DeleteDocButton({
         }}
         className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
       >
-        <Trash2 className="h-4 w-4" /> ลบ{noun}
+        <Trash2 className="h-4 w-4" /> {deleteWord(noun)}
       </button>
       {confirming && (
         <ConfirmDelete
-          title={`ลบ${noun} ${label}`}
+          title={`${deleteWord(noun)} ${label}`}
           labels={[label]}
           hint={hint}
-          confirmLabel={`ลบ${noun}`}
+          confirmLabel={deleteWord(noun)}
           run={() => action([id])}
           onClose={() => setConfirming(false)}
           onDone={(r) => {
@@ -299,7 +305,7 @@ export function DeleteDocButton({
           }}
         />
       )}
-      {result && <DeleteResult result={result} unit="ใบ" onClose={() => setResult(null)} />}
+      {result && <DeleteResult result={result} unit={unit} onClose={() => setResult(null)} />}
     </>
   );
 }

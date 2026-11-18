@@ -52,6 +52,7 @@ export type Action =
   | 'item.delete'
   | 'po.delete'
   | 'accounting.delete'
+  | 'data.delete'
   | 'vehicle.request'
   | 'vehicle.approve'
   | 'vehicle.track'
@@ -237,6 +238,7 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'po.delete': {
       return hasRole(u, ['ADMIN']);
     }
+    case 'data.delete':
     case 'accounting.delete': {
       // Accounting documents and the wipe of all of them: the owner and admin only
       return hasRole(u, ['OWNER', 'ADMIN']);

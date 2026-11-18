@@ -14,6 +14,8 @@ import {
 import type { DefectRow, WarrantyRow } from '@/server/services/handover';
 import { createDefectAction, loadDefectsAction, updateDefectAction } from '../handover/actions';
 import { DateInput } from '@/components/date-input';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox, type DeleteAction } from '@/components/bulk-delete';
+import { deleteWarrantyDefectsAction } from '@/app/(app)/delete-actions';
 
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:border-blue-600 focus:outline-none';
 const thaiDate = (iso: string) => {
@@ -33,7 +35,7 @@ const DEFECT_BADGE: Record<DefectStatus, string> = {
   REJECTED: 'bg-slate-100 text-slate-500',
 };
 
-function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: string }) {
+function DefectsPanel({ warranty, today, canDelete }: { warranty: WarrantyRow; today: string; canDelete: boolean }) {
   const router = useRouter();
   const [defects, setDefects] = useState<DefectRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,14 @@ function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: strin
     });
   };
 
+  // The list is loaded here rather than drawn by the server, so a refresh alone would not drop what was deleted
+  const deleteDefects: DeleteAction = async (ids) => {
+    const r = await deleteWarrantyDefectsAction(ids);
+    if (r.ok) await reload();
+    return r;
+  };
+  const label = (d: DefectRow) => `${d.number} · ${d.title}`;
+
   const setStatus = (d: DefectRow, status: DefectStatus) => {
     let resolution = d.resolution;
     if (status === 'FIXED' || status === 'REJECTED') {
@@ -81,13 +91,18 @@ function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: strin
     });
   };
 
-  return (
+  const panel = (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
         <Wrench className="w-4 h-4 text-slate-500" />
         <h2 className="font-semibold text-sm text-slate-800">
           รายการแจ้งซ่อม · {warranty.code} {warranty.name}
         </h2>
+        {canDelete && (
+          <div className="ml-auto">
+            <BulkDeleteBar />
+          </div>
+        )}
       </div>
 
       {warranty.canRecordDefects && warranty.state !== 'EXPIRED' && (
@@ -107,6 +122,11 @@ function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: strin
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
             <tr>
+              {canDelete && (
+                <th className="w-8 py-2.5 px-4">
+                  <SelectAllBox items={(defects ?? []).map((d) => ({ id: d.id, label: label(d) }))} />
+                </th>
+              )}
               <th className="py-2.5 px-4">เลขที่</th>
               <th className="py-2.5 px-4">รายการ</th>
               <th className="py-2.5 px-4">ตำแหน่ง</th>
@@ -118,16 +138,21 @@ function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: strin
           <tbody className="divide-y divide-slate-100">
             {defects === null && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-400">กำลังโหลด…</td>
+                <td colSpan={canDelete ? 7 : 6} className="py-8 text-center text-slate-400">กำลังโหลด…</td>
               </tr>
             )}
             {defects?.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-400">ยังไม่มีการแจ้งซ่อม</td>
+                <td colSpan={canDelete ? 7 : 6} className="py-8 text-center text-slate-400">ยังไม่มีการแจ้งซ่อม</td>
               </tr>
             )}
             {defects?.map((d) => (
               <tr key={d.id}>
+                {canDelete && (
+                  <td className="py-2.5 px-4">
+                    <SelectBox id={d.id} label={label(d)} />
+                  </td>
+                )}
                 <td className="py-2.5 px-4 font-mono text-slate-700">{d.number}</td>
                 <td className="py-2.5 px-4 text-slate-800">
                   {d.title}
@@ -164,9 +189,25 @@ function DefectsPanel({ warranty, today }: { warranty: WarrantyRow; today: strin
       </div>
     </div>
   );
+
+  if (!canDelete) return panel;
+  return (
+    <BulkDeleteProvider action={deleteDefects} noun="รายการแจ้งซ่อม" unit="รายการ" hint="รายการแจ้งซ่อมที่เลือกจะถูกลบออกจากระบบ">
+      {panel}
+    </BulkDeleteProvider>
+  );
 }
 
-export function WarrantyClient({ rows, today }: { rows: WarrantyRow[]; today: string }) {
+export function WarrantyClient({
+  rows,
+  today,
+  canDelete = false,
+}: {
+  rows: WarrantyRow[];
+  today: string;
+  /** Owner and admin may remove defect reports */
+  canDelete?: boolean;
+}) {
   const [selected, setSelected] = useState<string | null>(rows[0]?.projectId ?? null);
   const current = rows.find((r) => r.projectId === selected) ?? null;
 
@@ -243,7 +284,7 @@ export function WarrantyClient({ rows, today }: { rows: WarrantyRow[]; today: st
         </div>
       </div>
 
-      {current && <DefectsPanel key={current.projectId} warranty={current} today={today} />}
+      {current && <DefectsPanel key={current.projectId} warranty={current} today={today} canDelete={canDelete} />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listProjects } from '@/server/services/master';
 import { listPrs } from '@/server/services/pr';
 import { listPos } from '@/server/services/po';
@@ -37,6 +38,7 @@ export default async function PoListPage() {
     <PoListClient
       projectStats={projectStats}
       allPos={pos}
+      canDelete={can(actor, 'po.delete')}
     />
   );
 }

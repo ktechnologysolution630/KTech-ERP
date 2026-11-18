@@ -6,6 +6,8 @@ import { CheckCircle2, ChevronDown, ChevronRight, ClipboardCheck, Plus, Search, 
 import { DateInput } from '@/components/date-input';
 import { bangkokDateString } from '@/domain/thai';
 import type { StockPageData } from '@/server/services/stock';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteStockAdjustRequestsAction, deleteStockCountsAction } from '@/app/(app)/delete-actions';
 import { createStockCountAction, decideStockAdjustAction } from './actions';
 
 const CENTRAL = 'CENTRAL';
@@ -33,7 +35,7 @@ function workableLocations(data: StockPageData) {
 // นับสต็อก
 // ---------------------------------------------------------------------------
 
-export function StockCountTab({ data }: { data: StockPageData }) {
+export function StockCountTab({ data, canDelete = false }: { data: StockPageData; canDelete?: boolean }) {
   const [counting, setCounting] = useState(false);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [saved, setSaved] = useState<string | null>(null);
@@ -44,26 +46,30 @@ export function StockCountTab({ data }: { data: StockPageData }) {
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  const label = (c: StockPageData['counts'][number]) => `${c.countNumber} · ${dateText(c.countedOn)}`;
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900">นับสต็อก</h2>
           <p className="text-xs text-slate-500">ประวัติการตรวจนับย้อนหลัง โดยไม่เปลี่ยนยอดคงเหลือในระบบ</p>
         </div>
-        {canCount && (
-          <button
-            type="button"
-            onClick={() => {
-              setSaved(null);
-              setCounting(true);
-            }}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800"
-          >
-            <ClipboardCheck className="h-4 w-4" /> นับสต็อก
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          {canCount && (
+            <button
+              type="button"
+              onClick={() => {
+                setSaved(null);
+                setCounting(true);
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800"
+            >
+              <ClipboardCheck className="h-4 w-4" /> นับสต็อก
+            </button>
+          )}
+        </div>
       </div>
 
       {saved && (
@@ -88,6 +94,11 @@ export function StockCountTab({ data }: { data: StockPageData }) {
             <table className="w-full min-w-[820px] text-xs">
               <thead className={tableHead}>
                 <tr>
+                  {canDelete && (
+                    <th className="w-8 px-3 py-2.5">
+                      <SelectAllBox items={data.counts.map((c) => ({ id: c.id, label: label(c) }))} />
+                    </th>
+                  )}
                   <th className="w-8 px-3 py-2.5" />
                   <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ / วันที่นับ</th>
                   <th className="px-3.5 py-2.5 text-right font-medium">รายการที่นับ</th>
@@ -103,6 +114,11 @@ export function StockCountTab({ data }: { data: StockPageData }) {
                   return (
                     <React.Fragment key={c.id}>
                       <tr className="cursor-pointer hover:bg-slate-50" onClick={() => toggle(c.id)}>
+                        {canDelete && (
+                          <td className="px-3 py-2.5">
+                            <SelectBox id={c.id} label={label(c)} />
+                          </td>
+                        )}
                         <td className="px-3 py-2.5 text-slate-400">{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</td>
                         <td className="px-3.5 py-2.5">
                           <div className="font-mono font-semibold">{c.countNumber}</div>
@@ -117,7 +133,7 @@ export function StockCountTab({ data }: { data: StockPageData }) {
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={6} className="bg-slate-50 px-4 py-3">
+                          <td colSpan={canDelete ? 7 : 6} className="bg-slate-50 px-4 py-3">
                             <table className="w-full text-xs">
                               <thead className="text-slate-500">
                                 <tr>
@@ -169,6 +185,13 @@ export function StockCountTab({ data }: { data: StockPageData }) {
         />
       )}
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider action={deleteStockCountsAction} noun="ใบนับสต็อก" hint="ใบนับสต็อกเป็นบันทึกการนับ ไม่ได้เปลี่ยนยอดสต็อก ลบแล้วยอดคงเหลือไม่เปลี่ยน">
+      {page}
+    </BulkDeleteProvider>
   );
 }
 
@@ -361,7 +384,7 @@ function StockCountDialog({ data, onClose, onSaved }: { data: StockPageData; onC
 // ปรับปรุงยอดสต็อก
 // ---------------------------------------------------------------------------
 
-export function StockAdjustTab({ data, onCreate }: { data: StockPageData; onCreate?: () => void }) {
+export function StockAdjustTab({ data, onCreate, canDelete = false }: { data: StockPageData; onCreate?: () => void; canDelete?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -405,19 +428,23 @@ export function StockAdjustTab({ data, onCreate }: { data: StockPageData; onCrea
   };
 
   const filterClass = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-none';
+  const label = (r: (typeof rows)[number]) => `${r.requestNumber} · ${r.itemName}`;
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900">ปรับปรุงยอดสต็อก</h2>
           <p className="text-xs text-slate-500">สร้างเอกสารและขออนุมัติก่อนเปลี่ยนยอดคงเหลือ</p>
         </div>
-        {onCreate && (
-          <button type="button" onClick={onCreate} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#1c43ab]">
-            <Plus className="h-4 w-4" /> สร้างใบปรับปรุงยอด
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          {onCreate && (
+            <button type="button" onClick={onCreate} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#1c43ab]">
+              <Plus className="h-4 w-4" /> สร้างใบปรับปรุงยอด
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
@@ -459,6 +486,11 @@ export function StockAdjustTab({ data, onCreate }: { data: StockPageData; onCrea
           <table className="w-full min-w-[1050px] text-xs">
             <thead className={tableHead}>
               <tr>
+                {canDelete && (
+                  <th className="w-8 px-3 py-2.5">
+                    <SelectAllBox items={rows.map((r) => ({ id: r.id, label: label(r) }))} />
+                  </th>
+                )}
                 <th className="px-3.5 py-2.5 text-left font-medium">เลขที่เอกสาร</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">วันที่</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">คลัง</th>
@@ -473,7 +505,7 @@ export function StockAdjustTab({ data, onCreate }: { data: StockPageData; onCrea
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={canDelete ? 10 : 9} className="py-12 text-center text-slate-400">
                     {data.adjustRequests.length === 0 ? 'ยังไม่มีใบปรับปรุงยอด' : 'ไม่พบใบปรับปรุงยอดที่ตรงกับตัวกรอง'}
                   </td>
                 </tr>
@@ -483,6 +515,11 @@ export function StockAdjustTab({ data, onCreate }: { data: StockPageData; onCrea
                   const up = r.differenceQty > 0;
                   return (
                     <tr key={r.id} className="hover:bg-slate-50">
+                      {canDelete && (
+                        <td className="px-3 py-2.5">
+                          <SelectBox id={r.id} label={label(r)} />
+                        </td>
+                      )}
                       <td className="px-3.5 py-2.5 font-mono font-semibold">{r.requestNumber}</td>
                       <td className="px-3.5 py-2.5 whitespace-nowrap text-slate-500">{dateText(r.createdAt)}</td>
                       <td className="px-3.5 py-2.5 text-slate-600">{r.locationName}</td>
@@ -535,5 +572,16 @@ export function StockAdjustTab({ data, onCreate }: { data: StockPageData; onCrea
         {baht(totalValue)} บาท
       </p>
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteStockAdjustRequestsAction}
+      noun="คำขอปรับยอด"
+      hint="ลบได้เฉพาะคำขอที่ยังไม่อนุมัติหรือไม่อนุมัติ คำขอที่อนุมัติแล้วปรับยอดสต็อกไปแล้วจึงลบไม่ได้"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

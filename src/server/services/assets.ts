@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { assetInspections, assets, attachments, comments, projects, users, type SessionUser } from '@/db/schema';
+import { assetInspections, assets, attachments, comments, projects, users, vehicleTrips, type SessionUser } from '@/db/schema';
 import {
   ASSET_STATUSES,
   computeDepreciation,
@@ -238,6 +238,13 @@ export async function deleteAssets(db: Db, actor: SessionUser, ids: string[]): P
     const targets = await tx.select({ id: assets.id, code: assets.code, name: assets.name }).from(assets).where(inArray(assets.id, assetIds)).for('update');
     if (targets.length === 0) throw new DomainError('NOT_FOUND', 'ไม่พบทรัพย์สินที่เลือก อาจถูกลบไปแล้ว', 404);
     const foundIds = targets.map((a) => a.id);
+
+    // A vehicle's trips are its history and would point at nothing: such a vehicle is retired instead
+    const driven = await tx.selectDistinct({ assetId: vehicleTrips.assetId }).from(vehicleTrips).where(inArray(vehicleTrips.assetId, foundIds));
+    if (driven.length > 0) {
+      const names = targets.filter((a) => driven.some((d) => d.assetId === a.id)).map((a) => `${a.code} ${a.name}`);
+      throw new DomainError('ASSET_IN_USE', `รถ ${names.join(', ')} มีประวัติการใช้รถอยู่ ลบไม่ได้ ให้ปลดระวางแทน หรือลบรายการใช้รถก่อน`, 409);
+    }
 
     const inspections = await tx.select({ id: assetInspections.id }).from(assetInspections).where(inArray(assetInspections.assetId, foundIds));
     const entityIds = [...foundIds, ...inspections.map((i) => i.id)];
