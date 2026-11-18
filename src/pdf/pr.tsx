@@ -15,9 +15,10 @@ export interface PrLineRef {
 
 /**
  * Fixed column widths of the two item tables; the description takes the rest. Category and group come
- * first, as on the form, the priced table narrower to leave the description room.
+ * first, as on the form, the priced table narrower to leave the description room. The goods table has
+ * no BOQ column: ลำดับ, หมวด, กลุ่ม, รายการ, จำนวน/หน่วย, กำหนดใช้/รับของ.
  */
-const GOODS_COL = { no: 26, category: 66, group: 76, boq: 58, qty: 68, needed: 66 };
+const GOODS_COL = { no: 26, category: 72, group: 84, qty: 72, needed: 70 };
 const PRICED_COL = { no: 24, category: 56, group: 64, boq: 46, qty: 58, price: 54, discount: 42, amount: 60 };
 /** The small type of the category and group cells, which often run to two lines */
 const PLACE_CELL = { fontSize: 8, color: '#334155' };
@@ -126,8 +127,7 @@ export function PrPdfDoc({
             <HeaderCell th="หมวด" en="Category" width={GOODS_COL.category} />
             <HeaderCell th="กลุ่ม" en="Group" width={GOODS_COL.group} />
             <HeaderCell th="รายการ" en="Description" />
-            <HeaderCell th="รายการ BOQ" en="BOQ No." width={GOODS_COL.boq} />
-            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={GOODS_COL.qty} align="right" />
+            <HeaderCell th="จำนวน/หน่วย" en="Quantity / Unit" width={GOODS_COL.qty} align="right" />
             <HeaderCell th="กำหนดใช้/รับของ" en="Required Date" width={GOODS_COL.needed} />
           </View>
         ) : (
@@ -159,7 +159,7 @@ export function PrPdfDoc({
                 {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
                 {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
               </View>
-              <Text style={{ width: col.boq, textAlign: 'center', fontSize: 8.5 }}>{l.boq?.no || '-'}</Text>
+              {!goods && <Text style={{ width: PRICED_COL.boq, textAlign: 'center', fontSize: 8.5 }}>{l.boq?.no || '-'}</Text>}
               <Text style={{ width: col.qty, textAlign: 'right', paddingHorizontal: 3 }}>
                 {qtyText(l.qty)} {l.unitName}
               </Text>
