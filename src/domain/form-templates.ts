@@ -69,7 +69,7 @@ const prDef = (type: PrType): FormDef => ({
     titleTh: PR_TYPE_META[type].titleTh,
     titleEn: titleCase(PR_TYPE_META[type].titleEn),
     // The printed requisition has the person asking and the PM; the owner's approval is not printed
-    signatureLabels: [prSignatures(type)[0]!, 'ผู้จัดการโครงการ (PM)'],
+    signatureLabels: prSignatures(type),
     footerNote: '',
   },
 });

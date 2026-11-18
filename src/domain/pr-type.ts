@@ -33,7 +33,10 @@ export const PR_TYPE_META: Record<PrType, { label: string; short: string; titleT
 
 export const LINE_KIND_LABEL: Record<PrLineKind, string> = { GOODS: 'สินค้า / วัสดุ', LABOR: 'จ้างทำงาน / ค่าแรง' };
 
-/** Who signs each form. The person asking also writes the document, so the two share one box. */
-export const prSignatures = (type: PrType): string[] => [`${type === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} / ผู้จัดทำ`, 'ผู้อนุมัติ'];
+/**
+ * The boxes a requisition is signed in, on screen and on paper: the person asking, who also writes the
+ * document so the two share one box, and the PM. An approval by the owner or GM has no box.
+ */
+export const prSignatures = (type: PrType): string[] => [`${type === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} / ผู้จัดทำ`, 'ผู้จัดการโครงการ (PM)'];
 
 export const isPrType =(v: unknown): v is PrType => PR_TYPES.includes(v as PrType);
