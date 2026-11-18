@@ -9,7 +9,8 @@ import { formatMoneyDisplay } from '@/domain/money';
 import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type CategoryOption, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { THAI_BANKS } from '@/domain/vendor-profile';
 import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
-import { createSalesDocAction } from './actions';
+import { createSalesDocAction, updateSalesDocAction } from './actions';
+import type { SalesDocFormInitial, SalesDocFormLine, SalesDocFormMode } from './sales-doc-initial';
 
 export interface SalesCustomerOption {
   id: string;
@@ -39,14 +40,7 @@ const PAY_METHODS = [
 ] as const;
 type PayMethod = (typeof PAY_METHODS)[number][0];
 
-interface Line {
-  isSection: boolean;
-  name: string;
-  detail: string;
-  qty: string;
-  unit: string;
-  unitPrice: string;
-}
+type Line = SalesDocFormLine;
 const item = (): Line => ({ isSection: false, name: '', detail: '', qty: '1', unit: '', unitPrice: '' });
 const n = (v: string) => {
   const x = Number(v);
@@ -65,7 +59,12 @@ export function SalesDocForm({
   projects,
   today,
   forms,
+  initial,
+  mode = { type: 'create' },
 }: {
+  /** A saved document's values, when it is opened to edit or to issue again */
+  initial?: SalesDocFormInitial;
+  mode?: SalesDocFormMode;
   /** The words set for each form in the settings; the defaults when left out */
   forms?: Partial<Record<FormKind, FormText>>;
   kind: SalesDocKind;
@@ -84,30 +83,31 @@ export function SalesDocForm({
   const formText = forms?.[kind] ?? resolveFormText(kind);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [docDate, setDocDate] = useState(today);
-  const [dueDate, setDueDate] = useState('');
-  const [reference, setReference] = useState('');
-  const [customerId, setCustomerId] = useState('');
-  const [cust, setCust] = useState({ name: '', taxId: '', branch: '', address: '', contact: '', phone: '', email: '' });
-  const [projectId, setProjectId] = useState('');
-  const [milestone, setMilestone] = useState('');
-  const [accountCategory, setAccountCategory] = useState('');
-  const [lines, setLines] = useState<Line[]>([item()]);
-  const [notes, setNotes] = useState('');
-  const [vatMode, setVatMode] = useState<SalesVatMode>(kind === 'STI' ? 'INCLUSIVE' : 'EXCLUSIVE');
-  const [discountType, setDiscountType] = useState<'PERCENT' | 'AMOUNT'>('AMOUNT');
-  const [discountValue, setDiscountValue] = useState('');
-  const [whtRate, setWhtRate] = useState('');
+  // A document issued again in place of another gets today's date; one changed in place keeps its own
+  const [docDate, setDocDate] = useState(mode.type === 'edit' && initial ? initial.docDate : today);
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? '');
+  const [reference, setReference] = useState(initial?.reference ?? '');
+  const [customerId, setCustomerId] = useState(initial?.partyId ?? '');
+  const [cust, setCust] = useState(initial?.party ?? { name: '', taxId: '', branch: '', address: '', contact: '', phone: '', email: '' });
+  const [projectId, setProjectId] = useState(initial?.projectId ?? '');
+  const [milestone, setMilestone] = useState(initial?.milestone ?? '');
+  const [accountCategory, setAccountCategory] = useState(initial?.accountCategory ?? '');
+  const [lines, setLines] = useState<Line[]>(initial?.lines.length ? initial.lines : [item()]);
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [vatMode, setVatMode] = useState<SalesVatMode>(initial?.vatMode ?? (kind === 'STI' ? 'INCLUSIVE' : 'EXCLUSIVE'));
+  const [discountType, setDiscountType] = useState<'PERCENT' | 'AMOUNT'>(initial?.discountType ?? 'AMOUNT');
+  const [discountValue, setDiscountValue] = useState(initial?.discountValue ?? '');
+  const [whtRate, setWhtRate] = useState(initial?.whtRate ?? '');
   const isExpense = kind === 'EXP';
   const paid = kind === 'RC' || kind === 'INC' || isExpense;
   const parties = isExpense ? vendors : customers;
-  const [payMethod, setPayMethod] = useState<PayMethod>('TRANSFER');
-  const [accountId, setAccountId] = useState(() => accounts.find((a) => (isExpense ? a.isDefaultPay : a.isDefaultReceive))?.id ?? '');
-  const [retentionRate, setRetentionRate] = useState('');
-  const [bank, setBank] = useState('');
-  const [bankBranch, setBankBranch] = useState('');
-  const [accountName, setAccountName] = useState('');
-  const [accountNo, setAccountNo] = useState('');
+  const [payMethod, setPayMethod] = useState<PayMethod>(initial?.payMethod ?? 'TRANSFER');
+  const [accountId, setAccountId] = useState(() => (initial ? initial.accountId : accounts.find((a) => (isExpense ? a.isDefaultPay : a.isDefaultReceive))?.id ?? ''));
+  const [retentionRate, setRetentionRate] = useState(initial?.retentionRate ?? '');
+  const [bank, setBank] = useState(initial?.bank ?? '');
+  const [bankBranch, setBankBranch] = useState(initial?.bankBranch ?? '');
+  const [accountName, setAccountName] = useState(initial?.accountName ?? '');
+  const [accountNo, setAccountNo] = useState(initial?.accountNo ?? '');
 
   const totals = useMemo(
     () =>
@@ -123,7 +123,7 @@ export function SalesDocForm({
   );
   const categoryList: CategoryOption[] = categories && categories.length > 0 ? categories : (isExpense ? EXPENSE_CATEGORIES : ACCOUNT_CATEGORIES).map((label) => ({ label }));
   // A tax field the person has set by hand is theirs; a category only fills the ones left alone
-  const taxSetByHand = useRef({ vat: false, wht: false });
+  const taxSetByHand = useRef({ vat: !!initial, wht: !!initial });
   const pickCategory = (label: string) => {
     setAccountCategory(label);
     const c = categoryList.find((x) => x.label === label);
@@ -144,7 +144,7 @@ export function SalesDocForm({
   const save = () => {
     setError(null);
     startTransition(async () => {
-      const r = await createSalesDocAction({
+      const input = {
         kind,
         docDate,
         dueDate: kind === 'QT' && dueDate ? dueDate : null,
@@ -174,7 +174,11 @@ export function SalesDocForm({
         accountNo,
         notes,
         lines: lines.map((l) => ({ isSection: l.isSection, name: l.name, detail: l.detail, qty: n(l.qty), unit: l.unit, unitPrice: n(l.unitPrice) })),
-      });
+      };
+      const r =
+        mode.type === 'edit'
+          ? await updateSalesDocAction(mode.id, input)
+          : await createSalesDocAction(input, mode.type === 'reissue' ? mode.replacesId : undefined);
       if (!r.ok) {
         setError(r.error);
         return;
@@ -187,8 +191,12 @@ export function SalesDocForm({
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
         <div>
-          <h1 className="text-lg font-bold text-slate-900">สร้าง{meta.th}</h1>
-          <p className="text-xs text-slate-500">{meta.hint}</p>
+          <h1 className="text-lg font-bold text-slate-900">
+            {mode.type === 'create' ? `สร้าง${meta.th}` : mode.type === 'edit' ? `แก้ไข${meta.th} ${mode.number}` : `แก้ไข${meta.th} ${mode.number} โดยออกใบใหม่`}
+          </h1>
+          <p className="text-xs text-slate-500">
+            {mode.type === 'reissue' ? `เมื่อบันทึก ${mode.number} จะถูกยกเลิก และออกใบใหม่เลขใหม่แทน (เอกสารภาษีที่ออกแล้วแก้ทับไม่ได้)` : meta.hint}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {error && (
@@ -200,7 +208,7 @@ export function SalesDocForm({
             ยกเลิก
           </button>
           <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
-            {pending ? 'กำลังบันทึก...' : 'สร้างเอกสาร'}
+            {pending ? 'กำลังบันทึก...' : mode.type === 'edit' ? 'บันทึกการแก้ไข' : mode.type === 'reissue' ? 'ออกใบใหม่แทนใบเดิม' : 'สร้างเอกสาร'}
           </button>
         </div>
       </div>
@@ -212,7 +220,7 @@ export function SalesDocForm({
         meta={
           <>
             <MetaRow label="เลขที่:">
-              <input value={`ออกเลขอัตโนมัติ (${meta.prefix})`} readOnly className={`${paperInput} text-slate-500`} />
+              <input value={mode.type === 'edit' ? mode.number : `ออกเลขอัตโนมัติ (${meta.prefix})`} readOnly className={`${paperInput} text-slate-500`} />
             </MetaRow>
             <MetaRow label="วันที่:">
               <DateInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className={paperInput} />

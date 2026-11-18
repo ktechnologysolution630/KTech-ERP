@@ -688,7 +688,7 @@ export function PrForm({
           onClick={() => handleSave(true)}
           className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50"
         >
-          {pending ? 'กำลังบันทึก...' : 'สร้างเอกสารและส่งขออนุมัติ'}
+          {pending ? 'กำลังบันทึก...' : existing ? 'บันทึกและส่งขออนุมัติ' : 'สร้างเอกสารและส่งขออนุมัติ'}
         </button>
       </div>
 

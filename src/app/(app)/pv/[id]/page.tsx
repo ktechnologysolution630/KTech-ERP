@@ -88,6 +88,14 @@ export default async function PvDetailPage({
           >
             พิมพ์ใบสำคัญจ่าย (PDF)
           </a>
+          {(pv.status === 'DRAFT' || pv.status === 'REJECTED') && can(actor, 'pv.manage') && (
+            <Link
+              href={`/pv/${pv.id}/edit`}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              แก้ไข
+            </Link>
+          )}
           {pv.whtCertId && (
             <a
               href={`/api/pdf/wht/${pv.whtCertId}`}

@@ -14,7 +14,7 @@ export function PrvActions({
 }: {
   id: string;
   vendorId: string | null;
-  allowed: { submit: boolean; verify: boolean; approve: boolean; pay: boolean };
+  allowed: { submit: boolean; edit: boolean; verify: boolean; approve: boolean; pay: boolean };
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -45,6 +45,11 @@ export function PrvActions({
           <Printer className="h-3.5 w-3.5" />
           พิมพ์ Payment Certificate (A4)
         </button>
+        {allowed.edit && (
+          <Link href={`/prv/${id}/edit`} className={`${btn} border border-slate-200 bg-white hover:bg-slate-50 text-slate-700`}>
+            แก้ไข
+          </Link>
+        )}
         {allowed.submit && (
           <button type="button" disabled={isPending} onClick={() => run('submit', 'ส่งใบขอเบิกให้ PM ตรวจรับรอง?')} className={`${btn} bg-blue-600 hover:bg-blue-700 text-white`}>
             ส่งขอเบิกเงิน

@@ -1,42 +1,38 @@
 import { notFound } from 'next/navigation';
 import { getDb } from '@/db/client';
-import { categoryOptions, kindFromSlug } from '@/domain/sales-doc';
-import { bangkokDateString } from '@/domain/thai';
+import { DomainError } from '@/domain/errors';
+import { kindFromSlug } from '@/domain/sales-doc';
 import { requireUser } from '@/server/auth/current-user';
-import { listProjects } from '@/server/services/master';
-import { listCompanyAccounts, listCustomersForSales, listVendorsForSales } from '@/server/services/sales-docs';
-import { getSettings } from '@/server/services/settings';
-import { getFormTemplates } from '@/server/services/form-templates';
-import { listAccountCategories } from '@/server/services/account-categories';
-import { companyHeaderFrom } from '@/components/doc-paper-data';
+import { getSalesDoc } from '@/server/services/sales-docs';
 import { SalesDocForm } from '../../sales-doc-form';
+import { loadSalesFormData } from '../../sales-form-data';
+import { salesDocFormInitial } from '../../sales-doc-initial';
 
-export default async function NewSalesDocPage({ params }: { params: Promise<{ kind: string }> }) {
-  const { kind: slug } = await params;
+/** A new document; with ?from=<id> a tax document issued again, filled from the one it replaces */
+export default async function NewSalesDocPage({ params, searchParams }: { params: Promise<{ kind: string }>; searchParams: Promise<{ from?: string }> }) {
+  const [{ kind: slug }, { from }] = await Promise.all([params, searchParams]);
   const kind = kindFromSlug(slug);
   if (!kind) notFound();
   const actor = await requireUser();
   const db = await getDb();
-  const [customers, projects, settings, vendors, accounts, categories, forms] = await Promise.all([
-    listCustomersForSales(db, actor),
-    listProjects(db, actor),
-    getSettings(db),
-    kind === 'EXP' ? listVendorsForSales(db, actor) : Promise.resolve([]),
-    listCompanyAccounts(db, actor),
-    listAccountCategories(db, actor, { types: [kind === 'EXP' ? 'EXPENSE' : 'INCOME'], activeOnly: true }),
-    getFormTemplates(db),
-  ]);
+  const data = await loadSalesFormData(db, actor, kind);
+
+  let replaced: Awaited<ReturnType<typeof getSalesDoc>> | null = null;
+  if (from) {
+    try {
+      replaced = await getSalesDoc(db, actor, from);
+    } catch (err) {
+      if (err instanceof DomainError && err.status === 404) notFound();
+      throw err;
+    }
+    if (replaced.kind !== kind || replaced.status !== 'ISSUED') notFound();
+  }
+
   return (
     <SalesDocForm
-      kind={kind}
-      company={companyHeaderFrom(settings, forms.header)}
-      forms={{ [kind]: forms.texts[kind] }}
-      customers={customers.map((c) => ({ id: c.id, code: c.code, name: c.name, taxId: c.taxId, branch: c.branch, address: c.address, contactName: c.contactName, phone: c.phone, email: c.email }))}
-      vendors={vendors.map((v) => ({ id: v.id, code: v.code, name: v.name, taxId: v.taxId, branch: v.branch, address: v.address, contactName: v.contactPerson, phone: v.phone, email: v.email }))}
-      accounts={accounts.filter((a) => a.active).map((a) => ({ id: a.id, label: `${a.bank} ${a.accountNo} (${a.accountName})`, isDefaultReceive: a.isDefaultReceive, isDefaultPay: a.isDefaultPay }))}
-      categories={categoryOptions(categories)}
-      projects={projects}
-      today={bangkokDateString()}
+      {...data}
+      initial={replaced ? salesDocFormInitial(replaced) : undefined}
+      mode={replaced ? { type: 'reissue', replacesId: replaced.id, number: replaced.number } : { type: 'create' }}
     />
   );
 }

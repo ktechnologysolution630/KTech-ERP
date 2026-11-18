@@ -2,8 +2,8 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { listVendors } from '@/server/services/master';
 import { listOpenPayables } from '@/server/services/payable';
-import { formatMoneyDisplay } from '@/domain/money';
 import { createPvAction } from '../actions';
+import { PvPayablesTable, readPvPayables } from '../pv-payables-table';
 
 export default async function NewPvPage({
   searchParams,
@@ -63,17 +63,7 @@ export default async function NewPvPage({
       <form
         action={async (fd: FormData) => {
           'use server';
-          const payableIds = fd.getAll('payableId').map(String);
-          const whtRates: Record<string, number> = {};
-          for (const pid of payableIds) {
-            whtRates[pid] = Number(fd.get(`wht_${pid}`) ?? 0);
-          }
-          await createPvAction({
-            vendorId: String(fd.get('vendorId') ?? ''),
-            payableIds,
-            whtRates,
-            note: String(fd.get('note') ?? ''),
-          });
+          await createPvAction({ vendorId: String(fd.get('vendorId') ?? ''), ...readPvPayables(fd) });
         }}
         className="rounded-xl border border-slate-200 bg-white p-6 space-y-4"
       >
@@ -88,59 +78,19 @@ export default async function NewPvPage({
               ไม่มีรายการตั้งหนี้ค้างจ่ายสำหรับผู้ขายรายนี้
             </p>
           ) : (
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2 text-left">เลือก</th>
-                  <th className="px-3 py-2 text-left">รายการ / อ้างอิง</th>
-                  <th className="px-3 py-2 text-left">ครบกำหนด</th>
-                  <th className="px-3 py-2 text-right">ก่อน VAT</th>
-                  <th className="px-3 py-2 text-right">ยอดรวม</th>
-                  <th className="px-3 py-2 text-right">หัก ณ ที่จ่าย (%)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {vendorPayables.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        name="payableId"
-                        value={p.id}
-                        defaultChecked
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-slate-800">{p.note}</div>
-                      <div className="text-slate-500">
-                        {p.poNumber ? `PO: ${p.poNumber}` : ''}{' '}
-                        {p.invoiceNo ? `· IV: ${p.invoiceNo}` : ''}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">{p.dueDate}</td>
-                    <td className="px-3 py-2 text-right">
-                      ฿{formatMoneyDisplay(p.beforeVat)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold">
-                      ฿{formatMoneyDisplay(p.gross)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <select
-                        name={`wht_${p.id}`}
-                        defaultValue={String(p.defaultWhtRate)}
-                        className="rounded border border-slate-300 px-2 py-1"
-                      >
-                        <option value="0">ไม่หัก (0%)</option>
-                        <option value="1">1% (ขนส่ง)</option>
-                        <option value="2">2% (โฆษณา)</option>
-                        <option value="3">3% (บริการ/รับเหมา)</option>
-                        <option value="5">5% (ค่าเช่า)</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <PvPayablesTable
+              rows={vendorPayables.map((p) => ({
+                id: p.id,
+                note: p.note,
+                poNumber: p.poNumber,
+                invoiceNo: p.invoiceNo,
+                dueDate: p.dueDate,
+                beforeVat: p.beforeVat,
+                gross: p.gross,
+                whtRate: p.defaultWhtRate,
+                checked: true,
+              }))}
+            />
           )}
         </div>
 

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Printer, XCircle } from 'lucide-react';
+import { Pencil, Printer, XCircle } from 'lucide-react';
 import { PrintRoot } from '@/components/project-site/report-sheet';
 import { bahtText, D, formatMoneyDisplay } from '@/domain/money';
 import { SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
@@ -228,7 +229,22 @@ function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company
 }
 
 /** The issued document with print and cancel */
-export function SalesDocView({ doc, slug, company, signers, text }: { doc: SalesDocViewData; slug: string; company: CompanyHeader; signers: Signer[]; text: FormText }) {
+export function SalesDocView({
+  doc,
+  slug,
+  company,
+  signers,
+  text,
+  edit,
+}: {
+  doc: SalesDocViewData;
+  slug: string;
+  company: CompanyHeader;
+  signers: Signer[];
+  text: FormText;
+  /** Where แก้ไข goes: the edit form, or for a tax document the form that issues it again; none when it cannot be changed */
+  edit?: { href: string; label: string; hint: string };
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [cancelling, setCancelling] = useState(false);
@@ -245,6 +261,11 @@ export function SalesDocView({ doc, slug, company, signers, text }: { doc: Sales
           <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
             <Printer className="h-4 w-4" /> พิมพ์ / บันทึก PDF
           </button>
+          {edit && (
+            <Link href={edit.href} title={edit.hint} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              <Pencil className="h-4 w-4" /> {edit.label}
+            </Link>
+          )}
           {doc.status === 'ISSUED' && (
             <button type="button" onClick={() => setCancelling((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100">
               <XCircle className="h-4 w-4" /> ยกเลิกเอกสาร

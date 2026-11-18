@@ -1,21 +1,14 @@
 import Link from 'next/link';
 import { getDb } from '@/db/client';
-import { bangkokDateString, formatThaiDate } from '@/domain/thai';
+import { formatThaiDate } from '@/domain/thai';
 import { formatMoneyDisplay } from '@/domain/money';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
-import { listItems, listProjects, listVendors } from '@/server/services/master';
-import { getSettings } from '@/server/services/settings';
-import { getFormTemplates } from '@/server/services/form-templates';
-import { prFormKind } from '@/domain/form-templates';
-import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 import { VAT_MODE_LABEL } from '@/components/doc-paper';
 import { getPr, projectIdsWithPm } from '@/server/services/pr';
 import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
-import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
-import { listBoqQtyOptions } from '@/server/services/pr-boq';
 import { formatQty } from '@/domain/pr-outstanding';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
@@ -24,7 +17,7 @@ import { SignedRow } from '@/components/signed-row';
 import { prSigners } from '@/server/services/doc-signers';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
-import { PrForm } from '@/components/pr-form';
+import { canEditPr } from '../edit-rule';
 import {
   addPrCommentAction,
   approvePrAction,
@@ -42,22 +35,12 @@ export default async function PrDetailPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [pr, activities, attachments, comments, projects, items, vendors, settings, forms] = await Promise.all([
+  const [pr, activities, attachments, comments] = await Promise.all([
     getPr(db, actor, id),
     listActivity(db, 'PR', id),
     listAttachments(db, 'PR', id),
     listComments(db, 'PR', id),
-    listProjects(db, actor),
-    listItems(db),
-    listVendors(db),
-    getSettings(db),
-    getFormTemplates(db),
   ]);
-  // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on, and the BOQ to ask against
-  const editable = pr.status === 'DRAFT' || pr.status === 'REJECTED';
-  const [outstanding, boqOptions] = editable
-    ? await Promise.all([listOutstandingPrLines(db, actor, { projectId: pr.projectId }), listBoqQtyOptions(db, actor)])
-    : [[], []];
 
   // The goods form shows no prices, also on PRs written before the forms existed
   const showPrices = PR_TYPE_META[pr.prType].priced;
@@ -86,9 +69,7 @@ export default async function PrDetailPage({
       : pr.status === 'OWNER_REVIEW'
       ? 'PM อนุมัติแล้ว รอเจ้าของอนุมัติ เพราะขอเกิน BOQ'
       : 'เจ้าของอนุมัติให้ซื้อเกิน BOQ แล้ว';
-  const canEdit =
-    (pr.status === 'DRAFT' || pr.status === 'REJECTED') &&
-    (pr.requestedBy === actor.id || actor.roles.includes('OWNER') || actor.roles.includes('ADMIN'));
+  const canEdit = canEditPr(actor, pr);
 
   return (
     <div className="space-y-6">
@@ -126,6 +107,14 @@ export default async function PrDetailPage({
           >
             พิมพ์ PDF
           </a>
+          {canEdit && (
+            <Link
+              href={`/pr/${pr.id}/edit`}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              แก้ไข
+            </Link>
+          )}
           {pr.status === 'APPROVED' && can(actor, 'po.manage') && (
             <Link
               href={`/po/new?projectId=${pr.projectId}&prId=${pr.id}`}
@@ -191,38 +180,7 @@ export default async function PrDetailPage({
         />
       )}
 
-      {canEdit ? (
-        <PrForm
-          projects={projects}
-          items={items}
-          vendors={vendorRefsFrom(vendors)}
-          company={companyHeaderFrom(settings, forms.header)}
-          forms={{ [prFormKind(pr.prType)]: forms.texts[prFormKind(pr.prType)] }}
-          currentUserName={pr.requesterName}
-          today={bangkokDateString()}
-          outstanding={outstanding}
-          boqOptions={boqOptions}
-          existing={{
-            id: pr.id,
-            number: pr.number,
-            prType: pr.prType,
-            workEnd: pr.workEnd,
-            projectId: pr.projectId,
-            note: pr.note,
-            docDate: pr.docDate,
-            needBy: pr.needBy,
-            vendorId: pr.vendorId,
-            department: pr.department,
-            requesterText: pr.requesterText,
-            deliveryPlace: pr.deliveryPlace,
-            paymentTerms: pr.paymentTerms,
-            vatMode: pr.vatMode,
-            billDiscount: pr.billDiscount,
-            lines: pr.lines,
-          }}
-        />
-      ) : (
-        <div className="space-y-4">
+      <div className="space-y-4">
         <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-4">
           {[
             ['วันที่เอกสาร', pr.docDate ? formatThaiDate(pr.docDate) : formatThaiDate(pr.createdAt)],
@@ -331,18 +289,16 @@ export default async function PrDetailPage({
             )}
           </table>
         </div>
-        </div>
-      )}
+      </div>
 
-      {!canEdit && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 print:break-inside-avoid">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 print:break-inside-avoid">
         <h2 className="text-xs font-semibold text-slate-600">การลงนาม</h2>
         <SignedRow signers={signers} className="pt-3" />
       </section>
-      )}
 
       <div className="flex flex-wrap gap-2">
-        {pr.status === 'DRAFT' && (
+        {/* A PR sent back can go again as it is, or after แก้ไข */}
+        {(pr.status === 'DRAFT' || (pr.status === 'REJECTED' && canEdit)) && (
           <form
             action={async () => {
               'use server';
@@ -353,7 +309,7 @@ export default async function PrDetailPage({
               type="submit"
               className="rounded-lg bg-blue-600 text-white px-4 py-2 text-xs font-medium"
             >
-              ส่งขออนุมัติ
+              {pr.status === 'REJECTED' ? 'ส่งขออนุมัติอีกครั้ง' : 'ส่งขออนุมัติ'}
             </button>
           </form>
         )}

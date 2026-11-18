@@ -29,6 +29,7 @@ import { getPoBoqCheck } from '@/server/services/boq-overrun';
 import { previewPoDeletion } from '@/server/services/po-delete';
 import { getPoOrNotFound } from '../get-po-or-not-found';
 import { PoDeleteButton } from './po-delete-button';
+import { PO_EDITABLE } from '../edit-rule';
 import {
   addPoCommentAction,
   approveCloseShortAction,
@@ -144,9 +145,7 @@ export default async function PoDetailPage({
           >
             พิมพ์ PDF
           </a>
-          {can(actor, 'po.manage') &&
-            po.status !== 'CANCELLED' &&
-            po.status !== 'COMPLETED' && (
+          {can(actor, 'po.manage') && PO_EDITABLE.includes(po.status) && (
               <Link
                 href={`/po/${po.id}/edit`}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
