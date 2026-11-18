@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, FileText, Package, Plus, Search, History } from 'lucide-react';
 import { GsapReveal } from '@/components/gsap-animator';
 import type { StockItemDto, StockMovementDto, StockPageData } from '@/server/services/stock';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteStockItemsAction, deleteStockMovementsAction } from '@/app/(app)/delete-actions';
 import { ItemDialog, MovementDialog, type MovementKind } from './stock-dialogs';
 import { StockDocDialog, type StockDocOptions } from './stock-doc-form';
 import { MaterialUsageDialog } from './material-usage-dialog';
@@ -65,7 +67,7 @@ function deltaAt(m: StockMovementDto, key: string | undefined): number {
 const card = 'overflow-hidden rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.3)]';
 const tableHead = 'bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0';
 
-/** `canDelete`: owner and admin may remove stock counts and adjustment requests not approved */
+/** `canDelete`: owner and admin may remove movements, stock documents, unused items, counts and adjustment requests */
 export function StockClient({ data, docOptions, canDelete = false }: { data: StockPageData; docOptions: StockDocOptions; canDelete?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -150,7 +152,7 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
       )}
 
       {currentTab === 'overview' && <OverviewTab data={data} chartMonths={chartMonths} setChartMonths={setChartMonths} onSeeAll={() => setTab('all-stock')} />}
-      {currentTab === 'movements' && <MovementsTab movements={filteredMovements} />}
+      {currentTab === 'movements' && <MovementsTab movements={filteredMovements} canDelete={canDelete} />}
       {currentTab === 'low-stock' && (
         <LowStockTab
           items={data.items}
@@ -166,11 +168,12 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
         <UsageTab data={data} canRecord={canMoveAnything} onRecord={() => setUsageOpen(true)} />
       )}
       {currentTab === 'all-stock' && historyOpen && (
-        <StockDocHistoryView docs={docOptions.docs} locations={data.locations} onBack={() => setHistoryOpen(false)} />
+        <StockDocHistoryView docs={docOptions.docs} locations={data.locations} onBack={() => setHistoryOpen(false)} canDelete={canDelete} />
       )}
       {currentTab === 'all-stock' && !historyOpen && (
         <AllStockTab
           data={data}
+          canDelete={canDelete}
           onCreateItem={data.permissions.manageItems ? () => setItemDialog({ item: null }) : undefined}
           onEditItem={data.permissions.manageItems ? (item) => setItemDialog({ item }) : undefined}
           onHistory={() => setHistoryOpen(true)}
@@ -366,18 +369,27 @@ function OverviewTab({
   );
 }
 
-function MovementsTab({ movements }: { movements: StockMovementDto[] }) {
-  return (
+function MovementsTab({ movements, canDelete = false }: { movements: StockMovementDto[]; canDelete?: boolean }) {
+  const label = (m: StockMovementDto) => `${m.movementNumber} · ${m.itemName}`;
+  const page = (
     <GsapReveal>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold text-slate-900">รายการเคลื่อนไหวล่าสุด</h2>
-          <span className="text-xs text-slate-500">{movements.length} รายการ</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{movements.length} รายการ</span>
+            {canDelete && <BulkDeleteBar />}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-xs">
             <thead className={tableHead}>
               <tr>
+                {canDelete && (
+                  <th className="w-8 px-3 py-2.5">
+                    <SelectAllBox items={movements.map((m) => ({ id: m.id, label: label(m) }))} />
+                  </th>
+                )}
                 <th className="px-3.5 py-2.5 text-left font-medium">วันที่ / เลขที่</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ประเภท</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">วัสดุ</th>
@@ -391,7 +403,7 @@ function MovementsTab({ movements }: { movements: StockMovementDto[] }) {
             <tbody className="divide-y divide-slate-100">
               {movements.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={canDelete ? 9 : 8} className="py-12 text-center text-slate-400">
                     ไม่พบรายการเคลื่อนไหว
                   </td>
                 </tr>
@@ -400,6 +412,11 @@ function MovementsTab({ movements }: { movements: StockMovementDto[] }) {
                   const sign = m.type === 'ISSUE' ? '-' : m.type === 'ADJUST' && m.quantity < 0 ? '' : m.type === 'TRANSFER' ? '' : '+';
                   return (
                     <tr key={m.id} className="hover:bg-slate-50">
+                      {canDelete && (
+                        <td className="px-3 py-2.5">
+                          <SelectBox id={m.id} label={label(m)} />
+                        </td>
+                      )}
                       <td className="px-3.5 py-2.5 whitespace-nowrap">
                         <div className="text-slate-600">{dateText(m.date)}</div>
                         <div className="font-mono text-[10px] text-slate-400">{m.docId && m.referenceNumber ? m.referenceNumber : m.movementNumber}</div>
@@ -428,6 +445,18 @@ function MovementsTab({ movements }: { movements: StockMovementDto[] }) {
         </div>
       </div>
     </GsapReveal>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteStockMovementsAction}
+      noun="รายการเคลื่อนไหว"
+      unit="รายการ"
+      hint="ลบได้เฉพาะรายการที่บันทึกเองหรือยอดยกมา ยอดคงเหลือจะถูกคืนกลับ รายการที่มาจากเอกสารสต็อก ใบรับของ หรือคำขอปรับยอด ให้ลบที่ต้นทางแทน"
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }
 
@@ -827,12 +856,14 @@ function UsageTab({ data, canRecord, onRecord }: { data: StockPageData; canRecor
 
 function AllStockTab({
   data,
+  canDelete = false,
   onCreateItem,
   onEditItem,
   onHistory,
   onCreateDoc,
 }: {
   data: StockPageData;
+  canDelete?: boolean;
   onCreateItem?: () => void;
   onEditItem?: (item: StockItemDto) => void;
   onHistory: () => void;
@@ -868,7 +899,7 @@ function AllStockTab({
   const drillLocation = drill ? data.locations.find((l) => locKey(l.projectId) === drill) : null;
   const items = data.items.filter((it) => !q || it.name.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q) || it.category.toLowerCase().includes(q));
 
-  return (
+  const page = (
     <GsapReveal className="space-y-3">
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -956,21 +987,38 @@ function AllStockTab({
             </div>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="px-5 py-3 border-b border-slate-100 text-sm font-bold text-slate-900">รายการวัสดุทั้งหมด</div>
-            <ItemTable items={items.map((it) => ({ it, qty: it.totalQty }))} onEdit={onEditItem} />
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold text-slate-900">รายการวัสดุทั้งหมด</h2>
+              {canDelete && <BulkDeleteBar />}
+            </div>
+            <ItemTable items={items.map((it) => ({ it, qty: it.totalQty }))} onEdit={onEditItem} selectable={canDelete} />
           </div>
         </>
       )}
     </GsapReveal>
   );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider action={deleteStockItemsAction} noun="สินค้าในสต็อก" unit="รายการ" hint="ลบได้เฉพาะสินค้าที่ไม่เคยมีความเคลื่อนไหวและไม่มียอดคงเหลือ สินค้าที่มีประวัติจะไม่ถูกลบ">
+      {page}
+    </BulkDeleteProvider>
+  );
 }
 
-function ItemTable({ items, onEdit }: { items: { it: StockItemDto; qty: number }[]; onEdit?: (item: StockItemDto) => void }) {
+/** `selectable` adds tick boxes for deleting; only the full list has them, as a store's own list holds stock and so never qualifies */
+function ItemTable({ items, onEdit, selectable = false }: { items: { it: StockItemDto; qty: number }[]; onEdit?: (item: StockItemDto) => void; selectable?: boolean }) {
+  const label = (it: StockItemDto) => `${it.sku} · ${it.name}`;
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[800px] text-xs">
         <thead className="bg-slate-50 text-slate-600">
           <tr>
+            {selectable && (
+              <th className="w-8 px-3 py-2">
+                <SelectAllBox items={items.map(({ it }) => ({ id: it.id, label: label(it) }))} />
+              </th>
+            )}
             <th className="px-4 py-2 text-left">SKU / วัสดุ</th>
             <th className="px-4 py-2 text-left">หมวด</th>
             <th className="px-4 py-2 text-right">คงเหลือ</th>
@@ -983,13 +1031,18 @@ function ItemTable({ items, onEdit }: { items: { it: StockItemDto; qty: number }
         <tbody className="divide-y divide-slate-100">
           {items.length === 0 ? (
             <tr>
-              <td colSpan={onEdit ? 7 : 6} className="py-10 text-center text-slate-400">
+              <td colSpan={(onEdit ? 7 : 6) + (selectable ? 1 : 0)} className="py-10 text-center text-slate-400">
                 ไม่มีรายการ
               </td>
             </tr>
           ) : (
             items.map(({ it, qty }) => (
               <tr key={it.id} className="hover:bg-slate-50">
+                {selectable && (
+                  <td className="px-3 py-2">
+                    <SelectBox id={it.id} label={label(it)} />
+                  </td>
+                )}
                 <td className="px-4 py-2">
                   <div className="font-medium text-slate-900">{it.name}</div>
                   <div className="font-mono text-[10px] text-slate-400">{it.sku}</div>

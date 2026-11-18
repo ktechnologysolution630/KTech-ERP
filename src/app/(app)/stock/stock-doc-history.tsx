@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { ArrowLeft, History, Search } from 'lucide-react';
 import type { StockDocRow } from '@/server/services/stock-docs';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteStockDocsAction } from '@/app/(app)/delete-actions';
 
 const TYPE_LABEL: Record<StockDocRow['type'], string> = { RECEIVE: 'รับเข้า', ISSUE: 'จ่ายออก', TRANSFER: 'โอนย้าย', BORROW: 'ยืม' };
 const TYPE_BADGE: Record<StockDocRow['type'], string> = {
@@ -15,15 +17,17 @@ const PAGE_SIZE = 20;
 const CENTRAL = 'CENTRAL';
 const dateText = (iso: string) => new Date(`${iso}T00:00:00+07:00`).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
 
-/** Every saved stock document as a page of the สต็อกทั้งหมด tab, with search, filters and paging */
+/** Every saved stock document as a page of the สต็อกทั้งหมด tab, with search, filters and paging; `canDelete` for owner and admin */
 export function StockDocHistoryView({
   docs,
   locations,
   onBack,
+  canDelete = false,
 }: {
   docs: StockDocRow[];
   locations: { projectId: string | null; name: string }[];
   onBack: () => void;
+  canDelete?: boolean;
 }) {
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'All' | StockDocRow['type']>('All');
@@ -44,7 +48,7 @@ export function StockDocHistoryView({
     setPage(1);
   };
 
-  return (
+  const view = (
     <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -53,9 +57,12 @@ export function StockDocHistoryView({
           </h2>
           <p className="text-xs text-slate-500">เอกสารรับเข้า จ่ายออก โอนย้าย และยืม ที่บันทึกในระบบ พร้อมผู้บันทึกและเหตุผล</p>
         </div>
-        <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-          <ArrowLeft className="h-3.5 w-3.5" /> กลับสต็อกทั้งหมด
-        </button>
+        <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
+          <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <ArrowLeft className="h-3.5 w-3.5" /> กลับสต็อกทั้งหมด
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -91,6 +98,11 @@ export function StockDocHistoryView({
         <table className="w-full min-w-[1000px] text-xs">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2.5">
+                  <SelectAllBox items={rows.map((d) => ({ id: d.id, label: d.number }))} />
+                </th>
+              )}
               {['วันที่บันทึก', 'เอกสาร', 'สถานะล่าสุด', 'สินค้า / วัสดุ', 'คลัง', 'ผู้ขอ / ผู้บันทึก', 'เหตุผล'].map((h) => (
                 <th key={h} className="px-3 py-2.5 text-left font-medium">
                   {h}
@@ -101,7 +113,7 @@ export function StockDocHistoryView({
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-400">
+                <td colSpan={canDelete ? 8 : 7} className="py-12 text-center text-slate-400">
                   <p>ยังไม่มีประวัติเอกสารที่บันทึก</p>
                   <p className="mt-1 text-[11px]">เมื่อบันทึกรับเข้า จ่ายออก โอนย้าย หรือยืมแล้ว รายการจะแสดงที่นี่</p>
                 </td>
@@ -109,6 +121,11 @@ export function StockDocHistoryView({
             ) : (
               rows.map((d) => (
                 <tr key={d.id} className="align-top hover:bg-slate-50">
+                  {canDelete && (
+                    <td className="px-3 py-2.5">
+                      <SelectBox id={d.id} label={d.number} />
+                    </td>
+                  )}
                   <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">{dateText(d.docDate)}</td>
                   <td className="px-3 py-2.5">
                     <div className="font-mono font-semibold text-[#2453d4]">{d.number}</div>
@@ -150,5 +167,16 @@ export function StockDocHistoryView({
         </div>
       </div>
     </div>
+  );
+
+  if (!canDelete) return view;
+  return (
+    <BulkDeleteProvider
+      action={deleteStockDocsAction}
+      noun="เอกสารสต็อก"
+      hint="ยอดคงเหลือจะกลับเหมือนก่อนทำเอกสาร ถ้าของที่รับหรือโอนเข้ามาถูกใช้ไปแล้ว หรือบัญชีลงบันทึกแล้ว จะลบไม่ได้ ใบรับเข้าที่มีเลขใบกำกับภาษีจะหายจากรายงานภาษีซื้อด้วย"
+    >
+      {view}
+    </BulkDeleteProvider>
   );
 }

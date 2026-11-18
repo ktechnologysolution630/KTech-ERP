@@ -27,6 +27,8 @@ import { PoSummaryCard } from '@/components/po-summary-card';
 import { BoqOverrunPanel } from '@/components/boq-overrun-panel';
 import { getPoBoqCheck } from '@/server/services/boq-overrun';
 import { previewPoDeletion } from '@/server/services/po-delete';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteReceiptsAction } from '@/app/(app)/delete-actions';
 import { getPoOrNotFound } from '../get-po-or-not-found';
 import { PoDeleteButton } from './po-delete-button';
 import { PO_EDITABLE } from '../edit-rule';
@@ -71,6 +73,7 @@ export default async function PoDetailPage({
   // Prices are the office's business: site staff see the order, not what other projects paid
   const priceIncreases = isSiteScopedOnly(actor) ? [] : await listPoPriceIncreases(db, po);
   const deletion = can(actor, 'po.delete') ? await previewPoDeletion(db, actor, id) : null;
+  const canDeleteReceipt = can(actor, 'data.delete');
   const pendingCloseShort = closeShortReqs.find((r) => r.request.status === 'PENDING');
   const hasSomeReceipt = receipts.length > 0;
   const hasRemainingQty = po.lines.some((l) => l.remainingQty.gt(0));
@@ -274,25 +277,52 @@ export default async function PoDetailPage({
         <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">ประวัติการรับของ</h3>
           <div className="divide-y divide-slate-100 text-xs">
-            {receipts.map((r) => (
-              <div key={r.id} className="py-2 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-900">
-                    ใบส่งของ: {r.deliveryNoteNo || '-'}
-                  </span>
-                  <span className="text-slate-600">
-                    รับเมื่อ {r.receivedAt} · โดย {r.receiverName}
-                  </span>
+            {receipts.map((r) => {
+              // A cancelled receipt no longer counts as received, so it must not read like one
+              const cancelled = r.status === 'CANCELLED';
+              return (
+                <div key={r.id} className="py-2 space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <span className={`font-semibold ${cancelled ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                        ใบส่งของ: {r.deliveryNoteNo || '-'}
+                      </span>
+                      {cancelled ? (
+                        <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                          ยกเลิก
+                        </span>
+                      ) : (
+                        <DocStatusBadge status={r.status} />
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-600">
+                        รับเมื่อ {r.receivedAt} · โดย {r.receiverName}
+                      </span>
+                      {canDeleteReceipt && (
+                        <DeleteDocButton
+                          action={deleteReceiptsAction}
+                          id={r.id}
+                          label={`${po.number} รับวันที่ ${r.receivedAt}${r.deliveryNoteNo ? ` (${r.deliveryNoteNo})` : ''}`}
+                          noun="ใบรับของ"
+                          unit="ใบ"
+                          hint="สินค้าที่รับเข้ามาจะถูกตัดออกจากสต็อก และใบสั่งซื้อจะกลับไปรอรับของส่วนนี้ (รับใหม่ได้) ถ้าของถูกเบิก/โอนไปแล้ว ใบสั่งซื้อปิดแล้ว หรือวางบิลไปแล้วเกินยอดที่จะเหลือ จะลบไม่ได้"
+                          backTo={`/po/${po.id}`}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  {cancelled && r.cancelReason && <p className="text-red-700">เหตุผลที่ยกเลิก: {r.cancelReason}</p>}
+                  <ul className={`list-disc pl-5 ${cancelled ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    {r.lines.map((rl) => (
+                      <li key={rl.id}>
+                        {rl.description}: รับ {Number(rl.qty)} {rl.unitName}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="list-disc pl-5 text-slate-700">
-                  {r.lines.map((rl) => (
-                    <li key={rl.id}>
-                      {rl.description}: รับ {Number(rl.qty)} {rl.unitName}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
