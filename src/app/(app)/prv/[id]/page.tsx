@@ -8,15 +8,20 @@ import { requireUser } from '@/server/auth/current-user';
 import { prvSigners } from '@/server/services/doc-signers';
 import { getPrvById } from '@/server/services/prv';
 import { getSettings } from '@/server/services/settings';
+import { getFormTemplates } from '@/server/services/form-templates';
+import { contactLine } from '@/domain/form-templates';
 import { PrvActions } from './prv-actions';
 
 export default async function PrvDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireUser();
   const { id } = await params;
   const db = await getDb();
-  const [prv, settings] = await Promise.all([getPrvById(db, actor, id), getSettings(db)]);
+  const [prv, settings, forms] = await Promise.all([getPrvById(db, actor, id), getSettings(db), getFormTemplates(db)]);
   if (!prv) notFound();
   const [requesterSign, verifierSign, approverSign] = await prvSigners(db, prv);
+  const text = forms.texts.PRV;
+  const [requesterLabel, verifierLabel, approverLabel] = text.signatureLabels;
+  const contact = contactLine(forms.header);
   /** The signature picture when the person has one; their name is printed beside it either way */
   const sign = (s: typeof requesterSign) =>
     s?.image ? (
@@ -44,12 +49,13 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
         {/* Certificate Header */}
         <div className="text-center border-b border-slate-200 pb-5 space-y-1">
           <div className="inline-block px-3 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold tracking-wider text-[11px] mb-1">
-            PAYMENT CERTIFICATE / ใบรับรองการขอเบิกเงิน
+            {text.titleEn.toUpperCase()} / {text.titleTh}
           </div>
           <h1 className="text-xl font-bold text-slate-900">{settings.companyName}</h1>
           <p className="text-slate-500 text-[11px]">
             {settings.companyAddress} · เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}
           </p>
+          {contact && <p className="text-slate-500 text-[11px]">{contact}</p>}
         </div>
 
         {/* Details Grid */}
@@ -194,7 +200,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
         {/* Signature Approvals Section (3-Column Layout Matching K-Tec Standards) */}
         <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-200 text-center">
           <div className="space-y-4 p-3 rounded-lg border border-slate-100">
-            <span className="text-slate-500 font-medium">ผู้ขอเบิก / Site Engineer</span>
+            <span className="text-slate-500 font-medium">{requesterLabel}</span>
             {sign(requesterSign)}
             <div className="h-10 flex items-center justify-center font-semibold text-slate-800">
               {prv.requestedByName}
@@ -203,7 +209,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
           </div>
 
           <div className="space-y-4 p-3 rounded-lg border border-slate-100">
-            <span className="text-slate-500 font-medium">ผู้ตรวจรับรอง / Project Engineer (PM)</span>
+            <span className="text-slate-500 font-medium">{verifierLabel}</span>
             {sign(verifierSign)}
             <div className="h-10 flex items-center justify-center font-semibold text-slate-800">
               {prv.verifiedByName || '(รอการตรวจสอบ)'}
@@ -214,7 +220,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
           </div>
 
           <div className="space-y-4 p-3 rounded-lg border border-slate-100 bg-blue-50/30">
-            <span className="text-slate-500 font-medium">ผู้อนุมัติจ่าย / Approved by Owner</span>
+            <span className="text-slate-500 font-medium">{approverLabel}</span>
             {sign(approverSign)}
             <div className="h-10 flex items-center justify-center font-bold text-emerald-700">
               {prv.approvedByName || '(รอเจ้าของอนุมัติ)'}
@@ -224,6 +230,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
             </div>
           </div>
         </div>
+        {text.footerNote && <p className="whitespace-pre-line text-[11px] text-slate-600">{text.footerNote}</p>}
       </div>
     </div>
   );

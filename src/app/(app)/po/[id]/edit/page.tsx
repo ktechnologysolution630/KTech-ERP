@@ -8,6 +8,7 @@ import { listLastPurchasePrices } from '@/server/services/price-history';
 import { PoForm } from '@/components/po-form';
 import { companyHeaderFrom } from '@/components/doc-paper-data';
 import { getSettings } from '@/server/services/settings';
+import { getFormTemplates } from '@/server/services/form-templates';
 import { bangkokDateString } from '@/domain/thai';
 
 export default async function EditPoPage({
@@ -18,13 +19,14 @@ export default async function EditPoPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [po, projects, vendors, orderable, boqMaterials, settings] = await Promise.all([
+  const [po, projects, vendors, orderable, boqMaterials, settings, forms] = await Promise.all([
     getPoOrNotFound(db, actor, id),
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),
     listBoqMaterialOptions(db, actor),
     getSettings(db),
+    getFormTemplates(db),
   ]);
 
   // Compared with what was bought before this order was first written, never with the order itself
@@ -36,7 +38,8 @@ export default async function EditPoPage({
       <PoForm
         projects={projects}
         vendors={vendors}
-        company={companyHeaderFrom(settings)}
+        company={companyHeaderFrom(settings, forms.header)}
+        forms={{ PO: forms.texts.PO }}
         currentUserName={actor.name}
         today={bangkokDateString()}
         boqMaterials={boqMaterials}

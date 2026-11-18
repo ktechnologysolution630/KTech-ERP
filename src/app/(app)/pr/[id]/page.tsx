@@ -8,6 +8,8 @@ import { listActivity } from '@/server/services/activity';
 import { listAttachments, listComments } from '@/server/services/attachments';
 import { listItems, listProjects, listVendors } from '@/server/services/master';
 import { getSettings } from '@/server/services/settings';
+import { getFormTemplates } from '@/server/services/form-templates';
+import { prFormKind } from '@/domain/form-templates';
 import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 import { VAT_MODE_LABEL } from '@/components/doc-paper';
 import { getPr, projectIdsWithPm } from '@/server/services/pr';
@@ -40,7 +42,7 @@ export default async function PrDetailPage({
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const [pr, activities, attachments, comments, projects, items, vendors, settings] = await Promise.all([
+  const [pr, activities, attachments, comments, projects, items, vendors, settings, forms] = await Promise.all([
     getPr(db, actor, id),
     listActivity(db, 'PR', id),
     listAttachments(db, 'PR', id),
@@ -49,6 +51,7 @@ export default async function PrDetailPage({
     listItems(db),
     listVendors(db),
     getSettings(db),
+    getFormTemplates(db),
   ]);
   // Shown while the PR can still be edited: lines repeating what an earlier PR is waiting on, and the BOQ to ask against
   const editable = pr.status === 'DRAFT' || pr.status === 'REJECTED';
@@ -193,7 +196,8 @@ export default async function PrDetailPage({
           projects={projects}
           items={items}
           vendors={vendorRefsFrom(vendors)}
-          company={companyHeaderFrom(settings)}
+          company={companyHeaderFrom(settings, forms.header)}
+          forms={{ [prFormKind(pr.prType)]: forms.texts[prFormKind(pr.prType)] }}
           currentUserName={pr.requesterName}
           today={bangkokDateString()}
           outstanding={outstanding}

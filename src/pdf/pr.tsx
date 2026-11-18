@@ -1,12 +1,13 @@
 import React from 'react';
 import { Document, Text, View } from '@react-pdf/renderer';
 import { computeDocTotals, D, formatMoneyDisplay } from '@/domain/money';
-import { LINE_KIND_LABEL, PR_TYPE_META, prSignatures } from '@/domain/pr-type';
+import { labelSigners, prFormKind, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
+import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
+import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -23,21 +24,19 @@ const PRICED_COL = { no: 24, category: 56, group: 64, boq: 46, qty: 58, price: 5
 /** The category and group cells: centred under their headings, a touch smaller than the description so long names fit */
 const PLACE_CELL = { fontSize: 9 };
 
-/** PURCHASE REQUISITION → Purchase Requisition, to sit like the order's title */
-const titleCase = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/ And /g, ' and ');
-
 export function PrPdfDoc({
   pr,
   settings,
   signers,
   lineRefs,
+  form,
+  header,
 }: {
   pr: Awaited<ReturnType<typeof getPr>>;
   settings: Settings;
+  /** The words set for this form in the settings; the defaults when left out */
+  form?: FormText;
+  header?: FormHeader;
   /** The requester and the PM as signed in the system; blank lines when left out */
   signers?: Signer[];
   lineRefs?: ReadonlyMap<string, PrLineRef>;
@@ -58,14 +57,15 @@ export function PrPdfDoc({
     lines: pr.lines.map((l) => ({ qty: D(l.qty), unitPrice: D(l.estUnitPrice ?? 0), discount: D(l.discount) })),
   });
 
-  const signatures: Signer[] = signers ?? [prSignatures(pr.prType)[0]!, 'ผู้จัดการโครงการ (PM)'].map((label) => ({ label }));
+  const text = form ?? resolveFormText(prFormKind(pr.prType));
+  const signatures: Signer[] = labelSigners(signers ?? text.signatureLabels.map((label) => ({ label })), text.signatureLabels);
   // The goods form does not carry the department
   const requester = `${pr.requesterText || pr.requesterName}${pr.department && !goods ? ` (${pr.department})` : ''}`;
 
   return (
     <Document>
-      <FormPage settings={settings} isDraft={isDraft} docNumber={pr.number}>
-        <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
+      <FormPage settings={settings} header={header} isDraft={isDraft} docNumber={pr.number}>
+        <TitleRow titleTh={text.titleTh} titleEn={text.titleEn} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
         {goods ? (
           // The goods form: the project with the reference supplier under it, then where it goes
@@ -212,6 +212,7 @@ export function PrPdfDoc({
           </View>
 
           <SignatureRow signatures={signatures} />
+          <FormNote text={text.footerNote} />
         </View>
       </FormPage>
     </Document>

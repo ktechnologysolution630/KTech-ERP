@@ -8,7 +8,9 @@ import { ensureFontsRegistered } from '@/pdf/layout';
 import { PoPdfDoc, type PoLineRef } from '@/pdf/po';
 import { PrPdfDoc, type PrLineRef } from '@/pdf/pr';
 import { PvPdfDoc } from '@/pdf/pv';
+import { prFormKind } from '@/domain/form-templates';
 import { poSigners, prPdfSigners, pvSigners } from './doc-signers';
+import { getFormTemplates } from './form-templates';
 import { getPo } from './po';
 import { getPr } from './pr';
 import { getPv } from './pv';
@@ -40,13 +42,14 @@ export async function renderDocPdfWithMeta(
   id: string,
 ): Promise<{ buffer: Buffer; filename: string }> {
   ensureFontsRegistered();
-  const settings = await getSettings(db);
+  const [settings, forms] = await Promise.all([getSettings(db), getFormTemplates(db)]);
+  const { header } = forms;
 
   if (kind === 'pr') {
     const pr = await getPr(db, actor, id);
     const [signers, lineRefs] = await Promise.all([prPdfSigners(db, pr), prLineRefs(db, id)]);
     const buffer = await renderToBuffer(
-      PrPdfDoc({ pr, settings, signers, lineRefs }) as unknown as React.ReactElement<never>,
+      PrPdfDoc({ pr, settings, signers, lineRefs, form: forms.texts[prFormKind(pr.prType)], header }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pr.number}.pdf` };
   }
@@ -57,6 +60,8 @@ export async function renderDocPdfWithMeta(
       PoPdfDoc({
         po,
         settings,
+        form: forms.texts.PO,
+        header,
         signers: await poSigners(db, po),
         lineRefs: await poLineRefs(db, id),
       }) as unknown as React.ReactElement<never>,
@@ -67,7 +72,7 @@ export async function renderDocPdfWithMeta(
   if (kind === 'pv') {
     const pv = await getPv(db, actor, id);
     const buffer = await renderToBuffer(
-      PvPdfDoc({ pv, settings, signers: await pvSigners(db, pv) }) as unknown as React.ReactElement<never>,
+      PvPdfDoc({ pv, settings, form: forms.texts.PV, header, signers: await pvSigners(db, pv) }) as unknown as React.ReactElement<never>,
     );
     return { buffer: Buffer.from(buffer), filename: `${pv.number}.pdf` };
   }
