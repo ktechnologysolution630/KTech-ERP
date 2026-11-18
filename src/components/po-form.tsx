@@ -123,7 +123,8 @@ export function PoForm({
   forms?: Partial<Record<FormKind, FormText>>;
   /** What each thing cost the last time it was bought; a line priced above it is pointed out */
   lastPrices?: LastPurchasePrice[];
-  projects: { id: string; code: string; name: string }[];
+  /** With the site location, which a new PO's delivery place starts from */
+  projects: { id: string; code: string; name: string; location?: string }[];
   /** Main-BOQ material lines; a PO line linked to one is checked against its budget */
   boqMaterials?: BoqMaterialPick[];
   vendors: PoVendorOption[];
@@ -172,6 +173,8 @@ export function PoForm({
   );
   // No vendor is picked for the user: with a long list, the first one would slip through unnoticed
   const [vendorId, setVendorId] = useState(existing?.vendorId ?? '');
+  // Typed on the PO and kept in the vendor register when the PO is saved
+  const [vendorContact, setVendorContact] = useState(() => vendors.find((v) => v.id === existing?.vendorId)?.contactPerson ?? '');
   const activeVendors = useMemo(() => vendors.filter((v) => v.active || v.id === existing?.vendorId), [vendors, existing?.vendorId]);
   const [paymentType, setPaymentType] = useState<PoPaymentType>(existing?.paymentType ?? 'CREDIT');
   const [creditDays, setCreditDays] = useState<number>(existing?.creditDays ?? 30);
@@ -186,7 +189,10 @@ export function PoForm({
   const [billDiscount, setBillDiscount] = useState(existing && Number(existing.billDiscount) ? String(Number(existing.billDiscount)) : '');
   const [shipping, setShipping] = useState(existing && Number(existing.shipping) ? String(Number(existing.shipping)) : '');
   const [deliveryDate, setDeliveryDate] = useState(existing?.deliveryDate ?? '');
-  const [deliveryAddress, setDeliveryAddress] = useState(existing?.deliveryAddress ?? '');
+  /** Where a PO for this choice is delivered by default: the project's site, or the company for สำนักงาน */
+  const siteOf = (id: string) => (id === 'OFFICE' ? company.address : projects.find((p) => p.id === id)?.location ?? '').trim();
+  // A saved PO keeps its own; a new one opened for a project starts at that project's site
+  const [deliveryAddress, setDeliveryAddress] = useState(existing ? existing.deliveryAddress : siteOf(projectId));
   const [note, setNote] = useState(existing?.note ?? '');
   const [reason, setReason] = useState('');
   const [lines, setLines] = useState<LineState[]>(
@@ -229,9 +235,20 @@ export function PoForm({
   const projectBoqMaterials = boqMaterials.filter((b) => projectId !== 'OFFICE' && b.projectId === projectId);
   const matchingPrLines = orderablePrLines.filter((pl) => projectId !== 'OFFICE' && pl.projectId === projectId);
 
+  /**
+   * Choosing the project fills the delivery place with its site, unless one was typed by hand: a place
+   * still blank, or still the previous project's site, follows the new choice
+   */
+  function pickProject(id: string) {
+    const site = siteOf(id);
+    if (!deliveryAddress.trim() || deliveryAddress.trim() === siteOf(projectId)) setDeliveryAddress(site);
+    setProjectId(id);
+  }
+
   function pickVendor(id: string) {
     setVendorId(id);
     const v = vendors.find((x) => x.id === id);
+    setVendorContact(v?.contactPerson ?? '');
     if (v) {
       setCreditDays(v.defaultCreditDays);
       setTerms({ billingSchedule: v.billingSchedule, creditBasis: v.creditBasis, chequeSchedule: v.chequeSchedule, payMethod: v.defaultPayMethod });
@@ -271,6 +288,7 @@ export function PoForm({
     const payload = {
       projectId: projectId === 'OFFICE' ? null : projectId,
       vendorId,
+      vendorContact,
       paymentType,
       creditDays: paymentType === 'CREDIT' ? creditDays : null,
       terms: terms ?? undefined,
@@ -436,14 +454,22 @@ export function PoForm({
         {/* Two boxes side by side as on the PDF: the vendor, then where, for which project and who asks */}
         <div className={`${paperBox} grid grid-cols-1 md:grid-cols-[1.1fr_1fr]`}>
           <div className="border-b border-[#9db0c4] md:border-b-0 md:border-r">
-            <VendorBlock title="ซัพพลายเออร์ / ผู้รับเหมา" vendors={activeVendors} vendorId={vendorId} onChange={pickVendor} required />
+            <VendorBlock
+              title="ซัพพลายเออร์ / ผู้รับเหมา"
+              vendors={activeVendors}
+              vendorId={vendorId}
+              onChange={pickVendor}
+              required
+              contact={vendorContact}
+              onContactChange={setVendorContact}
+            />
           </div>
           <div className="text-sm">
             <BoxRow label="สถานที่จัดส่ง">
               <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="สถานที่จัดส่ง" aria-label="สถานที่จัดส่ง" className={paperInput} />
             </BoxRow>
             <BoxRow label="Project" required>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
+              <select value={projectId} onChange={(e) => pickProject(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
                 <option value="">เลือกโครงการ</option>
                 <option value="OFFICE">สำนักงาน / ส่วนกลาง (ไม่มี PR)</option>
                 {projects.map((p) => (
