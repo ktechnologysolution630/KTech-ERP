@@ -117,10 +117,23 @@ export function WrapText({
 }
 
 /** A label and its value on one line, the value wrapping under itself */
-export function Field({ label, value, labelWidth = 56, bold }: { label: string; value: string; labelWidth?: number; bold?: boolean }) {
+export function Field({
+  label,
+  value,
+  labelWidth = 56,
+  bold,
+  labelAlign = 'left',
+}: {
+  label: string;
+  value: string;
+  labelWidth?: number;
+  bold?: boolean;
+  /** right: the label sits flush against its value, the colons lined up */
+  labelAlign?: 'left' | 'right';
+}) {
   return (
     <View style={{ flexDirection: 'row', marginBottom: 2 }}>
-      <Text style={[fs.label, { width: labelWidth }]}>{label} :</Text>
+      <Text style={[fs.label, { width: labelWidth }, labelAlign === 'right' ? { textAlign: 'right', paddingRight: 4 } : {}]}>{label} :</Text>
       <Text style={[{ flex: 1 }, bold ? fs.bold : {}]}>{value}</Text>
     </View>
   );
@@ -188,11 +201,11 @@ export function FormPage({
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: BRAND_DARK }}>{settings.companyName}</Text>
             <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{COMPANY_NAME_EN}</Text>
-            <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>{settings.companyAddress}</Text>
             <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>
-              {/* สำนักงานใหญ่, or the branch, follows the tax ID */}
-              เลขประจำตัวผู้เสียภาษี {settings.companyTaxId} {branchLabel(settings.companyBranch)}
+              {/* สำนักงานใหญ่, or the branch, leads the address */}
+              {branchLabel(settings.companyBranch)} {settings.companyAddress}
             </Text>
+            <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}</Text>
           </View>
           {/* Balances the logo so the company name stays centred */}
           <View style={{ width: HEADER_SIDE_WIDTH }} />

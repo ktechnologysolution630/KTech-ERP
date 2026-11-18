@@ -66,9 +66,10 @@ export function PoPdfDoc({
 
         <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
           <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-            <Field label="ชื่อผู้ขาย" value={po.vendorName} bold />
-            <Field label="ที่อยู่" value={po.vendorAddress || '-'} />
-            <Field label="โทร" value={po.vendorPhone || '-'} />
+            {/* The labels flush right, against their values */}
+            <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" />
+            <Field label="ที่อยู่" value={po.vendorAddress || '-'} labelAlign="right" />
+            <Field label="โทร" value={po.vendorPhone || '-'} labelAlign="right" />
             <Text>
               <Text style={fs.label}>เลขประจำตัวผู้เสียภาษี : </Text>
               {po.vendorTaxId || '-'}
