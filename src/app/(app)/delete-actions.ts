@@ -17,6 +17,7 @@ import {
   deleteVehicleTrips,
   deleteWarrantyDefects,
 } from '@/server/services/operations-delete';
+import { deleteReceipts, deleteStockDocs, deleteStockItems, deleteStockMovements } from '@/server/services/stock-delete';
 import type { DeleteOutcome } from '@/server/services/record-delete';
 
 /** Deletes on the purchasing, stock, vehicle, project and after-sales menus; the accounting ones are in accounting/ */
@@ -92,4 +93,24 @@ export async function deleteBoqsAction(ids: string[]): Promise<Result> {
 export async function deleteDailyReportsAction(ids: string[]): Promise<Result> {
   const { actor, db } = await ctx();
   return run(() => deleteDailyReports(db, actor, ids), ['/projects']);
+}
+
+export async function deleteReceiptsAction(ids: string[]): Promise<Result> {
+  const { actor, db } = await ctx();
+  return run(() => deleteReceipts(db, actor, ids), ['/po', '/receive', '/stock']);
+}
+
+export async function deleteStockDocsAction(ids: string[]): Promise<Result> {
+  const { actor, db } = await ctx();
+  return run(() => deleteStockDocs(db, actor, ids), ['/stock', '/accounting']);
+}
+
+export async function deleteStockMovementsAction(ids: string[]): Promise<Result> {
+  const { actor, db } = await ctx();
+  return run(() => deleteStockMovements(db, actor, ids), ['/stock']);
+}
+
+export async function deleteStockItemsAction(ids: string[]): Promise<Result> {
+  const { actor, db } = await ctx();
+  return run(() => deleteStockItems(db, actor, ids), ['/stock']);
 }
