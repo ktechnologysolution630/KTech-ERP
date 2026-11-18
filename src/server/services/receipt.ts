@@ -17,6 +17,7 @@ import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
 import { lockPo, receivedQtyByPoLine } from './po';
 import { syncReceiptToStock } from './stock';
+import { receiptHold, receiptMovements, reverseMovements } from './stock-delete';
 
 export { receivedQtyByPoLine };
 
@@ -192,6 +193,8 @@ export async function cancelReceipt(
       .limit(1);
     if (!rec) throw new DomainError('NOT_FOUND', 'ไม่พบใบรับของ', 404);
 
+    if (rec.status === 'CANCELLED') throw new DomainError('INVALID_STATE', 'ใบรับของนี้ยกเลิกแล้ว', 409);
+
     const po = await lockPo(tx, rec.poId);
     if (po.status === 'COMPLETED') {
       throw new DomainError(
@@ -200,6 +203,11 @@ export async function cancelReceipt(
         409,
       );
     }
+    const hold = await receiptHold(tx, rec, po);
+    if (hold) throw new DomainError('RECEIPT_IN_USE', hold, 409);
+    // What the receipt put into stock comes back out, or the goods would be counted twice when received again
+    const short = await reverseMovements(tx, await receiptMovements(tx, rec.id));
+    if (short) throw new DomainError('INSUFFICIENT_STOCK', short, 409);
 
     await tx
       .update(receipts)

@@ -38,6 +38,8 @@ export function GsapReveal({
         delay,
         stagger,
         ease: 'power3.out',
+        // A leftover transform or filter traps fixed-position dialogs inside the animated card
+        clearProps: 'transform,filter',
       },
     );
   }, [delay, duration, y, stagger]);
