@@ -5,6 +5,7 @@ import { filterApprovals, groupApprovalsByProject, type ApprovalItem } from '@/d
 import { D } from '@/domain/money';
 import { requestAdvance } from '@/server/services/advances';
 import { decideApproval, isApprover, listPendingApprovals } from '@/server/services/approvals';
+import { createPo, getPo, submitPo } from '@/server/services/po';
 import { createPr, submitPr } from '@/server/services/pr';
 import { createPrv, transitionPrv } from '@/server/services/prv';
 import { recordStockMovement, requestStockAdjust, upsertStockItem } from '@/server/services/stock';
@@ -113,6 +114,58 @@ describe('approval centre', () => {
     await expect(decideApproval(db, f.users.owner, { type: 'PRV_VERIFY', id: prv.id, approve: true })).rejects.toMatchObject({ status: 409 });
     await decideApproval(db, f.users.owner, { type: 'PRV_APPROVE', id: prv.id, approve: true });
     expect(await numbers(db, f.users.owner)).toEqual([]);
+  });
+
+  test('a PO waits on the purchasing head first, and approving it here passes it to the owner', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      vatMode: 'EXCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      // Above the head's own approval limit, so once checked it is the owner's alone
+      lines: [{ description: 'ปูน', unitName: 'ถุง', qty: D(500), unitPrice: D(150), discount: D(0) }],
+    });
+    await submitPo(db, f.users.buyer, po.id);
+
+    const [atHead] = await listPendingApprovals(db, f.users.buyerHead);
+    expect(atHead).toMatchObject({ type: 'PO_REVIEW', id: po.id, number: po.number, href: `/po/${po.id}` });
+    expect(await numbers(db, f.users.owner)).toEqual([]);
+
+    // Approved the way the screen sends it: by the item's own type
+    await decideApproval(db, f.users.buyerHead, { type: atHead!.type, id: po.id, approve: true });
+    expect(await getPo(db, f.users.buyer, po.id)).toMatchObject({ status: 'PENDING_APPROVAL', reviewedBy: f.users.buyerHead.id });
+    expect(await numbers(db, f.users.buyerHead)).toEqual([]);
+    const [atOwner] = await listPendingApprovals(db, f.users.owner);
+    expect(atOwner).toMatchObject({ type: 'PO', id: po.id });
+
+    // The head's old screen cannot check it twice
+    await expect(decideApproval(db, f.users.buyerHead, { type: 'PO_REVIEW', id: po.id, approve: true })).rejects.toMatchObject({ status: 409 });
+
+    await decideApproval(db, f.users.owner, { type: atOwner!.type, id: po.id, approve: true });
+    expect((await getPo(db, f.users.buyer, po.id)).status).toBe('APPROVED');
+  });
+
+  test('the purchasing head can send a PO back from here', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      vatMode: 'EXCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ปูน', unitName: 'ถุง', qty: D(10), unitPrice: D(100), discount: D(0) }],
+    });
+    await submitPo(db, f.users.buyer, po.id);
+
+    await decideApproval(db, f.users.buyerHead, { type: 'PO_REVIEW', id: po.id, approve: false, note: 'ขอใบเสนอราคาเพิ่ม' });
+    expect(await getPo(db, f.users.buyer, po.id)).toMatchObject({ status: 'REJECTED', rejectReason: 'ขอใบเสนอราคาเพิ่ม' });
+    expect(await numbers(db, f.users.buyerHead)).toEqual([]);
   });
 
   test('the menu is for roles that approve something', async () => {

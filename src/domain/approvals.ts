@@ -1,6 +1,7 @@
 export const APPROVAL_TYPES = [
   'PR',
   'PO',
+  'PO_REVIEW',
   'PV',
   'CLOSE_SHORT',
   'BOQ_OVERRUN',
@@ -17,6 +18,7 @@ export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 export const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
   PR: 'ใบขอซื้อ (PR)',
   PO: 'ใบสั่งซื้อ (PO)',
+  PO_REVIEW: 'ใบสั่งซื้อ (รอหัวหน้าจัดซื้อตรวจ)',
   PV: 'ใบสำคัญจ่าย (PV)',
   CLOSE_SHORT: 'ขอปิดยอดค้างรับ',
   BOQ_OVERRUN: 'ขอซื้อเกิน BOQ',
@@ -31,7 +33,7 @@ export const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
 /** Types whose workflow keeps a note with the decision; stock adjustments have none, so nothing is asked. */
 export const takesDecisionNote = (type: ApprovalType): boolean => type !== 'STOCK_ADJUST';
 /** A note given when approving is only kept by these; the others record just the rejection reason. */
-export const keepsApprovalNote = (type: ApprovalType): boolean => !['PR', 'PO', 'CLOSE_SHORT', 'STOCK_ADJUST'].includes(type);
+export const keepsApprovalNote = (type: ApprovalType): boolean => !['PR', 'PO', 'PO_REVIEW', 'CLOSE_SHORT', 'STOCK_ADJUST'].includes(type);
 
 export interface ApprovalItem {
   type: ApprovalType;

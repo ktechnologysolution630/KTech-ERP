@@ -30,7 +30,7 @@ import { decideAdvance, decideReceiptSubstitute } from './advances';
 import { decideBoqOverrun } from './boq-overrun';
 import { approveCloseShort, rejectCloseShort } from './close-short';
 import { poPendingGross } from './inbox';
-import { approvePo, rejectPo } from './po';
+import { approvePo, rejectPo, reviewPo } from './po';
 import { approvePr, projectIdsWithPm, rejectPr } from './pr';
 import { transitionPrv } from './prv';
 import { approvePv, rejectPv } from './pv';
@@ -153,16 +153,16 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
 
   for (const po of poRows) {
     // The purchasing head decides first; the approver sees the PO once the head has passed it on
-    const waitsOnMe =
-      po.status === 'PENDING_REVIEW'
-        ? can(actor, 'po.review', { createdBy: po.createdBy })
-        : (() => {
-            const gross = poPendingGross(po);
-            return Boolean(gross) && can(actor, 'po.approve', { gross: gross!, poApprovalLimit: poLimit, createdBy: po.createdBy });
-          })();
+    const reviewing = po.status === 'PENDING_REVIEW';
+    const waitsOnMe = reviewing
+      ? can(actor, 'po.review', { createdBy: po.createdBy })
+      : (() => {
+          const gross = poPendingGross(po);
+          return Boolean(gross) && can(actor, 'po.approve', { gross: gross!, poApprovalLimit: poLimit, createdBy: po.createdBy });
+        })();
     if (!waitsOnMe) continue;
     const gross = poPendingGross(po) ?? D(po.gross);
-    result.push(item({ type: 'PO', id: po.id, number: po.number, title: vendorName.get(po.vendorId) ?? '', amount: gross.toNumber(), href: `/po/${po.id}`, projectId: po.projectId, createdAt: po.createdAt, requesterId: po.createdBy }));
+    result.push(item({ type: reviewing ? 'PO_REVIEW' : 'PO', id: po.id, number: po.number, title: vendorName.get(po.vendorId) ?? '', amount: gross.toNumber(), href: `/po/${po.id}`, projectId: po.projectId, createdAt: po.createdAt, requesterId: po.createdBy }));
   }
 
   for (const pv of pvRows) {
@@ -224,7 +224,8 @@ const decisionSchema = z.object({
 
 /**
  * Applies a decision through the document's own workflow, which checks permission and state and sends
- * notifications. The two PRV types are separate so a stale screen can never approve past the step it showed.
+ * notifications. The two PRV types, and the PO's review and approval, are separate so a stale screen can
+ * never approve past the step it showed.
  */
 export async function decideApproval(
   db: Db,
@@ -240,6 +241,9 @@ export async function decideApproval(
       return approve ? approvePr(db, actor, id) : rejectPr(db, actor, id, note);
     case 'PO':
       return approve ? approvePo(db, actor, id) : rejectPo(db, actor, id, note);
+    // The purchasing head's check; approving passes the PO on to the owner, never past them
+    case 'PO_REVIEW':
+      return approve ? reviewPo(db, actor, id) : rejectPo(db, actor, id, note);
     case 'PV':
       await (approve ? approvePv(db, actor, id, note) : rejectPv(db, actor, id, note));
       return;
