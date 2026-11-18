@@ -654,7 +654,7 @@ export function PoForm({
         )}
 
         {/* The same boxes the printed PO carries */}
-        <SignatureRow roles={['ผู้จัดซื้อ', 'ผู้มีอำนาจลงนาม']} />
+        <SignatureRow roles={['ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม']} />
       </DocPaper>
     </div>
   );

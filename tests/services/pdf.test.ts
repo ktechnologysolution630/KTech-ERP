@@ -134,7 +134,7 @@ describe('PO and PR pdfs print the K TECH form', () => {
   // The head-office label used to sit before the company's tax ID in the header
   const HEADER_GONE = ['KtechnologySolution', 'สำนักงานใหญ่เลขประจำตัวผู้เสียภาษี'];
 
-  test('the PO has two signature boxes and none of the removed fields', async () => {
+  test('the PO has three signature boxes and none of the removed fields', async () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
 
@@ -163,7 +163,7 @@ describe('PO and PR pdfs print the K TECH form', () => {
 
     const text = await pdfText(await renderDocPdf(db, f.users.buyer, 'po', po.id));
 
-    for (const shown of [...HEADER_SHOWN, 'ผู้จัดซื้อ', 'ผู้มีอำนาจลงนาม', 'กำหนดชำระเงิน:', 'ContactDelivery:', 'รหัสสินค้าMAT-001']) {
+    for (const shown of [...HEADER_SHOWN, 'ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม', 'กำหนดชำระเงิน:', 'ContactDelivery:', 'รหัสสินค้าMAT-001']) {
       expect(text).toContain(shown);
     }
     for (const gone of [
@@ -175,7 +175,6 @@ describe('PO and PR pdfs print the K TECH form', () => {
       prDoc.number,
       'DownPayment',
       'Retention',
-      'ผู้จัดการแผนกจัดซื้อ',
       'หมายเหตุ/เงื่อนไข',
     ]) {
       expect(text).not.toContain(gone);
