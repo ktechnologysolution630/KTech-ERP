@@ -6,6 +6,7 @@ import { DomainError } from '@/domain/errors';
 import {
   formDef,
   FORM_KINDS,
+  hiddenFieldsOf,
   resolveFormHeader,
   resolveFormText,
   type FormHeader,
@@ -49,6 +50,7 @@ const overrideSchema = z.object({
   titleEn: z.string().optional(),
   signatureLabels: z.array(z.string()).optional(),
   footerNote: z.string().optional(),
+  hiddenFields: z.array(z.string()).optional(),
 });
 
 const headerSchema = z.object({
@@ -110,6 +112,7 @@ const formTextInput = z.object({
   titleEn: trimmed(80, 'ชื่อเอกสาร (อังกฤษ) '),
   signatureLabels: z.array(trimmed(60, 'ชื่อช่องลงนาม ')),
   footerNote: trimmed(1000, 'หมายเหตุท้ายฟอร์ม '),
+  hiddenFields: z.array(z.string().max(40)).max(20).optional(),
 });
 
 export type FormTextInput = z.input<typeof formTextInput>;
@@ -153,6 +156,8 @@ export async function saveFormText(db: Db, actor: SessionUser, kind: FormKind, i
     titleEn: changed(parsed.titleEn, d.titleEn),
     signatureLabels: labels.some(Boolean) ? labels : undefined,
     footerNote: changed(parsed.footerNote, d.footerNote),
+    // Every part prints unless the owner ticked it off
+    hiddenFields: hiddenFieldsOf(kind, parsed.hiddenFields).length > 0 ? hiddenFieldsOf(kind, parsed.hiddenFields) : undefined,
   };
   const stored = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
   await upsert(db, actor, kind, stored);

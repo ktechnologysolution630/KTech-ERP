@@ -35,7 +35,7 @@ export default async function FormSettingsPage({ searchParams }: { searchParams:
       </div>
 
       <FormsClient
-        defs={FORM_DEFS.map((d) => ({ kind: d.kind, group: d.group, label: d.label, defaults: d.defaults }))}
+        defs={FORM_DEFS.map((d) => ({ kind: d.kind, group: d.group, label: d.label, defaults: d.defaults, optionalFields: [...d.optionalFields] }))}
         texts={templates.texts}
         edited={Object.keys(templates.saved)}
         header={templates.header}

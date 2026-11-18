@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { RotateCcw, Save } from 'lucide-react';
-import { FORM_GROUP_LABEL, type FormGroup, type FormHeader, type FormKind, type FormText } from '@/domain/form-templates';
+import { FORM_GROUP_LABEL, type FormGroup, type FormHeader, type FormKind, type FormText, type OptionalField } from '@/domain/form-templates';
 import { resetFormTextAction, saveFormHeaderAction, saveFormTextAction } from './actions';
 
 const input = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400';
@@ -19,6 +19,7 @@ interface FormDefView {
   group: FormGroup;
   label: string;
   defaults: FormText;
+  optionalFields: OptionalField[];
 }
 
 type Notice = { ok: boolean; message: string } | null;
@@ -144,6 +145,7 @@ function FormEditor({
     draft.titleTh === d.titleTh &&
     draft.titleEn === d.titleEn &&
     draft.footerNote === d.footerNote &&
+    draft.hiddenFields.length === 0 &&
     draft.signatureLabels.every((l, i) => l === d.signatureLabels[i]);
 
   // What the paper would print if saved now: a blank field shows its default
@@ -152,7 +154,10 @@ function FormEditor({
     titleEn: draft.titleEn.trim() || d.titleEn,
     signatureLabels: d.signatureLabels.map((l, i) => draft.signatureLabels[i]?.trim() || l),
     footerNote: draft.footerNote.trim(),
+    hiddenFields: draft.hiddenFields,
   };
+  const togglePrinted = (key: string) =>
+    setDraft({ ...draft, hiddenFields: draft.hiddenFields.includes(key) ? draft.hiddenFields.filter((k) => k !== key) : [...draft.hiddenFields, key] });
 
   const save = () =>
     startTransition(async () => {
@@ -237,6 +242,21 @@ function FormEditor({
           className={input}
         />
       </div>
+
+      {def.optionalFields.length > 0 && (
+        <fieldset>
+          <legend className={labelCls}>ช่องที่พิมพ์ในฟอร์ม</legend>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {def.optionalFields.map((f) => (
+              <label key={f.key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                <input type="checkbox" checked={!draft.hiddenFields.includes(f.key)} onChange={() => togglePrinted(f.key)} className="h-4 w-4" />
+                {f.label}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">เอาเครื่องหมายถูกออกเพื่อไม่พิมพ์ช่องนั้นใน PDF ข้อมูลยังกรอกและเก็บไว้ในระบบตามเดิม</p>
+        </fieldset>
+      )}
 
       <Preview text={shown} />
 

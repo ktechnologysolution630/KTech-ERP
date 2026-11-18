@@ -1,7 +1,7 @@
 import React from 'react';
 import { Document, Text, View } from '@react-pdf/renderer';
 import { computeDocTotals, D, formatMoneyDisplay } from '@/domain/money';
-import { labelSigners, prFormKind, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
+import { labelSigners, prFormKind, printsField, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { LINE_KIND_LABEL, PR_TYPE_META } from '@/domain/pr-type';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
@@ -58,6 +58,8 @@ export function PrPdfDoc({
   });
 
   const text = form ?? resolveFormText(prFormKind(pr.prType));
+  const showContact = printsField(text, 'contact');
+  const showTerms = priced && printsField(text, 'paymentTerms');
   const signatures: Signer[] = labelSigners(signers ?? text.signatureLabels.map((label) => ({ label })), text.signatureLabels);
   // The goods form does not carry the department
   const requester = `${pr.requesterText || pr.requesterName}${pr.department && !goods ? ` (${pr.department})` : ''}`;
@@ -71,12 +73,14 @@ export function PrPdfDoc({
           // The goods form: the project with the reference supplier under it, then where it goes
           <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
             <View style={[fs.cellRight, { flex: 1.1 }]}>
-              <View style={[fs.cellBottom, fs.pad]}>
+              <View style={[printsField(text, 'vendor') ? fs.cellBottom : {}, fs.pad]}>
                 <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={92} bold />
               </View>
-              <View style={fs.pad}>
-                <Field label="ซัพพลายเออร์อ้างอิง" value={pr.vendorName ?? '-'} labelWidth={92} />
-              </View>
+              {printsField(text, 'vendor') && (
+                <View style={fs.pad}>
+                  <Field label="ซัพพลายเออร์อ้างอิง" value={pr.vendorName ?? '-'} labelWidth={92} />
+                </View>
+              )}
             </View>
             <View style={[fs.pad, { flex: 1 }]}>
               <Field label="สถานที่จัดส่ง" value={pr.deliveryPlace || '-'} />
@@ -157,7 +161,7 @@ export function PrPdfDoc({
                 {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
                 {/* The combined form says which part each line belongs to */}
                 {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
-                {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
+                {itemCode && printsField(text, 'itemCode') ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
               </View>
               {!goods && <Text style={{ width: PRICED_COL.boq, textAlign: 'center', fontSize: 8.5 }}>{l.boq?.no || '-'}</Text>}
               <Text style={{ width: col.qty, textAlign: 'right', paddingHorizontal: 3 }}>
@@ -201,15 +205,20 @@ export function PrPdfDoc({
             </View>
           )}
 
-          <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
-            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-              <Field label="Contact Delivery" value={requester} labelWidth={78} />
-              {priced && <Field label="เงื่อนไขการชำระเงิน" value={pr.paymentTerms || '-'} labelWidth={78} />}
+          {/* Contact and payment terms can each be left off the form in the settings; with both off the box goes */}
+          {(showContact || showTerms) && (
+            <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
+              <View style={[showContact ? fs.cellRight : {}, fs.pad, { flex: 1.1 }]}>
+                {showContact && <Field label="Contact Delivery" value={requester} labelWidth={78} />}
+                {showTerms && <Field label="เงื่อนไขการชำระเงิน" value={pr.paymentTerms || '-'} labelWidth={78} />}
+              </View>
+              {showContact && (
+                <View style={[fs.pad, { flex: 1 }]}>
+                  <Field label="Tel." value="" labelWidth={30} />
+                </View>
+              )}
             </View>
-            <View style={[fs.pad, { flex: 1 }]}>
-              <Field label="Tel." value="" labelWidth={30} />
-            </View>
-          </View>
+          )}
 
           <SignatureRow signatures={signatures} />
           <FormNote text={text.footerNote} />
