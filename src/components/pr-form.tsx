@@ -642,11 +642,16 @@ export function PrForm({
   };
 
   /**
-   * Choosing a project fills the delivery place with the project's site address. A place the user
+   * Choosing a project fills the delivery place with the project's site address, or its name when
+   * no address is on file. A place the user
    * typed themselves stays; one filled from the previous project follows the new project.
    */
   const pickProject = (id: string) => {
-    const siteOf = (pid: string) => projects.find((p) => p.id === pid)?.location?.trim() ?? '';
+    // A project with no site address on file delivers to the project itself, by name
+    const siteOf = (pid: string) => {
+      const p = projects.find((x) => x.id === pid);
+      return p ? p.location?.trim() || p.name : '';
+    };
     if (!deliveryPlace.trim() || deliveryPlace === siteOf(projectId)) setDeliveryPlace(siteOf(id));
     setProjectId(id);
   };
