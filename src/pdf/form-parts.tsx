@@ -72,6 +72,30 @@ export const fs = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 },
 });
 
+const thaiWords = new Intl.Segmenter('th', { granularity: 'word' });
+
+/**
+ * Thai text in a narrow cell. Thai has no spaces between words, so the PDF cannot break a phrase such
+ * as งานระบบไฟฟ้าและสื่อสาร and it runs into the next column; here each word is laid out on its own
+ * and the cell wraps between them.
+ */
+export function WrapText({ text, width, style }: { text: string; width: number; style?: { fontSize?: number; color?: string } }) {
+  return (
+    <View style={{ width, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingHorizontal: 3 }}>
+      {[...thaiWords.segment(text)].map(({ segment }, i) =>
+        // A space between words keeps its gap; a line may also break there
+        segment.trim() ? (
+          <Text key={i} style={style}>
+            {segment}
+          </Text>
+        ) : (
+          <View key={i} style={{ width: 2.5 }} />
+        ),
+      )}
+    </View>
+  );
+}
+
 /** A label and its value on one line, the value wrapping under itself */
 export function Field({ label, value, labelWidth = 56, bold }: { label: string; value: string; labelWidth?: number; bold?: boolean }) {
   return (
