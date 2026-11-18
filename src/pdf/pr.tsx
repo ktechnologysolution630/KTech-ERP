@@ -53,40 +53,56 @@ export function PrPdfDoc({
   });
 
   const signatures: Signer[] = signers ?? [prSignatures(pr.prType)[0]!, 'ผู้จัดการโครงการ (PM)', 'ผู้บริหาร'].map((label) => ({ label }));
-  const requester = `${pr.requesterText || pr.requesterName}${pr.department ? ` (${pr.department})` : ''}`;
+  // The goods form does not carry the department
+  const requester = `${pr.requesterText || pr.requesterName}${pr.department && !goods ? ` (${pr.department})` : ''}`;
 
   return (
     <Document>
       <FormPage settings={settings} isDraft={isDraft} docNumber={pr.number}>
         <TitleRow titleTh={meta.titleTh} titleEn={titleCase(meta.titleEn)} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
-        <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
-          <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-            <Text style={fs.sectionTitle}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
-            <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
-            <Field label="ที่อยู่" value={pr.vendorAddress || '-'} />
-            <Field label="โทร" value={pr.vendorPhone || '-'} />
-            <Text>
-              <Text style={fs.label}>เลขประจำตัวผู้เสียภาษี : </Text>
-              {pr.vendorTaxId || '-'}
-            </Text>
+        {goods ? (
+          // The goods form leaves the supplier to purchasing: it names who asks, where it goes and the project
+          <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
+            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+              <Field label="ผู้ขอซื้อ" value={pr.requesterText || pr.requesterName} labelWidth={46} bold />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={[fs.cellBottom, fs.pad]}>
+                <Field label="สถานที่จัดส่ง" value={pr.deliveryPlace || '-'} />
+              </View>
+              <View style={fs.pad}>
+                <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} />
+              </View>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
-              <View style={[fs.cellRight, fs.pad, { flex: 1.3 }]}>
-                <Field label={labor ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} value={pr.requesterText || pr.requesterName} labelWidth={46} />
+        ) : (
+          <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
+            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+              <Text style={fs.sectionTitle}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
+              <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
+              <Field label="ที่อยู่" value={pr.vendorAddress || '-'} />
+              <Field label="โทร" value={pr.vendorPhone || '-'} />
+              <Text>
+                <Text style={fs.label}>เลขประจำตัวผู้เสียภาษี : </Text>
+                {pr.vendorTaxId || '-'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
+                <View style={[fs.cellRight, fs.pad, { flex: 1.3 }]}>
+                  <Field label={labor ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} value={pr.requesterText || pr.requesterName} labelWidth={46} />
+                </View>
+                <View style={[fs.pad, { flex: 1 }]}>
+                  <Field label="แผนก" value={pr.department || '-'} labelWidth={30} />
+                </View>
               </View>
-              <View style={[fs.pad, { flex: 1 }]}>
-                <Field label="แผนก" value={pr.department || '-'} labelWidth={30} />
+              <View style={[fs.cellBottom, fs.pad]}>
+                <Field label={labor ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'} value={pr.deliveryPlace || '-'} />
               </View>
-            </View>
-            <View style={[fs.cellBottom, fs.pad]}>
-              <Field label={labor ? 'สถานที่ทำงาน' : 'สถานที่จัดส่ง'} value={pr.deliveryPlace || '-'} />
-            </View>
-            <View style={[goods ? {} : fs.cellBottom, fs.pad]}>
-              <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} />
-            </View>
-            {!goods && (
+              <View style={[fs.cellBottom, fs.pad]}>
+                <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} />
+              </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={[fs.cellRight, fs.pad, { flex: 1 }]}>
                   <Field label={labor ? 'กำหนดเริ่มงาน' : 'รับของ/เริ่มงาน'} value={dateText(pr.needBy)} labelWidth={62} />
@@ -95,9 +111,9 @@ export function PrPdfDoc({
                   <Field label="แล้วเสร็จ" value={dateText(pr.workEnd)} labelWidth={42} />
                 </View>
               </View>
-            )}
+            </View>
           </View>
-        </View>
+        )}
 
         {goods ? (
           <View style={fs.tableHeader}>

@@ -719,23 +719,34 @@ export function PrForm({
           </>
         }
       >
-        {/* Two boxes side by side as on the PDF: the vendor, then who asks, where and for which project */}
+        {/* Two boxes side by side as on the PDF: the vendor (who asks, on the goods form), then where and for which project */}
         <div className={`${paperBox} grid grid-cols-1 md:grid-cols-[1.1fr_1fr]`}>
           <div className="border-b border-[#9db0c4] md:border-b-0 md:border-r">
-            <VendorBlock
-              title={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : prType === 'GOODS' ? 'ซัพพลายเออร์อ้างอิง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
-              vendors={vendors}
-              vendorId={vendorId}
-              onChange={setVendorId}
-            />
+            {prType === 'GOODS' ? (
+              // The goods form leaves the supplier to purchasing, as the printed PR does: it names who asks
+              <BoxRow label="ผู้ขอซื้อ">
+                <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={`${paperInput} font-semibold`} />
+              </BoxRow>
+            ) : (
+              <VendorBlock
+                title={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
+                vendors={vendors}
+                vendorId={vendorId}
+                onChange={setVendorId}
+              />
+            )}
           </div>
           <div className="text-sm">
-            <BoxRow label={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'}>
-              <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} aria-label={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} className={paperInput} />
-            </BoxRow>
-            <BoxRow label="แผนก">
-              <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
-            </BoxRow>
+            {prType !== 'GOODS' && (
+              <>
+                <BoxRow label={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'}>
+                  <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} aria-label={prType === 'LABOR' ? 'ผู้ขอจ้าง' : 'ผู้ขอซื้อ'} className={paperInput} />
+                </BoxRow>
+                <BoxRow label="แผนก">
+                  <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="แผนก / ฝ่าย" aria-label="แผนก / ฝ่าย" className={paperInput} />
+                </BoxRow>
+              </>
+            )}
             <BoxRow label={prType === 'LABOR' ? 'สถานที่ทำงาน' : prType === 'GOODS' ? 'สถานที่จัดส่ง' : 'สถานที่จัดส่ง / ทำงาน'}>
               <input
                 value={deliveryPlace}
