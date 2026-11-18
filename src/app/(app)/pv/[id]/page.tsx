@@ -21,6 +21,8 @@ import {
   rejectPvAction,
   submitPvAction,
 } from '../actions';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deletePvsAction } from '@/app/(app)/accounting/delete-actions';
 import { ChequePanel, PvPayForm } from './pv-payment';
 
 export default async function PvDetailPage({
@@ -67,6 +69,17 @@ export default async function PvDetailPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Not yet approved, or cancelled: the owner or admin can remove it for good */}
+          {['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED'].includes(pv.status) && can(actor, 'accounting.delete') && (
+            <DeleteDocButton
+              action={deletePvsAction}
+              id={pv.id}
+              label={`${pv.number} · ${pv.vendorName}`}
+              noun="ใบสำคัญจ่าย"
+              hint="ใบสำคัญจ่ายนี้จะถูกลบออกจากระบบ รายการตั้งจ่ายในใบจะกลับไปรอตั้งจ่ายตามเดิม"
+              backTo="/pv"
+            />
+          )}
           <a
             href={`/api/pdf/pv/${pv.id}`}
             target="_blank"

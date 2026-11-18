@@ -4,6 +4,9 @@ import { requireUser } from '@/server/auth/current-user';
 import { getInvoice } from '@/server/services/invoice';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
+import { can } from '@/server/policy';
+import { DeleteDocButton } from '@/components/bulk-delete';
+import { deleteApInvoicesAction } from '@/app/(app)/accounting/delete-actions';
 import { cancelInvoiceAction, matchInvoiceAction } from '../actions';
 
 export default async function InvoiceDetailPage({
@@ -36,6 +39,17 @@ export default async function InvoiceDetailPage({
             · วันที่เอกสาร: {inv.invoiceDate}
           </p>
         </div>
+        {/* Once cancelled, the owner or admin can remove it for good */}
+        {inv.status === 'CANCELLED' && can(actor, 'accounting.delete') && (
+          <DeleteDocButton
+            action={deleteApInvoicesAction}
+            id={inv.id}
+            label={`${inv.invoiceNo} · ${inv.vendorName}`}
+            noun="ใบแจ้งหนี้"
+            hint="ใบแจ้งหนี้ผู้ขายที่ยกเลิกแล้วนี้ และรายการตั้งจ่ายที่ยกเลิกไปพร้อมกัน จะถูกลบออกจากระบบ"
+            backTo="/invoices"
+          />
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 grid grid-cols-3 gap-4 text-sm">

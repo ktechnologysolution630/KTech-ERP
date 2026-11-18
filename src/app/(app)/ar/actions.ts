@@ -12,6 +12,7 @@ import {
   recordArReceipt,
   updateArInvoice,
   upsertCustomer,
+  voidArCreditNote,
   voidArInvoice,
   voidArReceipt,
   type ArInvoiceInput,
@@ -79,6 +80,11 @@ export async function recordArReceiptAction(invoiceId: string, input: ArReceiptI
 export async function voidArReceiptAction(invoiceId: string, receiptId: string, reason: string) {
   const { actor, db } = await ctx();
   return run(() => voidArReceipt(db, actor, receiptId, reason), [`/ar/invoices/${invoiceId}`]);
+}
+
+export async function voidArCreditNoteAction(invoiceId: string, creditNoteId: string, reason: string) {
+  const { actor, db } = await ctx();
+  return run(() => voidArCreditNote(db, actor, creditNoteId, reason), [`/ar/invoices/${invoiceId}`, '/ar/credit-notes']);
 }
 
 export async function issueArCreditNoteAction(invoiceId: string, input: { gross: number; reason: string; docDate?: string }) {

@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Plus, X } from 'lucide-react';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteAccountCategoriesAction } from '@/app/(app)/accounting/delete-actions';
 import { saveAccountCategoryAction } from '../../sales/actions';
 
 type CatType = 'INCOME' | 'EXPENSE' | 'ASSET' | 'LIABILITY' | 'EQUITY' | 'OTHER';
@@ -20,16 +22,17 @@ export interface CategoryRow {
 const TYPE_LABEL: Record<CatType, string> = { INCOME: 'รายรับ', EXPENSE: 'ค่าใช้จ่าย', ASSET: 'สินทรัพย์', LIABILITY: 'หนี้สิน', EQUITY: 'ทุน', OTHER: 'อื่นๆ' };
 const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-[#2453d4] focus:outline-none';
 
-/** หมวดรายรับ / หมวดค่าใช้จ่าย with a type filter, add and edit */
-export function CategoriesClient({ categories }: { categories: CategoryRow[] }) {
+/** หมวดรายรับ / หมวดค่าใช้จ่าย with a type filter, add and edit; the owner and admin may also delete */
+export function CategoriesClient({ categories, canDelete = false }: { categories: CategoryRow[]; canDelete?: boolean }) {
   const [type, setType] = useState<'ALL' | CatType>('ALL');
   const [editing, setEditing] = useState<CategoryRow | 'new' | null>(null);
   const shown = categories.filter((c) => type === 'ALL' || c.type === type);
-  return (
+  const section = (
     <section className="rounded-xl border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-bold text-slate-900">หมวดรายรับ / หมวดค่าใช้จ่าย</h2>
         <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
           <select value={type} onChange={(e) => setType(e.target.value as typeof type)} aria-label="ประเภทหมวด" className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs">
             <option value="ALL">ทุกประเภท</option>
             {(Object.keys(TYPE_LABEL) as CatType[]).map((t) => (
@@ -47,6 +50,11 @@ export function CategoriesClient({ categories }: { categories: CategoryRow[] }) 
         <table className="w-full min-w-[760px] text-xs">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2.5">
+                  <SelectAllBox items={shown.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))} />
+                </th>
+              )}
               {['รหัส', 'ชื่อหมวด', 'ประเภท', 'กลุ่มบัญชี', 'VAT / WHT', 'สถานะ', 'จัดการ'].map((h) => (
                 <th key={h} className="px-3 py-2.5 text-left font-medium">
                   {h}
@@ -57,13 +65,18 @@ export function CategoriesClient({ categories }: { categories: CategoryRow[] }) 
           <tbody className="divide-y divide-slate-100">
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-slate-400">
+                <td colSpan={canDelete ? 8 : 7} className="py-10 text-center text-slate-400">
                   ยังไม่มีหมวดในประเภทนี้
                 </td>
               </tr>
             ) : (
               shown.map((c) => (
                 <tr key={c.id} className={c.active ? 'hover:bg-slate-50' : 'text-slate-400'}>
+                  {canDelete && (
+                    <td className="px-3 py-2">
+                      <SelectBox id={c.id} label={`${c.code} ${c.name}`} />
+                    </td>
+                  )}
                   <td className="px-3 py-2 font-mono">{c.code}</td>
                   <td className="px-3 py-2 font-medium">{c.name}</td>
                   <td className="px-3 py-2">{TYPE_LABEL[c.type]}</td>
@@ -87,6 +100,17 @@ export function CategoriesClient({ categories }: { categories: CategoryRow[] }) 
       <p className="px-4 py-2 text-[11px] text-slate-400">หมวดรายรับและค่าใช้จ่ายที่ใช้งานอยู่ จะเป็นตัวเลือก &quot;หมวดบัญชี&quot; ในเอกสารขาย รายรับ และรายจ่าย</p>
       {editing && <CategoryDialog category={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </section>
+  );
+  if (!canDelete) return section;
+  return (
+    <BulkDeleteProvider
+      action={deleteAccountCategoriesAction}
+      noun="หมวดบัญชี"
+      unit="หมวด"
+      hint="เอกสารที่บันทึกไปแล้วยังเก็บชื่อหมวดไว้ตามเดิม หมวดที่ลบจะไม่เป็นตัวเลือกในเอกสารใหม่อีก"
+    >
+      {section}
+    </BulkDeleteProvider>
   );
 }
 

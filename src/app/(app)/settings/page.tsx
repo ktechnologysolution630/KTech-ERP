@@ -22,9 +22,16 @@ export default async function SettingsPage() {
     <div className="max-w-2xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-900">ตั้งค่าบริษัทและวงเงินอนุมัติ</h1>
-        <Link href="/settings/doc-numbers" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-          ตั้งค่าเลขที่เอกสาร →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/settings/doc-numbers" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            ตั้งค่าเลขที่เอกสาร →
+          </Link>
+          {can(actor, 'accounting.delete') && (
+            <Link href="/settings/accounting-wipe" className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50">
+              ล้างข้อมูลบัญชีทั้งหมด →
+            </Link>
+          )}
+        </div>
       </div>
 
       <form

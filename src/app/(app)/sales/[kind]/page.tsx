@@ -6,7 +6,10 @@ import { formatMoneyDisplay } from '@/domain/money';
 import { kindFromSlug, SALES_DOC_META } from '@/domain/sales-doc';
 import { formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listSalesDocs } from '@/server/services/sales-docs';
+import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
+import { deleteSalesDocsAction } from '@/app/(app)/accounting/delete-actions';
 
 export default async function SalesDocListPage({ params, searchParams }: { params: Promise<{ kind: string }>; searchParams: Promise<{ cancelled?: string }> }) {
   const { kind: slug } = await params;
@@ -18,8 +21,10 @@ export default async function SalesDocListPage({ params, searchParams }: { param
   const db = await getDb();
   const showCancelled = sp.cancelled === '1';
   const docs = await listSalesDocs(db, actor, kind, { includeCancelled: showCancelled });
+  // Owner and admin: tick and permanently delete, e.g. test data; an issued one must be cancelled first
+  const canDelete = can(actor, 'accounting.delete');
 
-  return (
+  const page = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -27,6 +32,7 @@ export default async function SalesDocListPage({ params, searchParams }: { param
           <p className="text-xs text-slate-500">{meta.hint}</p>
         </div>
         <div className="flex items-center gap-2">
+          {canDelete && <BulkDeleteBar />}
           <Link
             href={showCancelled ? `/sales/${slug}` : `/sales/${slug}?cancelled=1`}
             className={`rounded-lg border px-3 py-2 text-xs font-medium ${showCancelled ? 'border-[#2453d4] bg-blue-50 text-[#2453d4]' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
@@ -42,6 +48,11 @@ export default async function SalesDocListPage({ params, searchParams }: { param
         <table className="w-full min-w-[900px] text-xs">
           <thead className="bg-[#102d72] text-white">
             <tr>
+              {canDelete && (
+                <th className="w-8 px-3 py-2.5">
+                  <SelectAllBox items={docs.map((d) => ({ id: d.id, label: d.number }))} />
+                </th>
+              )}
               {['เลขที่', 'วันที่', kind === 'QT' ? 'ครบกำหนด' : 'อ้างอิง', 'ลูกค้า', 'โครงการ', 'ยอดรวม', 'สุทธิ', 'สถานะ'].map((h) => (
                 <th key={h} className={`px-3 py-2.5 font-medium ${h === 'ยอดรวม' || h === 'สุทธิ' ? 'text-right' : 'text-left'}`}>
                   {h}
@@ -52,13 +63,18 @@ export default async function SalesDocListPage({ params, searchParams }: { param
           <tbody className="divide-y divide-slate-100">
             {docs.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400">
+                <td colSpan={canDelete ? 9 : 8} className="py-12 text-center text-slate-400">
                   ไม่มีรายการ
                 </td>
               </tr>
             ) : (
               docs.map((d) => (
                 <tr key={d.id} className="hover:bg-slate-50">
+                  {canDelete && (
+                    <td className="px-3 py-2.5">
+                      <SelectBox id={d.id} label={d.number} />
+                    </td>
+                  )}
                   <td className="px-3 py-2.5">
                     <Link href={`/sales/${slug}/${d.id}`} className="font-mono font-semibold text-[#2453d4] hover:underline">
                       {d.number}
@@ -82,5 +98,16 @@ export default async function SalesDocListPage({ params, searchParams }: { param
         </table>
       </div>
     </div>
+  );
+
+  if (!canDelete) return page;
+  return (
+    <BulkDeleteProvider
+      action={deleteSalesDocsAction}
+      noun={meta.th}
+      hint={`ลบได้เฉพาะ${meta.th}ที่ยกเลิกแล้ว ใบที่ยังไม่ได้ยกเลิกจะไม่ถูกลบ (เปิด "เอกสารที่ยกเลิก" เพื่อดูใบที่ยกเลิกแล้ว)`}
+    >
+      {page}
+    </BulkDeleteProvider>
   );
 }

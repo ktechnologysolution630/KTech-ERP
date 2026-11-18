@@ -22,7 +22,7 @@ import { formatQty } from '@/domain/pr-outstanding';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
-import { nextProjectDocNumber } from './numbering';
+import { nextProjectDocNumber, wasDeleted } from './numbering';
 import {
   assertPrBoqLinesChosen,
   assertPrBoqLinesValid,
@@ -256,7 +256,8 @@ export async function createPr(
     // PR-<project code>-0001, counting per project
     const number = await nextProjectDocNumber(tx, 'PR', project, async (candidate) => {
       const [taken] = await tx.select({ id: prs.id }).from(prs).where(eq(prs.number, candidate)).limit(1);
-      return Boolean(taken);
+      // A deleted PR's number is not handed out again either
+      return Boolean(taken) || (await wasDeleted(tx, candidate));
     });
     const [created] = await tx
       .insert(prs)

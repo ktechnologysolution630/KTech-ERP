@@ -6,6 +6,7 @@ import { approvePr, cancelPr, createPr, getPr, submitPr } from '@/server/service
 import { createPo } from '@/server/services/po';
 import { deletePrs } from '@/server/services/pr-delete';
 import { addComment } from '@/server/services/attachments';
+import { setNextDocNumber } from '@/server/services/doc-numbers';
 import { seedBasics } from '../helpers/fixtures';
 import { createTestDb } from '../helpers/test-db';
 
@@ -40,5 +41,15 @@ describe('deleting PRs', () => {
     expect(await db.select().from(prs).where(eq(prs.id, a.id))).toHaveLength(0);
     expect(await db.select().from(prLines).where(eq(prLines.prId, a.id))).toHaveLength(0);
     expect(await db.select().from(prs).where(eq(prs.id, b.id))).toHaveLength(1);
+  });
+
+  test("a deleted PR's number is not handed out again, even with the counter set back", async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const a = await createPr(db, f.users.foreman, { projectId: f.projectA, lines: [line] });
+    await deletePrs(db, f.users.owner, [a.id]);
+    await setNextDocNumber(db, f.users.owner, { key: 'PR', next: 1, projectId: f.projectA });
+    const again = await createPr(db, f.users.foreman, { projectId: f.projectA, lines: [line] });
+    expect(again.number).not.toBe(a.number);
   });
 });
