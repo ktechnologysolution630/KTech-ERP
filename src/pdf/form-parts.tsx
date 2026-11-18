@@ -28,10 +28,22 @@ const LOGO_SIZE = { width: 92, height: 85 };
 const RADIUS = 3;
 const MUTED = '#475569';
 
+/**
+ * Type sizes in points. Sarabun's Thai sits small for its size, so the body is set at 12 to read
+ * easily on a printed A4 page.
+ */
+export const TYPE = {
+  body: 12,
+  /** Detail lines under an item, the letterhead address, the form note */
+  small: 11,
+  /** The English line under a heading */
+  tiny: 9.5,
+} as const;
+
 export const fs = StyleSheet.create({
   page: {
     fontFamily: 'Sarabun',
-    fontSize: 9.5,
+    fontSize: TYPE.body,
     paddingTop: 22,
     // Room for the document number and page count at the foot
     paddingBottom: 34,
@@ -56,13 +68,13 @@ export const fs = StyleSheet.create({
   label: { fontWeight: 'bold', color: '#334155' },
   /** The heading inside a box, e.g. ซัพพลายเออร์อ้างอิง */
   sectionTitle: { fontWeight: 'bold', color: BRAND_DARK, marginBottom: 3 },
-  small: { fontSize: 8.5, color: MUTED },
+  small: { fontSize: TYPE.small, color: MUTED },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: BRAND,
     color: '#ffffff',
     paddingVertical: 4,
-    fontSize: 8.5,
+    fontSize: TYPE.small,
     fontWeight: 'bold',
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
@@ -160,7 +172,7 @@ export function HeaderCell({ th, en, width, align = 'center' }: { th: string; en
   return (
     <View style={[width ? { width } : { flex: 1 }, { paddingHorizontal: 4, alignItems: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center' }]}>
       <Text>{th}</Text>
-      <Text style={{ fontWeight: 'normal', fontSize: 7.5, color: '#d6e6f5' }}>{en}</Text>
+      <Text style={{ fontWeight: 'normal', fontSize: TYPE.tiny, color: '#d6e6f5' }}>{en}</Text>
     </View>
   );
 }
@@ -185,7 +197,7 @@ export function FormPage({
 }) {
   const contact = contactLine(header);
   const logo = companyLogo();
-  const footText = { fontSize: 7.5, color: '#94a3b8' };
+  const footText = { fontSize: TYPE.tiny, color: '#94a3b8' };
   return (
     <Page size="A4" style={fs.page}>
       {isDraft && (
@@ -204,14 +216,14 @@ export function FormPage({
             )}
           </View>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: BRAND_DARK }}>{settings.companyName}</Text>
-            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{header?.companyNameEn || COMPANY_NAME_EN}</Text>
-            <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: BRAND_DARK }}>{settings.companyName}</Text>
+            <Text style={{ fontSize: 13, fontWeight: 'bold', color: BRAND, letterSpacing: 0.3, marginBottom: 2 }}>{header?.companyNameEn || COMPANY_NAME_EN}</Text>
+            <Text style={{ textAlign: 'center', fontSize: TYPE.small, color: MUTED }}>
               {/* สำนักงานใหญ่, or the branch, leads the address */}
               {branchLabel(settings.companyBranch)} {settings.companyAddress}
             </Text>
-            <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}</Text>
-            {contact ? <Text style={{ textAlign: 'center', fontSize: 8.5, color: MUTED }}>{contact}</Text> : null}
+            <Text style={{ textAlign: 'center', fontSize: TYPE.small, color: MUTED }}>เลขประจำตัวผู้เสียภาษี {settings.companyTaxId}</Text>
+            {contact ? <Text style={{ textAlign: 'center', fontSize: TYPE.small, color: MUTED }}>{contact}</Text> : null}
           </View>
           {/* Balances the logo so the company name stays centred */}
           <View style={{ width: HEADER_SIDE_WIDTH }} />
@@ -237,8 +249,8 @@ export function TitleRow({ titleTh, titleEn, number, date }: { titleTh: string; 
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
       <View style={{ width: SIDE_WIDTH }} />
       <View style={{ flex: 1, alignItems: 'center' }}>
-        <Text style={{ fontSize: 19, fontWeight: 'bold', color: BRAND_DARK }}>{titleTh}</Text>
-        <Text style={{ fontSize: 9, color: '#64748b', letterSpacing: 1.2 }}>{titleEn.toUpperCase()}</Text>
+        <Text style={{ fontSize: 23, fontWeight: 'bold', color: BRAND_DARK }}>{titleTh}</Text>
+        <Text style={{ fontSize: TYPE.small, color: '#64748b', letterSpacing: 1.2 }}>{titleEn.toUpperCase()}</Text>
       </View>
       <View
         style={{
@@ -318,8 +330,8 @@ export function SignatureRow({ signatures }: { signatures: Signer[] }) {
             ) : null}
           </View>
           <View style={{ width: 130, borderBottomWidth: 0.6, borderColor: '#64748b', borderStyle: 'dotted', marginBottom: 3 }} />
-          {sig.image && sig.name ? <Text style={{ fontSize: 8.5 }}>{sig.name}</Text> : null}
-          <Text style={{ fontSize: 8, color: MUTED }}>
+          {sig.image && sig.name ? <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text> : null}
+          <Text style={{ fontSize: TYPE.small, color: MUTED }}>
             {sig.name ? `วันที่ ${sig.date ?? '........................'}` : 'วันที่ ......../......../........'}
           </Text>
         </View>
@@ -331,5 +343,5 @@ export function SignatureRow({ signatures }: { signatures: Signer[] }) {
 /** The note set for the form in the settings, under the signature boxes; nothing when blank */
 export function FormNote({ text }: { text: string }) {
   if (!text.trim()) return null;
-  return <Text style={{ marginTop: 5, fontSize: 8.5, color: MUTED }}>{text}</Text>;
+  return <Text style={{ marginTop: 5, fontSize: TYPE.small, color: MUTED }}>{text}</Text>;
 }

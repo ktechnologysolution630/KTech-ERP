@@ -9,6 +9,9 @@ import { type getPv } from '@/server/services/pv';
 import { type Settings } from '@/server/services/settings';
 import { PdfShell, pdfStyles } from './layout';
 
+/** The amount columns, wide enough for 12,345,678.90 with a gap; the description takes the rest */
+const COL = { beforeVat: 74, vat: 64, gross: 74, wht: 70, net: 78 };
+
 export function PvPdfDoc({
   pv,
   settings,
@@ -37,7 +40,7 @@ export function PvPdfDoc({
       docDate={pv.paidAt ? formatThaiDate(pv.paidAt) : formatThaiDate(pv.createdAt)}
       isDraft={isDraft}
       signatures={labelSigners(signers ?? text.signatureLabels.map((label) => ({ label })), text.signatureLabels)}
-      footer={text.footerNote ? <Text style={{ fontSize: 10, color: '#475569' }}>{text.footerNote}</Text> : undefined}
+      footer={text.footerNote ? <Text style={{ fontSize: 12, color: '#475569' }}>{text.footerNote}</Text> : undefined}
     >
       <View style={pdfStyles.metaGrid}>
         <View style={pdfStyles.metaBox}>
@@ -57,11 +60,11 @@ export function PvPdfDoc({
       <View style={pdfStyles.tableHeader}>
         <Text style={{ width: 28 }}>#</Text>
         <Text style={{ flex: 1 }}>รายการ / อ้างอิง PO / ใบแจ้งหนี้</Text>
-        <Text style={{ width: 70, textAlign: 'right' }}>ก่อน VAT</Text>
-        <Text style={{ width: 55, textAlign: 'right' }}>VAT</Text>
-        <Text style={{ width: 70, textAlign: 'right' }}>ยอดรวม</Text>
-        <Text style={{ width: 65, textAlign: 'right' }}>หัก ณ ที่จ่าย</Text>
-        <Text style={{ width: 75, textAlign: 'right' }}>จ่ายสุทธิ</Text>
+        <Text style={{ width: COL.beforeVat, textAlign: 'right' }}>ก่อน VAT</Text>
+        <Text style={{ width: COL.vat, textAlign: 'right' }}>VAT</Text>
+        <Text style={{ width: COL.gross, textAlign: 'right' }}>ยอดรวม</Text>
+        <Text style={{ width: COL.wht, textAlign: 'right' }}>หัก ณ ที่จ่าย</Text>
+        <Text style={{ width: COL.net, textAlign: 'right' }}>จ่ายสุทธิ</Text>
       </View>
 
       {pv.lines.map((l, idx) => (
@@ -71,13 +74,15 @@ export function PvPdfDoc({
             {l.payableNote} {l.poNumber ? `(PO: ${l.poNumber})` : ''}{' '}
             {l.invoiceNo ? `[IV: ${l.invoiceNo}]` : ''}
           </Text>
-          <Text style={{ width: 70, textAlign: 'right' }}>{money(l.beforeVat)}</Text>
-          <Text style={{ width: 55, textAlign: 'right' }}>{money(l.vat)}</Text>
-          <Text style={{ width: 70, textAlign: 'right' }}>{money(l.gross)}</Text>
-          <Text style={{ width: 65, textAlign: 'right' }}>
-            {money(l.wht)} ({l.whtRate}%)
-          </Text>
-          <Text style={{ width: 75, textAlign: 'right' }}>{money(l.net)}</Text>
+          <Text style={{ width: COL.beforeVat, textAlign: 'right' }}>{money(l.beforeVat)}</Text>
+          <Text style={{ width: COL.vat, textAlign: 'right' }}>{money(l.vat)}</Text>
+          <Text style={{ width: COL.gross, textAlign: 'right' }}>{money(l.gross)}</Text>
+          {/* The rate under the amount, so a large amount keeps clear of the gross beside it */}
+          <View style={{ width: COL.wht, alignItems: 'flex-end' }}>
+            <Text>{money(l.wht)}</Text>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>({l.whtRate}%)</Text>
+          </View>
+          <Text style={{ width: COL.net, textAlign: 'right' }}>{money(l.net)}</Text>
         </View>
       ))}
 

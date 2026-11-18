@@ -108,7 +108,7 @@ export function Wht50PdfDoc({
         <View style={pdfStyles.signaturesRow}>
           <View style={pdfStyles.signatureBox}>
             <Text>(ผู้มีหน้าที่หักภาษี ณ ที่จ่าย)</Text>
-            <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+            <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
               วันที่ {formatThaiDate(cert.paidAt)}
             </Text>
           </View>

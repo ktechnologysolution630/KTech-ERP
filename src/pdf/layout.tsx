@@ -53,10 +53,10 @@ export function companyLogo(): { data: Buffer; format: 'png' } | null {
 export const pdfStyles = StyleSheet.create({
   page: {
     fontFamily: 'Sarabun',
-    fontSize: 12,
+    fontSize: 14,
     paddingTop: 32,
     paddingBottom: 32,
-    paddingHorizontal: 36,
+    paddingHorizontal: 30,
     color: '#0f172a',
   },
   watermark: {
@@ -78,18 +78,18 @@ export const pdfStyles = StyleSheet.create({
     marginBottom: 12,
   },
   companyName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   docTitleBox: {
     alignItems: 'flex-end',
   },
   docTitleTh: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
   },
   docTitleEn: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#475569',
   },
   metaGrid: {
@@ -233,12 +233,12 @@ export function PdfShell({
                     // eslint-disable-next-line jsx-a11y/alt-text
                     <Image src={s.image} style={{ maxWidth: 140, maxHeight: 38, objectFit: 'contain' }} />
                   ) : s.name ? (
-                    <Text style={{ fontSize: 11 }}>{s.name}</Text>
+                    <Text style={{ fontSize: 13 }}>{s.name}</Text>
                   ) : null}
                 </View>
                 <Text>({s.label})</Text>
-                {s.name && <Text style={{ fontSize: 10 }}>{s.name}</Text>}
-                <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                {s.name && <Text style={{ fontSize: 12 }}>{s.name}</Text>}
+                <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                   {s.name ? (s.date ? `วันที่ ${s.date}` : 'ลงนามในระบบ') : 'วันที่ ......../......../........'}
                 </Text>
               </View>
