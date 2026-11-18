@@ -21,7 +21,7 @@ describe('form templates', () => {
   test('a form nobody changed prints the words in the code', async () => {
     const db = await createTestDb();
     const t = await getFormTemplates(db);
-    expect(t.texts.PO).toEqual({ titleTh: 'ใบสั่งซื้อ', titleEn: 'Purchase Order', signatureLabels: ['ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม'], footerNote: '' });
+    expect(t.texts.PO).toEqual({ titleTh: 'ใบสั่งซื้อ', titleEn: 'Purchase Order', signatureLabels: ['ผู้จัดซื้อ', 'ผู้จัดการแผนกจัดซื้อ', 'ผู้มีอำนาจลงนาม'], footerNote: '', hiddenFields: [] });
     expect(t.texts.PR_LABOR.signatureLabels).toEqual(['ผู้ขอจ้าง / ผู้จัดทำ', 'ผู้จัดการโครงการ (PM)']);
     expect(t.texts.EXP.signatureLabels[2]).toBe('ผู้รับเงิน');
     expect(t.header).toEqual({ companyNameEn: COMPANY_NAME_EN, phone: '', email: '' });
@@ -43,6 +43,7 @@ describe('form templates', () => {
       titleEn: 'Purchase Order',
       signatureLabels: ['ผู้จัดซื้อ', 'หัวหน้าจัดซื้อ', 'ผู้มีอำนาจลงนาม'],
       footerNote: 'กรุณาแนบสำเนา PO มากับใบส่งของ',
+      hiddenFields: [],
     });
     // Blank fields and words equal to the default are not stored, so they follow the code
     expect(t.saved.PO).toEqual({ titleTh: 'ใบสั่งซื้อ/สั่งจ้าง', signatureLabels: ['', 'หัวหน้าจัดซื้อ', ''], footerNote: 'กรุณาแนบสำเนา PO มากับใบส่งของ' });
@@ -137,5 +138,50 @@ describe('form templates', () => {
     expect(prText).not.toContain('ใบสั่งซื้อสินค้า');
     expect(prText).not.toContain('โปรดระบุเลขที่ใบสั่งซื้อ');
     expect(prText).toContain('KTECHTESTCO.,LTD.');
+  });
+
+  test("optional parts are left off one form; only that form's own parts count", async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const saved = await saveFormText(db, f.users.owner, 'PO', { ...blank, hiddenFields: ['quotationNo', 'itemCode', 'quotationNo', 'not-a-field'] });
+    expect(saved.hiddenFields).toEqual(['quotationNo', 'itemCode']);
+    // The labour requisition names its contractor in full; a reference supplier is not one of its parts
+    expect((await saveFormText(db, f.users.owner, 'PR_LABOR', { ...blank, hiddenFields: ['vendor', 'contact'] })).hiddenFields).toEqual(['contact']);
+    const t = await getFormTemplates(db);
+    expect(t.texts.PO.hiddenFields).toEqual(['quotationNo', 'itemCode']);
+    expect(t.texts.PR_GOODS.hiddenFields).toEqual([]);
+    // Ticking everything back on stores nothing for it
+    await saveFormText(db, f.users.owner, 'PO', { ...blank, hiddenFields: [] });
+    expect((await getFormTemplates(db)).saved.PO).toEqual({});
+  });
+
+  test('the printed PO and PR leave off the parts ticked off', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      creditDays: 30,
+      vatMode: 'INCLUSIVE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(10), unitPrice: D(107), discount: D(0) }],
+    });
+    const before = await pdfText(await renderDocPdf(db, f.users.buyer, 'po', po.id));
+    expect(before).toContain('QuotationNo.');
+    expect(before).toContain('ContactDelivery');
+
+    await saveFormText(db, f.users.owner, 'PO', { ...blank, hiddenFields: ['quotationNo', 'contact'] });
+    const after = await pdfText(await renderDocPdf(db, f.users.buyer, 'po', po.id));
+    expect(after).not.toContain('QuotationNo.');
+    expect(after).not.toContain('ContactDelivery');
+    expect(after).toContain('กำหนดส่งของ');
+
+    await saveFormText(db, f.users.owner, 'PR_GOODS', { ...blank, hiddenFields: ['vendor'] });
+    const pr = await createPr(db, f.users.foreman, { projectId: f.projectA, lines: [{ description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(5) }] });
+    const prText = await pdfText(await renderDocPdf(db, f.users.foreman, 'pr', pr.id));
+    expect(prText).not.toContain('ซัพพลายเออร์อ้างอิง');
+    expect(prText).toContain('ContactDelivery');
   });
 });

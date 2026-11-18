@@ -3,7 +3,7 @@ import { Document, Text, View } from '@react-pdf/renderer';
 import { type PoPaymentType } from '@/db/schema';
 import { D, formatMoneyDisplay, round2, sum } from '@/domain/money';
 import { CREDIT_BASIS_LABEL, PAY_METHOD_LABEL, describeSchedule } from '@/domain/payment-terms';
-import { resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
+import { printsField, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
@@ -59,6 +59,9 @@ export function PoPdfDoc({
 
   // The purchaser who sent it, the purchasing head who checked it, the owner who approved it
   const text = form ?? resolveFormText('PO');
+  const showQuotation = printsField(text, 'quotationNo');
+  const showDelivery = printsField(text, 'deliveryDate');
+  const showContact = printsField(text, 'contact');
   const signatures: Signer[] = text.signatureLabels.map((label, i) => ({ ...signers?.[i], label }));
 
   return (
@@ -79,14 +82,21 @@ export function PoPdfDoc({
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
-              <View style={[fs.cellRight, fs.pad, { flex: 1 }]}>
-                <Field label="Quotation No." value="" labelWidth={64} />
+            {/* Either box can be left off the form in the settings; with both off the row goes */}
+            {(showQuotation || showDelivery) && (
+              <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
+                {showQuotation && (
+                  <View style={[showDelivery ? fs.cellRight : {}, fs.pad, { flex: 1 }]}>
+                    <Field label="Quotation No." value="" labelWidth={64} />
+                  </View>
+                )}
+                {showDelivery && (
+                  <View style={[fs.pad, { flex: 1 }]}>
+                    <Field label="กำหนดส่งของ" value={po.deliveryDate ? formatThaiDate(po.deliveryDate) : '-'} labelWidth={60} />
+                  </View>
+                )}
               </View>
-              <View style={[fs.pad, { flex: 1 }]}>
-                <Field label="กำหนดส่งของ" value={po.deliveryDate ? formatThaiDate(po.deliveryDate) : '-'} labelWidth={60} />
-              </View>
-            </View>
+            )}
             <View style={[fs.cellBottom, fs.pad]}>
               <Field label="สถานที่จัดส่ง" value={po.deliveryAddress || '-'} />
             </View>
@@ -111,7 +121,7 @@ export function PoPdfDoc({
             <View style={{ flex: 1, paddingHorizontal: 3 }}>
               <Text>{l.description}</Text>
               {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
-              {l.ref?.itemCode ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
+              {l.ref?.itemCode && printsField(text, 'itemCode') ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
             </View>
             <Text style={{ width: COL.qty, textAlign: 'right', paddingHorizontal: 3 }}>
               {qtyText(l.qty)} {l.unitName}
@@ -140,7 +150,7 @@ export function PoPdfDoc({
           />
 
           <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
-            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+            <View style={[showContact ? fs.cellRight : {}, fs.pad, { flex: 1.1 }]}>
               <Field label="กำหนดชำระเงิน" value={`${payment} · ${PAY_METHOD_LABEL[po.payMethod]}`} labelWidth={72} />
               {po.installments.length > 0 && (
                 <Field
@@ -149,7 +159,7 @@ export function PoPdfDoc({
                   value={po.installments.map((i) => `งวดที่ ${i.seq} ${i.name}  ${formatMoneyDisplay(i.amount)} บาท`).join('\n')}
                 />
               )}
-              {po.paymentType === 'CREDIT' && (
+              {po.paymentType === 'CREDIT' && printsField(text, 'billingSchedule') && (
                 <Field
                   label="วางบิล / รับเช็ค"
                   value={`${describeSchedule(po.billingSchedule, 'ทุกวัน')} / ${describeSchedule(po.chequeSchedule, 'ไม่กำหนดรอบ')}`}
@@ -158,14 +168,16 @@ export function PoPdfDoc({
               )}
               {po.paymentTerms ? <Field label="เงื่อนไข" value={po.paymentTerms} labelWidth={72} /> : null}
             </View>
-            <View style={[fs.pad, { flex: 1 }]}>
-              <Field
-                label="Contact Delivery"
-                value={po.requesterName ? `${po.requesterName}${po.department ? ` (${po.department})` : ''}` : ''}
-                labelWidth={78}
-              />
-              <Field label="Tel." value="" labelWidth={78} />
-            </View>
+            {showContact && (
+              <View style={[fs.pad, { flex: 1 }]}>
+                <Field
+                  label="Contact Delivery"
+                  value={po.requesterName ? `${po.requesterName}${po.department ? ` (${po.department})` : ''}` : ''}
+                  labelWidth={78}
+                />
+                <Field label="Tel." value="" labelWidth={78} />
+              </View>
+            )}
           </View>
 
           <SignatureRow signatures={signatures} />
