@@ -31,11 +31,11 @@ export function PoPdfDoc({
 }: {
   po: Awaited<ReturnType<typeof getPo>>;
   settings: Settings;
-  /** Who has signed in the system, preparer then approver; blank lines when left out */
+  /** Who has signed in the system: preparer, purchasing head, approver; blank lines when left out */
   signers?: Signer[];
   lineRefs?: ReadonlyMap<string, PoLineRef>;
 }) {
-  const isDraft = po.status === 'DRAFT' || po.status === 'PENDING_APPROVAL' || po.status === 'REJECTED';
+  const isDraft = po.status === 'DRAFT' || po.status === 'PENDING_REVIEW' || po.status === 'PENDING_APPROVAL' || po.status === 'REJECTED';
 
   const lines = po.lines.map((l) => ({
     ...l,
@@ -51,11 +51,11 @@ export function PoPdfDoc({
       ? `เครดิต ${po.creditDays ?? 0} วัน ${CREDIT_BASIS_LABEL[po.creditBasis]}`
       : PAYMENT_TYPE_LABEL[po.paymentType];
 
-  const [preparer, approver] = signers ?? [];
+  // The purchaser who sent it, the purchasing head who checked it, the owner who approved it
+  const [preparer, reviewer, approver] = signers ?? [];
   const signatures: Signer[] = [
     { ...preparer, label: 'ผู้จัดซื้อ' },
-    // Signed by hand: the system has no purchasing-manager step, the owner approves every PO
-    { label: 'ผู้จัดการแผนกจัดซื้อ' },
+    { ...reviewer, label: 'ผู้จัดการแผนกจัดซื้อ' },
     { ...approver, label: 'ผู้มีอำนาจลงนาม' },
   ];
 

@@ -10,7 +10,7 @@ import {
   listBoqMaterialOptions,
   requestBoqOverrun,
 } from '@/server/services/boq-overrun';
-import { approvePo, createPo, getPo, rejectPo, submitPo, updatePo } from '@/server/services/po';
+import { approvePo, createPo, getPo, rejectPo, submitPo, updatePo, reviewPo } from '@/server/services/po';
 
 describe('computeBoqOverrun', () => {
   const boqLines = [{ id: 'a', no: '1.1', description: 'เสาเข็ม', qty: 10, materialRate: 20_000 }];
@@ -90,6 +90,7 @@ describe('over-BOQ approval (AP)', () => {
 
     const po1 = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id, 7));
     await submitPo(db, f.users.buyer, po1.id);
+    await reviewPo(db, f.users.buyerHead, po1.id);
     await approvePo(db, f.users.owner, po1.id);
 
     const options = await listBoqMaterialOptions(db, f.users.buyer);
@@ -97,6 +98,7 @@ describe('over-BOQ approval (AP)', () => {
 
     const po2 = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id, 5));
     await submitPo(db, f.users.buyer, po2.id);
+    await reviewPo(db, f.users.buyerHead, po2.id);
     const check = await getPoBoqCheck(db, f.users.buyer, po2.id);
     expect(check).toMatchObject({ overAmount: 40_000, covered: false, canRequest: true });
 
@@ -117,6 +119,7 @@ describe('over-BOQ approval (AP)', () => {
     const { db, f, pileLine } = await setup();
     const po = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id, 11));
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     const ap = await requestBoqOverrun(db, f.users.buyer, po.id, 'เพิ่ม 1 ต้น');
     await decideBoqOverrun(db, f.users.owner, ap.id, true, '');
 
@@ -124,6 +127,7 @@ describe('over-BOQ approval (AP)', () => {
     await rejectPo(db, f.users.owner, po.id, 'เพิ่มจำนวนตามหน้างาน');
     await updatePo(db, f.users.buyer, po.id, poInput(f.projectA, f.vendorCo, pileLine.id, 12));
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await expect(approvePo(db, f.users.owner, po.id)).rejects.toMatchObject({ status: 409 });
   });
 
@@ -131,6 +135,7 @@ describe('over-BOQ approval (AP)', () => {
     const { db, f, pileLine } = await setup();
     const po = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id, 12));
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     const ap = await requestBoqOverrun(db, f.users.buyer, po.id, 'เพิ่มเติม');
     await expect(decideBoqOverrun(db, f.users.owner, ap.id, false, '')).rejects.toMatchObject({ status: 400 });
     await decideBoqOverrun(db, f.users.owner, ap.id, false, 'ให้ทำ VO แทน');

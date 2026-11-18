@@ -2,6 +2,8 @@ export const STATUS_MAP: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'ร่าง', color: 'bg-slate-100 text-slate-700 border-slate-300' },
   SUBMITTED: { label: 'รออนุมัติ', color: 'bg-amber-50 text-amber-800 border-amber-300' },
   PENDING_APPROVAL: { label: 'รออนุมัติ', color: 'bg-amber-50 text-amber-800 border-amber-300' },
+  // A PO waiting for the purchasing head before it goes to the owner
+  PENDING_REVIEW: { label: 'รอหัวหน้าจัดซื้อตรวจ', color: 'bg-yellow-50 text-yellow-800 border-yellow-300' },
   // A PR over the BOQ that the PM approved
   OWNER_REVIEW: { label: 'รอเจ้าของอนุมัติ', color: 'bg-orange-50 text-orange-800 border-orange-300' },
   APPROVED: { label: 'อนุมัติแล้ว', color: 'bg-emerald-50 text-emerald-800 border-emerald-300' },

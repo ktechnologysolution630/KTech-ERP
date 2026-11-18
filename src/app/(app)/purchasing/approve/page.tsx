@@ -10,12 +10,15 @@ export default async function PurchasingApprovePage() {
   const actor = await requireUser();
   const db = await getDb();
 
-  const [submittedPrs, overBoqPrs, pos, overruns] = await Promise.all([
+  const [submittedPrs, overBoqPrs, reviewPos, approvalPos, overruns] = await Promise.all([
     listPrs(db, actor, { status: 'SUBMITTED' }),
     listPrs(db, actor, { status: 'OWNER_REVIEW' }),
+    listPos(db, actor, { status: 'PENDING_REVIEW' }),
     listPos(db, actor, { status: 'PENDING_APPROVAL' }),
     listBoqOverrunRequests(db, actor),
   ]);
+  // A PO waits for the purchasing head first; others see it once it is passed on for approval
+  const pos = [...reviewPos.filter((p) => can(actor, 'po.review', { createdBy: p.createdBy })), ...approvalPos];
 
   // The owner sees a submitted PR only on a project without a PM; until then it is the PM's
   const withPm = await projectIdsWithPm(db, [...new Set(submittedPrs.map((p) => p.projectId))]);

@@ -17,6 +17,8 @@ const ACTION_LABELS: Record<string, string> = {
   'close_short.reject': 'ปฏิเสธปิดยอดค้างรับ',
   // A PR over the BOQ: the PM approves, then the owner
   pm_approve: 'PM อนุมัติ ส่งต่อให้เจ้าของ (เกิน BOQ)',
+  // A PO: the purchasing head checks it, then the owner approves
+  review: 'หัวหน้าจัดซื้ออนุมัติ ส่งต่อให้เจ้าของ',
   approve_over_boq: 'เจ้าของอนุมัติซื้อเกิน BOQ',
   renumber: 'เปลี่ยนเลขที่เอกสาร',
   // Services that log upper-case codes (looked up case-insensitively)

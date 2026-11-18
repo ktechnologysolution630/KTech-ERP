@@ -7,7 +7,7 @@ import { type Db } from '@/db/client';
 import { D } from '@/domain/money';
 import { getProjectBoqSheet, saveProjectMainBoq } from '@/server/services/boq';
 import { approvePr, cancelPr, closePr, createPr, getPr, rejectPr, submitPr, type PrLineInput } from '@/server/services/pr';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { listBoqQtyOptions } from '@/server/services/pr-boq';
 import { listPendingApprovals } from '@/server/services/approvals';
 import { updateSettings } from '@/server/services/settings';
@@ -297,6 +297,7 @@ describe('PO approval by the owner alone', () => {
       lines: [{ description: 'กระดาษ A4', unitName: 'รีม', qty: D(100), unitPrice: D(100), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await expect(approvePo(db, f.users.buyerHead, po.id)).rejects.toMatchObject({ status: 403 });
     await approvePo(db, f.users.owner, po.id);
     expect((await getPo(db, f.users.owner, po.id)).status).toBe('APPROVED');

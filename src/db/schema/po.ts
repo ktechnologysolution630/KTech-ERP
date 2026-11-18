@@ -20,6 +20,8 @@ import { type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 
 export type PoStatus =
   | 'DRAFT'
+  // Sent by purchasing, waiting for the purchasing head to check it before the owner approves
+  | 'PENDING_REVIEW'
   | 'PENDING_APPROVAL'
   | 'APPROVED'
   | 'REJECTED'
@@ -76,6 +78,9 @@ export const pos = pgTable(
     currentRevision: integer('current_revision').default(0).notNull(),
     approvedRevision: integer('approved_revision'),
     pendingRevision: jsonb('pending_revision'),
+    /** The purchasing head who checked the PO before it went to the owner (PENDING_REVIEW → PENDING_APPROVAL) */
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     approvedBy: uuid('approved_by').references(() => users.id),
     approvedAt: timestamp('approved_at', { withTimezone: true }),
     orderedAt: timestamp('ordered_at', { withTimezone: true }),

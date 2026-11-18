@@ -7,7 +7,7 @@ import { bangkokDateString } from '@/domain/thai';
 import { createArInvoice, issueArInvoice, recordArReceipt, upsertCustomer } from '@/server/services/ar';
 import { createInvoice } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
-import { approvePo, createPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, submitPo, reviewPo } from '@/server/services/po';
 import { getProjectCashflow, getProjectCostPerformance } from '@/server/services/project-finance';
 import { createPrv, transitionPrv } from '@/server/services/prv';
 import { approvePv, createPv, markPvPaid, submitPv } from '@/server/services/pv';
@@ -108,6 +108,7 @@ describe('project finance services', () => {
       lines: [{ description: 'ปูน', qty: D(10), unitName: 'ถุง', unitPrice: D(107), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     await receiveAll(db, f.users.owner, po.id);
     await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-1', invoiceDate: today, beforeVat: D(1000), vat: D(70) });

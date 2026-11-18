@@ -24,7 +24,7 @@ import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 
 /** POs whose lines already commit BOQ budget. Drafts, rejected and cancelled POs do not. */
-const COMMITTING_STATUSES: PoStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'];
+const COMMITTING_STATUSES: PoStatus[] = ['PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'];
 
 /** Amount before VAT that live POs commit to each of the given BOQ lines. */
 export async function committedByBoqLine(tx: Db, boqLineIds: string[]): Promise<Map<string, Decimal>> {

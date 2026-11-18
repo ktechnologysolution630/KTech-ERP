@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
 import { createPr, submitPr, approvePr, getPr } from '@/server/services/pr';
-import { createPo, submitPo, approvePo, markOrdered, getPo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, markOrdered, getPo, reviewPo } from '@/server/services/po';
 import { createReceipt } from '@/server/services/receipt';
 import { createInvoice, getPoSummary } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
@@ -50,6 +50,7 @@ describe('e2e flow: credit PO', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     await markOrdered(db, f.users.buyer, po.id);
 

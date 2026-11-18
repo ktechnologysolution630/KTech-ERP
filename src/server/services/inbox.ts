@@ -22,6 +22,7 @@ import { getSettings } from './settings';
 export type InboxKey =
   | 'PR_TO_APPROVE'
   | 'PR_TO_ORDER'
+  | 'PO_TO_REVIEW'
   | 'PO_TO_APPROVE'
   | 'PO_TO_ORDER'
   | 'PO_TO_RECEIVE'
@@ -77,13 +78,13 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
       .from(prs)
       .where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW']))
       .orderBy(desc(prs.createdAt)),
-    // POs waiting for approval (new, or with a revision), approved ones waiting to be ordered, and this user's rejected ones
+    // POs waiting for the purchasing head or for approval (new, or with a revision), approved ones waiting to be ordered, and this user's rejected ones
     db
       .select()
       .from(pos)
       .where(
         or(
-          inArray(pos.status, ['PENDING_APPROVAL', 'APPROVED']),
+          inArray(pos.status, ['PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED']),
           isNotNull(pos.pendingRevision),
           and(eq(pos.status, 'REJECTED'), eq(pos.createdBy, actor.id)),
         ),
@@ -158,7 +159,25 @@ export async function getInbox(db: Db, actor: SessionUser): Promise<InboxGroup[]
     }
   }
 
-  // 3. PO_TO_APPROVE
+  // 3a. PO_TO_REVIEW: sent by purchasing, waiting for the purchasing head before the owner
+  const poToReview = allPos.filter((po) => po.status === 'PENDING_REVIEW' && can(actor, 'po.review', { createdBy: po.createdBy }));
+  if (poToReview.length > 0) {
+    groups.push({
+      key: 'PO_TO_REVIEW',
+      label: 'ใบสั่งซื้อรอหัวหน้าจัดซื้อตรวจสอบ (PO)',
+      count: poToReview.length,
+      items: poToReview.map((po) => ({
+        id: po.id,
+        number: po.number,
+        title: vendorMap.get(po.vendorId)?.name ?? '',
+        href: `/po/${po.id}`,
+        amount: po.gross,
+        date: formatThaiDate(po.createdAt),
+      })),
+    });
+  }
+
+  // 3b. PO_TO_APPROVE
   const poToApprove = allPos.filter((po) => {
     const gross = poPendingGross(po);
     if (!gross) return false;

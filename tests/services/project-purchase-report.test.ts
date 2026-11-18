@@ -5,7 +5,7 @@ import { type Db } from '@/db/client';
 import { D } from '@/domain/money';
 import { bangkokDateString } from '@/domain/thai';
 import { approvePr, createPr, submitPr } from '@/server/services/pr';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { createReceipt } from '@/server/services/receipt';
 import { getProjectPurchaseReport } from '@/server/services/project-purchase-report';
 
@@ -21,6 +21,7 @@ async function po(db: Db, f: SeededBasics, vendorId: string, lines: { descriptio
     lines: lines.map((l) => ({ prLineId: l.prLineId, description: l.description, unitName: 'ชิ้น', qty: D(l.qty), unitPrice: D(l.unitPrice), discount: D(0) })),
   });
   await submitPo(db, f.users.buyer, created.id);
+  await reviewPo(db, f.users.buyerHead, created.id);
   if (approve) await approvePo(db, f.users.owner, created.id);
   return created;
 }

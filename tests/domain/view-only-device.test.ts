@@ -71,7 +71,7 @@ describe('every action that writes refuses a view-only device', () => {
    * and milestone actions also hold other steps, which they keep behind the writer check themselves.
    */
   const DECISIONS = [
-    'approvePrAction', 'rejectPrAction', 'approvePoAction', 'rejectPoAction', 'approveCloseShortAction', 'rejectCloseShortAction',
+    'approvePrAction', 'rejectPrAction', 'reviewPoAction', 'approvePoAction', 'rejectPoAction', 'approveCloseShortAction', 'rejectCloseShortAction',
     'approvePvAction', 'rejectPvAction', 'decideAdvanceAction', 'decideReceiptSubstituteAction', 'decideApprovalAction',
     'decideBoqOverrunAction', 'decideVoAction', 'decideStockAdjustAction', 'transitionPrvAction', 'advanceMilestoneAction',
   ];

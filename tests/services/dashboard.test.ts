@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { payables } from '@/db/schema';
 import { D } from '@/domain/money';
-import { createPo, submitPo, approvePo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, reviewPo } from '@/server/services/po';
 import { createInvoice } from '@/server/services/invoice';
 import { requestPrepaid } from '@/server/services/payable';
 import { createPv, submitPv, approvePv, markPvPaid } from '@/server/services/pv';
@@ -30,6 +30,7 @@ describe('dashboard service', () => {
       lines: [{ description: 'วัสดุ', unitName: 'ชุด', qty: D(2), unitPrice: D(1000), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     await receiveAll(db, f.users.owner, po.id);
@@ -77,6 +78,7 @@ describe('dashboard service', () => {
       lines: [{ description: 'เครื่องปั่นไฟ', unitName: 'เครื่อง', qty: D(1), unitPrice: D(15000), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     const payableId = await requestPrepaid(db, f.users.buyer, po.id);
@@ -151,6 +153,7 @@ describe('dashboard overview', () => {
       lines: [{ description: 'วัสดุ', unitName: 'ชุด', qty: D(2), unitPrice: D(1000), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     await receiveAll(db, f.users.owner, po.id);
     const paid = await createInvoice(db, f.users.finance, { poId: po.id, invoiceNo: 'IV-A', invoiceDate: today, beforeVat: D(1000), vat: D(0), dueDate: '2026-12-01' });

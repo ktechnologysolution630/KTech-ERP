@@ -39,7 +39,7 @@ import { addAttachment, addComment, readStoredFile } from '@/server/services/att
 import { createInvoice } from '@/server/services/invoice';
 import { createProject, getProjectDetail, setProjectCover } from '@/server/services/master';
 import { listOpenPayables } from '@/server/services/payable';
-import { approvePo, createPo, getPo, markOrdered, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, markOrdered, submitPo, reviewPo } from '@/server/services/po';
 import { approvePr, createPr, getPr, submitPr } from '@/server/services/pr';
 import { deleteProject, previewProjectDeletion } from '@/server/services/project-delete';
 import { approvePv, cancelPv, createPv, markPvPaid, submitPv } from '@/server/services/pv';
@@ -67,6 +67,7 @@ async function billedPurchase(db: Db, f: SeededBasics, projectId: string, reques
     lines: [{ ...line, prLineId: prDoc.lines[0]!.id, unitPrice: D(107), discount: D(0) }],
   });
   await submitPo(db, f.users.buyer, po.id);
+  await reviewPo(db, f.users.buyerHead, po.id);
   await approvePo(db, f.users.buyerHead, po.id);
   await markOrdered(db, f.users.buyer, po.id);
   const poDoc = await getPo(db, f.users.buyer, po.id);

@@ -721,34 +721,34 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
       throw new DomainError('INVALID_STATE', 'ส่งขออนุมัติไม่ได้ในสถานะปัจจุบัน', 409);
     }
 
+    // The purchasing head checks a PO before the owner approves it. One the head sends themselves
+    // counts as checked by them and goes straight on to the owner.
+    const sentByHead = actor.roles.includes('PURCHASING_HEAD');
     await tx
       .update(pos)
       .set({
-        status: 'PENDING_APPROVAL',
+        status: sentByHead ? 'PENDING_APPROVAL' : 'PENDING_REVIEW',
+        reviewedBy: sentByHead ? actor.id : null,
+        reviewedAt: sentByHead ? new Date() : null,
         rejectReason: null,
         updatedAt: new Date(),
       })
       .where(eq(pos.id, id));
 
-    const roleNeeded = requiredPoApprover(D(po.gross), limit);
-    const approvers = await usersWithRole(
-      tx,
-      roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'] : ['OWNER'],
-    );
-    // The approver is told up front when something costs more than the last time it was bought
-    const dearer = await listPoPriceIncreases(tx, {
-      id,
-      vatMode: po.vatMode,
-      createdAt: po.createdAt,
-      lines: await tx.select().from(poLines).where(eq(poLines.poId, id)),
-    });
-    await notify(tx, approvers, {
-      title: `ใบสั่งซื้อ ${po.number} รออนุมัติ${dearerNote(dearer.length)}`,
-      href: `/po/${po.id}`,
-      category: 'PO',
-      level: dearer.length > 0 ? 'WARNING' : undefined,
-      projectId: po.projectId,
-    });
+    if (sentByHead) {
+      await notifyPoApprovers(tx, po, limit);
+    } else {
+      // The head is warned of dearer lines too, as the approver will be
+      const dearer = await dearerLinesOf(tx, po);
+      const heads = (await usersWithRole(tx, ['PURCHASING_HEAD'])).filter((uid) => uid !== actor.id);
+      await notify(tx, heads, {
+        title: `ใบสั่งซื้อ ${po.number} รอหัวหน้าจัดซื้อตรวจสอบ${dearerNote(dearer)}`,
+        href: `/po/${po.id}`,
+        category: 'PO',
+        level: dearer > 0 ? 'WARNING' : undefined,
+        projectId: po.projectId,
+      });
+    }
 
     await logActivity(tx, {
       entityType: 'PO',
@@ -759,6 +759,57 @@ export async function submitPo(db: Db, actor: SessionUser, id: string): Promise<
 
     // The PO now commits its BOQ budget
     await checkBoqUsageAlerts(tx, await boqLineIdsOfPo(tx, id));
+  });
+}
+
+/** Tells whoever may approve the PO at its amount that it waits, flagging lines dearer than last time */
+async function notifyPoApprovers(tx: Db, po: typeof pos.$inferSelect, limit: Decimal) {
+  const roleNeeded = requiredPoApprover(D(po.gross), limit);
+  const approvers = await usersWithRole(
+    tx,
+    roleNeeded === 'PURCHASING_HEAD' ? ['PURCHASING_HEAD', 'GENERAL_MANAGER', 'OWNER'] : ['OWNER'],
+  );
+  // The approver is told up front when something costs more than the last time it was bought
+  const dearer = await dearerLinesOf(tx, po);
+  await notify(tx, approvers, {
+    title: `ใบสั่งซื้อ ${po.number} รออนุมัติ${dearerNote(dearer)}`,
+    href: `/po/${po.id}`,
+    category: 'PO',
+    level: dearer > 0 ? 'WARNING' : undefined,
+    projectId: po.projectId,
+  });
+}
+
+/** How many of the PO's lines cost more than the last time the item was bought */
+async function dearerLinesOf(tx: Db, po: typeof pos.$inferSelect): Promise<number> {
+  const dearer = await listPoPriceIncreases(tx, {
+    id: po.id,
+    vatMode: po.vatMode,
+    createdAt: po.createdAt,
+    lines: await tx.select().from(poLines).where(eq(poLines.poId, po.id)),
+  });
+  return dearer.length;
+}
+
+/**
+ * The purchasing head checks a PO sent by purchasing and passes it on to the owner for approval. The
+ * head signs the ผู้จัดการแผนกจัดซื้อ box on the printed PO.
+ */
+export async function reviewPo(db: Db, actor: SessionUser, id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const po = await lockPo(tx, id);
+    if (po.status !== 'PENDING_REVIEW') {
+      throw new DomainError('INVALID_STATE', 'ใบสั่งซื้อนี้ไม่ได้รอหัวหน้าจัดซื้อตรวจสอบ', 409);
+    }
+    assertCan(actor, 'po.review', { createdBy: po.createdBy });
+    const s = await getSettings(tx);
+
+    await tx
+      .update(pos)
+      .set({ status: 'PENDING_APPROVAL', reviewedBy: actor.id, reviewedAt: new Date(), updatedAt: new Date() })
+      .where(eq(pos.id, id));
+    await logActivity(tx, { entityType: 'PO', entityId: id, action: 'review', userId: actor.id });
+    await notifyPoApprovers(tx, po, D(s.poApprovalLimit));
   });
 }
 
@@ -1030,21 +1081,28 @@ export async function rejectPo(
       return;
     }
 
-    if (po.status !== 'PENDING_APPROVAL') {
+    if (po.status !== 'PENDING_APPROVAL' && po.status !== 'PENDING_REVIEW') {
       throw new DomainError('INVALID_STATE', 'ตีกลับได้เฉพาะใบสั่งซื้อที่รออนุมัติ', 409);
     }
 
-    assertCan(actor, 'po.approve', {
-      gross: D(po.gross),
-      poApprovalLimit: limit,
-      createdBy: po.createdBy,
-    });
+    if (po.status === 'PENDING_REVIEW') {
+      // The purchasing head sends it back before it reaches the owner
+      assertCan(actor, 'po.review', { createdBy: po.createdBy });
+    } else {
+      assertCan(actor, 'po.approve', {
+        gross: D(po.gross),
+        poApprovalLimit: limit,
+        createdBy: po.createdBy,
+      });
+    }
 
     await tx
       .update(pos)
       .set({
         status: 'REJECTED',
         rejectReason: cleanReason,
+        reviewedBy: null,
+        reviewedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(pos.id, id));
@@ -1185,6 +1243,8 @@ export async function getPo(db: Db, actor: SessionUser, id: string) {
       currentRevision: pos.currentRevision,
       approvedRevision: pos.approvedRevision,
       pendingRevision: pos.pendingRevision,
+      reviewedBy: pos.reviewedBy,
+      reviewedAt: pos.reviewedAt,
       approvedBy: pos.approvedBy,
       approvedAt: pos.approvedAt,
       orderedAt: pos.orderedAt,
@@ -1271,6 +1331,7 @@ export async function listPos(
       projectName: projects.name,
       vendorId: pos.vendorId,
       vendorName: vendors.name,
+      createdBy: pos.createdBy,
       creatorName: users.name,
       status: pos.status,
       paymentType: pos.paymentType,

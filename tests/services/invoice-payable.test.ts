@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
 import { eq } from 'drizzle-orm';
 import { invoices, pos, vendors } from '@/db/schema';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import {
   cancelInvoice,
   createInvoice,
@@ -50,6 +50,7 @@ describe('invoice and payable services', () => {
     });
     creditPo = cPo.id;
     await submitPo(db, f.users.buyer, creditPo);
+    await reviewPo(db, f.users.buyerHead, creditPo);
     await approvePo(db, f.users.buyerHead, creditPo);
     await receiveAll(db, f.users.foreman, creditPo);
 
@@ -72,6 +73,7 @@ describe('invoice and payable services', () => {
     });
     prepaidPo = pPo.id;
     await submitPo(db, f.users.buyer, prepaidPo);
+    await reviewPo(db, f.users.buyerHead, prepaidPo);
     await approvePo(db, f.users.buyerHead, prepaidPo);
 
     const iPo = await createPo(db, f.users.buyer, {
@@ -97,6 +99,7 @@ describe('invoice and payable services', () => {
     });
     installmentPo = iPo.id;
     await submitPo(db, f.users.buyer, installmentPo);
+    await reviewPo(db, f.users.buyerHead, installmentPo);
     await approvePo(db, f.users.buyerHead, installmentPo);
   });
 
@@ -219,6 +222,7 @@ describe('billing and cheque terms', () => {
     const [saved] = await db.select().from(pos).where(eq(pos.id, po.id));
     expect(saved).toMatchObject({ billingSchedule: 'M:25', creditBasis: 'BILLING', chequeSchedule: 'M:5,20', payMethod: 'CHEQUE' });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     await expect(
