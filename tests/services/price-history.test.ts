@@ -6,7 +6,7 @@ import type { Db } from '@/db/client';
 import { notifications, pos } from '@/db/schema';
 import { D, type VatMode } from '@/domain/money';
 import { lastPriceFor, netUnitPrice, priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { listLastPurchasePrices, listPoPriceIncreases } from '@/server/services/price-history';
 
 const bought = (over: Partial<LastPurchasePrice> = {}): LastPurchasePrice => ({
@@ -70,6 +70,7 @@ describe('price history from purchase orders', () => {
     });
     if (opts.approve !== false) {
       await submitPo(db, f.users.buyer, po.id);
+      await reviewPo(db, f.users.buyerHead, po.id);
       await approvePo(db, f.users.buyerHead, po.id);
     }
     return po;
@@ -85,6 +86,7 @@ describe('price history from purchase orders', () => {
     // Written but not approved: nothing has been bought yet
     expect(await listLastPurchasePrices(db)).toEqual([]);
     await submitPo(db, f.users.buyer, draft.id);
+    await reviewPo(db, f.users.buyerHead, draft.id);
     expect(await listLastPurchasePrices(db)).toEqual([]);
     await approvePo(db, f.users.buyerHead, draft.id);
 
@@ -128,6 +130,7 @@ describe('price history from purchase orders', () => {
 
     // The approver is warned in the notification itself
     await submitPo(db, f.users.buyer, next.id);
+    await reviewPo(db, f.users.buyerHead, next.id);
     const sent = await db.select().from(notifications).where(eq(notifications.href, `/po/${next.id}`));
     expect(sent.length).toBeGreaterThan(0);
     for (const n of sent) {

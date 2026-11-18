@@ -12,6 +12,7 @@ import {
   createPo,
   markOrdered,
   rejectPo,
+  reviewPo,
   submitPo,
   updatePo,
   type PoInput,
@@ -76,6 +77,15 @@ export async function submitPoAction(id: string) {
   const actor = await requireWriter();
   const db = await getDb();
   await submitPo(db, actor, id);
+  revalidatePath(`/po/${id}`);
+  revalidatePath('/po');
+}
+
+/** The purchasing head passes the PO on to the owner */
+export async function reviewPoAction(id: string) {
+  const actor = await requireDecider();
+  const db = await getDb();
+  await reviewPo(db, actor, id);
   revalidatePath(`/po/${id}`);
   revalidatePath('/po');
 }

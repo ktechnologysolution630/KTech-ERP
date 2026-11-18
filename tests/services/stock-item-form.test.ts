@@ -3,7 +3,7 @@ import { createTestDb } from '../helpers/test-db';
 import { seedBasics, type SeededBasics } from '../helpers/fixtures';
 import { type Db } from '@/db/client';
 import { D } from '@/domain/money';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { createReceipt } from '@/server/services/receipt';
 import { getStockPageData, listPoLinesForStock, upsertStockItem } from '@/server/services/stock';
 
@@ -26,6 +26,7 @@ async function approvedPo(db: Db, f: SeededBasics, opts: { submitOnly?: boolean 
     lines: [{ itemId: f.itemCement, description: 'ปูนซีเมนต์ปอร์ตแลนด์', unitName: 'ถุง', qty: D(40), unitPrice: D(150), discount: D(0) }],
   });
   await submitPo(db, f.users.buyer, po.id);
+  await reviewPo(db, f.users.buyerHead, po.id);
   if (!opts.submitOnly) await approvePo(db, f.users.owner, po.id);
   const doc = await getPo(db, f.users.buyer, po.id);
   return { po, lineId: doc.lines[0]!.id };

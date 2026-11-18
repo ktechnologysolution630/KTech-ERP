@@ -38,6 +38,7 @@ import {
   rejectCloseShortAction,
   rejectPoAction,
   requestCloseShortAction,
+  reviewPoAction,
   submitPoAction,
 } from '../actions';
 import {
@@ -89,6 +90,8 @@ export default async function PoDetailPage({
     : D(po.gross);
 
   const approverRole = requiredPoApprover(targetGross, limitDec);
+  // A PO sent by purchasing waits for the purchasing head before it goes to the owner
+  const canReview = po.status === 'PENDING_REVIEW' && can(actor, 'po.review', { createdBy: po.createdBy });
   const isWaitingApproval =
     po.status === 'PENDING_APPROVAL' || Boolean(pendingPayload?.submittedForApproval);
   const canApprove =
@@ -172,6 +175,21 @@ export default async function PoDetailPage({
       {boqCheck && <BoqOverrunPanel poId={po.id} check={boqCheck} />}
 
       <PriceIncreasePanel increases={priceIncreases} />
+
+      {po.status === 'PENDING_REVIEW' && (
+        <ApprovalBar
+          canApprove={canReview}
+          approverHint="รอหัวหน้าจัดซื้อตรวจสอบ: เมื่ออนุมัติแล้วจะส่งต่อให้เจ้าของอนุมัติ (ผู้เปิด PO ตรวจเองไม่ได้)"
+          onApprove={async () => {
+            'use server';
+            await reviewPoAction(id);
+          }}
+          onReject={async (reason) => {
+            'use server';
+            await rejectPoAction(id, reason);
+          }}
+        />
+      )}
 
       {isWaitingApproval && (
         <ApprovalBar

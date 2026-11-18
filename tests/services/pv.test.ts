@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { createInvoice } from '@/server/services/invoice';
 import { listOpenPayables, requestInstallment } from '@/server/services/payable';
 import {
@@ -52,6 +52,7 @@ describe('pv service', () => {
     });
     creditPo = cPo.id;
     await submitPo(db, f.users.buyer, creditPo);
+    await reviewPo(db, f.users.buyerHead, creditPo);
     await approvePo(db, f.users.buyerHead, creditPo);
     await receiveAll(db, f.users.foreman, creditPo);
 
@@ -78,6 +79,7 @@ describe('pv service', () => {
     });
     installmentPo = iPo.id;
     await submitPo(db, f.users.buyer, installmentPo);
+    await reviewPo(db, f.users.buyerHead, installmentPo);
     await approvePo(db, f.users.buyerHead, installmentPo);
   });
 

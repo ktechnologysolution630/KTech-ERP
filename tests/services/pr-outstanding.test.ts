@@ -3,7 +3,7 @@ import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 import { D } from '@/domain/money';
 import { duplicatesOfOutstanding } from '@/domain/pr-outstanding';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { approvePr, closePr, createPr, getPr, submitPr } from '@/server/services/pr';
 import { listOutstandingPrLines } from '@/server/services/pr-outstanding';
 import { cancelReceipt, createReceipt } from '@/server/services/receipt';
@@ -38,6 +38,7 @@ describe('what a PR asked for and has not received yet', () => {
       lines: [{ prLineId: cementLine.id, description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(10), unitPrice: D(150), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     const poLineId = (await getPo(db, f.users.buyer, po.id)).lines[0]!.id;
     const first = await createReceipt(db, f.users.foreman, { poId: po.id, receivedAt: '2026-11-02', lines: [{ poLineId, qty: D(3) }] });

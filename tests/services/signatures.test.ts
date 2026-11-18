@@ -5,7 +5,7 @@ import { signatureImageProblem, signerLine } from '@/domain/signature';
 import { D } from '@/domain/money';
 import { poSigners, prSigners } from '@/server/services/doc-signers';
 import { renderDocPdf } from '@/server/services/pdf';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { approvePr, createPr, getPr, submitPr } from '@/server/services/pr';
 import { deleteMySignature, getMySignature, saveMySignature, signerPeople } from '@/server/services/signatures';
 
@@ -74,19 +74,23 @@ describe('a person\'s own signature', () => {
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
     expect(pdf.length).toBeGreaterThan(blank.length);
 
-    // PO: the buyer has no signature yet, so the name stands on the line; the head's signature shows once approved
+    // PO: the buyer has no signature yet, so the name stands on the line; the purchasing head signs the
+    // middle box on checking it, and the owner the last once approved
     await saveMySignature(db, f.users.buyerHead, PNG);
     const po = await createPo(db, f.users.buyer, {
       projectId: f.projectA, vendorId: f.vendorCo, paymentType: 'CREDIT', vatMode: 'EXCLUSIVE', billDiscount: D(0), shipping: D(0),
       lines: [{ description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(10), unitPrice: D(150), discount: D(0) }],
     });
     const poLines = async () => poSigners(db, await getPo(db, f.users.buyer, po.id));
-    expect(await poLines()).toEqual([{ label: 'ผู้จัดทำ' }, { label: 'ผู้อนุมัติ' }]);
+    expect(await poLines()).toEqual([{ label: 'ผู้จัดซื้อ' }, { label: 'ผู้จัดการแผนกจัดซื้อ' }, { label: 'ผู้มีอำนาจลงนาม' }]);
     await submitPo(db, f.users.buyer, po.id);
-    expect(await poLines()).toMatchObject([{ name: f.users.buyer.name, image: null }, { label: 'ผู้อนุมัติ' }]);
-    expect((await poLines())[1]).toEqual({ label: 'ผู้อนุมัติ' });
-    await approvePo(db, f.users.buyerHead, po.id);
-    expect((await poLines())[1]).toMatchObject({ name: f.users.buyerHead.name, image: PNG });
+    expect(await poLines()).toMatchObject([{ name: f.users.buyer.name, image: null }, { label: 'ผู้จัดการแผนกจัดซื้อ' }, { label: 'ผู้มีอำนาจลงนาม' }]);
+    expect((await poLines())[1]).toEqual({ label: 'ผู้จัดการแผนกจัดซื้อ' });
+    await reviewPo(db, f.users.buyerHead, po.id);
+    expect((await poLines())[1]).toMatchObject({ label: 'ผู้จัดการแผนกจัดซื้อ', name: f.users.buyerHead.name, image: PNG });
+    expect((await poLines())[2]).toEqual({ label: 'ผู้มีอำนาจลงนาม' });
+    await approvePo(db, f.users.owner, po.id);
+    expect((await poLines())[2]).toMatchObject({ label: 'ผู้มีอำนาจลงนาม', name: f.users.owner.name });
     expect((await renderDocPdf(db, f.users.buyer, 'po', po.id)).subarray(0, 4).toString()).toBe('%PDF');
   });
 });

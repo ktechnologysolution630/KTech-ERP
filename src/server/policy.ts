@@ -6,6 +6,7 @@ export type Action =
   | 'pr.create'
   | 'pr.approve'
   | 'po.manage'
+  | 'po.review'
   | 'po.approve'
   | 'receipt.create'
   | 'invoice.manage'
@@ -117,6 +118,11 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'po.manage':
     case 'payable.request': {
       return hasRole(u, ['PURCHASING', 'PURCHASING_HEAD', 'OWNER', 'ADMIN']);
+    }
+    case 'po.review': {
+      // The purchasing head checks a PO before the owner approves it, though not one they opened themselves
+      if (!hasRole(u, ['PURCHASING_HEAD'])) return false;
+      return !(ctx.createdBy && ctx.createdBy === u.id);
     }
     case 'po.approve': {
       if (hasRole(u, ['OWNER'])) return true;

@@ -24,12 +24,22 @@ export async function prSigners(db: Db, pr: { prType: PrType; status: PrStatus; 
   ];
 }
 
-export async function poSigners(db: Db, po: { status: PoStatus; createdBy: string; approvedBy: string | null; approvedAt: When; docDate: When; createdAt: Date }): Promise<Signer[]> {
-  const people = await signerPeople(db, [po.createdBy, po.approvedBy]);
+/**
+ * The PO's three boxes, as printed: the purchaser who sent it, the purchasing head who checked it, and
+ * the owner who approved it.
+ */
+export async function poSigners(
+  db: Db,
+  po: { status: PoStatus; createdBy: string; reviewedBy: string | null; reviewedAt: When; approvedBy: string | null; approvedAt: When; docDate: When; createdAt: Date },
+): Promise<Signer[]> {
+  const people = await signerPeople(db, [po.createdBy, po.reviewedBy, po.approvedBy]);
   const approved = po.status === 'APPROVED' || po.status === 'ORDERED' || po.status === 'COMPLETED';
+  // Sent back by the owner, the PO waits for the head again
+  const reviewed = po.status !== 'DRAFT' && po.status !== 'PENDING_REVIEW' && po.status !== 'REJECTED';
   return [
-    signerLine('ผู้จัดทำ', people, po.createdBy, po.docDate ?? po.createdAt, po.status !== 'DRAFT'),
-    signerLine('ผู้อนุมัติ', people, po.approvedBy, po.approvedAt, approved),
+    signerLine('ผู้จัดซื้อ', people, po.createdBy, po.docDate ?? po.createdAt, po.status !== 'DRAFT'),
+    signerLine('ผู้จัดการแผนกจัดซื้อ', people, po.reviewedBy, po.reviewedAt, reviewed),
+    signerLine('ผู้มีอำนาจลงนาม', people, po.approvedBy, po.approvedAt, approved),
   ];
 }
 

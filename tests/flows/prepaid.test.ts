@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { createPo, submitPo, approvePo, getPo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, getPo, reviewPo } from '@/server/services/po';
 import { createReceipt } from '@/server/services/receipt';
 import { createInvoice, matchInvoice, getPoSummary } from '@/server/services/invoice';
 import { requestPrepaid } from '@/server/services/payable';
@@ -32,6 +32,7 @@ describe('e2e flow: prepaid PO', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
 
     // buyerHead cannot approve >= 50,000
     await expect(approvePo(db, f.users.buyerHead, po.id)).rejects.toMatchObject({

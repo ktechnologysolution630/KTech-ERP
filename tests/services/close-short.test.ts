@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
 import { createPr, submitPr, approvePr, orderedQtyByPrLine, getPr } from '@/server/services/pr';
-import { createPo, submitPo, approvePo, getPo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, getPo, reviewPo } from '@/server/services/po';
 import { createReceipt } from '@/server/services/receipt';
 import {
   requestCloseShort,
@@ -48,6 +48,7 @@ describe('close-short service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     const poDoc = await getPo(db, f.users.buyer, po.id);
     const poLineId = poDoc.lines[0]!.id;
@@ -95,6 +96,7 @@ describe('close-short service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     await expect(
@@ -137,6 +139,7 @@ describe('close-short service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     const poDoc = await getPo(db, f.users.buyer, po.id);
 

@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { createPo, submitPo, approvePo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, reviewPo } from '@/server/services/po';
 import { createInvoice } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
 import { createPv, submitPv, approvePv, markPvPaid, getPv } from '@/server/services/pv';
@@ -36,6 +36,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     await receiveAll(db, f.users.owner, po.id);
@@ -100,6 +101,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     await receiveAll(db, f.users.owner, po.id);
@@ -144,6 +146,7 @@ describe('50 ทวิ certificates and monthly exports', () => {
       lines: [{ description: 'ค่าขนส่ง', unitName: 'งาน', qty: D(1), unitPrice: D(2000), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     await receiveAll(db, f.users.owner, po.id);

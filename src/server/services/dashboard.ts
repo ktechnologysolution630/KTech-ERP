@@ -393,7 +393,7 @@ export async function getOwnerDashboard(
 
   // 3. Pending approvals count
   const pendingPoCount = activePos.filter(
-    (r) => r.po.status === 'PENDING_APPROVAL' || Boolean(r.po.pendingRevision),
+    (r) => r.po.status === 'PENDING_REVIEW' || r.po.status === 'PENDING_APPROVAL' || Boolean(r.po.pendingRevision),
   ).length;
   const pendingPvs = await db
     .select({ id: pvs.id })

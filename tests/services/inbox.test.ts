@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { createPo, submitPo, approvePo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, reviewPo } from '@/server/services/po';
 import { getInbox } from '@/server/services/inbox';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
@@ -29,6 +29,7 @@ describe('inbox service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, smallPo.id);
+    await reviewPo(db, f.users.buyerHead, smallPo.id);
 
     const bigPo = await createPo(db, f.users.buyer, {
       projectId: f.projectA,
@@ -49,6 +50,7 @@ describe('inbox service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, bigPo.id);
+    await reviewPo(db, f.users.buyerHead, bigPo.id);
 
     const headInbox = await getInbox(db, f.users.buyerHead);
     const headPoGroup = headInbox.find((g) => g.key === 'PO_TO_APPROVE');
@@ -75,6 +77,7 @@ describe('inbox service', () => {
       lines: [{ description: 'เหล็ก A', unitName: 'เส้น', qty: D(5), unitPrice: D(100), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, poA.id);
+    await reviewPo(db, f.users.buyerHead, poA.id);
     await approvePo(db, f.users.buyerHead, poA.id);
 
     const poB = await createPo(db, f.users.buyer, {
@@ -88,6 +91,7 @@ describe('inbox service', () => {
       lines: [{ description: 'เหล็ก B', unitName: 'เส้น', qty: D(5), unitPrice: D(100), discount: D(0) }],
     });
     await submitPo(db, f.users.buyer, poB.id);
+    await reviewPo(db, f.users.buyerHead, poB.id);
     await approvePo(db, f.users.buyerHead, poB.id);
 
     const foremanAInbox = await getInbox(db, f.users.foreman);

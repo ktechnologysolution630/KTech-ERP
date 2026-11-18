@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { createPo, getPo, submitPo, approvePo } from '@/server/services/po';
+import { createPo, getPo, submitPo, approvePo, reviewPo } from '@/server/services/po';
 import { approvePr, createPr, getPr, submitPr } from '@/server/services/pr';
 import { createInvoice } from '@/server/services/invoice';
 import { listOpenPayables } from '@/server/services/payable';
@@ -43,6 +43,7 @@ describe('pdf service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     const poBuf = await renderDocPdf(db, f.users.buyer, 'po', po.id);
@@ -159,6 +160,7 @@ describe('PO and PR pdfs print the K TECH form', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
 
     const text = await pdfText(await renderDocPdf(db, f.users.buyer, 'po', po.id));

@@ -6,7 +6,7 @@ import { listActivity } from '@/server/services/activity';
 import { addComment, listComments } from '@/server/services/attachments';
 import { cancelInvoice, createInvoice } from '@/server/services/invoice';
 import { listOpenPayables, requestPrepaid } from '@/server/services/payable';
-import { approvePo, createPo, getPo, submitPo } from '@/server/services/po';
+import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { deletePo, previewPoDeletion } from '@/server/services/po-delete';
 import { cancelPv, createPv } from '@/server/services/pv';
 import { createReceipt } from '@/server/services/receipt';
@@ -34,6 +34,7 @@ async function makePo(db: TestDb, f: Fixtures, paymentType: 'CREDIT' | 'PREPAID'
 async function makeApprovedPo(db: TestDb, f: Fixtures, paymentType: 'CREDIT' | 'PREPAID' = 'CREDIT') {
   const po = await makePo(db, f, paymentType);
   await submitPo(db, f.users.buyer, po.id);
+  await reviewPo(db, f.users.buyerHead, po.id);
   await approvePo(db, f.users.buyerHead, po.id);
   return po;
 }

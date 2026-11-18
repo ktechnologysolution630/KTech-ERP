@@ -92,7 +92,7 @@ export async function createInvoice(
 
   return db.transaction(async (tx) => {
     const po = await lockPo(tx, input.poId);
-    if (po.status === 'CANCELLED' || po.status === 'DRAFT' || po.status === 'PENDING_APPROVAL') {
+    if (po.status === 'CANCELLED' || po.status === 'DRAFT' || po.status === 'PENDING_REVIEW' || po.status === 'PENDING_APPROVAL') {
       throw new DomainError('INVALID_STATUS', 'ใบสั่งซื้อยังไม่ได้รับอนุมัติหรือถูกยกเลิกแล้ว', 409);
     }
 

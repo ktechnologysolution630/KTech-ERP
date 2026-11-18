@@ -8,7 +8,7 @@ import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 
 /** POs that are real purchases: submitted or further, not drafts, rejected or cancelled ones. */
-const REPORTED_STATUSES: PoStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'];
+const REPORTED_STATUSES: PoStatus[] = ['PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'];
 const NO_CATEGORY = 'ไม่ระบุหมวด';
 
 const inputSchema = z.object({

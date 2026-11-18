@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { D } from '@/domain/money';
-import { createPo, submitPo, approvePo, getPo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, getPo, reviewPo } from '@/server/services/po';
 import { createReceipt } from '@/server/services/receipt';
 import { getPoSummary } from '@/server/services/invoice';
 import { requestInstallment } from '@/server/services/payable';
@@ -38,6 +38,7 @@ describe('e2e flow: installment PO with close-short', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.owner, po.id);
 
     const poDoc = await getPo(db, f.users.buyer, po.id);

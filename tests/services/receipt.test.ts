@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
-import { createPo, submitPo, approvePo, getPo } from '@/server/services/po';
+import { createPo, submitPo, approvePo, getPo, reviewPo } from '@/server/services/po';
 import {
   createReceipt,
   cancelReceipt,
@@ -30,6 +30,7 @@ describe('receipt service', () => {
       ],
     });
     await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
     await approvePo(db, f.users.buyerHead, po.id);
     const poDoc = await getPo(db, f.users.buyer, po.id);
     return { poId: po.id, poLineId: poDoc.lines[0].id };

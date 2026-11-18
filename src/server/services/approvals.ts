@@ -58,11 +58,11 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
     await Promise.all([
       getSettings(db),
       db.select().from(prs).where(inArray(prs.status, ['SUBMITTED', 'OWNER_REVIEW'])),
-      // A new PO waiting, or an approved one with a revision waiting
+      // A new PO waiting for the purchasing head or for approval, or an approved one with a revision waiting
       db
         .select()
         .from(pos)
-        .where(or(eq(pos.status, 'PENDING_APPROVAL'), isNotNull(pos.pendingRevision)))
+        .where(or(eq(pos.status, 'PENDING_REVIEW'), eq(pos.status, 'PENDING_APPROVAL'), isNotNull(pos.pendingRevision)))
         .orderBy(desc(pos.createdAt)),
       can(actor, 'pv.approve') ? db.select().from(pvs).where(eq(pvs.status, 'PENDING_APPROVAL')) : none,
       can(actor, 'pv.approve')
@@ -152,8 +152,16 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
   }
 
   for (const po of poRows) {
-    const gross = poPendingGross(po);
-    if (!gross || !can(actor, 'po.approve', { gross, poApprovalLimit: poLimit, createdBy: po.createdBy })) continue;
+    // The purchasing head decides first; the approver sees the PO once the head has passed it on
+    const waitsOnMe =
+      po.status === 'PENDING_REVIEW'
+        ? can(actor, 'po.review', { createdBy: po.createdBy })
+        : (() => {
+            const gross = poPendingGross(po);
+            return Boolean(gross) && can(actor, 'po.approve', { gross: gross!, poApprovalLimit: poLimit, createdBy: po.createdBy });
+          })();
+    if (!waitsOnMe) continue;
+    const gross = poPendingGross(po) ?? D(po.gross);
     result.push(item({ type: 'PO', id: po.id, number: po.number, title: vendorName.get(po.vendorId) ?? '', amount: gross.toNumber(), href: `/po/${po.id}`, projectId: po.projectId, createdAt: po.createdAt, requesterId: po.createdBy }));
   }
 
