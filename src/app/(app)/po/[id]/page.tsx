@@ -155,6 +155,7 @@ export default async function PoDetailPage({
               </Link>
             )}
           {(po.status === 'APPROVED' || po.status === 'ORDERED') &&
+            hasRemainingQty &&
             can(actor, 'receipt.create', { projectId: po.projectId }) && (
               <Link
                 href={`/receive/${po.id}`}

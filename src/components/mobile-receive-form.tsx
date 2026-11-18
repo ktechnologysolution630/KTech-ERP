@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { resizeImage } from '@/lib/image-resize';
 import { createReceiptAction } from '@/app/(app)/receive/actions';
@@ -54,6 +55,10 @@ export function MobileReceiveForm({
           note,
           lines: Object.entries(qtys).map(([poLineId, qty]) => ({ poLineId, qty })),
         });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
         if (photo) {
           const resized = await resizeImage(photo);
           const fd = new FormData();
@@ -69,16 +74,16 @@ export function MobileReceiveForm({
     });
   }
 
-  return (
-    <div className="max-w-xl mx-auto space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">รับของ {poNumber}</h1>
-            <p className="text-xs text-slate-600">
-              {vendorName} · {projectLabel}
-            </p>
-          </div>
+  const header = (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900">รับของ {poNumber}</h1>
+          <p className="text-xs text-slate-600">
+            {vendorName} · {projectLabel}
+          </p>
+        </div>
+        {lines.length > 0 && (
           <button
             type="button"
             onClick={fillAllRemaining}
@@ -86,8 +91,33 @@ export function MobileReceiveForm({
           >
             รับครบทุกรายการ
           </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // Every line is in already: there is nothing to receive, so no form to send
+  if (lines.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto space-y-4">
+        {header}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+          <p className="text-sm font-semibold text-emerald-800">PO นี้รับของครบทุกรายการแล้ว</p>
+          <p className="text-xs text-emerald-700">ไม่มีรายการค้างรับ จึงไม่ต้องบันทึกรับของเพิ่ม</p>
+          <Link
+            href={`/po/${poId}`}
+            className="flex w-full min-h-[48px] items-center justify-center rounded-xl border border-emerald-300 bg-white text-sm font-semibold text-emerald-800"
+          >
+            กลับไปหน้า PO
+          </Link>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="max-w-xl mx-auto space-y-4">
+      {header}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 font-medium">
