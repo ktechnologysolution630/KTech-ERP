@@ -1,30 +1,37 @@
 import React from 'react';
 import { Document, Text, View } from '@react-pdf/renderer';
-import { type PoPaymentType } from '@/db/schema';
 import { D, formatMoneyDisplay, round2, sum } from '@/domain/money';
-import { CREDIT_BASIS_LABEL, PAY_METHOD_LABEL, describeSchedule } from '@/domain/payment-terms';
 import { resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, Field, FormNote, FormPage, fs, HeaderCell, qtyText, SignatureRow, TotalsBlock, vatLabel, WrapText } from './form-parts';
+import { branchLabel, ConditionsAndSignatures, Field, FormNote, FormPage, fs, HeaderCell, qtyText, TotalsBlock, vatLabel, WrapText } from './form-parts';
+
+/**
+ * The company's standing billing and cheque days, printed at the foot of every PO beside the
+ * signatures. A vendor's own billing and cheque schedule stays on the PO record; the print no
+ * longer shows it.
+ */
+const PO_CONDITIONS = [
+  'การวางบิลวันที่ 20-25 ของเดือน',
+  'รับเช็ค สำหรับ Supplier วันที่ 30 ของเดือน',
+  'รับเช็ค สำหรับผู้รับเหมา วันที่ 15 และ 30 ของเดือน',
+];
 
 /** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {
   itemCode: string;
 }
 
-const PAYMENT_TYPE_LABEL: Record<PoPaymentType, string> = {
-  CREDIT: 'เครดิต',
-  PREPAID: 'เงินสด / จ่ายก่อนรับของ',
-  INSTALLMENT: 'แบ่งจ่ายหลายงวด',
-};
-
 /** Fixed column widths of the item table; the description takes the rest */
 const COL = { no: 26, qty: 66, price: 60, discount: 46, amount: 68 };
 /** The payment-terms cell beside Quotation No.: about half the right-hand box on an A4 page */
 const TERMS_CELL = 128;
+/** Room for "เลขประจำตัวผู้เสียภาษี :", the longest vendor label; the others line up their colons with it */
+const VENDOR_LABEL = 84;
+/** The vendor and delivery cells, set closer than the usual padding to leave the items more room */
+const CELL = { paddingHorizontal: 6, paddingVertical: 2 };
 
 export function PoPdfDoc({
   po,
@@ -54,11 +61,6 @@ export function PoPdfDoc({
   const afterDiscount = subtotal.minus(po.billDiscount);
   const hasShipping = !D(po.shipping).isZero();
 
-  const payment =
-    po.paymentType === 'CREDIT'
-      ? `เครดิต ${po.creditDays ?? 0} วัน ${CREDIT_BASIS_LABEL[po.creditBasis]}`
-      : PAYMENT_TYPE_LABEL[po.paymentType];
-
   // The purchaser who sent it, the purchasing head who checked it, the owner who approved it
   const text = form ?? resolveFormText('PO');
   const signatures: Signer[] = text.signatureLabels.map((label, i) => ({ ...signers?.[i], label }));
@@ -73,25 +75,33 @@ export function PoPdfDoc({
         // The PO's name, number and date sit in the letterhead, beside the company
         docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: po.number, date: formatThaiDate(po.docDate ?? po.createdAt) }}
       >
-        <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
-          <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-            {/* The labels flush right, against their values */}
-            <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" />
-            <Field label="ที่อยู่" value={po.vendorAddress || '-'} labelAlign="right" />
-            <Field label="โทร" value={po.vendorPhone || '-'} labelAlign="right" />
-            <Text>
-              <Text style={fs.label}>เลขประจำตัวผู้เสียภาษี : </Text>
-              {po.vendorTaxId || '-'}
-              {po.vendorTaxId && po.vendorType === 'COMPANY' ? `  ${branchLabel(po.vendorBranch)}` : ''}
-            </Text>
+        <View style={[fs.box, { flexDirection: 'row', marginBottom: 4 }]}>
+          <View style={[fs.cellRight, CELL, { flex: 1.1 }]}>
+            {/* The labels flush right, their colons lined up under the longest, the tax ID's */}
+            <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" labelWidth={VENDOR_LABEL} tight />
+            <Field label="ที่อยู่" value={po.vendorAddress || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
+            <Field label="โทร" value={po.vendorPhone || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
+            <Field
+              label="เลขประจำตัวผู้เสียภาษี"
+              value={`${po.vendorTaxId || '-'}${po.vendorTaxId && po.vendorType === 'COMPANY' ? `  ${branchLabel(po.vendorBranch)}` : ''}`}
+              labelAlign="right"
+              labelWidth={VENDOR_LABEL}
+              tight
+            />
+            <Field label="ผู้ติดต่อ" value={po.vendorContactPerson || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
           </View>
           <View style={{ flex: 1 }}>
             <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
-              <View style={[fs.cellRight, fs.pad, { flex: 1 }]}>
-                <Field label="Quotation No." value="" labelWidth={64} />
+              {/* Quotation No. over the delivery date; the payment terms beside both */}
+              <View style={[fs.cellRight, { flex: 1 }]}>
+                <View style={[fs.cellBottom, CELL]}>
+                  <Field label="Quotation No." value="" labelWidth={64} tight />
+                </View>
+                <View style={CELL}>
+                  <Field label="กำหนดส่งของ" value={po.deliveryDate ? formatThaiDate(po.deliveryDate) : '-'} labelWidth={60} tight />
+                </View>
               </View>
-              {/* The payment terms typed on the PO, under their label: the label alone fills the cell */}
-              <View style={[fs.pad, { width: TERMS_CELL }]}>
+              <View style={[CELL, { width: TERMS_CELL }]}>
                 <Text style={fs.label}>เงื่อนไขการชำระเงิน :</Text>
                 {/* Thai typed without spaces still wraps inside the cell; WrapText's own inset undone */}
                 <View style={{ marginLeft: -3 }}>
@@ -99,14 +109,17 @@ export function PoPdfDoc({
                 </View>
               </View>
             </View>
-            <View style={[fs.cellBottom, fs.pad]}>
-              <Field label="กำหนดส่งของ" value={po.deliveryDate ? formatThaiDate(po.deliveryDate) : '-'} labelWidth={60} />
+            <View style={[fs.cellBottom, CELL]}>
+              <Field label="สถานที่จัดส่ง" value={po.deliveryAddress || '-'} tight />
+              {/* Who to call at the delivery place: the requester, as Contact Delivery was at the foot */}
+              <Field
+                label="Contact"
+                value={po.requesterName ? `${po.requesterName}${po.department ? ` (${po.department})` : ''}` : '-'}
+                tight
+              />
             </View>
-            <View style={[fs.cellBottom, fs.pad]}>
-              <Field label="สถานที่จัดส่ง" value={po.deliveryAddress || '-'} />
-            </View>
-            <View style={fs.pad}>
-              <Field label="Project" value={`${po.projectCode} - ${po.projectName}`} />
+            <View style={CELL}>
+              <Field label="Project" value={`${po.projectCode} - ${po.projectName}`} tight />
             </View>
           </View>
         </View>
@@ -143,6 +156,7 @@ export function PoPdfDoc({
         <View wrap={false} style={{ marginTop: 'auto', paddingTop: 8 }}>
           <TotalsBlock
             note={po.note}
+            noteLabel="หมายเหตุ"
             gross={po.gross}
             rows={[
               ['ยอดรวมก่อนหักส่วนลด', subtotal.toFixed(2)],
@@ -154,35 +168,7 @@ export function PoPdfDoc({
             ]}
           />
 
-          <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
-            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-              <Field label="กำหนดชำระเงิน" value={`${payment} · ${PAY_METHOD_LABEL[po.payMethod]}`} labelWidth={72} />
-              {po.installments.length > 0 && (
-                <Field
-                  label="แบ่งชำระ"
-                  labelWidth={72}
-                  value={po.installments.map((i) => `งวดที่ ${i.seq} ${i.name}  ${formatMoneyDisplay(i.amount)} บาท`).join('\n')}
-                />
-              )}
-              {po.paymentType === 'CREDIT' && (
-                <Field
-                  label="วางบิล / รับเช็ค"
-                  value={`${describeSchedule(po.billingSchedule, 'ทุกวัน')} / ${describeSchedule(po.chequeSchedule, 'ไม่กำหนดรอบ')}`}
-                  labelWidth={72}
-                />
-              )}
-            </View>
-            <View style={[fs.pad, { flex: 1 }]}>
-              <Field
-                label="Contact Delivery"
-                value={po.requesterName ? `${po.requesterName}${po.department ? ` (${po.department})` : ''}` : ''}
-                labelWidth={78}
-              />
-              <Field label="Tel." value="" labelWidth={78} />
-            </View>
-          </View>
-
-          <SignatureRow signatures={signatures} />
+          <ConditionsAndSignatures title="เงื่อนไข / CONDITION" conditions={PO_CONDITIONS} signatures={signatures} />
           <FormNote text={text.footerNote} />
         </View>
       </FormPage>
