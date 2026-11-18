@@ -149,7 +149,8 @@ export function PrForm({
   forms?: Partial<Record<FormKind, FormText>>;
   /** Form for a new PR; an existing PR keeps its own */
   prType?: PrType;
-  projects: { id: string; code: string; name: string }[];
+  /** `location` is the site address; choosing the project fills the delivery place with it */
+  projects: { id: string; code: string; name: string; location?: string }[];
   items: PrItemOption[];
   vendors: VendorRef[];
   company: CompanyHeader;
@@ -640,12 +641,27 @@ export function PrForm({
     );
   };
 
+  /**
+   * Choosing a project fills the delivery place with the project's site address, or its name when
+   * no address is on file. A place the user
+   * typed themselves stays; one filled from the previous project follows the new project.
+   */
+  const pickProject = (id: string) => {
+    // A project with no site address on file delivers to the project itself, by name
+    const siteOf = (pid: string) => {
+      const p = projects.find((x) => x.id === pid);
+      return p ? p.location?.trim() || p.name : '';
+    };
+    if (!deliveryPlace.trim() || deliveryPlace === siteOf(projectId)) setDeliveryPlace(siteOf(id));
+    setProjectId(id);
+  };
+
   /** The project of a new PR; fixed once the PR is saved */
   const projectPicker = (
     <select
       disabled={Boolean(existing)}
       value={projectId}
-      onChange={(e) => setProjectId(e.target.value)}
+      onChange={(e) => pickProject(e.target.value)}
       aria-label="โครงการ"
       className={`${paperInput} font-semibold disabled:text-slate-500`}
     >
