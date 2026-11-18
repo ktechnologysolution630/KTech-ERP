@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
   pvLines,
@@ -55,6 +56,7 @@ export async function issueWhtCert(
       .set({
         status: 'ACTIVE',
         voidReason: null,
+        formType: vendor.type === 'INDIVIDUAL' ? 'PND3' : 'PND53',
         paidAt: pv.paidAt ?? new Date().toISOString().slice(0, 10),
         basis: totalBasis.toFixed(2),
         wht: totalWht.toFixed(2),
@@ -126,30 +128,37 @@ export async function getWhtCert(
   };
 }
 
+/**
+ * Cancels a certificate issued wrongly; it keeps its number and prints with ยกเลิก across it. Finance,
+ * the owner or an admin, with a reason. The PV stays paid: reissueWhtCert brings the certificate back.
+ */
 export async function voidWhtCert(
   db: Db,
   actor: SessionUser,
   certId: string,
   reason: string,
 ) {
-  assertCan(actor, 'export.view');
-  if (!reason.trim()) {
+  assertCan(actor, 'pv.manage');
+  const why = reason.trim();
+  if (!why) {
     throw new DomainError('REASON_REQUIRED', 'กรุณาระบุเหตุผลในการยกเลิกหนังสือรับรอง 50 ทวิ', 400);
   }
+  if (!z.string().uuid().safeParse(certId).success) throw new DomainError('NOT_FOUND', 'ไม่พบหนังสือรับรอง 50 ทวิ', 404);
 
   return db.transaction(async (tx) => {
     const [cert] = await tx
       .select()
       .from(whtCerts)
       .where(eq(whtCerts.id, certId))
-      .limit(1);
+      .for('update');
     if (!cert) throw new DomainError('NOT_FOUND', 'ไม่พบหนังสือรับรอง 50 ทวิ', 404);
+    if (cert.status === 'VOID') throw new DomainError('INVALID_STATUS', `${cert.number} ถูกยกเลิกไปแล้ว`, 409);
 
     await tx
       .update(whtCerts)
       .set({
         status: 'VOID',
-        voidReason: reason.trim(),
+        voidReason: why,
         updatedAt: new Date(),
       })
       .where(eq(whtCerts.id, cert.id));
@@ -159,9 +168,40 @@ export async function voidWhtCert(
       entityType: 'PV',
       entityId: cert.pvId,
       action: 'WHT_CERT_VOIDED',
-      note: reason.trim(),
+      note: why,
       data: { certId: cert.id, number: cert.number },
     });
+  });
+}
+
+/**
+ * Brings back a cancelled certificate of a PV that is still paid, with its own number, worked out
+ * again from the PV and the vendor as they are now
+ */
+export async function reissueWhtCert(db: Db, actor: SessionUser, certId: string) {
+  assertCan(actor, 'pv.manage');
+  if (!z.string().uuid().safeParse(certId).success) throw new DomainError('NOT_FOUND', 'ไม่พบหนังสือรับรอง 50 ทวิ', 404);
+
+  return db.transaction(async (tx) => {
+    const [cert] = await tx.select().from(whtCerts).where(eq(whtCerts.id, certId)).for('update');
+    if (!cert) throw new DomainError('NOT_FOUND', 'ไม่พบหนังสือรับรอง 50 ทวิ', 404);
+    if (cert.status !== 'VOID') throw new DomainError('INVALID_STATUS', `${cert.number} ยังไม่ได้ยกเลิก`, 409);
+    const [pv] = await tx.select({ status: pvs.status, number: pvs.number }).from(pvs).where(eq(pvs.id, cert.pvId)).limit(1);
+    if (pv?.status !== 'PAID') {
+      throw new DomainError('INVALID_STATUS', `${pv?.number ?? 'ใบสำคัญจ่าย'} ยังไม่ได้จ่าย จึงออกหนังสือรับรองไม่ได้ จะออกให้เองเมื่อบันทึกจ่าย`, 409);
+    }
+
+    const id = await issueWhtCert(tx as unknown as Db, cert.pvId);
+    if (!id) throw new DomainError('INVALID_STATUS', 'ใบสำคัญจ่ายนี้ไม่มีการหัก ณ ที่จ่ายแล้ว', 409);
+
+    await logActivity(tx, {
+      userId: actor.id,
+      entityType: 'PV',
+      entityId: cert.pvId,
+      action: 'WHT_CERT_REISSUED',
+      data: { certId: cert.id, number: cert.number },
+    });
+    return id;
   });
 }
 

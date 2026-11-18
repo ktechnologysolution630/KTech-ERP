@@ -29,8 +29,8 @@ describe('item groups', () => {
 
 describe('PR signatures', () => {
   test('on every form the requester and the preparer share one box', () => {
-    expect(prSignatures('GOODS')).toEqual(['ผู้ขอซื้อ / ผู้จัดทำ', 'ผู้อนุมัติ']);
-    expect(prSignatures('LABOR')).toEqual(['ผู้ขอจ้าง / ผู้จัดทำ', 'ผู้อนุมัติ']);
-    expect(prSignatures('GOODS_AND_LABOR')).toEqual(['ผู้ขอซื้อ / ผู้จัดทำ', 'ผู้อนุมัติ']);
+    expect(prSignatures('GOODS')).toEqual(['ผู้ขอซื้อ / ผู้จัดทำ', 'ผู้จัดการโครงการ (PM)']);
+    expect(prSignatures('LABOR')).toEqual(['ผู้ขอจ้าง / ผู้จัดทำ', 'ผู้จัดการโครงการ (PM)']);
+    expect(prSignatures('GOODS_AND_LABOR')).toEqual(['ผู้ขอซื้อ / ผู้จัดทำ', 'ผู้จัดการโครงการ (PM)']);
   });
 });

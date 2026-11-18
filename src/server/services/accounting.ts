@@ -325,19 +325,22 @@ export interface WhtRow {
   rate: number;
   wht: number;
   status: 'ACTIVE' | 'VOID';
+  voidReason: string | null;
+  /** A cancelled certificate can be issued again while its PV is still paid */
+  pvPaid: boolean;
 }
 
 /** 50 ทวิ certificates the company issued, newest first */
 export async function listWhtRows(db: Db, actor: SessionUser): Promise<WhtRow[]> {
   assertCan(actor, 'ar.manage');
   const rows = await db
-    .select({ c: whtCerts, payee: vendors.name, payeeTaxId: vendors.taxId, pvNumber: pvs.number })
+    .select({ c: whtCerts, payee: vendors.name, payeeTaxId: vendors.taxId, pvNumber: pvs.number, pvStatus: pvs.status })
     .from(whtCerts)
     .innerJoin(vendors, eq(vendors.id, whtCerts.vendorId))
     .innerJoin(pvs, eq(pvs.id, whtCerts.pvId))
     .orderBy(asc(whtCerts.paidAt), asc(whtCerts.number));
   return rows
-    .map(({ c, payee, payeeTaxId, pvNumber }) => ({
+    .map(({ c, payee, payeeTaxId, pvNumber, pvStatus }) => ({
       id: c.id,
       number: c.number,
       paidAt: c.paidAt,
@@ -351,6 +354,8 @@ export async function listWhtRows(db: Db, actor: SessionUser): Promise<WhtRow[]>
       rate: n(c.basis) > 0 ? Math.round((n(c.wht) / n(c.basis)) * 10000) / 100 : 0,
       wht: n(c.wht),
       status: c.status,
+      voidReason: c.voidReason,
+      pvPaid: pvStatus === 'PAID',
     }))
     .reverse();
 }

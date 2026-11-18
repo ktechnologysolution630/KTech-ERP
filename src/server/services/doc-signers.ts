@@ -13,17 +13,6 @@ import { signerPeople } from './signatures';
 
 type When = Date | string | null | undefined;
 
-/** The person asking writes the requisition, so one box carries both; the other is the approver's */
-export async function prSigners(db: Db, pr: { prType: PrType; status: PrStatus; requestedBy: string; approvedBy: string | null; approvedAt: When; docDate: When; createdAt: Date }): Promise<Signer[]> {
-  const people = await signerPeople(db, [pr.requestedBy, pr.approvedBy]);
-  const approved = pr.status === 'APPROVED' || pr.status === 'CLOSED';
-  const [preparer, approver] = prSignatures(pr.prType);
-  return [
-    signerLine(preparer!, people, pr.requestedBy, pr.docDate ?? pr.createdAt, pr.status !== 'DRAFT'),
-    signerLine(approver!, people, pr.approvedBy, pr.approvedAt, approved),
-  ];
-}
-
 /**
  * The PO's three boxes, as printed: the purchaser who sent it, the purchasing head who checked it, and
  * the owner who approved it.
@@ -44,9 +33,9 @@ export async function poSigners(
 }
 
 /**
- * The printed requisition's two boxes: the person asking, and the PM. The PM's box carries the PM who
- * passed it on, or a PM who gave the only approval. An approval by the owner or GM is not printed: the
- * form has no executive box.
+ * The requisition's two boxes, on screen and on paper: the person asking, and the PM. The PM's box
+ * carries the PM who passed it on, or a PM who gave the only approval. An approval by the owner or GM
+ * is not signed in a box: the form has no executive box.
  */
 export async function prPdfSigners(
   db: Db,
@@ -63,9 +52,10 @@ export async function prPdfSigners(
       .limit(1);
     if (isPm) pm = { id: pr.approvedBy, at: pr.approvedAt };
   }
+  const [requester, pmBox] = prSignatures(pr.prType);
   return [
-    signerLine(prSignatures(pr.prType)[0]!, people, pr.requestedBy, pr.docDate ?? pr.createdAt, pr.status !== 'DRAFT'),
-    signerLine('ผู้จัดการโครงการ (PM)', people, pm.id, pm.at),
+    signerLine(requester!, people, pr.requestedBy, pr.docDate ?? pr.createdAt, pr.status !== 'DRAFT'),
+    signerLine(pmBox!, people, pm.id, pm.at),
   ];
 }
 

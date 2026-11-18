@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { bahtText, D } from '@/domain/money';
+import { PAY_METHOD_LABEL } from '@/domain/payment-terms';
 import { labelSigners, resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
@@ -47,7 +48,7 @@ export function PvPdfDoc({
           </Text>
         </View>
         <View style={pdfStyles.metaBox}>
-          <Text>วิธีจ่ายเงิน: {pv.payMethod ?? '-'}</Text>
+          <Text>วิธีจ่ายเงิน: {pv.payMethod ? PAY_METHOD_LABEL[pv.payMethod] : '-'}</Text>
           <Text>อ้างอิงการโอน/เช็ค: {pv.payRef ?? '-'}</Text>
           <Text>หมายเหตุ: {pv.note || '-'}</Text>
         </View>

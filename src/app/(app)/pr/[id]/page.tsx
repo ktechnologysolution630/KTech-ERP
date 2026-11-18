@@ -14,7 +14,9 @@ import { ActivityFeed } from '@/components/activity-feed';
 import { ApprovalBar } from '@/components/approval-bar';
 import { AttachmentsBox } from '@/components/attachments';
 import { SignedRow } from '@/components/signed-row';
-import { prSigners } from '@/server/services/doc-signers';
+import { prPdfSigners } from '@/server/services/doc-signers';
+import { getFormTemplates } from '@/server/services/form-templates';
+import { labelSigners, prFormKind } from '@/domain/form-templates';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { canEditPr } from '../edit-rule';
@@ -52,7 +54,8 @@ export default async function PrDetailPage({
   };
   const lineAmount = (l: { qty: string; estUnitPrice: string | null; discount: string }) => Number(l.qty) * Number(l.estUnitPrice ?? 0) - Number(l.discount);
 
-  const signers = await prSigners(db, pr);
+  const [boxes, forms] = await Promise.all([prPdfSigners(db, pr), getFormTemplates(db)]);
+  const signers = labelSigners(boxes, forms.texts[prFormKind(pr.prType)].signatureLabels);
 
   const projectHasPm = pr.status === 'SUBMITTED' ? (await projectIdsWithPm(db, [pr.projectId])).has(pr.projectId) : true;
   const canApprove =

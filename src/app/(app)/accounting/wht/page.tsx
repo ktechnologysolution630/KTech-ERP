@@ -2,13 +2,17 @@ import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
+import { can } from '@/server/policy';
 import { listWhtRows } from '@/server/services/accounting';
 import { money, selectCls } from '../shared';
+import { WhtCertActions } from './wht-cert-actions';
 
 export default async function WhtPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const sp = await searchParams;
   const actor = await requireUser();
   const db = await getDb();
+  // Cancelling or issuing a certificate again is the same people who pay the vouchers
+  const canManage = can(actor, 'pv.manage');
   const q = (sp.q ?? '').trim().toLowerCase();
   const rows = (await listWhtRows(db, actor)).filter(
     (r) => (sp.status === 'VOID' ? r.status === 'VOID' : sp.status === 'ALL' ? true : r.status === 'ACTIVE') && (!q || `${r.number} ${r.payee} ${r.pvNumber}`.toLowerCase().includes(q)),
@@ -69,11 +73,15 @@ export default async function WhtPage({ searchParams }: { searchParams: Promise<
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                       {r.status === 'ACTIVE' ? 'ออกแล้ว' : 'ยกเลิก'}
                     </span>
+                    {r.status === 'VOID' && r.voidReason && <div className="mt-1 max-w-[200px] text-[10px] text-slate-500">{r.voidReason}</div>}
                   </td>
                   <td className="px-3 py-2.5">
-                    <a href={`/api/pdf/wht/${r.id}`} target="_blank" rel="noreferrer" className="text-[#2453d4] hover:underline">
-                      พิมพ์
-                    </a>
+                    <div className="flex items-start gap-3">
+                      <a href={`/api/pdf/wht/${r.id}`} target="_blank" rel="noreferrer" className="text-[#2453d4] hover:underline">
+                        พิมพ์
+                      </a>
+                      {canManage && <WhtCertActions id={r.id} number={r.number} status={r.status} pvPaid={r.pvPaid} />}
+                    </div>
                   </td>
                 </tr>
               ))

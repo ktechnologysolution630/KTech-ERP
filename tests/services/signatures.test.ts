@@ -3,7 +3,7 @@ import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 import { signatureImageProblem, signerLine } from '@/domain/signature';
 import { D } from '@/domain/money';
-import { poSigners, prSigners } from '@/server/services/doc-signers';
+import { poSigners, prPdfSigners } from '@/server/services/doc-signers';
 import { renderDocPdf } from '@/server/services/pdf';
 import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { approvePr, createPr, getPr, submitPr } from '@/server/services/pr';
@@ -55,18 +55,18 @@ describe('a person\'s own signature', () => {
     await saveMySignature(db, f.users.pm, PNG);
 
     const pr = await createPr(db, f.users.foreman, { projectId: f.projectA, lines: [{ description: 'ปูนซีเมนต์', unitName: 'ถุง', qty: D(10) }] });
-    const lines = async () => prSigners(db, await getPr(db, f.users.buyer, pr.id));
+    const lines = async () => prPdfSigners(db, await getPr(db, f.users.buyer, pr.id));
     // A draft is signed by nobody
-    expect(await lines()).toEqual([{ label: 'ผู้ขอซื้อ / ผู้จัดทำ' }, { label: 'ผู้อนุมัติ' }]);
+    expect(await lines()).toEqual([{ label: 'ผู้ขอซื้อ / ผู้จัดทำ' }, { label: 'ผู้จัดการโครงการ (PM)' }]);
     const blank = await renderDocPdf(db, f.users.foreman, 'pr', pr.id);
 
     await submitPr(db, f.users.foreman, pr.id);
-    expect(await lines()).toMatchObject([{ label: 'ผู้ขอซื้อ / ผู้จัดทำ', name: f.users.foreman.name, image: PNG }, { label: 'ผู้อนุมัติ' }]);
-    expect((await lines())[1]).toEqual({ label: 'ผู้อนุมัติ' });
+    expect(await lines()).toMatchObject([{ label: 'ผู้ขอซื้อ / ผู้จัดทำ', name: f.users.foreman.name, image: PNG }, { label: 'ผู้จัดการโครงการ (PM)' }]);
+    expect((await lines())[1]).toEqual({ label: 'ผู้จัดการโครงการ (PM)' });
 
     await approvePr(db, f.users.pm, pr.id);
     const signed = await lines();
-    expect(signed[1]).toMatchObject({ label: 'ผู้อนุมัติ', name: f.users.pm.name, image: PNG });
+    expect(signed[1]).toMatchObject({ label: 'ผู้จัดการโครงการ (PM)', name: f.users.pm.name, image: PNG });
     expect(signed[1]!.date).toMatch(/^\d{1,2} \S+ 25\d\d$/);
 
     // The printed form carries the signature pictures
