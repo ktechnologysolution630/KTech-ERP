@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View } from '@react-pdf/renderer';
-import { bahtText, D } from '@/domain/money';
+import { bahtText, D, formatMoneyDisplay as money } from '@/domain/money';
 import { formatThaiDate } from '@/domain/thai';
 import { type Settings } from '@/server/services/settings';
 import { pdfStyles } from './layout';
@@ -90,8 +90,8 @@ export function Wht50PdfDoc({
           <Text style={{ width: 90, textAlign: 'center' }}>
             {formatThaiDate(cert.paidAt)}
           </Text>
-          <Text style={{ width: 110, textAlign: 'right' }}>฿{cert.basis}</Text>
-          <Text style={{ width: 110, textAlign: 'right' }}>฿{cert.wht}</Text>
+          <Text style={{ width: 110, textAlign: 'right' }}>฿{money(cert.basis)}</Text>
+          <Text style={{ width: 110, textAlign: 'right' }}>฿{money(cert.wht)}</Text>
         </View>
 
         <View style={pdfStyles.totalsBox}>
