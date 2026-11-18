@@ -32,7 +32,7 @@ export function PrPdfDoc({
 }: {
   pr: Awaited<ReturnType<typeof getPr>>;
   settings: Settings;
-  /** The requester, the PM and the executive as signed in the system; blank lines when left out */
+  /** The requester and the PM as signed in the system; blank lines when left out */
   signers?: Signer[];
   lineRefs?: ReadonlyMap<string, PrLineRef>;
 }) {
@@ -52,7 +52,7 @@ export function PrPdfDoc({
     lines: pr.lines.map((l) => ({ qty: D(l.qty), unitPrice: D(l.estUnitPrice ?? 0), discount: D(l.discount) })),
   });
 
-  const signatures: Signer[] = signers ?? [prSignatures(pr.prType)[0]!, 'ผู้จัดการโครงการ (PM)', 'ผู้บริหาร'].map((label) => ({ label }));
+  const signatures: Signer[] = signers ?? [prSignatures(pr.prType)[0]!, 'ผู้จัดการโครงการ (PM)'].map((label) => ({ label }));
   // The goods form does not carry the department
   const requester = `${pr.requesterText || pr.requesterName}${pr.department && !goods ? ` (${pr.department})` : ''}`;
 

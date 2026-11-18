@@ -36,7 +36,7 @@ async function boxes(db: Awaited<ReturnType<typeof setup>>['db'], pr: Awaited<Re
 }
 
 describe('printed purchase requisition', () => {
-  test('inside the BOQ the PM approves and signs the PM box; the executive box stays blank', async () => {
+  test('inside the BOQ the PM approves and signs the PM box; there is no executive box', async () => {
     const { db, f, steel } = await setup();
     const pr = await createPr(db, f.users.foreman, {
       projectId: f.projectA,
@@ -50,13 +50,12 @@ describe('printed purchase requisition', () => {
     expect(await boxes(db, doc)).toEqual([
       ['ผู้ขอซื้อ / ผู้จัดทำ', f.users.foreman.name],
       ['ผู้จัดการโครงการ (PM)', f.users.pm.name],
-      ['ผู้บริหาร', null],
     ]);
     expect((await prLineRefs(db, pr.id)).get(doc.lines[0]!.id)).toEqual({ itemCode: 'MAT-001' });
     expect((await renderDocPdf(db, f.users.pm, 'pr', pr.id)).subarray(0, 4).toString()).toBe('%PDF');
   });
 
-  test('over the BOQ the PM signs, then the owner signs the executive box once approved', async () => {
+  test('over the BOQ the PM signs; the owner approval that follows is not printed', async () => {
     const { db, f } = await setup();
     const pr = await createPr(db, f.users.foreman, {
       projectId: f.projectA,
@@ -71,20 +70,18 @@ describe('printed purchase requisition', () => {
     expect(await boxes(db, waiting)).toEqual([
       ['ผู้ขอซื้อ / ผู้จัดทำ', f.users.foreman.name],
       ['ผู้จัดการโครงการ (PM)', f.users.pm.name],
-      ['ผู้บริหาร', null],
     ]);
 
     await approvePr(db, f.users.owner, pr.id);
     expect(await boxes(db, await getPr(db, f.users.owner, pr.id))).toEqual([
       ['ผู้ขอซื้อ / ผู้จัดทำ', f.users.foreman.name],
       ['ผู้จัดการโครงการ (PM)', f.users.pm.name],
-      ['ผู้บริหาร', f.users.owner.name],
     ]);
     // A line typed in, not picked from the item list, has no code
     expect([...(await prLineRefs(db, pr.id)).values()]).toEqual([{ itemCode: '' }]);
   });
 
-  test('on a project without a PM the owner approves and signs the executive box', async () => {
+  test('on a project without a PM the owner approves; both boxes print, the PM box blank', async () => {
     const { db, f } = await setup();
     const pr = await createPr(db, f.users.otherForeman, {
       projectId: f.projectB,
@@ -97,7 +94,6 @@ describe('printed purchase requisition', () => {
     expect(await boxes(db, await getPr(db, f.users.owner, pr.id))).toEqual([
       ['ผู้ขอจ้าง / ผู้จัดทำ', f.users.otherForeman.name],
       ['ผู้จัดการโครงการ (PM)', null],
-      ['ผู้บริหาร', f.users.owner.name],
     ]);
     expect((await renderDocPdf(db, f.users.owner, 'pr', pr.id)).subarray(0, 4).toString()).toBe('%PDF');
   });

@@ -841,7 +841,7 @@ export function PrForm({
         )}
 
         {/* The same boxes the printed PR carries */}
-        <SignatureRow roles={[prSignatures(prType)[0]!, 'ผู้จัดการโครงการ (PM)', 'ผู้บริหาร']} />
+        <SignatureRow roles={[prSignatures(prType)[0]!, 'ผู้จัดการโครงการ (PM)']} />
       </DocPaper>
     </div>
   );

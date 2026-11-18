@@ -34,9 +34,9 @@ export async function poSigners(db: Db, po: { status: PoStatus; createdBy: strin
 }
 
 /**
- * The printed requisition's three boxes: the person asking, the PM, and an executive. Over BOQ the PM
- * passes it on and the owner approves, so both are signed; otherwise one person approves, and they sign
- * the PM's box when they are a PM, else the executive's (the GM, or the owner on a project with no PM).
+ * The printed requisition's two boxes: the person asking, and the PM. The PM's box carries the PM who
+ * passed it on, or a PM who gave the only approval. An approval by the owner or GM is not printed: the
+ * form has no executive box.
  */
 export async function prPdfSigners(
   db: Db,
@@ -45,22 +45,17 @@ export async function prPdfSigners(
   const people = await signerPeople(db, [pr.requestedBy, pr.pmApprovedBy, pr.approvedBy]);
   const approved = pr.status === 'APPROVED' || pr.status === 'CLOSED';
   let pm: { id: string | null; at: When } = { id: pr.pmApprovedBy, at: pr.pmApprovedAt };
-  let executive: string | null = approved ? pr.approvedBy : null;
-  if (!pr.pmApprovedBy && executive) {
+  if (!pr.pmApprovedBy && approved && pr.approvedBy) {
     const [isPm] = await db
       .select({ userId: userRoles.userId })
       .from(userRoles)
-      .where(and(eq(userRoles.userId, executive), eq(userRoles.role, 'PM')))
+      .where(and(eq(userRoles.userId, pr.approvedBy), eq(userRoles.role, 'PM')))
       .limit(1);
-    if (isPm) {
-      pm = { id: executive, at: pr.approvedAt };
-      executive = null;
-    }
+    if (isPm) pm = { id: pr.approvedBy, at: pr.approvedAt };
   }
   return [
     signerLine(prSignatures(pr.prType)[0]!, people, pr.requestedBy, pr.docDate ?? pr.createdAt, pr.status !== 'DRAFT'),
     signerLine('ผู้จัดการโครงการ (PM)', people, pm.id, pm.at),
-    signerLine('ผู้บริหาร', people, executive, pr.approvedAt),
   ];
 }
 
