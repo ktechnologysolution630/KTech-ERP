@@ -68,18 +68,15 @@ export function PrPdfDoc({
         <TitleRow titleTh={text.titleTh} titleEn={text.titleEn} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
 
         {goods ? (
-          // The goods form: the project with the reference supplier under it, then where it goes
+          // The goods form: the project, then where it goes and who takes it there
           <View style={[fs.box, { flexDirection: 'row' }]}>
-            <View style={[fs.cellRight, { flex: 1.1 }]}>
-              <View style={[fs.cellBottom, fs.pad]}>
-                <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={92} bold />
-              </View>
-              <View style={fs.pad}>
-                <Field label="ซัพพลายเออร์อ้างอิง" value={pr.vendorName ?? '-'} labelWidth={92} />
-              </View>
+            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+              <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={50} bold />
             </View>
             <View style={[fs.pad, { flex: 1 }]}>
-              <Field label="สถานที่จัดส่ง" value={pr.deliveryPlace || '-'} />
+              <Field label="สถานที่จัดส่ง" value={pr.deliveryPlace || '-'} labelWidth={78} />
+              <Field label="Contact Delivery" value={requester} labelWidth={78} />
+              <Field label="Tel." value="" labelWidth={78} />
             </View>
           </View>
         ) : (
@@ -233,15 +230,18 @@ export function PrPdfDoc({
             </View>
           )}
 
-          <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
-            <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
-              <Field label="Contact Delivery" value={requester} labelWidth={78} />
-              {priced && <Field label="เงื่อนไขการชำระเงิน" value={pr.paymentTerms || '-'} labelWidth={78} />}
+          {/* The goods form carries the contact up beside the delivery place */}
+          {!goods && (
+            <View style={[fs.box, { flexDirection: 'row', marginTop: 6 }]}>
+              <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
+                <Field label="Contact Delivery" value={requester} labelWidth={78} />
+                {priced && <Field label="เงื่อนไขการชำระเงิน" value={pr.paymentTerms || '-'} labelWidth={78} />}
+              </View>
+              <View style={[fs.pad, { flex: 1 }]}>
+                <Field label="Tel." value="" labelWidth={30} />
+              </View>
             </View>
-            <View style={[fs.pad, { flex: 1 }]}>
-              <Field label="Tel." value="" labelWidth={30} />
-            </View>
-          </View>
+          )}
 
           <SignatureRow signatures={signatures} />
           <FormNote text={text.footerNote} />
