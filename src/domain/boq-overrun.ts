@@ -74,3 +74,91 @@ export function computeBoqOverrun(input: {
   }
   return { lines, overAmount: sum(lines.map((l) => D(l.over))) };
 }
+
+/** A BOQ row as stored, enough to tell which category (หมวด) each item falls under. */
+export interface BoqSheetRow {
+  id: string;
+  boqId: string;
+  isCategory: boolean;
+  no: string;
+  description: string;
+}
+
+/**
+ * The category row each item sits under: the nearest category row above it in the same BOQ.
+ * Rows must come in sheet order. Items above the first category row have none.
+ */
+export function boqCategoryOfLines(rows: BoqSheetRow[]): Map<string, { id: string; name: string }> {
+  const out = new Map<string, { id: string; name: string }>();
+  let current: { id: string; boqId: string; name: string } | null = null;
+  for (const r of rows) {
+    if (current && current.boqId !== r.boqId) current = null;
+    if (r.isCategory) {
+      current = { id: r.id, boqId: r.boqId, name: [r.no, r.description].map((s) => s.trim()).filter(Boolean).join(' ') || 'หมวด' };
+    } else if (current) {
+      out.set(r.id, { id: current.id, name: current.name });
+    }
+  }
+  return out;
+}
+
+/** One BOQ category (หมวด) that this PO pushes over its material budget (amounts before VAT). */
+export interface BoqCategoryOverrun {
+  categoryId: string;
+  name: string;
+  budget: string;
+  /** What other live POs already commit to the category */
+  committedElsewhere: string;
+  thisPo: string;
+  /** How far the category ends up over its budget with this PO counted */
+  over: string;
+}
+
+/**
+ * Compares, for each category this PO's lines draw on, the category's material budget with what
+ * other live POs commit to it plus this PO. Only categories that end up over budget are returned.
+ */
+export function computeBoqCategoryOverrun(input: {
+  /** Category of each BOQ item line */
+  categoryOf: Map<string, { id: string; name: string }>;
+  /** Material budget of each BOQ item line, for every item of the categories involved */
+  budgetByBoqLine: Map<string, Decimal.Value>;
+  /** What other live POs commit to each BOQ item line */
+  committedElsewhereByBoqLine: Map<string, Decimal.Value>;
+  thisPoByBoqLine: Map<string, Decimal.Value>;
+}): BoqCategoryOverrun[] {
+  const thisPo = new Map<string, Decimal>();
+  for (const [lineId, amount] of input.thisPoByBoqLine) {
+    const cat = input.categoryOf.get(lineId);
+    if (cat) thisPo.set(cat.id, (thisPo.get(cat.id) ?? D(0)).plus(amount));
+  }
+  if (thisPo.size === 0) return [];
+
+  const budget = new Map<string, Decimal>();
+  const elsewhere = new Map<string, Decimal>();
+  const names = new Map<string, string>();
+  for (const [lineId, cat] of input.categoryOf) {
+    if (!thisPo.has(cat.id)) continue;
+    names.set(cat.id, cat.name);
+    budget.set(cat.id, (budget.get(cat.id) ?? D(0)).plus(input.budgetByBoqLine.get(lineId) ?? 0));
+    elsewhere.set(cat.id, (elsewhere.get(cat.id) ?? D(0)).plus(input.committedElsewhereByBoqLine.get(lineId) ?? 0));
+  }
+
+  const out: BoqCategoryOverrun[] = [];
+  for (const [id, mine] of thisPo) {
+    const b = budget.get(id) ?? D(0);
+    const e = elsewhere.get(id) ?? D(0);
+    const over = e.plus(mine).minus(b);
+    // A category with no material budget at all is not a budget to warn against
+    if (b.lte(0) || over.lte(0)) continue;
+    out.push({
+      categoryId: id,
+      name: names.get(id) ?? 'หมวด',
+      budget: b.toFixed(2),
+      committedElsewhere: e.toFixed(2),
+      thisPo: mine.toFixed(2),
+      over: over.toFixed(2),
+    });
+  }
+  return out;
+}

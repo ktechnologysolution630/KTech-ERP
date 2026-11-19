@@ -26,7 +26,7 @@ export default async function EditPoPage({
     listProjects(db, actor),
     listVendors(db),
     listOrderablePrLines(db, actor),
-    listBoqMaterialOptions(db, actor),
+    listBoqMaterialOptions(db, actor, { excludePoId: id }),
     getSettings(db),
     getFormTemplates(db),
   ]);
