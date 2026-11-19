@@ -7,7 +7,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormNote, FormPage, fs, HeaderCell, LINE_WIDTH, qtyText, RuledCell, RuledFiller, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
+import { Field, FormNote, FormPage, fs, HeaderCell, LINE_WIDTH, qtyText, RuledCell, RuledFiller, SignatureRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -64,8 +64,14 @@ export function PrPdfDoc({
 
   return (
     <Document>
-      <FormPage settings={settings} header={header} isDraft={isDraft} docNumber={pr.number}>
-        <TitleRow titleTh={text.titleTh} titleEn={text.titleEn} number={pr.number} date={formatThaiDate(pr.docDate ?? pr.createdAt)} />
+      <FormPage
+        settings={settings}
+        header={header}
+        isDraft={isDraft}
+        docNumber={pr.number}
+        // As on the PO: the form's name, number and date sit in the letterhead, beside the company
+        docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: pr.number, date: formatThaiDate(pr.docDate ?? pr.createdAt) }}
+      >
 
         {goods ? (
           // The goods form: the project, then where it goes and who takes it there
