@@ -2,6 +2,7 @@ import { date, index, integer, numeric, pgTable, text, timestamp, uniqueIndex, u
 import { type AssetStatus, type InspectionResult } from '@/domain/asset';
 import { users } from './core';
 import { projects } from './master';
+import { stockItems } from './stock';
 
 /** ทะเบียนทรัพย์สิน: machines, vehicles and tools the company keeps track of */
 export const assets = pgTable(
@@ -15,6 +16,8 @@ export const assets = pgTable(
     /** Where it is now; null means the office */
     projectId: uuid('project_id').references(() => projects.id),
     custodian: text('custodian').default('').notNull(),
+    /** The stock item this asset is counted under, so the register can be checked against the stock balance */
+    stockItemId: uuid('stock_item_id').references(() => stockItems.id, { onDelete: 'set null' }),
     purchaseDate: date('purchase_date'),
     purchaseValue: numeric('purchase_value', { precision: 16, scale: 2 }).default('0.00').notNull(),
     salvageValue: numeric('salvage_value', { precision: 16, scale: 2 }).default('0.00').notNull(),
@@ -33,7 +36,7 @@ export const assets = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex('assets_code_idx').on(t.code), index('assets_project_idx').on(t.projectId)],
+  (t) => [uniqueIndex('assets_code_idx').on(t.code), index('assets_project_idx').on(t.projectId), index('assets_stock_item_idx').on(t.stockItemId)],
 );
 
 /** One check of an asset; never edited afterwards, so the history stays what was found at the time */

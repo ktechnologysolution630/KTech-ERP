@@ -156,3 +156,69 @@ export const ASSET_IMPORT_COLUMNS = {
   note: 'หมายเหตุ',
 } as const;
 
+
+/** One place where a stock item is kept: a project's site store, or the central store / office when projectId is null */
+export interface AssetStockPlace {
+  projectId: string | null;
+  /** On hand in stock */
+  stock: number;
+  /** Assets in use linked to the item and kept here */
+  assets: number;
+}
+
+export interface AssetStockLine {
+  stockItemId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  stockTotal: number;
+  assetTotal: number;
+  /** Assets minus stock: above zero means the register has more than stock, below zero fewer */
+  difference: number;
+  places: AssetStockPlace[];
+  /** Totals and every place agree */
+  matches: boolean;
+}
+
+const qty = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * Lines up each stock item that assets are linked to with the assets in use under it, place by place.
+ * The central store and the office are the same place (no project). Retired assets are not counted,
+ * since they should have left stock too; an item linked only to retired assets is still listed so its
+ * leftover stock shows.
+ */
+export function reconcileAssetsWithStock(
+  items: { id: string; sku: string; name: string; unit: string }[],
+  balances: { stockItemId: string; projectId: string | null; quantity: number }[],
+  assets: { stockItemId: string | null; projectId: string | null; status: AssetStatus }[],
+): AssetStockLine[] {
+  const linked = new Set(assets.flatMap((a) => (a.stockItemId ? [a.stockItemId] : [])));
+  return items
+    .filter((item) => linked.has(item.id))
+    .map((item) => {
+      const places = new Map<string | null, AssetStockPlace>();
+      const at = (projectId: string | null) => {
+        let p = places.get(projectId);
+        if (!p) places.set(projectId, (p = { projectId, stock: 0, assets: 0 }));
+        return p;
+      };
+      for (const b of balances) if (b.stockItemId === item.id) at(b.projectId).stock = qty(at(b.projectId).stock + b.quantity);
+      for (const a of assets) if (a.stockItemId === item.id && a.status === 'ACTIVE') at(a.projectId).assets += 1;
+      const shown = [...places.values()].filter((p) => p.stock !== 0 || p.assets !== 0);
+      const stockTotal = qty(shown.reduce((s, p) => s + p.stock, 0));
+      const assetTotal = shown.reduce((s, p) => s + p.assets, 0);
+      return {
+        stockItemId: item.id,
+        sku: item.sku,
+        name: item.name,
+        unit: item.unit,
+        stockTotal,
+        assetTotal,
+        difference: qty(assetTotal - stockTotal),
+        places: shown,
+        matches: shown.every((p) => p.stock === p.assets),
+      };
+    })
+    .sort((a, b) => Number(a.matches) - Number(b.matches) || a.sku.localeCompare(b.sku));
+}

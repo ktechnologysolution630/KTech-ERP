@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { assetInspections, assets, attachments, comments, projects, users, vehicleTrips, type SessionUser } from '@/db/schema';
+import { assetInspections, assets, attachments, comments, projects, stockBalances, stockItems, users, vehicleTrips, type SessionUser } from '@/db/schema';
 import {
   ASSET_STATUSES,
   computeDepreciation,
@@ -12,6 +12,9 @@ import {
   inspectionDue,
   needsInspection,
   nextInspectionDate,
+  reconcileAssetsWithStock,
+  type AssetStockLine,
+  type AssetStockPlace,
   type AssetStatus,
   type CheckLocation,
   type Depreciation,
@@ -35,6 +38,7 @@ const assetSchema = z
     serialNo: z.string().trim().max(100).default(''),
     projectId: z.string().uuid().nullable().default(null),
     custodian: z.string().trim().max(200).default(''),
+    stockItemId: z.string().uuid('รายการสต๊อกไม่ถูกต้อง').nullable().default(null),
     purchaseDate: isoDate.nullable().default(null),
     purchaseValue: z.coerce.number().min(0, 'มูลค่าต้องไม่ติดลบ').max(99_999_999_999).default(0),
     salvageValue: z.coerce.number().min(0, 'มูลค่าซากต้องไม่ติดลบ').max(99_999_999_999).default(0),
@@ -80,6 +84,9 @@ export interface AssetRow {
   projectId: string | null;
   projectName: string | null;
   custodian: string;
+  stockItemId: string | null;
+  /** SKU and name of the linked stock item */
+  stockItemLabel: string | null;
   purchaseDate: string | null;
   /** Null for site staff, who see the asset but not what it cost */
   purchaseValue: number | null;
@@ -103,6 +110,10 @@ export interface AssetPage {
   /** Whether the money columns apply; site staff see the asset but not what it cost */
   canSeeValue: boolean;
   today: string;
+  /** Stock items an asset can be linked to; empty for site staff */
+  stockItems: { id: string; label: string }[];
+  /** Each linked stock item against the assets under it; empty for site staff */
+  stockCheck: (Omit<AssetStockLine, 'places'> & { places: (AssetStockPlace & { placeName: string })[] })[];
 }
 
 const latestInspections = async (db: Db, assetIds: string[]) => {
@@ -124,22 +135,25 @@ const latestInspections = async (db: Db, assetIds: string[]) => {
 export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage> {
   const siteOnly = isSiteScopedOnly(actor);
   const today = bangkokDateString();
-  if (siteOnly && actor.projectIds.length === 0) return { rows: [], canManage: false, canDelete: false, canSeeValue: false, today };
+  if (siteOnly && actor.projectIds.length === 0) return { rows: [], canManage: false, canDelete: false, canSeeValue: false, today, stockItems: [], stockCheck: [] };
 
   const rows = await db
-    .select({ asset: assets, projectName: projects.name })
+    .select({ asset: assets, projectName: projects.name, stockSku: stockItems.sku, stockName: stockItems.name })
     .from(assets)
     .leftJoin(projects, eq(projects.id, assets.projectId))
+    .leftJoin(stockItems, eq(stockItems.id, assets.stockItemId))
     .where(siteOnly ? inArray(assets.projectId, actor.projectIds) : undefined)
     .orderBy(asc(assets.code));
   const latestByAsset = await latestInspections(db, rows.map((r) => r.asset.id));
+  const stock = siteOnly ? { stockItems: [], stockCheck: [] } : await assetStockCheck(db, rows.map((r) => r.asset));
 
   return {
     today,
+    ...stock,
     canManage: can(actor, 'asset.manage'),
     canDelete: can(actor, 'asset.delete'),
     canSeeValue: !siteOnly,
-    rows: rows.map(({ asset: a, projectName }) => {
+    rows: rows.map(({ asset: a, projectName, stockSku, stockName }) => {
       const last = latestByAsset.get(a.id);
       const nextDueOn = nextInspectionDate(last?.inspectedOn ?? null, a.inspectEveryDays);
       return {
@@ -151,6 +165,8 @@ export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage>
         projectId: a.projectId,
         projectName,
         custodian: a.custodian,
+        stockItemId: a.stockItemId,
+        stockItemLabel: stockSku ? `${stockSku} ${stockName}` : null,
         purchaseDate: a.purchaseDate,
         purchaseValue: siteOnly ? null : Number(a.purchaseValue),
         salvageValue: siteOnly ? null : Number(a.salvageValue),
@@ -169,6 +185,43 @@ export async function listAssets(db: Db, actor: SessionUser): Promise<AssetPage>
   };
 }
 
+/** The stock items to link to, and each linked one against the assets in use under it. */
+async function assetStockCheck(db: Db, registered: (typeof assets.$inferSelect)[]): Promise<Pick<AssetPage, 'stockItems' | 'stockCheck'>> {
+  const items = await db.select({ id: stockItems.id, sku: stockItems.sku, name: stockItems.name, unit: stockItems.unit }).from(stockItems).orderBy(asc(stockItems.sku));
+  const linkedIds = [...new Set(registered.flatMap((a) => (a.stockItemId ? [a.stockItemId] : [])))];
+  const balances = linkedIds.length
+    ? await db
+        .select({ stockItemId: stockBalances.stockItemId, projectId: stockBalances.projectId, quantity: stockBalances.quantity })
+        .from(stockBalances)
+        .where(inArray(stockBalances.stockItemId, linkedIds))
+    : [];
+  const lines = reconcileAssetsWithStock(
+    items,
+    balances.map((b) => ({ ...b, quantity: Number(b.quantity) })),
+    registered,
+  );
+  const projectIds = [...new Set(lines.flatMap((l) => l.places.flatMap((p) => (p.projectId ? [p.projectId] : []))))];
+  const names = new Map(
+    (projectIds.length ? await db.select({ id: projects.id, code: projects.code, name: projects.name }).from(projects).where(inArray(projects.id, projectIds)) : []).map((p) => [
+      p.id,
+      `${p.code} - ${p.name}`,
+    ]),
+  );
+  return {
+    stockItems: items.map((i) => ({ id: i.id, label: `${i.sku} ${i.name}` })),
+    stockCheck: lines.map((l) => ({
+      ...l,
+      places: l.places.map((p) => ({ ...p, placeName: p.projectId ? (names.get(p.projectId) ?? '-') : 'คลังกลาง / สำนักงาน' })),
+    })),
+  };
+}
+
+const assertStockItemExists = async (db: Db, stockItemId: string | null) => {
+  if (!stockItemId) return;
+  const [i] = await db.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.id, stockItemId)).limit(1);
+  if (!i) throw new DomainError('INVALID_ASSET', 'ไม่พบรายการสต๊อกที่เลือก');
+};
+
 const assertProjectExists = async (db: Db, projectId: string | null) => {
   if (!projectId) return;
   const [p] = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, projectId)).limit(1);
@@ -184,6 +237,7 @@ export async function createAsset(db: Db, actor: SessionUser, input: AssetInput)
   const data = parse(assetSchema, input);
   assertDateNotFuture(data.purchaseDate, 'วันที่ซื้อ');
   await assertProjectExists(db, data.projectId);
+  await assertStockItemExists(db, data.stockItemId);
   return db.transaction(async (tx) => {
     const code = await nextDocNumber(tx, 'AST');
     const [row] = await tx
@@ -201,6 +255,7 @@ export async function updateAsset(db: Db, actor: SessionUser, id: string, input:
   const data = parse(assetSchema, input);
   assertDateNotFuture(data.purchaseDate, 'วันที่ซื้อ');
   await assertProjectExists(db, data.projectId);
+  await assertStockItemExists(db, data.stockItemId);
   await db.transaction(async (tx) => {
     const [before] = await tx.select().from(assets).where(eq(assets.id, assetId)).for('update');
     if (!before) throw new DomainError('NOT_FOUND', 'ไม่พบทรัพย์สิน', 404);
