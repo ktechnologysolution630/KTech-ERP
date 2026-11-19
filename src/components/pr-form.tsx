@@ -16,7 +16,6 @@ import {
   TotalsBox,
   VAT_MODE_LABEL,
   VendorBlock,
-  VendorSelect,
   paperBox,
   paperCell,
   paperInput,
@@ -125,7 +124,8 @@ export interface PrFormExisting {
   }[];
 }
 
-const td = 'border border-slate-200 px-1 py-1';
+/** An item cell, ruled in the PDF's line colour so the grid reads as on the printed form */
+const td = 'border border-[#9db0c4] px-1 py-1';
 
 /**
  * The requisition, laid out like the printed document. Three forms share it: goods without prices,
@@ -478,7 +478,7 @@ export function PrForm({
           <tbody>
             {rows.map(({ line, idx }, n) => (
               <tr key={idx} className={paperTableRow}>
-                <td className="border border-slate-200 px-2 py-2 text-center text-slate-500">{n + 1}</td>
+                <td className="border border-[#9db0c4] px-2 py-2 text-center text-slate-500">{n + 1}</td>
                 {categoryCell(line, idx, n, work)}
                 <td className={td}>
                   <select
@@ -590,10 +590,10 @@ export function PrForm({
                     <td className={td}>
                       <input type="number" step="0.01" min={0} value={line.discount} onChange={(e) => setLine(idx, { discount: e.target.value })} placeholder="0.00" aria-label={`ส่วนลด${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`} className={`${paperCell} text-right`} />
                     </td>
-                    <td className="border border-slate-200 px-2 py-2 text-right font-medium">{formatMoneyDisplay(amountOf(line).toFixed(2))}</td>
+                    <td className="border border-[#9db0c4] px-2 py-2 text-right font-medium">{formatMoneyDisplay(amountOf(line).toFixed(2))}</td>
                   </>
                 )}
-                <td className="border border-slate-200 px-1 py-2 text-center">
+                <td className="border border-[#9db0c4] px-1 py-2 text-center">
                   {rows.length > 1 && (
                     <button type="button" onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-600" title={`ลบ${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}>
                       <Trash2 className="h-4 w-4" />
@@ -606,11 +606,11 @@ export function PrForm({
           {priced && prType === 'GOODS_AND_LABOR' && (
             <tfoot>
               <tr className="bg-slate-50 text-sm font-semibold">
-                <td colSpan={work ? 8 : 9} className="border border-slate-200 px-2 py-1.5 text-right">
+                <td colSpan={work ? 8 : 9} className="border border-[#9db0c4] px-2 py-1.5 text-right">
                   รวม{work ? 'ค่าจ้าง / ค่าแรง' : 'ค่าสินค้า / วัสดุ'}
                 </td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatMoneyDisplay(subtotalOf(kind).toFixed(2))}</td>
-                <td className="border border-slate-200" />
+                <td className="border border-[#9db0c4] px-2 py-1.5 text-right">{formatMoneyDisplay(subtotalOf(kind).toFixed(2))}</td>
+                <td className="border border-[#9db0c4]" />
               </tr>
             </tfoot>
           )}
@@ -735,6 +735,8 @@ export function PrForm({
         company={company}
         titleTh={formText.titleTh}
         titleEn={formText.titleEn}
+        // As on the printed PR and PO: the form's name and number box beside the company
+        titleInLetterhead
         meta={
           <>
             <MetaRow label="เลขที่:">
@@ -760,20 +762,16 @@ export function PrForm({
         }
       >
         {/*
-          Two boxes side by side as on the PDF. The goods form: the project with the reference supplier under it,
-          then where it goes. The others: the vendor, then who asks, where and for which project.
+          Two boxes side by side as on the PDF. The goods form: the project, then where it goes and who
+          takes it there. The others: the vendor, then who asks, where and for which project.
         */}
         <div className={`${paperBox} grid grid-cols-1 md:grid-cols-[1.1fr_1fr]`}>
           <div className="border-b border-[#9db0c4] md:border-b-0 md:border-r">
             {prType === 'GOODS' ? (
-              <>
-                <BoxRow label="Project" required labelWidth={136}>
-                  {projectPicker}
-                </BoxRow>
-                <BoxRow label="ซัพพลายเออร์อ้างอิง" labelWidth={136}>
-                  <VendorSelect label="ซัพพลายเออร์อ้างอิง" vendors={vendors} vendorId={vendorId} onChange={setVendorId} />
-                </BoxRow>
-              </>
+              // The goods PDF no longer prints a reference supplier; one already on a PR is kept as it is
+              <BoxRow label="Project" required labelWidth={72}>
+                {projectPicker}
+              </BoxRow>
             ) : (
               <VendorBlock
                 title={prType === 'LABOR' ? 'ช่าง / ผู้รับเหมาที่ขอจ้าง' : 'ซัพพลายเออร์ / ผู้รับเหมาอ้างอิง'}
@@ -794,7 +792,7 @@ export function PrForm({
                 </BoxRow>
               </>
             )}
-            <BoxRow label={prType === 'LABOR' ? 'สถานที่ทำงาน' : prType === 'GOODS' ? 'สถานที่จัดส่ง' : 'สถานที่จัดส่ง / ทำงาน'}>
+            <BoxRow label={prType === 'LABOR' ? 'สถานที่ทำงาน' : prType === 'GOODS' ? 'สถานที่จัดส่ง' : 'สถานที่จัดส่ง / ทำงาน'} labelWidth={prType === 'GOODS' ? 120 : undefined}>
               <input
                 value={deliveryPlace}
                 onChange={(e) => setDeliveryPlace(e.target.value)}
@@ -803,6 +801,17 @@ export function PrForm({
                 className={paperInput}
               />
             </BoxRow>
+            {prType === 'GOODS' && (
+              <>
+                {/* Who takes delivery, printed under the place as on the PDF */}
+                <BoxRow label="Contact Delivery" labelWidth={120}>
+                  <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้รับของ" aria-label="Contact Delivery" className={paperInput} />
+                </BoxRow>
+                <BoxRow label="Tel." labelWidth={120}>
+                  <span className="px-1.5 text-slate-400">-</span>
+                </BoxRow>
+              </>
+            )}
             {prType !== 'GOODS' && (
               <BoxRow label="Project" required>
                 {projectPicker}
@@ -818,7 +827,7 @@ export function PrForm({
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-3">
                 <label className="block text-xs font-semibold text-slate-600">
-                  คำอธิบาย
+                  หมายเหตุ
                   <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
                 </label>
                 <label className="block text-xs font-semibold text-slate-600">
@@ -854,7 +863,7 @@ export function PrForm({
         ) : (
           <div className="space-y-2 border-t border-[#9db0c4] pt-3">
             <label className="block text-xs font-semibold text-slate-600">
-              คำอธิบาย
+              หมายเหตุ
               <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="ระบุจุดใช้งานหรือความเร่งด่วน" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm font-normal" />
             </label>
             <p className="text-xs text-slate-500">ใบขอซื้อสินค้าไม่ต้องใส่ราคา ฝ่ายจัดซื้อจะหาราคาและออกใบสั่งซื้อ (PO) ให้หลังอนุมัติ</p>
