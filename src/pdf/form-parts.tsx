@@ -499,7 +499,8 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
                 <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text>
               ) : null}
             </View>
-            <View style={{ width: 86, borderBottomWidth: 0.6, borderColor: '#64748b', borderStyle: 'dotted', marginBottom: 3 }} />
+            {/* No dotted line to sign on: the box itself is the space */}
+            <View style={{ height: 3 }} />
             {/* No date under the line: the PO carries its own date in the letterhead */}
             {sig.image && sig.name ? <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text> : null}
           </View>
