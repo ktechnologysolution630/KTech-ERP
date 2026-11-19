@@ -54,8 +54,8 @@ export function PoPdfDoc({
   // The purchaser who sent it, the purchasing head who checked it, the owner who approved it
   const text = form ?? resolveFormText('PO');
   const signed: Signer[] = text.signatureLabels.map((label, i) => ({ ...signers?.[i], label }));
-  // Printed with the approver first, then the purchaser and the purchasing head
-  const signatures = [signed[2], signed[0], signed[1]].filter((s): s is Signer => Boolean(s));
+  // Printed in the order they sign: the purchaser, the purchasing head, then the approver on the right
+  const signatures = signed;
 
   return (
     <Document>
