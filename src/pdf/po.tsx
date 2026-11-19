@@ -2,22 +2,12 @@ import React from 'react';
 import { Document, Text, View } from '@react-pdf/renderer';
 import { D, formatMoneyDisplay, round2, sum } from '@/domain/money';
 import { resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
+import { PO_CONDITIONS } from '@/domain/po-conditions';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
 import { branchLabel, ConditionsAndSignatures, Field, FormNote, FormPage, fs, HeaderCell, qtyText, RuledCell, RuledFiller, TotalsBlock, vatLabel, WrapText } from './form-parts';
-
-/**
- * The company's standing billing and cheque days, printed at the foot of every PO beside the
- * signatures. A vendor's own billing and cheque schedule stays on the PO record; the print no
- * longer shows it.
- */
-const PO_CONDITIONS = [
-  'การวางบิลวันที่ 20-25 ของเดือน',
-  'รับเช็ค สำหรับ Supplier วันที่ 30 ของเดือน',
-  'รับเช็ค สำหรับผู้รับเหมา วันที่ 15 และ 30 ของเดือน',
-];
 
 /** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {

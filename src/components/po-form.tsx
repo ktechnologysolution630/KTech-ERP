@@ -29,6 +29,7 @@ import {
   vatRowLabel,
   type CompanyHeader,
 } from '@/components/doc-paper';
+import { PO_CONDITIONS } from '@/domain/po-conditions';
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
 import { PriceIncreaseNote } from '@/components/price-increase';
@@ -645,6 +646,15 @@ export function PoForm({
                   VAT (%)
                   <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className={`${footInput} bg-slate-50 text-slate-500`} />
                 </label>
+              </div>
+              {/* The company's standing billing and cheque days, as the printed PO shows them */}
+              <div className={paperBox}>
+                <p className="bg-[#eaf2fa] py-1.5 text-center text-sm font-bold text-[#0e4677]">เงื่อนไข / CONDITION</p>
+                <div className="space-y-1 px-3 py-2 text-sm text-slate-700">
+                  {PO_CONDITIONS.map((c) => (
+                    <p key={c}>{c}</p>
+                  ))}
+                </div>
               </div>
             </div>
 
