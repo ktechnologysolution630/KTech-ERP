@@ -15,9 +15,11 @@ export interface PoLineRef {
 }
 
 /** Fixed column widths of the item table; the description takes the rest */
-const COL = { no: 26, qty: 66, price: 60, discount: 46, amount: 68 };
-/** The payment-terms cell beside Quotation No.: about half the right-hand box on an A4 page */
-const TERMS_CELL = 128;
+const COL = { no: 26, qty: 66, price: 60, discount: 60, amount: 68 };
+/** The payment-terms cell beside Quotation No.: over the discount and amount columns, so its line runs on into theirs */
+const TERMS_CELL = COL.discount + COL.amount;
+/** The right-hand side of the vendor box: over the quantity, price, discount and amount columns */
+const RIGHT_CELL = COL.qty + COL.price + COL.discount + COL.amount;
 /** Room for "เลขประจำตัวผู้เสียภาษี :", the longest vendor label; the others line up their colons with it */
 const VENDOR_LABEL = 84;
 /** The vendor and delivery cells, set closer than the usual padding to leave the items more room */
@@ -68,7 +70,7 @@ export function PoPdfDoc({
         docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: po.number, date: formatThaiDate(po.docDate ?? po.createdAt) }}
       >
         <View style={[fs.box, { flexDirection: 'row' }]}>
-          <View style={[fs.cellRight, CELL, { flex: 1.1 }]}>
+          <View style={[fs.cellRight, CELL, { flex: 1 }]}>
             {/* The labels flush right, their colons lined up under the longest, the tax ID's */}
             <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" labelWidth={VENDOR_LABEL} tight />
             <Field label="ที่อยู่" value={po.vendorAddress || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
@@ -82,7 +84,8 @@ export function PoPdfDoc({
             />
             <Field label="ผู้ติดต่อ" value={po.vendorContactPerson || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
           </View>
-          <View style={{ flex: 1 }}>
+          {/* As wide as the quantity-to-amount columns, so its lines run on into the table's */}
+          <View style={{ width: RIGHT_CELL }}>
             <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
               {/* Quotation No. over the delivery date; the payment terms beside both */}
               <View style={[fs.cellRight, { flex: 1 }]}>
