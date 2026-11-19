@@ -25,6 +25,7 @@ import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
 import { PoSummaryCard } from '@/components/po-summary-card';
 import { BoqOverrunPanel } from '@/components/boq-overrun-panel';
+import { BoqCategoryOverrunNote } from '@/components/boq-category-overrun';
 import { getPoBoqCheck } from '@/server/services/boq-overrun';
 import { previewPoDeletion } from '@/server/services/po-delete';
 import { DeleteDocButton } from '@/components/bulk-delete';
@@ -176,6 +177,8 @@ export default async function PoDetailPage({
       )}
 
       {boqCheck && <BoqOverrunPanel poId={po.id} check={boqCheck} />}
+
+      {boqCheck && <BoqCategoryOverrunNote overruns={boqCheck.categories} className="print:hidden" />}
 
       <PriceIncreasePanel increases={priceIncreases} />
 

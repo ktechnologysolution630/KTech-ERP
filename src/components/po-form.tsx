@@ -33,6 +33,8 @@ import { isSubCondition, PO_CONDITIONS } from '@/domain/po-conditions';
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
 import { PriceIncreaseNote } from '@/components/price-increase';
+import { BoqCategoryOverrunNote } from '@/components/boq-category-overrun';
+import { computeBoqCategoryOverrun } from '@/domain/boq-overrun';
 import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
 
 export interface OrderablePrLineOption {
@@ -57,6 +59,11 @@ export interface BoqMaterialPick {
   unit: string;
   budget: number;
   remaining: number;
+  /** The BOQ category (หมวด) the line sits under, with the category's budget and what other POs commit to it */
+  categoryId?: string | null;
+  categoryName?: string;
+  categoryBudget?: number;
+  categoryCommitted?: number;
 }
 
 export interface PoVendorOption {
@@ -232,7 +239,33 @@ export function PoForm({
     [lines, billDiscount, shipping, vatMode],
   );
 
-  const projectBoqMaterials = boqMaterials.filter((b) => projectId !== 'OFFICE' && b.projectId === projectId);
+  const projectBoqMaterials = useMemo(
+    () => boqMaterials.filter((b) => projectId !== 'OFFICE' && b.projectId === projectId),
+    [boqMaterials, projectId],
+  );
+
+  /** BOQ categories (กลุ่ม/หมวด) this PO takes over their material budget, counting the other POs */
+  const categoryOverruns = useMemo(() => {
+    const categoryOf = new Map<string, { id: string; name: string }>();
+    const budget = new Map<string, number>();
+    const elsewhere = new Map<string, number>();
+    for (const m of projectBoqMaterials) {
+      if (!m.categoryId) continue;
+      const cat = { id: m.categoryId, name: m.categoryName || 'หมวด' };
+      categoryOf.set(m.id, cat);
+      // The server already added up each category; its totals ride on one stand-in line per category
+      const key = `category:${m.categoryId}`;
+      categoryOf.set(key, cat);
+      budget.set(key, m.categoryBudget ?? 0);
+      elsewhere.set(key, m.categoryCommitted ?? 0);
+    }
+    const thisPo = new Map<string, ReturnType<typeof D>>();
+    lines.forEach((l, i) => {
+      const amount = totals.lines[i]?.allocatedBeforeVat;
+      if (l.boqLineId && amount) thisPo.set(l.boqLineId, (thisPo.get(l.boqLineId) ?? D(0)).plus(amount));
+    });
+    return computeBoqCategoryOverrun({ categoryOf, budgetByBoqLine: budget, committedElsewhereByBoqLine: elsewhere, thisPoByBoqLine: thisPo });
+  }, [projectBoqMaterials, lines, totals]);
   const matchingPrLines = orderablePrLines.filter((pl) => projectId !== 'OFFICE' && pl.projectId === projectId);
 
   /**
@@ -505,6 +538,8 @@ export function PoForm({
             </div>
           </div>
         )}
+
+        <BoqCategoryOverrunNote overruns={categoryOverruns} />
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse text-sm">

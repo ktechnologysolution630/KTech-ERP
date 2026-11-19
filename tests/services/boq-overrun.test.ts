@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
-import { computeBoqOverrun } from '@/domain/boq-overrun';
+import { boqCategoryOfLines, computeBoqCategoryOverrun, computeBoqOverrun } from '@/domain/boq-overrun';
 import { D } from '@/domain/money';
 import { getProjectBoqSheet, saveProjectMainBoq } from '@/server/services/boq';
 import {
@@ -182,5 +182,62 @@ describe('over-BOQ approval (AP)', () => {
     await expect(
       createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, sheet.boq!.lines[0].id, 1)),
     ).rejects.toMatchObject({ code: 'BOQ_LINE_MISMATCH' });
+  });
+});
+
+describe('group (BOQ category) budget warning', () => {
+  test('items belong to the nearest category row above them in the same BOQ', () => {
+    const cats = boqCategoryOfLines([
+      { id: 'x', boqId: 'b1', isCategory: false, no: '', description: 'ก่อนหมวด' },
+      { id: 'c1', boqId: 'b1', isCategory: true, no: '2', description: 'งานพื้นและวัสดุปู' },
+      { id: 'a', boqId: 'b1', isCategory: false, no: '2.1', description: 'กระเบื้อง' },
+      { id: 'y', boqId: 'b2', isCategory: false, no: '1', description: 'อีก BOQ' },
+    ]);
+    expect(cats.get('a')).toEqual({ id: 'c1', name: '2 งานพื้นและวัสดุปู' });
+    expect(cats.has('x')).toBe(false);
+    expect(cats.has('y')).toBe(false);
+  });
+
+  test('warns when the group goes over even though each line is within its own budget', () => {
+    const cat = { id: 'c1', name: 'งานพื้นและวัสดุปู' };
+    const r = computeBoqCategoryOverrun({
+      categoryOf: new Map([['a', cat], ['b', cat]]),
+      budgetByBoqLine: new Map([['a', 100_000], ['b', 50_000]]),
+      committedElsewhereByBoqLine: new Map([['a', 90_000], ['b', 50_000]]),
+      thisPoByBoqLine: new Map([['a', D(20_000)]]),
+    });
+    expect(r).toEqual([
+      { categoryId: 'c1', name: 'งานพื้นและวัสดุปู', budget: '150000.00', committedElsewhere: '140000.00', thisPo: '20000.00', over: '10000.00' },
+    ]);
+  });
+
+  test('within the group budget there is nothing to warn about', () => {
+    const cat = { id: 'c1', name: 'g' };
+    const r = computeBoqCategoryOverrun({
+      categoryOf: new Map([['a', cat]]),
+      budgetByBoqLine: new Map([['a', 100_000]]),
+      committedElsewhereByBoqLine: new Map([['a', 50_000]]),
+      thisPoByBoqLine: new Map([['a', D(50_000)]]),
+    });
+    expect(r).toEqual([]);
+  });
+
+  test('the PO page and the PO form options show the group spend', async () => {
+    const { db, f, pileLine } = await setup();
+    const po1 = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id, 8));
+    await submitPo(db, f.users.buyer, po1.id);
+
+    const po2 = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id, 3));
+    await submitPo(db, f.users.buyer, po2.id);
+    const check = await getPoBoqCheck(db, f.users.buyer, po2.id);
+    expect(check.categories).toEqual([
+      { categoryId: expect.any(String), name: '1 งานฐานราก', budget: '200000.00', committedElsewhere: '160000.00', thisPo: '60000.00', over: '20000.00' },
+    ]);
+
+    const opts = await listBoqMaterialOptions(db, f.users.buyer);
+    expect(opts.find((o) => o.id === pileLine.id)).toMatchObject({ categoryName: '1 งานฐานราก', categoryBudget: 200_000, categoryCommitted: 220_000 });
+    // Editing po2: its own lines are not counted twice
+    const editing = await listBoqMaterialOptions(db, f.users.buyer, { excludePoId: po2.id });
+    expect(editing.find((o) => o.id === pileLine.id)).toMatchObject({ committed: 160_000, categoryCommitted: 160_000 });
   });
 });

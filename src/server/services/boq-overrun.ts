@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
@@ -14,7 +14,14 @@ import {
   type PoStatus,
   type SessionUser,
 } from '@/db/schema';
-import { boqMaterialBudget, computeBoqOverrun, type BoqOverrunLine } from '@/domain/boq-overrun';
+import {
+  boqCategoryOfLines,
+  boqMaterialBudget,
+  computeBoqCategoryOverrun,
+  computeBoqOverrun,
+  type BoqCategoryOverrun,
+  type BoqOverrunLine,
+} from '@/domain/boq-overrun';
 import { DomainError } from '@/domain/errors';
 import { computeDocTotals, D, Decimal } from '@/domain/money';
 import type { SerializedPoRevisionPayload } from './po';
@@ -26,15 +33,21 @@ import { nextDocNumber } from './numbering';
 /** POs whose lines already commit BOQ budget. Drafts, rejected and cancelled POs do not. */
 const COMMITTING_STATUSES: PoStatus[] = ['PENDING_REVIEW', 'PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'];
 
-/** Amount before VAT that live POs commit to each of the given BOQ lines. */
-export async function committedByBoqLine(tx: Db, boqLineIds: string[]): Promise<Map<string, Decimal>> {
+/** Amount before VAT that live POs (other than `excludePoId`) commit to each of the given BOQ lines. */
+export async function committedByBoqLine(tx: Db, boqLineIds: string[], excludePoId?: string): Promise<Map<string, Decimal>> {
   const committed = new Map<string, Decimal>();
   if (boqLineIds.length === 0) return committed;
   const rows = await tx
     .select({ boqLineId: poLines.boqLineId, netBeforeVat: poLines.allocatedBeforeVat })
     .from(poLines)
     .innerJoin(pos, eq(pos.id, poLines.poId))
-    .where(and(inArray(poLines.boqLineId, boqLineIds), inArray(pos.status, COMMITTING_STATUSES)));
+    .where(
+      and(
+        inArray(poLines.boqLineId, boqLineIds),
+        inArray(pos.status, COMMITTING_STATUSES),
+        excludePoId ? ne(pos.id, excludePoId) : undefined,
+      ),
+    );
   for (const r of rows) {
     if (r.boqLineId) committed.set(r.boqLineId, (committed.get(r.boqLineId) ?? D(0)).plus(r.netBeforeVat));
   }
@@ -86,6 +99,36 @@ export async function computePoOverrun(tx: Db, poId: string, lines: PoLineForBoq
     })),
     thisPoByBoqLine: thisPo,
     committedElsewhereByBoqLine: elsewhere,
+  });
+}
+
+/**
+ * BOQ categories (หมวด) this PO's lines push over their material budget, counting what other live
+ * POs commit to the same categories. A warning only: approval is not held up by it.
+ */
+export async function computePoCategoryOverrun(tx: Db, poId: string, lines: PoLineForBoq[]): Promise<BoqCategoryOverrun[]> {
+  const thisPo = new Map<string, Decimal>();
+  for (const l of lines) {
+    if (!l.boqLineId) continue;
+    thisPo.set(l.boqLineId, (thisPo.get(l.boqLineId) ?? D(0)).plus(l.netBeforeVat));
+  }
+  if (thisPo.size === 0) return [];
+
+  const sheets = await tx.selectDistinct({ boqId: boqLines.boqId }).from(boqLines).where(inArray(boqLines.id, [...thisPo.keys()]));
+  if (sheets.length === 0) return [];
+  const rows = await tx
+    .select()
+    .from(boqLines)
+    .where(inArray(boqLines.boqId, sheets.map((x) => x.boqId)))
+    .orderBy(asc(boqLines.boqId), asc(boqLines.sort));
+  const categoryOf = boqCategoryOfLines(rows);
+  const items = rows.filter((r) => !r.isCategory && categoryOf.has(r.id));
+  const elsewhere = await committedByBoqLine(tx, items.map((r) => r.id), poId);
+  return computeBoqCategoryOverrun({
+    categoryOf,
+    budgetByBoqLine: new Map(items.map((r) => [r.id, boqMaterialBudget(r)])),
+    committedElsewhereByBoqLine: elsewhere,
+    thisPoByBoqLine: thisPo,
   });
 }
 
@@ -168,6 +211,8 @@ export interface BoqOverrunRequestDto {
 export interface PoBoqCheck {
   overAmount: number;
   lines: BoqOverrunLine[];
+  /** BOQ categories (หมวด) the PO pushes over their material budget; told, not enforced */
+  categories: BoqCategoryOverrun[];
   requests: BoqOverrunRequestDto[];
   /** True when an approved AP for the current revision covers the overrun */
   covered: boolean;
@@ -216,7 +261,11 @@ async function requestDtos(db: Db, where: ReturnType<typeof eq> | undefined): Pr
 export async function getPoBoqCheck(db: Db, actor: SessionUser, poId: string): Promise<PoBoqCheck> {
   const po = await loadPo(db, poId);
   if (po.projectId) assertCan(actor, 'project.view', { projectId: po.projectId });
-  const overrun = await computePoOverrun(db, po.id, await linesUnderReview(db, po));
+  const reviewLines = await linesUnderReview(db, po);
+  const [overrun, categories] = await Promise.all([
+    computePoOverrun(db, po.id, reviewLines),
+    computePoCategoryOverrun(db, po.id, reviewLines),
+  ]);
   const requests = await requestDtos(db, eq(boqOverrunRequests.poId, po.id));
   const covered = requests.some(
     (r) => r.status === 'APPROVED' && r.poRevision === po.currentRevision && D(r.overAmount).gte(overrun.overAmount),
@@ -225,6 +274,7 @@ export async function getPoBoqCheck(db: Db, actor: SessionUser, poId: string): P
   return {
     overAmount: overrun.overAmount.toNumber(),
     lines: overrun.lines,
+    categories,
     requests,
     covered: overrun.overAmount.lte(0) || covered,
     canRequest: can(actor, 'po.manage') && overrun.overAmount.gt(0) && !covered && !hasPending,
@@ -243,27 +293,44 @@ export interface BoqMaterialOption {
   budget: number;
   committed: number;
   remaining: number;
+  /** The BOQ category (หมวด) row the line sits under, so the PO form can add up each category's budget */
+  categoryId: string | null;
+  categoryName: string;
+  /** Material budget of the whole category and what other live POs already commit to it */
+  categoryBudget: number;
+  categoryCommitted: number;
 }
 
-/** Material lines of each visible project's main BOQ with what live POs already commit. */
-export async function listBoqMaterialOptions(db: Db, actor: SessionUser): Promise<BoqMaterialOption[]> {
-  const rows = await db
+/**
+ * Material lines of each visible project's main BOQ with what live POs already commit. When a PO is
+ * being edited, pass its id so what it already commits is not counted twice against its own lines.
+ */
+export async function listBoqMaterialOptions(db: Db, actor: SessionUser, opts: { excludePoId?: string } = {}): Promise<BoqMaterialOption[]> {
+  const all = await db
     .select({ line: boqLines, projectId: boqs.projectId, kind: boqs.kind, voNumber: variationOrders.number })
     .from(boqLines)
     .innerJoin(boqs, eq(boqs.id, boqLines.boqId))
     .leftJoin(variationOrders, eq(variationOrders.id, boqs.voId))
     .where(
-      and(
-        eq(boqLines.isCategory, false),
-        // Main BOQ, plus BOQs of approved variation orders
-        or(eq(boqs.kind, 'MAIN'), and(eq(boqs.kind, 'VO'), eq(variationOrders.status, 'APPROVED'))),
-      ),
+      // Main BOQ, plus BOQs of approved variation orders
+      or(eq(boqs.kind, 'MAIN'), and(eq(boqs.kind, 'VO'), eq(variationOrders.status, 'APPROVED'))),
     )
-    .orderBy(boqs.projectId, boqs.kind, boqLines.sort);
+    .orderBy(boqs.projectId, boqs.kind, boqLines.boqId, boqLines.sort);
+  const categoryOf = boqCategoryOfLines(all.map((r) => r.line));
+  const rows = all.filter((r) => !r.line.isCategory);
   const visible = isSiteScopedOnly(actor) ? rows.filter((r) => actor.projectIds.includes(r.projectId)) : rows;
   if (visible.length === 0) return [];
 
-  const committed = await committedByBoqLine(db, visible.map((r) => r.line.id));
+  // A malformed id (a mistyped URL) matches no PO; the page shows its own not-found
+  const excludePoId = opts.excludePoId && z.string().uuid().safeParse(opts.excludePoId).success ? opts.excludePoId : undefined;
+  const committed = await committedByBoqLine(db, visible.map((r) => r.line.id), excludePoId);
+  const categorySpend = new Map<string, { budget: Decimal; committed: Decimal }>();
+  for (const { line } of visible) {
+    const cat = categoryOf.get(line.id);
+    if (!cat) continue;
+    const s = categorySpend.get(cat.id) ?? { budget: D(0), committed: D(0) };
+    categorySpend.set(cat.id, { budget: s.budget.plus(boqMaterialBudget(line)), committed: s.committed.plus(committed.get(line.id) ?? 0) });
+  }
 
   return visible
     .map(({ line, projectId, kind, voNumber }) => {
@@ -279,6 +346,10 @@ export async function listBoqMaterialOptions(db: Db, actor: SessionUser): Promis
         budget: budget.toNumber(),
         committed: used.toNumber(),
         remaining: budget.minus(used).toNumber(),
+        categoryId: categoryOf.get(line.id)?.id ?? null,
+        categoryName: categoryOf.get(line.id)?.name ?? '',
+        categoryBudget: categorySpend.get(categoryOf.get(line.id)?.id ?? '')?.budget.toNumber() ?? 0,
+        categoryCommitted: categorySpend.get(categoryOf.get(line.id)?.id ?? '')?.committed.toNumber() ?? 0,
       };
     })
     .filter((o) => o.budget > 0);
