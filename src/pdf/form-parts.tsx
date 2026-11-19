@@ -488,8 +488,7 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
       </View>
       <View style={[fs.box, { flex: 1.15, flexDirection: 'row' }]}>
         {signatures.map((sig, i) => (
-          // One box for the three signers, with no lines between them
-          <View key={i} style={{ flex: 1, alignItems: 'center', paddingBottom: 5 }}>
+          <View key={i} style={[{ flex: 1, alignItems: 'center', paddingBottom: 5 }, i > 0 ? { borderLeftWidth: LINE_WIDTH, borderColor: LINE } : {}]}>
             <BoxHeading text={sig.label} small />
             <View style={{ height: 36, justifyContent: 'flex-end', alignItems: 'center' }}>
               {sig.image ? (
