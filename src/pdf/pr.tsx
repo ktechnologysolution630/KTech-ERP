@@ -214,6 +214,7 @@ export function PrPdfDoc({
         <View wrap={false} style={{ marginTop: 'auto' }}>
           {priced ? (
             <TotalsBlock
+              noteLabel="หมายเหตุ"
               note={pr.note}
               gross={totals.gross.toFixed(2)}
               rows={[
@@ -226,7 +227,7 @@ export function PrPdfDoc({
             />
           ) : (
             <View style={{ paddingTop: 3 }}>
-              <Field label="คำอธิบาย" value={pr.note || '-'} labelWidth={46} />
+              <Field label="หมายเหตุ" value={pr.note || '-'} labelWidth={46} />
             </View>
           )}
 
