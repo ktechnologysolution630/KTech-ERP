@@ -81,9 +81,12 @@ export const fs = StyleSheet.create({
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
   },
-  tableRow: { flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 0.5, borderColor: '#dbe4ee' },
   /** Every other item row, tinted so a long line is easy to follow across */
   tableRowAlt: { backgroundColor: '#f6f9fc' },
+  /** A ruled item table's outline; it grows to fill the page so the column lines reach the foot */
+  ruledTable: { flexGrow: 1, borderWidth: LINE_WIDTH, borderColor: LINE, borderRadius: RADIUS },
+  /** A row of a ruled table: the padding sits in the cells so the column lines run its full height */
+  ruledRow: { flexDirection: 'row', borderBottomWidth: LINE_WIDTH, borderColor: LINE },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 },
 });
 
@@ -170,6 +173,39 @@ export function qtyText(qty: string): string {
 
 export function vatLabel(mode: VatMode): string {
   return mode === 'NONE' ? 'VAT (ไม่คิดภาษี)' : mode === 'INCLUSIVE' ? `VAT ${VAT_RATE}% (รวมในราคา)` : `VAT ${VAT_RATE}%`;
+}
+
+/** One cell of a ruled item table, with a line on its right unless it is the last column */
+export function RuledCell({
+  width,
+  last,
+  style,
+  children,
+}: {
+  width?: number;
+  last?: boolean;
+  style?: { paddingHorizontal?: number };
+  children?: React.ReactNode;
+}) {
+  return (
+    <View style={[width ? { width } : { flex: 1 }, { paddingVertical: 4 }, last ? {} : { borderRightWidth: LINE_WIDTH, borderColor: LINE }, style ?? {}]}>
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Empty ruled columns under the last item, filling the rest of the page as on a printed form;
+ * one width per column, undefined for the description that takes the rest
+ */
+export function RuledFiller({ widths }: { widths: (number | undefined)[] }) {
+  return (
+    <View style={{ flexGrow: 1, flexDirection: 'row' }}>
+      {widths.map((width, i) => (
+        <RuledCell key={i} width={width} last={i === widths.length - 1} />
+      ))}
+    </View>
+  );
 }
 
 /** A column heading in Thai over English */

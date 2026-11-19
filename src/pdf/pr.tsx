@@ -7,7 +7,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
+import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, RuledCell, RuledFiller, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -23,20 +23,6 @@ const GOODS_COL = { no: 26, category: 72, group: 84, qty: 72, needed: 70 };
 const PRICED_COL = { no: 24, category: 56, group: 64, boq: 50, qty: 66, price: 54, discount: 42, amount: 60 };
 /** The category and group cells: centred under their headings, a touch smaller than the description so long names fit */
 const PLACE_CELL = { fontSize: TYPE.small };
-
-/** The item table's outline; it grows to fill the page so the column lines reach the foot */
-const TABLE_FRAME = { flexGrow: 1, borderWidth: LINE_WIDTH, borderColor: LINE, borderRadius: 3 };
-/** An item row: the padding sits in the cells so the column lines run its full height */
-const ROW = { flexDirection: 'row', borderBottomWidth: LINE_WIDTH, borderColor: LINE } as const;
-
-/** One cell of the item table, ruled on its right unless it is the last column */
-function Col({ width, last, style, children }: { width?: number; last?: boolean; style?: { paddingHorizontal?: number }; children?: React.ReactNode }) {
-  return (
-    <View style={[width ? { width } : { flex: 1 }, { paddingVertical: 4 }, last ? {} : { borderRightWidth: LINE_WIDTH, borderColor: LINE }, style ?? {}]}>
-      {children}
-    </View>
-  );
-}
 
 export function PrPdfDoc({
   pr,
@@ -139,7 +125,7 @@ export function PrPdfDoc({
           The item table, ruled like the paper form: a line between every column and under every row,
           the columns running on through the empty space down to the foot of the page
         */}
-        <View style={TABLE_FRAME}>
+        <View style={fs.ruledTable}>
           {goods ? (
             <View style={[fs.tableHeader, { paddingVertical: 0 }]}>
               <HeaderCell th="ลำดับ" en="Item" width={GOODS_COL.no} ruled />
@@ -167,49 +153,49 @@ export function PrPdfDoc({
             const col = goods ? GOODS_COL : PRICED_COL;
             const itemCode = lineRefs?.get(l.id)?.itemCode;
             return (
-              <View key={l.id} style={[ROW, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
-                <Col width={col.no}>
+              <View key={l.id} style={[fs.ruledRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
+                <RuledCell width={col.no}>
                   <Text style={{ textAlign: 'center' }}>{idx + 1}</Text>
-                </Col>
-                <Col width={col.category}>
+                </RuledCell>
+                <RuledCell width={col.category}>
                   <WrapText text={l.category || '-'} width={col.category - LINE_WIDTH} style={PLACE_CELL} align="center" />
-                </Col>
-                <Col width={col.group}>
+                </RuledCell>
+                <RuledCell width={col.group}>
                   <WrapText text={l.itemGroup || '-'} width={col.group - LINE_WIDTH} style={PLACE_CELL} align="center" />
-                </Col>
-                <Col style={{ paddingHorizontal: 3 }}>
+                </RuledCell>
+                <RuledCell style={{ paddingHorizontal: 3 }}>
                   <Text>{l.description}</Text>
                   {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
                   {/* The combined form says which part each line belongs to */}
                   {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
                   {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
-                </Col>
+                </RuledCell>
                 {!goods && (
-                  <Col width={PRICED_COL.boq}>
+                  <RuledCell width={PRICED_COL.boq}>
                     <Text style={{ textAlign: 'center', fontSize: TYPE.small }}>{l.boq?.no || '-'}</Text>
-                  </Col>
+                  </RuledCell>
                 )}
-                <Col width={col.qty} style={{ paddingHorizontal: 3 }}>
+                <RuledCell width={col.qty} style={{ paddingHorizontal: 3 }}>
                   <Text style={{ textAlign: 'right' }}>
                     {qtyText(l.qty)} {l.unitName}
                   </Text>
-                </Col>
+                </RuledCell>
                 {goods ? (
                   // PRs written while the date sat in the header carry it there
-                  <Col width={GOODS_COL.needed} last>
+                  <RuledCell width={GOODS_COL.needed} last>
                     <Text style={{ textAlign: 'center' }}>{dateText(l.neededDate ?? pr.needBy)}</Text>
-                  </Col>
+                  </RuledCell>
                 ) : (
                   <>
-                    <Col width={PRICED_COL.price} style={{ paddingHorizontal: 3 }}>
+                    <RuledCell width={PRICED_COL.price} style={{ paddingHorizontal: 3 }}>
                       <Text style={{ textAlign: 'right' }}>{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</Text>
-                    </Col>
-                    <Col width={PRICED_COL.discount} style={{ paddingHorizontal: 3 }}>
+                    </RuledCell>
+                    <RuledCell width={PRICED_COL.discount} style={{ paddingHorizontal: 3 }}>
                       <Text style={{ textAlign: 'right' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
-                    </Col>
-                    <Col width={PRICED_COL.amount} style={{ paddingHorizontal: 3 }} last>
+                    </RuledCell>
+                    <RuledCell width={PRICED_COL.amount} style={{ paddingHorizontal: 3 }} last>
                       <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(totals.lines[idx]!.amount.toFixed(2))}</Text>
-                    </Col>
+                    </RuledCell>
                   </>
                 )}
               </View>
@@ -217,14 +203,13 @@ export function PrPdfDoc({
           })}
 
           {/* Empty ruled columns that fill the rest of the page, as on a printed form */}
-          <View style={{ flexGrow: 1, flexDirection: 'row' }}>
-            {(goods
-              ? [GOODS_COL.no, GOODS_COL.category, GOODS_COL.group, undefined, GOODS_COL.qty, GOODS_COL.needed]
-              : [PRICED_COL.no, PRICED_COL.category, PRICED_COL.group, undefined, PRICED_COL.boq, PRICED_COL.qty, PRICED_COL.price, PRICED_COL.discount, PRICED_COL.amount]
-            ).map((width, i, all) => (
-              <Col key={i} width={width} last={i === all.length - 1} />
-            ))}
-          </View>
+          <RuledFiller
+            widths={
+              goods
+                ? [GOODS_COL.no, GOODS_COL.category, GOODS_COL.group, undefined, GOODS_COL.qty, GOODS_COL.needed]
+                : [PRICED_COL.no, PRICED_COL.category, PRICED_COL.group, undefined, PRICED_COL.boq, PRICED_COL.qty, PRICED_COL.price, PRICED_COL.discount, PRICED_COL.amount]
+            }
+          />
         </View>
 
         {/* Kept whole at the foot of the last page */}
