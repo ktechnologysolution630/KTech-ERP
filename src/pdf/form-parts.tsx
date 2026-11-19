@@ -392,7 +392,8 @@ export function TotalsBlock({
 }) {
   return (
     <>
-      <View style={{ flexDirection: 'row', borderTopWidth: LINE_WIDTH, borderColor: LINE, paddingTop: 4 }}>
+      {/* No rule of its own: it sits right under the ruled item table's bottom edge */}
+      <View style={{ flexDirection: 'row', paddingTop: 3 }}>
         <View style={{ flex: 1, paddingRight: 10 }}>
           <Field label={noteLabel} value={note || '-'} labelWidth={46} />
         </View>

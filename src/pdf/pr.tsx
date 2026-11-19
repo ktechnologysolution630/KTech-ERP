@@ -7,7 +7,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, RuledCell, RuledFiller, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
+import { Field, FormNote, FormPage, fs, HeaderCell, LINE_WIDTH, qtyText, RuledCell, RuledFiller, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -69,7 +69,7 @@ export function PrPdfDoc({
 
         {goods ? (
           // The goods form: the project with the reference supplier under it, then where it goes
-          <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
+          <View style={[fs.box, { flexDirection: 'row', marginBottom: 3 }]}>
             <View style={[fs.cellRight, { flex: 1.1 }]}>
               <View style={[fs.cellBottom, fs.pad]}>
                 <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={92} bold />
@@ -83,7 +83,7 @@ export function PrPdfDoc({
             </View>
           </View>
         ) : (
-          <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
+          <View style={[fs.box, { flexDirection: 'row', marginBottom: 3 }]}>
             <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
               <Text style={fs.sectionTitle}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
               <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
@@ -213,7 +213,8 @@ export function PrPdfDoc({
         </View>
 
         {/* Kept whole at the foot of the last page */}
-        <View wrap={false} style={{ marginTop: 'auto', paddingTop: 8 }}>
+        {/* The item table runs right down to it, so the items get all the room the page has */}
+        <View wrap={false} style={{ marginTop: 'auto' }}>
           {priced ? (
             <TotalsBlock
               note={pr.note}
@@ -227,7 +228,7 @@ export function PrPdfDoc({
               ]}
             />
           ) : (
-            <View style={{ borderTopWidth: LINE_WIDTH, borderColor: LINE, paddingTop: 4 }}>
+            <View style={{ paddingTop: 3 }}>
               <Field label="คำอธิบาย" value={pr.note || '-'} labelWidth={46} />
             </View>
           )}

@@ -67,7 +67,7 @@ export function PoPdfDoc({
         // The PO's name, number and date sit in the letterhead, beside the company
         docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: po.number, date: formatThaiDate(po.docDate ?? po.createdAt) }}
       >
-        <View style={[fs.box, { flexDirection: 'row', marginBottom: 4 }]}>
+        <View style={[fs.box, { flexDirection: 'row', marginBottom: 3 }]}>
           <View style={[fs.cellRight, CELL, { flex: 1.1 }]}>
             {/* The labels flush right, their colons lined up under the longest, the tax ID's */}
             <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" labelWidth={VENDOR_LABEL} tight />
@@ -158,7 +158,8 @@ export function PoPdfDoc({
         </View>
 
         {/* Kept whole at the foot of the last page: split, the figures lose their place beside the amount in words */}
-        <View wrap={false} style={{ marginTop: 'auto', paddingTop: 8 }}>
+        {/* The item table runs right down to it, so the items get all the room the page has */}
+        <View wrap={false} style={{ marginTop: 'auto' }}>
           <TotalsBlock
             note={po.note}
             noteLabel="หมายเหตุ"
