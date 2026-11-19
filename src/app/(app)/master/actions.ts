@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireUser, requireWriter } from '@/server/auth/current-user';
 import {
   upsertItem,
   upsertProject,
@@ -15,7 +15,7 @@ import {
 import type { ItemImportRow, VendorImportRow } from '@/domain/master-import';
 import { importItemCatalog, importItems, importVendorDirectory, importVendors, type DirectoryImportResult } from '@/server/services/import';
 import { updateSettings } from '@/server/services/settings';
-import { deleteItems, type ItemDeleteResult } from '@/server/services/item-delete';
+import { deleteItems, itemUsage, type ItemDeleteResult } from '@/server/services/item-delete';
 
 function optionalText(formData: FormData, key: string): string | undefined {
   const v = formData.get(key);
@@ -198,4 +198,11 @@ export async function deleteItemsAction(ids: string[]): Promise<{ ok: true; resu
     if (err instanceof DomainError) return { ok: false, error: err.message };
     throw err;
   }
+}
+
+/** PR / PO line counts for the items in the duplicate check, so a copy still in use is not deleted by mistake */
+export async function itemUsageAction(ids: string[]): Promise<Record<string, { pr: number; po: number }>> {
+  await requireUser();
+  const db = await getDb();
+  return itemUsage(db, ids);
 }
