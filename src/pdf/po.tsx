@@ -63,7 +63,9 @@ export function PoPdfDoc({
 
   // The purchaser who sent it, the purchasing head who checked it, the owner who approved it
   const text = form ?? resolveFormText('PO');
-  const signatures: Signer[] = text.signatureLabels.map((label, i) => ({ ...signers?.[i], label }));
+  const signed: Signer[] = text.signatureLabels.map((label, i) => ({ ...signers?.[i], label }));
+  // Printed with the approver first, then the purchaser and the purchasing head
+  const signatures = [signed[2], signed[0], signed[1]].filter((s): s is Signer => Boolean(s));
 
   return (
     <Document>
