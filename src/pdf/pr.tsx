@@ -7,7 +7,7 @@ import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPr } from '@/server/services/pr';
 import { type Settings } from '@/server/services/settings';
-import { Field, FormNote, FormPage, fs, HeaderCell, LINE, LINE_WIDTH, qtyText, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
+import { Field, FormNote, FormPage, fs, HeaderCell, LINE_WIDTH, qtyText, RuledCell, RuledFiller, SignatureRow, TitleRow, TotalsBlock, TYPE, vatLabel, WrapText } from './form-parts';
 
 /** The item code a requisition line was picked as; blank when it was typed in */
 export interface PrLineRef {
@@ -69,7 +69,7 @@ export function PrPdfDoc({
 
         {goods ? (
           // The goods form: the project with the reference supplier under it, then where it goes
-          <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
+          <View style={[fs.box, { flexDirection: 'row' }]}>
             <View style={[fs.cellRight, { flex: 1.1 }]}>
               <View style={[fs.cellBottom, fs.pad]}>
                 <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={92} bold />
@@ -83,7 +83,7 @@ export function PrPdfDoc({
             </View>
           </View>
         ) : (
-          <View style={[fs.box, { flexDirection: 'row', marginBottom: 6 }]}>
+          <View style={[fs.box, { flexDirection: 'row' }]}>
             <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
               <Text style={fs.sectionTitle}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
               <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
@@ -121,68 +121,100 @@ export function PrPdfDoc({
           </View>
         )}
 
-        {goods ? (
-          <View style={fs.tableHeader}>
-            <HeaderCell th="ลำดับ" en="Item" width={GOODS_COL.no} />
-            <HeaderCell th="หมวด" en="Category" width={GOODS_COL.category} />
-            <HeaderCell th="กลุ่ม" en="Group" width={GOODS_COL.group} />
-            <HeaderCell th="รายการ" en="Description" />
-            <HeaderCell th="จำนวน/หน่วย" en="Quantity / Unit" width={GOODS_COL.qty} align="right" />
-            <HeaderCell th="กำหนดใช้/รับของ" en="Required Date" width={GOODS_COL.needed} />
-          </View>
-        ) : (
-          <View style={fs.tableHeader}>
-            <HeaderCell th="ลำดับ" en="Item" width={PRICED_COL.no} />
-            <HeaderCell th="หมวด" en="Category" width={PRICED_COL.category} />
-            <HeaderCell th="กลุ่ม" en="Group" width={PRICED_COL.group} />
-            <HeaderCell th="รายการ" en="Description" />
-            <HeaderCell th="รายการ BOQ" en="BOQ No." width={PRICED_COL.boq} />
-            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={PRICED_COL.qty} align="right" />
-            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={PRICED_COL.price} align="right" />
-            <HeaderCell th="ส่วนลด" en="Discount" width={PRICED_COL.discount} align="right" />
-            <HeaderCell th="จำนวนเงิน" en="Amount" width={PRICED_COL.amount} align="right" />
-          </View>
-        )}
-
-        {pr.lines.map((l, idx) => {
-          const col = goods ? GOODS_COL : PRICED_COL;
-          const itemCode = lineRefs?.get(l.id)?.itemCode;
-          return (
-            <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
-              <Text style={{ width: col.no, textAlign: 'center' }}>{idx + 1}</Text>
-              <WrapText text={l.category || '-'} width={col.category} style={PLACE_CELL} align="center" />
-              <WrapText text={l.itemGroup || '-'} width={col.group} style={PLACE_CELL} align="center" />
-              <View style={{ flex: 1, paddingHorizontal: 3 }}>
-                <Text>{l.description}</Text>
-                {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
-                {/* The combined form says which part each line belongs to */}
-                {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
-                {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
-              </View>
-              {!goods && <Text style={{ width: PRICED_COL.boq, textAlign: 'center', fontSize: TYPE.small }}>{l.boq?.no || '-'}</Text>}
-              <Text style={{ width: col.qty, textAlign: 'right', paddingHorizontal: 3 }}>
-                {qtyText(l.qty)} {l.unitName}
-              </Text>
-              {goods ? (
-                // PRs written while the date sat in the header carry it there
-                <Text style={{ width: GOODS_COL.needed, textAlign: 'center' }}>{dateText(l.neededDate ?? pr.needBy)}</Text>
-              ) : (
-                <>
-                  <Text style={{ width: PRICED_COL.price, textAlign: 'right', paddingHorizontal: 3 }}>{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</Text>
-                  <Text style={{ width: PRICED_COL.discount, textAlign: 'right', paddingHorizontal: 3 }}>
-                    {D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}
-                  </Text>
-                  <Text style={{ width: PRICED_COL.amount, textAlign: 'right', paddingHorizontal: 3 }}>
-                    {formatMoneyDisplay(totals.lines[idx]!.amount.toFixed(2))}
-                  </Text>
-                </>
-              )}
+        {/*
+          The item table, ruled like the paper form: a line between every column and under every row,
+          the columns running on through the empty space down to the foot of the page
+        */}
+        <View style={fs.ruledTable}>
+          {goods ? (
+            <View style={[fs.tableHeader, { paddingVertical: 0 }]}>
+              <HeaderCell th="ลำดับ" en="Item" width={GOODS_COL.no} ruled />
+              <HeaderCell th="หมวด" en="Category" width={GOODS_COL.category} ruled />
+              <HeaderCell th="กลุ่ม" en="Group" width={GOODS_COL.group} ruled />
+              <HeaderCell th="รายการ" en="Description" ruled />
+              <HeaderCell th="จำนวน/หน่วย" en="Quantity / Unit" width={GOODS_COL.qty} align="right" ruled />
+              <HeaderCell th="กำหนดใช้/รับของ" en="Required Date" width={GOODS_COL.needed} ruled last />
             </View>
-          );
-        })}
+          ) : (
+            <View style={[fs.tableHeader, { paddingVertical: 0 }]}>
+              <HeaderCell th="ลำดับ" en="Item" width={PRICED_COL.no} ruled />
+              <HeaderCell th="หมวด" en="Category" width={PRICED_COL.category} ruled />
+              <HeaderCell th="กลุ่ม" en="Group" width={PRICED_COL.group} ruled />
+              <HeaderCell th="รายการ" en="Description" ruled />
+              <HeaderCell th="รายการ BOQ" en="BOQ No." width={PRICED_COL.boq} ruled />
+              <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={PRICED_COL.qty} align="right" ruled />
+              <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={PRICED_COL.price} align="right" ruled />
+              <HeaderCell th="ส่วนลด" en="Discount" width={PRICED_COL.discount} align="right" ruled />
+              <HeaderCell th="จำนวนเงิน" en="Amount" width={PRICED_COL.amount} align="right" ruled last />
+            </View>
+          )}
+
+          {pr.lines.map((l, idx) => {
+            const col = goods ? GOODS_COL : PRICED_COL;
+            const itemCode = lineRefs?.get(l.id)?.itemCode;
+            return (
+              <View key={l.id} style={[fs.ruledRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
+                <RuledCell width={col.no}>
+                  <Text style={{ textAlign: 'center' }}>{idx + 1}</Text>
+                </RuledCell>
+                <RuledCell width={col.category}>
+                  <WrapText text={l.category || '-'} width={col.category - LINE_WIDTH} style={PLACE_CELL} align="center" />
+                </RuledCell>
+                <RuledCell width={col.group}>
+                  <WrapText text={l.itemGroup || '-'} width={col.group - LINE_WIDTH} style={PLACE_CELL} align="center" />
+                </RuledCell>
+                <RuledCell style={{ paddingHorizontal: 3 }}>
+                  <Text>{l.description}</Text>
+                  {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
+                  {/* The combined form says which part each line belongs to */}
+                  {mixed ? <Text style={fs.small}>{LINE_KIND_LABEL[l.lineKind]}</Text> : null}
+                  {itemCode ? <Text style={fs.small}>รหัสสินค้า {itemCode}</Text> : null}
+                </RuledCell>
+                {!goods && (
+                  <RuledCell width={PRICED_COL.boq}>
+                    <Text style={{ textAlign: 'center', fontSize: TYPE.small }}>{l.boq?.no || '-'}</Text>
+                  </RuledCell>
+                )}
+                <RuledCell width={col.qty} style={{ paddingHorizontal: 3 }}>
+                  <Text style={{ textAlign: 'right' }}>
+                    {qtyText(l.qty)} {l.unitName}
+                  </Text>
+                </RuledCell>
+                {goods ? (
+                  // PRs written while the date sat in the header carry it there
+                  <RuledCell width={GOODS_COL.needed} last>
+                    <Text style={{ textAlign: 'center' }}>{dateText(l.neededDate ?? pr.needBy)}</Text>
+                  </RuledCell>
+                ) : (
+                  <>
+                    <RuledCell width={PRICED_COL.price} style={{ paddingHorizontal: 3 }}>
+                      <Text style={{ textAlign: 'right' }}>{l.estUnitPrice ? formatMoneyDisplay(l.estUnitPrice) : '-'}</Text>
+                    </RuledCell>
+                    <RuledCell width={PRICED_COL.discount} style={{ paddingHorizontal: 3 }}>
+                      <Text style={{ textAlign: 'right' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
+                    </RuledCell>
+                    <RuledCell width={PRICED_COL.amount} style={{ paddingHorizontal: 3 }} last>
+                      <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(totals.lines[idx]!.amount.toFixed(2))}</Text>
+                    </RuledCell>
+                  </>
+                )}
+              </View>
+            );
+          })}
+
+          {/* Empty ruled columns that fill the rest of the page, as on a printed form */}
+          <RuledFiller
+            widths={
+              goods
+                ? [GOODS_COL.no, GOODS_COL.category, GOODS_COL.group, undefined, GOODS_COL.qty, GOODS_COL.needed]
+                : [PRICED_COL.no, PRICED_COL.category, PRICED_COL.group, undefined, PRICED_COL.boq, PRICED_COL.qty, PRICED_COL.price, PRICED_COL.discount, PRICED_COL.amount]
+            }
+          />
+        </View>
 
         {/* Kept whole at the foot of the last page */}
-        <View wrap={false} style={{ marginTop: 'auto', paddingTop: 8 }}>
+        {/* The item table runs right down to it, so the items get all the room the page has */}
+        <View wrap={false} style={{ marginTop: 'auto' }}>
           {priced ? (
             <TotalsBlock
               note={pr.note}
@@ -196,7 +228,7 @@ export function PrPdfDoc({
               ]}
             />
           ) : (
-            <View style={{ borderTopWidth: LINE_WIDTH, borderColor: LINE, paddingTop: 4 }}>
+            <View style={{ paddingTop: 3 }}>
               <Field label="คำอธิบาย" value={pr.note || '-'} labelWidth={46} />
             </View>
           )}

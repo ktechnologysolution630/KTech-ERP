@@ -2,22 +2,12 @@ import React from 'react';
 import { Document, Text, View } from '@react-pdf/renderer';
 import { D, formatMoneyDisplay, round2, sum } from '@/domain/money';
 import { resolveFormText, type FormHeader, type FormText } from '@/domain/form-templates';
+import { PO_CONDITIONS } from '@/domain/po-conditions';
 import { type Signer } from '@/domain/signature';
 import { formatThaiDate } from '@/domain/thai';
 import { type getPo } from '@/server/services/po';
 import { type Settings } from '@/server/services/settings';
-import { branchLabel, ConditionsAndSignatures, Field, FormNote, FormPage, fs, HeaderCell, qtyText, TotalsBlock, vatLabel, WrapText } from './form-parts';
-
-/**
- * The company's standing billing and cheque days, printed at the foot of every PO beside the
- * signatures. A vendor's own billing and cheque schedule stays on the PO record; the print no
- * longer shows it.
- */
-const PO_CONDITIONS = [
-  'การวางบิลวันที่ 20-25 ของเดือน',
-  'รับเช็ค สำหรับ Supplier วันที่ 30 ของเดือน',
-  'รับเช็ค สำหรับผู้รับเหมา วันที่ 15 และ 30 ของเดือน',
-];
+import { branchLabel, ConditionsAndSignatures, Field, FormNote, FormPage, fs, HeaderCell, qtyText, RuledCell, RuledFiller, TotalsBlock, vatLabel, WrapText } from './form-parts';
 
 /** The item code a PO line was bought as; blank when it was typed in */
 export interface PoLineRef {
@@ -77,7 +67,7 @@ export function PoPdfDoc({
         // The PO's name, number and date sit in the letterhead, beside the company
         docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: po.number, date: formatThaiDate(po.docDate ?? po.createdAt) }}
       >
-        <View style={[fs.box, { flexDirection: 'row', marginBottom: 4 }]}>
+        <View style={[fs.box, { flexDirection: 'row' }]}>
           <View style={[fs.cellRight, CELL, { flex: 1.1 }]}>
             {/* The labels flush right, their colons lined up under the longest, the tax ID's */}
             <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" labelWidth={VENDOR_LABEL} tight />
@@ -126,36 +116,50 @@ export function PoPdfDoc({
           </View>
         </View>
 
-        <View style={fs.tableHeader}>
-          <HeaderCell th="ลำดับ" en="Item" width={COL.no} />
-          <HeaderCell th="รายการ" en="Description" />
-          <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} align="right" />
-          <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" />
-          <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" />
-          <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} align="right" />
+        {/* The item table, ruled like the paper form: the column lines run on down to the foot of the page */}
+        <View style={fs.ruledTable}>
+          <View style={[fs.tableHeader, { paddingVertical: 0 }]}>
+            <HeaderCell th="ลำดับ" en="Item" width={COL.no} ruled />
+            <HeaderCell th="รายการ" en="Description" ruled />
+            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} align="right" ruled />
+            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" ruled />
+            <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" ruled />
+            <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} align="right" ruled last />
+          </View>
+
+          {lines.map((l, idx) => (
+            <View key={l.id} style={[fs.ruledRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
+              <RuledCell width={COL.no}>
+                <Text style={{ textAlign: 'center' }}>{idx + 1}</Text>
+              </RuledCell>
+              <RuledCell style={{ paddingHorizontal: 3 }}>
+                <Text>{l.description}</Text>
+                {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
+                {l.ref?.itemCode ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
+              </RuledCell>
+              <RuledCell width={COL.qty} style={{ paddingHorizontal: 3 }}>
+                <Text style={{ textAlign: 'right' }}>
+                  {qtyText(l.qty)} {l.unitName}
+                </Text>
+              </RuledCell>
+              <RuledCell width={COL.price} style={{ paddingHorizontal: 3 }}>
+                <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(l.unitPrice)}</Text>
+              </RuledCell>
+              <RuledCell width={COL.discount} style={{ paddingHorizontal: 3 }}>
+                <Text style={{ textAlign: 'right' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
+              </RuledCell>
+              <RuledCell width={COL.amount} style={{ paddingHorizontal: 3 }} last>
+                <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(l.amount.toFixed(2))}</Text>
+              </RuledCell>
+            </View>
+          ))}
+
+          <RuledFiller widths={[COL.no, undefined, COL.qty, COL.price, COL.discount, COL.amount]} />
         </View>
 
-        {lines.map((l, idx) => (
-          <View key={l.id} style={[fs.tableRow, idx % 2 ? fs.tableRowAlt : {}]} wrap={false}>
-            <Text style={{ width: COL.no, textAlign: 'center' }}>{idx + 1}</Text>
-            <View style={{ flex: 1, paddingHorizontal: 3 }}>
-              <Text>{l.description}</Text>
-              {l.detail ? <Text style={fs.small}>{l.detail}</Text> : null}
-              {l.ref?.itemCode ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
-            </View>
-            <Text style={{ width: COL.qty, textAlign: 'right', paddingHorizontal: 3 }}>
-              {qtyText(l.qty)} {l.unitName}
-            </Text>
-            <Text style={{ width: COL.price, textAlign: 'right', paddingHorizontal: 3 }}>{formatMoneyDisplay(l.unitPrice)}</Text>
-            <Text style={{ width: COL.discount, textAlign: 'right', paddingHorizontal: 3 }}>
-              {D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}
-            </Text>
-            <Text style={{ width: COL.amount, textAlign: 'right', paddingHorizontal: 3 }}>{formatMoneyDisplay(l.amount.toFixed(2))}</Text>
-          </View>
-        ))}
-
         {/* Kept whole at the foot of the last page: split, the figures lose their place beside the amount in words */}
-        <View wrap={false} style={{ marginTop: 'auto', paddingTop: 8 }}>
+        {/* The item table runs right down to it, so the items get all the room the page has */}
+        <View wrap={false} style={{ marginTop: 'auto' }}>
           <TotalsBlock
             note={po.note}
             noteLabel="หมายเหตุ"

@@ -3,6 +3,7 @@ import { Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import { COMPANY_NAME_EN } from '@/domain/brand';
 import { contactLine, type FormHeader } from '@/domain/form-templates';
 import { bahtText, D, formatMoneyDisplay, VAT_RATE, type VatMode } from '@/domain/money';
+import { isSubCondition } from '@/domain/po-conditions';
 import { type Signer } from '@/domain/signature';
 import { type Settings } from '@/server/services/settings';
 import { companyLogo } from './layout';
@@ -81,9 +82,12 @@ export const fs = StyleSheet.create({
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
   },
-  tableRow: { flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 0.5, borderColor: '#dbe4ee' },
   /** Every other item row, tinted so a long line is easy to follow across */
   tableRowAlt: { backgroundColor: '#f6f9fc' },
+  /** A ruled item table's outline; it grows to fill the page so the column lines reach the foot */
+  ruledTable: { flexGrow: 1, borderWidth: LINE_WIDTH, borderColor: LINE, borderRadius: RADIUS },
+  /** A row of a ruled table: the padding sits in the cells so the column lines run its full height */
+  ruledRow: { flexDirection: 'row', borderBottomWidth: LINE_WIDTH, borderColor: LINE },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 },
 });
 
@@ -172,10 +176,69 @@ export function vatLabel(mode: VatMode): string {
   return mode === 'NONE' ? 'VAT (ไม่คิดภาษี)' : mode === 'INCLUSIVE' ? `VAT ${VAT_RATE}% (รวมในราคา)` : `VAT ${VAT_RATE}%`;
 }
 
-/** A column heading in Thai over English */
-export function HeaderCell({ th, en, width, align = 'center' }: { th: string; en: string; width?: number; align?: 'left' | 'center' | 'right' }) {
+/** One cell of a ruled item table, with a line on its right unless it is the last column */
+export function RuledCell({
+  width,
+  last,
+  style,
+  children,
+}: {
+  width?: number;
+  last?: boolean;
+  style?: { paddingHorizontal?: number };
+  children?: React.ReactNode;
+}) {
   return (
-    <View style={[width ? { width } : { flex: 1 }, { paddingHorizontal: 4, alignItems: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center' }]}>
+    <View style={[width ? { width } : { flex: 1 }, { paddingVertical: 4 }, last ? {} : { borderRightWidth: LINE_WIDTH, borderColor: LINE }, style ?? {}]}>
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Empty ruled columns under the last item, filling the rest of the page as on a printed form;
+ * one width per column, undefined for the description that takes the rest
+ */
+export function RuledFiller({ widths }: { widths: (number | undefined)[] }) {
+  return (
+    <View style={{ flexGrow: 1, flexDirection: 'row' }}>
+      {widths.map((width, i) => (
+        <RuledCell key={i} width={width} last={i === widths.length - 1} />
+      ))}
+    </View>
+  );
+}
+
+/** A column heading in Thai over English */
+export function HeaderCell({
+  th,
+  en,
+  width,
+  align = 'center',
+  ruled = false,
+  last = false,
+}: {
+  th: string;
+  en: string;
+  width?: number;
+  align?: 'left' | 'center' | 'right';
+  /**
+   * In a ruled table: the cell takes the heading's height and a pale line on its right carries the
+   * column lines up through the heading; the heading row then drops its own padding
+   */
+  ruled?: boolean;
+  /** The last column of a ruled table, with no line on its right */
+  last?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        width ? { width } : { flex: 1 },
+        { paddingHorizontal: 4, alignItems: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center' },
+        ruled ? { paddingVertical: 4 } : {},
+        ruled && !last ? { borderRightWidth: LINE_WIDTH, borderColor: '#5d97c9' } : {},
+      ]}
+    >
       <Text>{th}</Text>
       <Text style={{ fontWeight: 'normal', fontSize: TYPE.tiny, color: '#d6e6f5' }}>{en}</Text>
     </View>
@@ -329,7 +392,8 @@ export function TotalsBlock({
 }) {
   return (
     <>
-      <View style={{ flexDirection: 'row', borderTopWidth: LINE_WIDTH, borderColor: LINE, paddingTop: 4 }}>
+      {/* No rule of its own: it sits right under the ruled item table's bottom edge */}
+      <View style={{ flexDirection: 'row', paddingTop: 3 }}>
         <View style={{ flex: 1, paddingRight: 10 }}>
           <Field label={noteLabel} value={note || '-'} labelWidth={46} />
         </View>
@@ -416,7 +480,7 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
         <BoxHeading text={title} />
         <View style={{ paddingHorizontal: 6, paddingVertical: 3 }}>
           {conditions.map((line) => (
-            <Text key={line} style={{ fontSize: TYPE.small }}>
+            <Text key={line} style={[{ fontSize: TYPE.small }, isSubCondition(line) ? { paddingLeft: 10 } : {}]}>
               {line}
             </Text>
           ))}
@@ -434,7 +498,8 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
                 <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text>
               ) : null}
             </View>
-            <View style={{ width: 86, borderBottomWidth: 0.6, borderColor: '#64748b', borderStyle: 'dotted', marginBottom: 3 }} />
+            {/* No dotted line to sign on: the box itself is the space */}
+            <View style={{ height: 3 }} />
             {/* No date under the line: the PO carries its own date in the letterhead */}
             {sig.image && sig.name ? <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text> : null}
           </View>

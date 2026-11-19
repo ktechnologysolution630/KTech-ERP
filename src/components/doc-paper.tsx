@@ -347,15 +347,18 @@ export function AmountInWords({ amount }: { amount: DocTotals['gross'] }) {
   );
 }
 
-/** A box per signer, the role on a pale band at the top, as on the printed form */
-export function SignatureRow({ roles }: { roles: string[] }) {
+/**
+ * A box per signer, the role on a pale band at the top, as on the printed form; noDate leaves out the
+ * date line, as the printed PO does
+ */
+export function SignatureRow({ roles, noDate = false }: { roles: string[]; noDate?: boolean }) {
   return (
     <div className={`grid grid-cols-1 gap-3 pt-2 text-center text-xs text-slate-600 ${roles.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
       {roles.map((r) => (
         <div key={r} className={paperBox}>
           <p className="bg-[#eaf2fa] py-1.5 text-sm font-bold text-[#0e4677]">{r}</p>
           <div className="mx-auto mt-12 w-48 border-b border-dotted border-slate-500" />
-          <p className="py-2">วันที่ ......../......../........</p>
+          {noDate ? <div className="h-4" /> : <p className="py-2">วันที่ ......../......../........</p>}
         </div>
       ))}
     </div>
