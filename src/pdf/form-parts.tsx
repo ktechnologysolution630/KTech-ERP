@@ -173,9 +173,35 @@ export function vatLabel(mode: VatMode): string {
 }
 
 /** A column heading in Thai over English */
-export function HeaderCell({ th, en, width, align = 'center' }: { th: string; en: string; width?: number; align?: 'left' | 'center' | 'right' }) {
+export function HeaderCell({
+  th,
+  en,
+  width,
+  align = 'center',
+  ruled = false,
+  last = false,
+}: {
+  th: string;
+  en: string;
+  width?: number;
+  align?: 'left' | 'center' | 'right';
+  /**
+   * In a ruled table: the cell takes the heading's height and a pale line on its right carries the
+   * column lines up through the heading; the heading row then drops its own padding
+   */
+  ruled?: boolean;
+  /** The last column of a ruled table, with no line on its right */
+  last?: boolean;
+}) {
   return (
-    <View style={[width ? { width } : { flex: 1 }, { paddingHorizontal: 4, alignItems: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center' }]}>
+    <View
+      style={[
+        width ? { width } : { flex: 1 },
+        { paddingHorizontal: 4, alignItems: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center' },
+        ruled ? { paddingVertical: 4 } : {},
+        ruled && !last ? { borderRightWidth: LINE_WIDTH, borderColor: '#5d97c9' } : {},
+      ]}
+    >
       <Text>{th}</Text>
       <Text style={{ fontWeight: 'normal', fontSize: TYPE.tiny, color: '#d6e6f5' }}>{en}</Text>
     </View>
