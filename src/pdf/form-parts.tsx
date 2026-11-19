@@ -468,15 +468,36 @@ function BoxHeading({ text, small }: { text: string; small?: boolean }) {
   );
 }
 
+/** One signer's cell: the role on a pale band, then their signature or name, or blank room to sign */
+function SignCell({ sig, room, style }: { sig: Signer | undefined; room: number; style?: { borderBottomWidth?: number; borderLeftWidth?: number; borderColor?: string } }) {
+  return (
+    <View style={[{ flex: 1, alignItems: 'center', paddingBottom: 3 }, style ?? {}]}>
+      <BoxHeading text={sig?.label ?? ''} small />
+      <View style={{ flex: 1, minHeight: room, justifyContent: 'center', alignItems: 'center' }}>
+        {sig?.image ? (
+          // eslint-disable-next-line jsx-a11y/alt-text
+          <Image src={sig.image} style={{ maxWidth: 86, maxHeight: room - 4, objectFit: 'contain' }} />
+        ) : sig?.name ? (
+          <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text>
+        ) : null}
+        {/* No date or dotted line: the PO carries its own date in the letterhead */}
+        {sig?.image && sig.name ? <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
 /**
- * The foot of the PO: the standing billing and cheque terms on the left, and every signer in one
- * box on the right, each in a column of their own
+ * The foot of the PO: the standing terms on the left, taking most of the width, and the signers on
+ * the right. Signers come in signing order (purchaser, purchasing head, approver): the purchasing
+ * head over the purchaser in the left column, the approver alone in the right column.
  */
 export function ConditionsAndSignatures({ title, conditions, signatures }: { title: string; conditions: string[]; signatures: Signer[] }) {
+  const [purchaser, head, approver] = signatures;
+  const ruled = { borderColor: LINE };
   return (
     <View style={{ flexDirection: 'row', marginTop: 6, gap: 6 }}>
-      {/* The terms take a little under half the width; the three signers share the rest */}
-      <View style={[fs.box, { flex: 0.85 }]}>
+      <View style={[fs.box, { flex: 1.3 }]}>
         <BoxHeading text={title} />
         <View style={{ paddingHorizontal: 6, paddingVertical: 3 }}>
           {conditions.map((line) => (
@@ -486,24 +507,12 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
           ))}
         </View>
       </View>
-      <View style={[fs.box, { flex: 1.15, flexDirection: 'row' }]}>
-        {signatures.map((sig, i) => (
-          <View key={i} style={[{ flex: 1, alignItems: 'center', paddingBottom: 5 }, i > 0 ? { borderLeftWidth: LINE_WIDTH, borderColor: LINE } : {}]}>
-            <BoxHeading text={sig.label} small />
-            <View style={{ height: 36, justifyContent: 'flex-end', alignItems: 'center' }}>
-              {sig.image ? (
-                // eslint-disable-next-line jsx-a11y/alt-text
-                <Image src={sig.image} style={{ maxWidth: 86, maxHeight: 32, objectFit: 'contain' }} />
-              ) : sig.name ? (
-                <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text>
-              ) : null}
-            </View>
-            {/* No dotted line to sign on: the box itself is the space */}
-            <View style={{ height: 3 }} />
-            {/* No date under the line: the PO carries its own date in the letterhead */}
-            {sig.image && sig.name ? <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text> : null}
-          </View>
-        ))}
+      <View style={[fs.box, { flex: 0.7, flexDirection: 'row' }]}>
+        <View style={{ flex: 1 }}>
+          <SignCell sig={head} room={30} style={{ borderBottomWidth: LINE_WIDTH, ...ruled }} />
+          <SignCell sig={purchaser} room={30} />
+        </View>
+        <SignCell sig={approver} room={40} style={{ borderLeftWidth: LINE_WIDTH, ...ruled }} />
       </View>
     </View>
   );
