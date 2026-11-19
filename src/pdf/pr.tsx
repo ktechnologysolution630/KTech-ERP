@@ -69,7 +69,7 @@ export function PrPdfDoc({
 
         {goods ? (
           // The goods form: the project with the reference supplier under it, then where it goes
-          <View style={[fs.box, { flexDirection: 'row', marginBottom: 3 }]}>
+          <View style={[fs.box, { flexDirection: 'row' }]}>
             <View style={[fs.cellRight, { flex: 1.1 }]}>
               <View style={[fs.cellBottom, fs.pad]}>
                 <Field label="Project" value={`${pr.projectCode} - ${pr.projectName}`} labelWidth={92} bold />
@@ -83,7 +83,7 @@ export function PrPdfDoc({
             </View>
           </View>
         ) : (
-          <View style={[fs.box, { flexDirection: 'row', marginBottom: 3 }]}>
+          <View style={[fs.box, { flexDirection: 'row' }]}>
             <View style={[fs.cellRight, fs.pad, { flex: 1.1 }]}>
               <Text style={fs.sectionTitle}>{labor ? 'ช่าง / ผู้รับเหมา' : 'ซัพพลายเออร์อ้างอิง'}</Text>
               <Field label="ชื่อ" value={pr.vendorName ?? '-'} bold />
