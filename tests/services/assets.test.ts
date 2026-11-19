@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { assetCheckState, computeDepreciation, hasProblem, inspectionDue, nextInspectionDate } from '@/domain/asset';
+import { assetCheckState, computeDepreciation, hasProblem, inspectionDue, nextInspectionDate, reconcileAssetsWithStock } from '@/domain/asset';
+import { stockBalances } from '@/db/schema';
+import { upsertStockItem } from '@/server/services/stock';
 import { bangkokDateString } from '@/domain/thai';
 import { listActivity } from '@/server/services/activity';
 import { addAttachment, readStoredFile } from '@/server/services/attachments';
@@ -318,5 +320,76 @@ describe('assets', () => {
     // A deleted code is not handed out again
     const next = await createAsset(db, f.users.admin, { name: 'ใหม่' });
     expect([onSite.code, office.code]).not.toContain(next.code);
+  });
+});
+
+describe('assets against stock', () => {
+  const item = { id: 'i1', sku: 'TL-01', name: 'สว่าน', unit: 'เครื่อง' };
+
+  test('matches place by place, the central store being the office', () => {
+    const [line] = reconcileAssetsWithStock(
+      [item, { id: 'i2', sku: 'X', name: 'ไม่ได้ผูก', unit: 'ชิ้น' }],
+      [
+        { stockItemId: 'i1', projectId: null, quantity: 1 },
+        { stockItemId: 'i1', projectId: 'p1', quantity: 1 },
+      ],
+      [
+        { stockItemId: 'i1', projectId: null, status: 'ACTIVE' },
+        { stockItemId: 'i1', projectId: 'p1', status: 'ACTIVE' },
+        { stockItemId: 'i1', projectId: 'p1', status: 'RETIRED' },
+      ],
+    ).filter((l) => l.stockItemId === 'i1');
+    expect(line).toMatchObject({ stockTotal: 2, assetTotal: 2, difference: 0, matches: true });
+  });
+
+  test('the same totals in the wrong places do not match, and mismatches come first', () => {
+    const lines = reconcileAssetsWithStock(
+      [item, { id: 'i0', sku: 'A', name: 'ตรง', unit: 'ชิ้น' }],
+      [
+        { stockItemId: 'i1', projectId: null, quantity: 2 },
+        { stockItemId: 'i0', projectId: null, quantity: 1 },
+      ],
+      [
+        { stockItemId: 'i1', projectId: null, status: 'ACTIVE' },
+        { stockItemId: 'i1', projectId: 'p1', status: 'ACTIVE' },
+        { stockItemId: 'i0', projectId: null, status: 'ACTIVE' },
+      ],
+    );
+    expect(lines.map((l) => l.stockItemId)).toEqual(['i1', 'i0']);
+    expect(lines[0]).toMatchObject({ difference: 0, matches: false });
+    expect(lines[0]!.places).toEqual([
+      { projectId: null, stock: 2, assets: 1 },
+      { projectId: 'p1', stock: 0, assets: 1 },
+    ]);
+  });
+
+  test('an item linked only to retired assets still shows its leftover stock', () => {
+    const [line] = reconcileAssetsWithStock([item], [{ stockItemId: 'i1', projectId: null, quantity: 1 }], [{ stockItemId: 'i1', projectId: null, status: 'RETIRED' }]);
+    expect(line).toMatchObject({ stockTotal: 1, assetTotal: 0, difference: -1, matches: false });
+  });
+
+  test('links an asset to a stock item and lists the difference for the office, not for site staff', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const drill = await upsertStockItem(db, f.users.buyer, { name: 'สว่านไฟฟ้า', unit: 'เครื่อง', category: 'งานโครงสร้าง', unitCost: 3000, quantity: 3 });
+    await db.insert(stockBalances).values({ stockItemId: drill.id, projectId: f.projectA, quantity: '1' });
+    const a = await createAsset(db, f.users.admin, { name: 'สว่าน 1', stockItemId: drill.id });
+    await createAsset(db, f.users.admin, { name: 'สว่าน 2', stockItemId: drill.id, projectId: f.projectA });
+    await expect(createAsset(db, f.users.admin, { name: 'x', stockItemId: crypto.randomUUID() })).rejects.toMatchObject({ code: 'INVALID_ASSET' });
+
+    const page = await listAssets(db, f.users.admin);
+    expect(page.stockItems.some((i) => i.id === drill.id)).toBe(true);
+    expect(page.rows.find((r) => r.id === a.id)?.stockItemLabel).toContain('สว่านไฟฟ้า');
+    const [line] = page.stockCheck;
+    expect(line).toMatchObject({ stockItemId: drill.id, stockTotal: 4, assetTotal: 2, difference: -2, matches: false });
+    expect(line!.places.find((p) => p.projectId === null)).toMatchObject({ stock: 3, assets: 1, placeName: 'คลังกลาง / สำนักงาน' });
+    expect(line!.places.find((p) => p.projectId === f.projectA)).toMatchObject({ stock: 1, assets: 1 });
+
+    const site = await listAssets(db, f.users.foreman);
+    expect(site.stockCheck).toEqual([]);
+    expect(site.stockItems).toEqual([]);
+
+    await updateAsset(db, f.users.admin, a.id, { name: 'สว่าน 1', stockItemId: null });
+    expect((await listAssets(db, f.users.admin)).stockCheck[0]).toMatchObject({ assetTotal: 1 });
   });
 });

@@ -33,13 +33,14 @@ const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsD
 const ImportDialog = dynamic(() => import('./asset-tools').then((m) => m.ImportDialog), { ssr: false });
 
 type ProjectOption = { id: string; label: string };
-type View = 'ALL' | 'NEEDS_CHECK' | 'PROBLEM' | 'RETIRED';
+type View = 'ALL' | 'NEEDS_CHECK' | 'PROBLEM' | 'RETIRED' | 'STOCK';
 
 const VIEW_LABELS: Record<View, string> = {
   ALL: 'ใช้งานทั้งหมด',
   NEEDS_CHECK: 'ต้องตรวจ',
   PROBLEM: 'มีปัญหา',
   RETIRED: 'ปลดระวาง',
+  STOCK: 'ไม่ตรงกับสต๊อก',
 };
 const fieldClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-hidden disabled:bg-slate-50';
 const labelClass = 'mb-1 block font-medium text-slate-700';
@@ -65,7 +66,7 @@ const RESULT_CLASS: Record<InspectionResult, string> = {
   MISSING: 'bg-rose-50 text-rose-800',
 };
 
-function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null; projects: ProjectOption[]; onClose: () => void }) {
+function AssetFormDialog({ asset, projects, stockItems, onClose }: { asset: AssetRow | null; projects: ProjectOption[]; stockItems: ProjectOption[]; onClose: () => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +76,7 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
     serialNo: asset?.serialNo ?? '',
     projectId: asset?.projectId ?? '',
     custodian: asset?.custodian ?? '',
+    stockItemId: asset?.stockItemId ?? '',
     purchaseDate: asset?.purchaseDate ?? '',
     purchaseValue: String(asset?.purchaseValue ?? 0),
     salvageValue: String(asset?.salvageValue ?? 0),
@@ -93,6 +95,7 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
       const r = await saveAssetAction(asset?.id ?? null, {
         ...form,
         projectId: form.projectId || null,
+        stockItemId: form.stockItemId || null,
         purchaseDate: form.purchaseDate || null,
         purchaseValue: Number(form.purchaseValue),
         salvageValue: Number(form.salvageValue),
@@ -146,6 +149,21 @@ function AssetFormDialog({ asset, projects, onClose }: { asset: AssetRow | null;
             <span className={labelClass}>ผู้ดูแล</span>
             <input maxLength={200} value={form.custodian} onChange={set('custodian')} className={fieldClass} />
           </label>
+          {(stockItems.length > 0 || form.stockItemId) && (
+            <label className="block sm:col-span-2">
+              <span className={labelClass}>รายการในสต๊อก</span>
+              <select value={form.stockItemId} onChange={set('stockItemId')} className={fieldClass}>
+                <option value="">ไม่ผูกกับสต๊อก</option>
+                {form.stockItemId && !stockItems.some((i) => i.id === form.stockItemId) && <option value={form.stockItemId}>{asset?.stockItemLabel ?? 'รายการเดิม'}</option>}
+                {stockItems.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.label}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[11px] text-slate-500">ผูกไว้เพื่อเทียบจำนวนทรัพย์สินกับยอดคงเหลือในสต๊อก</span>
+            </label>
+          )}
           <label className="block">
             <span className={labelClass}>วันที่ซื้อ</span>
             <DateInput value={form.purchaseDate} onChange={set('purchaseDate')} className={fieldClass} />
@@ -320,6 +338,71 @@ function DeleteAssetsDialog({ assets, onDeleted, onClose }: { assets: AssetRow[]
   );
 }
 
+function StockCheckSection({ lines }: { lines: AssetPage['stockCheck'] }) {
+  const [onlyMismatch, setOnlyMismatch] = useState(true);
+  const shown = onlyMismatch ? lines.filter((l) => !l.matches) : lines;
+  const qty = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 3 });
+  const diffText = (n: number) => (n === 0 ? 'ตรงกัน' : n > 0 ? `ทะเบียนเกิน ${qty(n)}` : `ทะเบียนขาด ${qty(-n)}`);
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+      <div className="flex flex-wrap items-center gap-3 p-4">
+        <p className="text-xs text-slate-500">
+          เทียบจำนวนทรัพย์สินที่ใช้งาน (ไม่นับที่ปลดระวาง) กับยอดคงเหลือในสต๊อก แยกตามที่อยู่ เฉพาะทรัพย์สินที่ผูกรายการสต๊อกไว้
+        </p>
+        <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-slate-600">
+          <input type="checkbox" checked={onlyMismatch} onChange={(e) => setOnlyMismatch(e.target.checked)} />
+          แสดงเฉพาะที่ไม่ตรง
+        </label>
+      </div>
+      {shown.length === 0 ? (
+        <p className="py-14 text-center text-xs text-slate-500">
+          {lines.length === 0 ? 'ยังไม่มีทรัพย์สินที่ผูกกับรายการสต๊อก กดแก้ไขทรัพย์สินแล้วเลือก "รายการในสต๊อก"' : 'ทุกรายการตรงกับสต๊อก'}
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-xs">
+            <thead className="bg-[#102d72] text-white">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-medium">รายการสต๊อก</th>
+                <th className="px-3 py-2.5 text-left font-medium">ที่อยู่</th>
+                <th className="px-3 py-2.5 text-right font-medium">ยอดในสต๊อก</th>
+                <th className="px-3 py-2.5 text-right font-medium">ทรัพย์สินในทะเบียน</th>
+                <th className="px-4 py-2.5 text-right font-medium">ผลเทียบ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {shown.map((l) => (
+                <React.Fragment key={l.stockItemId}>
+                  <tr className="bg-slate-50/70">
+                    <td className="px-4 py-2.5 font-semibold text-slate-900">
+                      <span className="font-mono text-slate-500">{l.sku}</span> {l.name}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">รวมทุกที่</td>
+                    <td className="px-3 py-2.5 text-right font-mono font-semibold">
+                      {qty(l.stockTotal)} {l.unit}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono font-semibold">{l.assetTotal}</td>
+                    <td className={`px-4 py-2.5 text-right font-semibold ${l.difference === 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{diffText(l.difference)}</td>
+                  </tr>
+                  {l.places.map((p) => (
+                    <tr key={p.projectId ?? 'central'}>
+                      <td />
+                      <td className="px-3 py-2 text-slate-600">{p.placeName}</td>
+                      <td className="px-3 py-2 text-right font-mono">{qty(p.stock)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{p.assets}</td>
+                      <td className={`px-4 py-2 text-right ${p.assets === p.stock ? 'text-slate-400' : 'font-medium text-rose-700'}`}>{diffText(p.assets - p.stock)}</td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Tile({ label, value, active, tone, onClick }: { label: string; value: number; active: boolean; tone: string; onClick: () => void }) {
   return (
     <button
@@ -346,7 +429,7 @@ export function AssetsClient({
   linkedAssetId: string | null;
   startOnNeedsCheck: boolean;
 }) {
-  const { rows, canManage, canDelete, canSeeValue, today } = page;
+  const { rows, canManage, canDelete, canSeeValue, today, stockItems, stockCheck } = page;
   const linked = linkedAssetId ? rows.find((r) => r.id === linkedAssetId) : undefined;
   const [view, setView] = useState<View>(startOnNeedsCheck ? 'NEEDS_CHECK' : 'ALL');
   const [query, setQuery] = useState('');
@@ -372,6 +455,7 @@ export function AssetsClient({
     NEEDS_CHECK: active.filter((r) => needsInspection(r.due)).length,
     PROBLEM: active.filter((r) => hasProblem(r.status, r.lastResult)).length,
     RETIRED: rows.length - active.length,
+    STOCK: stockCheck.filter((l) => !l.matches).length,
   };
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -435,12 +519,17 @@ export function AssetsClient({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-3 ${canSeeValue ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
         <Tile label={VIEW_LABELS.ALL} value={counts.ALL} active={view === 'ALL'} tone="text-[#2453d4]" onClick={() => setView('ALL')} />
         <Tile label={VIEW_LABELS.NEEDS_CHECK} value={counts.NEEDS_CHECK} active={view === 'NEEDS_CHECK'} tone="text-amber-700" onClick={() => setView('NEEDS_CHECK')} />
         <Tile label={VIEW_LABELS.PROBLEM} value={counts.PROBLEM} active={view === 'PROBLEM'} tone="text-rose-700" onClick={() => setView('PROBLEM')} />
         <Tile label={VIEW_LABELS.RETIRED} value={counts.RETIRED} active={view === 'RETIRED'} tone="text-slate-500" onClick={() => setView('RETIRED')} />
+        {canSeeValue && <Tile label={VIEW_LABELS.STOCK} value={counts.STOCK} active={view === 'STOCK'} tone="text-violet-700" onClick={() => setView('STOCK')} />}
       </div>
+
+      {view === 'STOCK' ? (
+        <StockCheckSection lines={stockCheck} />
+      ) : (
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <div className="flex flex-wrap items-center gap-2 p-4">
@@ -525,6 +614,7 @@ export function AssetsClient({
                         {r.category && ` · ${r.category}`}
                         {r.serialNo && ` · ${r.serialNo}`}
                       </div>
+                      {r.stockItemLabel && <div className="mt-0.5 truncate text-[11px] text-violet-700" title={`สต๊อก: ${r.stockItemLabel}`}>สต๊อก: {r.stockItemLabel}</div>}
                     </td>
                     <td className="max-w-[240px] px-3 py-3">
                       <div className="truncate text-slate-700" title={r.projectName ?? 'สำนักงาน'}>
@@ -577,8 +667,9 @@ export function AssetsClient({
           </div>
         )}
       </section>
+      )}
 
-      {editing && <AssetFormDialog asset={editing === 'new' ? null : editing} projects={projects} onClose={() => setEditing(null)} />}
+      {editing && <AssetFormDialog asset={editing === 'new' ? null : editing} projects={projects} stockItems={stockItems} onClose={() => setEditing(null)} />}
       {inspecting && <AssetCheckDialog asset={inspecting} onClose={() => setInspecting(null)} />}
       {history && <HistoryDialog asset={history} onClose={() => setHistory(null)} />}
       {printing && <LabelsDialog assets={printing} onClose={() => setPrinting(null)} />}

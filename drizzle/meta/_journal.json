@@ -365,6 +365,13 @@
       "when": 1794985560151,
       "tag": "0051_form_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1795077280998,
+      "tag": "0052_asset_stock_item",
+      "breakpoints": true
     }
   ]
 }
