@@ -29,7 +29,7 @@ import {
   vatRowLabel,
   type CompanyHeader,
 } from '@/components/doc-paper';
-import { PO_CONDITIONS } from '@/domain/po-conditions';
+import { isSubCondition, PO_CONDITIONS } from '@/domain/po-conditions';
 import { PAY_METHOD_LABEL, PAY_METHODS, type CreditBasis, type PayMethod } from '@/domain/payment-terms';
 import { priceIncrease, type LastPurchasePrice } from '@/domain/price-history';
 import { PriceIncreaseNote } from '@/components/price-increase';
@@ -652,7 +652,9 @@ export function PoForm({
                 <p className="bg-[#eaf2fa] py-1.5 text-center text-sm font-bold text-[#0e4677]">เงื่อนไข / CONDITION</p>
                 <div className="space-y-1 px-3 py-2 text-sm text-slate-700">
                   {PO_CONDITIONS.map((c) => (
-                    <p key={c}>{c}</p>
+                    <p key={c} className={isSubCondition(c) ? 'pl-4' : ''}>
+                      {c}
+                    </p>
                   ))}
                 </div>
               </div>

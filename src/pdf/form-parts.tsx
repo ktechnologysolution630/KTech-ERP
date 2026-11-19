@@ -3,6 +3,7 @@ import { Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import { COMPANY_NAME_EN } from '@/domain/brand';
 import { contactLine, type FormHeader } from '@/domain/form-templates';
 import { bahtText, D, formatMoneyDisplay, VAT_RATE, type VatMode } from '@/domain/money';
+import { isSubCondition } from '@/domain/po-conditions';
 import { type Signer } from '@/domain/signature';
 import { type Settings } from '@/server/services/settings';
 import { companyLogo } from './layout';
@@ -478,7 +479,7 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
         <BoxHeading text={title} />
         <View style={{ paddingHorizontal: 6, paddingVertical: 3 }}>
           {conditions.map((line) => (
-            <Text key={line} style={{ fontSize: TYPE.small }}>
+            <Text key={line} style={[{ fontSize: TYPE.small }, isSubCondition(line) ? { paddingLeft: 10 } : {}]}>
               {line}
             </Text>
           ))}
