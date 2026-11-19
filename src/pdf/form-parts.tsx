@@ -489,8 +489,8 @@ function SignCell({ sig, room, style }: { sig: Signer | undefined; room: number;
 
 /**
  * The foot of the PO: the standing terms on the left, taking most of the width, and the signers on
- * the right. Signers come in signing order (purchaser, purchasing head, approver): the purchasing
- * head over the purchaser in the left column, the approver alone in the right column.
+ * the right. Signers come in signing order (purchaser, purchasing head, approver): the purchaser
+ * over the purchasing head in the left column, the approver alone in the right column.
  */
 export function ConditionsAndSignatures({ title, conditions, signatures }: { title: string; conditions: string[]; signatures: Signer[] }) {
   const [purchaser, head, approver] = signatures;
@@ -509,8 +509,8 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
       </View>
       <View style={[fs.box, { flex: 0.7, flexDirection: 'row' }]}>
         <View style={{ flex: 1 }}>
-          <SignCell sig={head} room={30} style={{ borderBottomWidth: LINE_WIDTH, ...ruled }} />
-          <SignCell sig={purchaser} room={30} />
+          <SignCell sig={purchaser} room={30} style={{ borderBottomWidth: LINE_WIDTH, ...ruled }} />
+          <SignCell sig={head} room={30} />
         </View>
         <SignCell sig={approver} room={40} style={{ borderLeftWidth: LINE_WIDTH, ...ruled }} />
       </View>
