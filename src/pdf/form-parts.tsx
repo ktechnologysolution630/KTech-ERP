@@ -383,12 +383,15 @@ export function TotalsBlock({
   noteLabel = 'คำอธิบาย',
   rows,
   gross,
+  width = TOTALS_WIDTH,
 }: {
   note: string;
   /** The heading of the note beside the figures */
   noteLabel?: string;
   rows: [string, string][];
   gross: string;
+  /** The figures' column and the net total's dark box; a form passes its table's right-hand columns so the edges line up */
+  width?: number;
 }) {
   return (
     <>
@@ -397,7 +400,7 @@ export function TotalsBlock({
         <View style={{ flex: 1, paddingRight: 10 }}>
           <Field label={noteLabel} value={note || '-'} labelWidth={46} />
         </View>
-        <View style={{ width: TOTALS_WIDTH }}>
+        <View style={{ width }}>
           {rows.map(([label, value]) => (
             <View key={label} style={fs.totalRow}>
               <Text>{label}</Text>
@@ -411,7 +414,7 @@ export function TotalsBlock({
         <View
           style={[
             fs.pad,
-            { width: TOTALS_WIDTH, flexDirection: 'row', justifyContent: 'space-between', borderLeftWidth: LINE_WIDTH, borderColor: BRAND, backgroundColor: BRAND, color: '#ffffff' },
+            { width, flexDirection: 'row', justifyContent: 'space-between', borderLeftWidth: LINE_WIDTH, borderColor: BRAND, backgroundColor: BRAND, color: '#ffffff' },
           ]}
         >
           <Text style={fs.bold}>รวมเงินสุทธิ</Text>

@@ -164,6 +164,8 @@ export function PoPdfDoc({
         {/* The item table runs right down to it, so the items get all the room the page has */}
         <View wrap={false} style={{ marginTop: 'auto' }}>
           <TotalsBlock
+            // Starts on the quantity column's line, as the vendor box's right-hand side does
+            width={RIGHT_CELL}
             note={po.note}
             noteLabel="หมายเหตุ"
             gross={po.gross}
