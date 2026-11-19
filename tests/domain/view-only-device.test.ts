@@ -63,6 +63,7 @@ describe('every action that writes refuses a view-only device', () => {
     'loadDefectsAction', 'loadFilesAction', 'loadForecastAction', 'loadInspectionsAction', 'loadPeriodicReportAction', 'loadTeamAction',
     'loadVoBoqAction', 'loadVoDocumentAction',
     'loadFleetLiveAction', 'loadTripRouteAction',
+    'itemUsageAction',
   ];
   /** The vehicle menu: written from any device, phones included, by the owner's decision of 2026-11-11 */
   const ANY_DEVICE_DIR = 'vehicles/';
