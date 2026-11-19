@@ -188,6 +188,8 @@ describe('PO and PR pdfs print the K TECH form', () => {
     }
     // The approver signs in the left-hand slot, the purchaser and the purchasing head to the right
     expect(text).toMatch(/เงื่อนไข\/CONDITION.*ผู้มีอำนาจลงนาม.*ผู้จัดซื้อ.*ผู้จัดการแผนกจัดซื้อ/);
+    // The signers' slots carry no date line, signed or not; the only date is the PO's own, in the letterhead
+    expect(text.slice(text.lastIndexOf('ผู้มีอำนาจลงนาม'))).not.toContain('วันที่');
     for (const gone of [
       ...HEADER_GONE,
       // The payment box at the foot is gone

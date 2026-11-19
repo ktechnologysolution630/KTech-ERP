@@ -435,10 +435,8 @@ export function ConditionsAndSignatures({ title, conditions, signatures }: { tit
               ) : null}
             </View>
             <View style={{ width: 86, borderBottomWidth: 0.6, borderColor: '#64748b', borderStyle: 'dotted', marginBottom: 3 }} />
+            {/* No date under the line: the PO carries its own date in the letterhead */}
             {sig.image && sig.name ? <Text style={{ fontSize: TYPE.small }}>{sig.name}</Text> : null}
-            <Text style={{ fontSize: TYPE.small, color: MUTED }}>
-              {sig.name ? `วันที่ ${sig.date ?? '..................'}` : 'วันที่ ....../....../......'}
-            </Text>
           </View>
         ))}
       </View>
