@@ -122,6 +122,10 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
     pathname.startsWith('/handover') || pathname.startsWith('/warranty'),
   );
 
+  const isSettingsSection =
+    pathname.startsWith('/settings') || pathname.startsWith('/master/users') || pathname.startsWith('/profile');
+  const [openSettings, setOpenSettings] = useState<boolean>(isSettingsSection);
+
   const isStockActive = (tabKey: string) => {
     return pathname === '/stock' && currentTab === tabKey;
   };
@@ -940,100 +944,105 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
               </div>
               )}
 
-              {/* Master Data & Admin */}
-              {canManageUsers && (
-              <Link
-                href="/master/users"
-                prefetch={false}
-                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname.startsWith('/master/users')
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-                title="ผู้ใช้งาน"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Users className="w-4 h-4 text-slate-500 shrink-0" />
-                  {!collapsed && <span>ผู้ใช้งาน</span>}
-                </div>
-                {!collapsed && <span className="text-[10px] text-slate-400">Users</span>}
-              </Link>
-              )}
+              {/* Settings: company settings, users, doc numbers, forms and profile in one group.
+                  Everyone sees the group, because everyone has a profile (their signature). */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => (collapsed ? setCollapsed(false) : setOpenSettings(!openSettings))}
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                    isSettingsSection
+                      ? 'bg-slate-100 text-slate-900 font-semibold'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title="ตั้งค่า"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <SettingsIcon className="w-4 h-4 text-slate-600 shrink-0" />
+                    {!collapsed && <span>ตั้งค่า</span>}
+                  </div>
+                  {!collapsed && (
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                        openSettings ? 'rotate-180' : ''
+                      }`}
+                    />
+                  )}
+                </button>
 
-              {canManageSettings && (
-              <Link
-                href="/settings"
-                prefetch={false}
-                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname === '/settings'
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-                title="ตั้งค่า"
-              >
-                <div className="flex items-center gap-2.5">
-                  <SettingsIcon className="w-4 h-4 text-slate-500 shrink-0" />
-                  {!collapsed && <span>ตั้งค่า</span>}
-                </div>
-                {!collapsed && <span className="text-[10px] text-slate-400">Settings</span>}
-              </Link>
-              )}
-
-              {canManageSettings && (
-              <Link
-                href="/settings/doc-numbers"
-                prefetch={false}
-                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname.startsWith('/settings/doc-numbers')
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-                title="เลขที่เอกสาร"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Hash className="w-4 h-4 text-slate-500 shrink-0" />
-                  {!collapsed && <span>เลขที่เอกสาร</span>}
-                </div>
-                {!collapsed && <span className="text-[10px] text-slate-400">Doc No.</span>}
-              </Link>
-              )}
-
-              {canManageSettings && (
-              <Link
-                href="/settings/forms"
-                prefetch={false}
-                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname.startsWith('/settings/forms')
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-                title="แบบฟอร์มเอกสาร"
-              >
-                <div className="flex items-center gap-2.5">
-                  <FileCog className="w-4 h-4 text-slate-500 shrink-0" />
-                  {!collapsed && <span>แบบฟอร์มเอกสาร</span>}
-                </div>
-                {!collapsed && <span className="text-[10px] text-slate-400">Forms</span>}
-              </Link>
-              )}
-
-              {/* Everyone has a profile: it is where their own signature is made */}
-              <Link
-                href="/profile"
-                prefetch={false}
-                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                  pathname.startsWith('/profile')
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-                title="โปรไฟล์ / ลายเซ็น"
-              >
-                <div className="flex items-center gap-2.5">
-                  <PenLine className="w-4 h-4 text-slate-500 shrink-0" />
-                  {!collapsed && <span>โปรไฟล์ / ลายเซ็น</span>}
-                </div>
-                {!collapsed && <span className="text-[10px] text-slate-400">Profile</span>}
-              </Link>
+                {openSettings && !collapsed && (
+                  <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
+                    {canManageSettings && (
+                    <Link
+                      href="/settings"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname === '/settings'
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <SettingsIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>ตั้งค่าบริษัท</span>
+                    </Link>
+                    )}
+                    {canManageUsers && (
+                    <Link
+                      href="/master/users"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/master/users')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5 shrink-0" />
+                      <span>ผู้ใช้งาน</span>
+                    </Link>
+                    )}
+                    {canManageSettings && (
+                    <Link
+                      href="/settings/doc-numbers"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/settings/doc-numbers')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Hash className="w-3.5 h-3.5 shrink-0" />
+                      <span>เลขที่เอกสาร</span>
+                    </Link>
+                    )}
+                    {canManageSettings && (
+                    <Link
+                      href="/settings/forms"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/settings/forms')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <FileCog className="w-3.5 h-3.5 shrink-0" />
+                      <span>แบบฟอร์มเอกสาร</span>
+                    </Link>
+                    )}
+                    <Link
+                      href="/profile"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/profile')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <PenLine className="w-3.5 h-3.5 shrink-0" />
+                      <span>โปรไฟล์ / ลายเซ็น</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
 
             </div>
           </div>
