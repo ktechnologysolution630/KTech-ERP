@@ -9,7 +9,7 @@ import { computeDocTotals, D, formatMoneyDisplay, parseDecimalInput, type VatMod
 import { InstallmentEditor, type InstallmentRowState } from '@/components/installment-editor';
 import { createPoAction, updatePoAction } from '@/app/(app)/po/actions';
 import { DateInput } from '@/components/date-input';
-import { PaymentTermsFields, type PaymentTermsValue } from '@/components/payment-terms-fields';
+import { type PaymentTermsValue } from '@/components/payment-terms-fields';
 import {
   AmountAndNet,
   BoxRow,
@@ -178,9 +178,8 @@ export function PoForm({
   const activeVendors = useMemo(() => vendors.filter((v) => v.active || v.id === existing?.vendorId), [vendors, existing?.vendorId]);
   const [paymentType, setPaymentType] = useState<PoPaymentType>(existing?.paymentType ?? 'CREDIT');
   const [creditDays, setCreditDays] = useState<number>(existing?.creditDays ?? 30);
-  // Billing / cheque terms start from the vendor's and can be changed for this PO only
+  // Billing / cheque terms come from the vendor and are kept on the PO; the form no longer shows them
   const [terms, setTerms] = useState<PaymentTermsValue | null>(existing?.terms ?? null);
-  const [termsKey, setTermsKey] = useState(0);
   const [docDate, setDocDate] = useState(existing?.docDate ?? today);
   const [department, setDepartment] = useState(existing?.department ?? '');
   const [requester, setRequester] = useState(existing?.requesterName || currentUserName);
@@ -252,7 +251,6 @@ export function PoForm({
     if (v) {
       setCreditDays(v.defaultCreditDays);
       setTerms({ billingSchedule: v.billingSchedule, creditBasis: v.creditBasis, chequeSchedule: v.chequeSchedule, payMethod: v.defaultPayMethod });
-      setTermsKey((k) => k + 1);
     }
   }
 
@@ -648,14 +646,6 @@ export function PoForm({
                   <input value={vatMode === 'NONE' ? '0' : '7'} readOnly className={`${footInput} bg-slate-50 text-slate-500`} />
                 </label>
               </div>
-              {paymentType === 'CREDIT' && terms && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="mb-2 text-xs font-semibold text-slate-800">เงื่อนไขวางบิล / รับเช็ค (ดึงจากผู้ขาย แก้เฉพาะใบนี้ได้)</p>
-                  <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
-                    <PaymentTermsFields key={termsKey} value={terms} onChange={setTerms} hidePayMethod />
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* The rows the printed PO shows, in its order */}
@@ -686,7 +676,7 @@ export function PoForm({
         )}
 
         {/* The same boxes the printed PO carries */}
-        <SignatureRow roles={formText.signatureLabels} />
+        <SignatureRow roles={formText.signatureLabels} noDate />
       </DocPaper>
     </div>
   );
