@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { count, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import { items, poLines, prLines, type SessionUser } from '@/db/schema';
@@ -48,4 +48,22 @@ export async function deleteItems(db: Db, actor: SessionUser, ids: string[]): Pr
     });
     return { deleted: removable.length, deactivated: kept };
   });
+}
+
+const usageIdsSchema = z.array(z.string().uuid()).max(5000);
+
+/** How many PR and PO lines name each item, for the duplicate check (an unused copy is safe to delete) */
+export async function itemUsage(db: Db, ids: string[]): Promise<Record<string, { pr: number; po: number }>> {
+  const parsed = usageIdsSchema.safeParse(ids);
+  if (!parsed.success) throw new DomainError('INVALID_ITEM', 'รายการสินค้าไม่ถูกต้อง');
+  const out: Record<string, { pr: number; po: number }> = {};
+  if (parsed.data.length === 0) return out;
+  const [onPr, onPo] = await Promise.all([
+    db.select({ id: prLines.itemId, n: count() }).from(prLines).where(inArray(prLines.itemId, parsed.data)).groupBy(prLines.itemId),
+    db.select({ id: poLines.itemId, n: count() }).from(poLines).where(inArray(poLines.itemId, parsed.data)).groupBy(poLines.itemId),
+  ]);
+  for (const id of parsed.data) out[id] = { pr: 0, po: 0 };
+  for (const r of onPr) if (r.id && out[r.id]) out[r.id]!.pr = Number(r.n);
+  for (const r of onPo) if (r.id && out[r.id]) out[r.id]!.po = Number(r.n);
+  return out;
 }
