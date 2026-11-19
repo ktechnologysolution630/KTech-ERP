@@ -15,9 +15,11 @@ export interface PoLineRef {
 }
 
 /** Fixed column widths of the item table; the description takes the rest */
-const COL = { no: 26, qty: 66, price: 60, discount: 46, amount: 68 };
-/** The payment-terms cell beside Quotation No.: about half the right-hand box on an A4 page */
-const TERMS_CELL = 128;
+const COL = { no: 26, qty: 66, price: 60, discount: 60, amount: 68 };
+/** The payment-terms cell beside Quotation No.: over the discount and amount columns, so its line runs on into theirs */
+const TERMS_CELL = COL.discount + COL.amount;
+/** The right-hand side of the vendor box: over the quantity, price, discount and amount columns */
+const RIGHT_CELL = COL.qty + COL.price + COL.discount + COL.amount;
 /** Room for "เลขประจำตัวผู้เสียภาษี :", the longest vendor label; the others line up their colons with it */
 const VENDOR_LABEL = 84;
 /** The vendor and delivery cells, set closer than the usual padding to leave the items more room */
@@ -68,7 +70,7 @@ export function PoPdfDoc({
         docTitle={{ titleTh: text.titleTh, titleEn: text.titleEn, number: po.number, date: formatThaiDate(po.docDate ?? po.createdAt) }}
       >
         <View style={[fs.box, { flexDirection: 'row' }]}>
-          <View style={[fs.cellRight, CELL, { flex: 1.1 }]}>
+          <View style={[fs.cellRight, CELL, { flex: 1 }]}>
             {/* The labels flush right, their colons lined up under the longest, the tax ID's */}
             <Field label="ชื่อผู้ขาย" value={po.vendorName} bold labelAlign="right" labelWidth={VENDOR_LABEL} tight />
             <Field label="ที่อยู่" value={po.vendorAddress || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
@@ -82,7 +84,8 @@ export function PoPdfDoc({
             />
             <Field label="ผู้ติดต่อ" value={po.vendorContactPerson || '-'} labelAlign="right" labelWidth={VENDOR_LABEL} tight />
           </View>
-          <View style={{ flex: 1 }}>
+          {/* As wide as the quantity-to-amount columns, so its lines run on into the table's */}
+          <View style={{ width: RIGHT_CELL }}>
             <View style={[fs.cellBottom, { flexDirection: 'row' }]}>
               {/* Quotation No. over the delivery date; the payment terms beside both */}
               <View style={[fs.cellRight, { flex: 1 }]}>
@@ -116,15 +119,15 @@ export function PoPdfDoc({
           </View>
         </View>
 
-        {/* The item table, ruled like the paper form: the column lines run on down to the foot of the page */}
+        {/* The item table, ruled like the paper form: the column lines run on down to the foot of the page; the figures sit in the middle of their columns */}
         <View style={fs.ruledTable}>
           <View style={[fs.tableHeader, { paddingVertical: 0 }]}>
             <HeaderCell th="ลำดับ" en="Item" width={COL.no} ruled />
             <HeaderCell th="รายการ" en="Description" ruled />
-            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} align="right" ruled />
-            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" ruled />
-            <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" ruled />
-            <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} align="right" ruled last />
+            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} ruled />
+            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} ruled />
+            <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} ruled />
+            <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} ruled last />
           </View>
 
           {lines.map((l, idx) => (
@@ -138,18 +141,18 @@ export function PoPdfDoc({
                 {l.ref?.itemCode ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
               </RuledCell>
               <RuledCell width={COL.qty} style={{ paddingHorizontal: 3 }}>
-                <Text style={{ textAlign: 'right' }}>
+                <Text style={{ textAlign: 'center' }}>
                   {qtyText(l.qty)} {l.unitName}
                 </Text>
               </RuledCell>
               <RuledCell width={COL.price} style={{ paddingHorizontal: 3 }}>
-                <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(l.unitPrice)}</Text>
+                <Text style={{ textAlign: 'center' }}>{formatMoneyDisplay(l.unitPrice)}</Text>
               </RuledCell>
               <RuledCell width={COL.discount} style={{ paddingHorizontal: 3 }}>
-                <Text style={{ textAlign: 'right' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
+                <Text style={{ textAlign: 'center' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
               </RuledCell>
               <RuledCell width={COL.amount} style={{ paddingHorizontal: 3 }} last>
-                <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(l.amount.toFixed(2))}</Text>
+                <Text style={{ textAlign: 'center' }}>{formatMoneyDisplay(l.amount.toFixed(2))}</Text>
               </RuledCell>
             </View>
           ))}
@@ -161,6 +164,8 @@ export function PoPdfDoc({
         {/* The item table runs right down to it, so the items get all the room the page has */}
         <View wrap={false} style={{ marginTop: 'auto' }}>
           <TotalsBlock
+            // Starts on the quantity column's line, as the vendor box's right-hand side does
+            width={RIGHT_CELL}
             note={po.note}
             noteLabel="หมายเหตุ"
             gross={po.gross}
