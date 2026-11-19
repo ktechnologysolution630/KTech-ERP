@@ -119,15 +119,15 @@ export function PoPdfDoc({
           </View>
         </View>
 
-        {/* The item table, ruled like the paper form: the column lines run on down to the foot of the page */}
+        {/* The item table, ruled like the paper form: the column lines run on down to the foot of the page; the figures sit in the middle of their columns */}
         <View style={fs.ruledTable}>
           <View style={[fs.tableHeader, { paddingVertical: 0 }]}>
             <HeaderCell th="ลำดับ" en="Item" width={COL.no} ruled />
             <HeaderCell th="รายการ" en="Description" ruled />
-            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} align="right" ruled />
-            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} align="right" ruled />
-            <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} align="right" ruled />
-            <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} align="right" ruled last />
+            <HeaderCell th="จำนวน หน่วย" en="Quantity Unit" width={COL.qty} ruled />
+            <HeaderCell th="ราคา/หน่วย" en="Unit Price" width={COL.price} ruled />
+            <HeaderCell th="ส่วนลด" en="Discount" width={COL.discount} ruled />
+            <HeaderCell th="จำนวนเงิน" en="Amount" width={COL.amount} ruled last />
           </View>
 
           {lines.map((l, idx) => (
@@ -141,18 +141,18 @@ export function PoPdfDoc({
                 {l.ref?.itemCode ? <Text style={fs.small}>รหัสสินค้า {l.ref.itemCode}</Text> : null}
               </RuledCell>
               <RuledCell width={COL.qty} style={{ paddingHorizontal: 3 }}>
-                <Text style={{ textAlign: 'right' }}>
+                <Text style={{ textAlign: 'center' }}>
                   {qtyText(l.qty)} {l.unitName}
                 </Text>
               </RuledCell>
               <RuledCell width={COL.price} style={{ paddingHorizontal: 3 }}>
-                <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(l.unitPrice)}</Text>
+                <Text style={{ textAlign: 'center' }}>{formatMoneyDisplay(l.unitPrice)}</Text>
               </RuledCell>
               <RuledCell width={COL.discount} style={{ paddingHorizontal: 3 }}>
-                <Text style={{ textAlign: 'right' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
+                <Text style={{ textAlign: 'center' }}>{D(l.discount).isZero() ? '' : formatMoneyDisplay(l.discount)}</Text>
               </RuledCell>
               <RuledCell width={COL.amount} style={{ paddingHorizontal: 3 }} last>
-                <Text style={{ textAlign: 'right' }}>{formatMoneyDisplay(l.amount.toFixed(2))}</Text>
+                <Text style={{ textAlign: 'center' }}>{formatMoneyDisplay(l.amount.toFixed(2))}</Text>
               </RuledCell>
             </View>
           ))}
