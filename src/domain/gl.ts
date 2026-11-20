@@ -30,7 +30,7 @@ export const GL_BOOK_LABEL: Record<GlBook, string> = {
 };
 
 /** The document a journal entry was made from */
-export type JournalSource = 'AP_INVOICE' | 'AP_CREDIT_NOTE' | 'PV' | 'AR_INVOICE' | 'AR_RECEIPT' | 'AR_CREDIT_NOTE' | 'SALES_DOC' | 'STOCK_ADJUST' | 'MANUAL';
+export type JournalSource = 'AP_INVOICE' | 'AP_CREDIT_NOTE' | 'PV' | 'AR_INVOICE' | 'AR_RECEIPT' | 'AR_CREDIT_NOTE' | 'SALES_DOC' | 'STOCK_ADJUST' | 'OPENING' | 'MANUAL';
 export const JOURNAL_SOURCE_LABEL: Record<JournalSource, string> = {
   AP_INVOICE: 'ซื้อเชื่อ/รับสินค้า (RR)',
   AP_CREDIT_NOTE: 'ใบลดหนี้ผู้ขาย/ส่งคืนสินค้า',
@@ -40,6 +40,7 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalSource, string> = {
   AR_CREDIT_NOTE: 'ใบลดหนี้',
   SALES_DOC: 'เอกสารขาย/รับ-จ่าย',
   STOCK_ADJUST: 'ปรับปรุงสต็อก (AJ)',
+  OPENING: 'ยอดยกมา',
   MANUAL: 'บันทึกด้วยมือ',
 };
 
@@ -187,7 +188,7 @@ export function apCreditNoteLines(input: { beforeVat: Decimal.Value; vat: Decima
 }
 
 /** Bills whose debt was already booked to เจ้าหนี้การค้า (by the RR, or to be offset by a later bill) */
-const AP_SOURCES = new Set(['CREDIT_INVOICE', 'PREPAID_REQUEST', 'INSTALLMENT', 'CREDIT_NOTE']);
+const AP_SOURCES = new Set(['CREDIT_INVOICE', 'PREPAID_REQUEST', 'INSTALLMENT', 'CREDIT_NOTE', 'OPENING']);
 
 /**
  * ใบสำคัญจ่าย (PV), when it is paid. Purchase bills clear เจ้าหนี้การค้า; labour, contractor claims and

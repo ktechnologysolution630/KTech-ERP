@@ -70,6 +70,7 @@ const PAYABLE_SOURCE: Record<string, string> = {
   EXPENSE: 'เบิกค่าใช้จ่าย',
   LABOR: 'ค่าแรง',
   CREDIT_NOTE: 'ใบลดหนี้ผู้ขาย',
+  OPENING: 'เจ้าหนี้ยกมา',
 };
 
 /**

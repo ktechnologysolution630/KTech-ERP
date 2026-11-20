@@ -24,7 +24,9 @@ export type PayableSourceType =
   | 'LABOR'
   | 'EXPENSE'
   /** ใบลดหนี้ผู้ขาย: a negative amount that a payment voucher nets against the vendor's bills */
-  | 'CREDIT_NOTE';
+  | 'CREDIT_NOTE'
+  /** เจ้าหนี้คงค้างยกมา: owed from before the system; its debt is in the opening entry */
+  | 'OPENING';
 
 export type PayableStatus = 'OPEN' | 'IN_PV' | 'PAID' | 'CANCELLED';
 

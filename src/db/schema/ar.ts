@@ -47,6 +47,8 @@ export const arInvoices = pgTable(
     status: text('status').$type<ArInvoiceStatus>().default('DRAFT').notNull(),
     note: text('note').default('').notNull(),
     voidReason: text('void_reason'),
+    /** ลูกหนี้คงค้างยกมา: owed from before the system; its debt is in the opening entry, so it posts nothing itself */
+    isOpening: boolean('is_opening').default(false).notNull(),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id),

@@ -15,6 +15,7 @@ const SOURCE_LABEL: Record<string, string> = {
   EXPENSE: 'เบิกค่าใช้จ่าย',
   LABOR: 'ค่าแรง',
   CREDIT_NOTE: 'ใบลดหนี้ผู้ขาย (หักยอด)',
+  OPENING: 'เจ้าหนี้คงค้างยกมา',
 };
 
 export default async function PayablesPage() {

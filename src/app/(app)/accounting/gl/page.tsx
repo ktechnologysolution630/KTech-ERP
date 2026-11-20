@@ -43,7 +43,12 @@ export default async function GlPage({ searchParams }: { searchParams: Promise<S
           <h1 className="text-xl font-bold text-slate-900">สมุดรายวันและบัญชีแยกประเภท</h1>
           <p className="text-xs text-slate-500">ระบบลงบัญชีอัตโนมัติเมื่อบันทึกซื้อเชื่อ (RR), จ่ายชำระ (PV), วางบิลขาย (IV), รับชำระ (RE) และเอกสารขาย/รับ-จ่าย</p>
         </div>
-        {canManage && <RepostButton />}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/accounting/gl/opening" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            บันทึกยอดยกมา
+          </Link>
+          {canManage && <RepostButton />}
+        </div>
       </div>
       <nav className="flex flex-wrap gap-1 border-b border-slate-200">
         {TABS.map((t) => (

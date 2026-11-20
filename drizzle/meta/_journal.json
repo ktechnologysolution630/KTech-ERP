@@ -393,6 +393,13 @@
       "when": 1795148717848,
       "tag": "0055_ap_credit_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795149289524,
+      "tag": "0056_opening_balances",
+      "breakpoints": true
     }
   ]
 }

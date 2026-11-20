@@ -121,6 +121,8 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
     case 'AR_INVOICE': {
       const [row] = await tx.select({ inv: arInvoices, customerName: customers.name }).from(arInvoices).innerJoin(customers, eq(customers.id, arInvoices.customerId)).where(eq(arInvoices.id, id));
       if (!row || !['ISSUED', 'PARTIAL', 'PAID'].includes(row.inv.status)) return null;
+      // Brought forward: its debt is already in the opening entry
+      if (row.inv.isOpening) return null;
       return {
         date: row.inv.docDate,
         book: 'SA',
