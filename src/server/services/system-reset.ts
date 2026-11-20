@@ -5,6 +5,7 @@ import { type Db } from '@/db/client';
 import {
   activityLogs,
   apCreditNotes,
+  bankReconciliations,
   glClosings,
   advanceExpenses,
   advances,
@@ -181,6 +182,7 @@ export async function resetSystem(db: Db, actor: SessionUser, confirm: string): 
 
       // The books: entries go, the chart of accounts stays
       await tx.delete(glClosings);
+      await tx.delete(bankReconciliations);
       await tx.delete(journalLines);
       await tx.delete(journalEntries);
 

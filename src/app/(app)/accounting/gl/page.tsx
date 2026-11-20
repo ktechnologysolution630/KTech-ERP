@@ -50,6 +50,9 @@ export default async function GlPage({ searchParams }: { searchParams: Promise<S
           <Link href="/accounting/gl/close" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
             ปิดงวด / ปิดบัญชี
           </Link>
+          <Link href="/accounting/gl/bank-rec" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            กระทบยอดธนาคาร
+          </Link>
           {canManage && <RepostButton />}
         </div>
       </div>

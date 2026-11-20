@@ -407,6 +407,13 @@
       "when": 1795149686954,
       "tag": "0057_gl_closings",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1795150031838,
+      "tag": "0058_bank_reconciliation",
+      "breakpoints": true
     }
   ]
 }
