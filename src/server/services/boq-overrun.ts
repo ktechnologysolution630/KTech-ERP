@@ -17,6 +17,7 @@ import {
 import {
   boqCategoryOfLines,
   boqMaterialBudget,
+  categoryOverAmount,
   computeBoqCategoryOverrun,
   computeBoqOverrun,
   type BoqCategoryOverrun,
@@ -104,7 +105,7 @@ export async function computePoOverrun(tx: Db, poId: string, lines: PoLineForBoq
 
 /**
  * BOQ categories (หมวด) this PO's lines push over their material budget, counting what other live
- * POs commit to the same categories. A warning only: approval is not held up by it.
+ * POs commit to the same categories. Such a PO needs the owner's approval (AP) like a line overrun.
  */
 export async function computePoCategoryOverrun(tx: Db, poId: string, lines: PoLineForBoq[]): Promise<BoqCategoryOverrun[]> {
   const thisPo = new Map<string, Decimal>();
@@ -132,19 +133,47 @@ export async function computePoCategoryOverrun(tx: Db, poId: string, lines: PoLi
   });
 }
 
+/** Both over-BOQ checks of a PO: per BOQ line and per BOQ category (หมวด). */
+export async function computePoBoqOverruns(
+  tx: Db,
+  poId: string,
+  lines: PoLineForBoq[],
+): Promise<PoOverrun & { categories: BoqCategoryOverrun[]; categoryOverAmount: Decimal }> {
+  const [overrun, categories] = await Promise.all([computePoOverrun(tx, poId, lines), computePoCategoryOverrun(tx, poId, lines)]);
+  return { ...overrun, categories, categoryOverAmount: categoryOverAmount(categories) };
+}
+
+/** True when an approved AP covers both the line overrun and the category overrun. */
+function apCovers(
+  ap: { overAmount: Decimal.Value; categoryOverAmount: Decimal.Value },
+  need: { overAmount: Decimal; categoryOverAmount: Decimal },
+): boolean {
+  return D(ap.overAmount).gte(need.overAmount) && D(ap.categoryOverAmount).gte(need.categoryOverAmount);
+}
+
+/** Thai summary of what a PO goes over, for messages. */
+function overrunText(need: { overAmount: Decimal; categoryOverAmount: Decimal; categories: BoqCategoryOverrun[] }): string {
+  const parts: string[] = [];
+  if (need.overAmount.gt(0)) parts.push(`ซื้อเกิน BOQ ${need.overAmount.toFixed(2)} บาท`);
+  if (need.categoryOverAmount.gt(0)) {
+    parts.push(`เกินงบหมวด ${need.categories.map((c) => c.name).join(', ')} ${need.categoryOverAmount.toFixed(2)} บาท`);
+  }
+  return parts.join(' และ ');
+}
+
 /**
- * Approval gate used by `approvePo`: a PO that buys beyond the BOQ needs an approved AP for the
- * same revision covering at least the current overrun.
+ * Approval gate used by `approvePo`: a PO that buys beyond a BOQ line or takes a BOQ category (หมวด)
+ * over its budget needs an approved AP (owner) for the same revision covering at least both amounts.
  */
 export async function assertOverrunApproved(
   tx: Db,
   po: { id: string; number: string; currentRevision: number },
   lines: PoLineForBoq[],
 ): Promise<void> {
-  const overrun = await computePoOverrun(tx, po.id, lines);
-  if (overrun.overAmount.lte(0)) return;
+  const need = await computePoBoqOverruns(tx, po.id, lines);
+  if (need.overAmount.lte(0) && need.categoryOverAmount.lte(0)) return;
   const approved = await tx
-    .select({ overAmount: boqOverrunRequests.overAmount })
+    .select({ overAmount: boqOverrunRequests.overAmount, categoryOverAmount: boqOverrunRequests.categoryOverAmount })
     .from(boqOverrunRequests)
     .where(
       and(
@@ -153,12 +182,8 @@ export async function assertOverrunApproved(
         eq(boqOverrunRequests.status, 'APPROVED'),
       ),
     );
-  if (approved.some((a) => D(a.overAmount).gte(overrun.overAmount))) return;
-  throw new DomainError(
-    'BOQ_OVERRUN',
-    `ใบสั่งซื้อ ${po.number} ซื้อเกิน BOQ ${overrun.overAmount.toFixed(2)} บาท ต้องได้รับอนุมัติใบ AP ก่อน`,
-    409,
-  );
+  if (approved.some((a) => apCovers(a, need))) return;
+  throw new DomainError('BOQ_OVERRUN', `ใบสั่งซื้อ ${po.number} ${overrunText(need)} ต้องให้เจ้าของอนุมัติใบ AP ก่อน`, 409);
 }
 
 /** Lines of the version awaiting approval: the pending revision if any, else the saved lines. */
@@ -200,6 +225,9 @@ export interface BoqOverrunRequestDto {
   poRevision: number;
   overAmount: number;
   lines: BoqOverrunLine[];
+  /** Category (หมวด) overrun this PO causes, and the categories it takes over budget */
+  categoryOverAmount: number;
+  categories: BoqCategoryOverrun[];
   reason: string;
   status: BoqOverrunStatus;
   requestedByName: string;
@@ -211,10 +239,12 @@ export interface BoqOverrunRequestDto {
 export interface PoBoqCheck {
   overAmount: number;
   lines: BoqOverrunLine[];
-  /** BOQ categories (หมวด) the PO pushes over their material budget; told, not enforced */
+  /** BOQ categories (หมวด) the PO pushes over their material budget; needs the owner's AP */
   categories: BoqCategoryOverrun[];
+  /** Total category overrun this PO causes */
+  categoryOverAmount: number;
   requests: BoqOverrunRequestDto[];
-  /** True when an approved AP for the current revision covers the overrun */
+  /** True when an approved AP for the current revision covers the line and category overruns */
   covered: boolean;
   canRequest: boolean;
   canDecide: boolean;
@@ -248,6 +278,8 @@ async function requestDtos(db: Db, where: ReturnType<typeof eq> | undefined): Pr
     poRevision: r.poRevision,
     overAmount: Number(r.overAmount),
     lines: r.lines,
+    categoryOverAmount: Number(r.categoryOverAmount),
+    categories: r.categories ?? [],
     reason: r.reason,
     status: r.status,
     requestedByName,
@@ -261,23 +293,19 @@ async function requestDtos(db: Db, where: ReturnType<typeof eq> | undefined): Pr
 export async function getPoBoqCheck(db: Db, actor: SessionUser, poId: string): Promise<PoBoqCheck> {
   const po = await loadPo(db, poId);
   if (po.projectId) assertCan(actor, 'project.view', { projectId: po.projectId });
-  const reviewLines = await linesUnderReview(db, po);
-  const [overrun, categories] = await Promise.all([
-    computePoOverrun(db, po.id, reviewLines),
-    computePoCategoryOverrun(db, po.id, reviewLines),
-  ]);
+  const need = await computePoBoqOverruns(db, po.id, await linesUnderReview(db, po));
+  const over = need.overAmount.gt(0) || need.categoryOverAmount.gt(0);
   const requests = await requestDtos(db, eq(boqOverrunRequests.poId, po.id));
-  const covered = requests.some(
-    (r) => r.status === 'APPROVED' && r.poRevision === po.currentRevision && D(r.overAmount).gte(overrun.overAmount),
-  );
+  const covered = requests.some((r) => r.status === 'APPROVED' && r.poRevision === po.currentRevision && apCovers(r, need));
   const hasPending = requests.some((r) => r.status === 'PENDING' && r.poRevision === po.currentRevision);
   return {
-    overAmount: overrun.overAmount.toNumber(),
-    lines: overrun.lines,
-    categories,
+    overAmount: need.overAmount.toNumber(),
+    lines: need.lines,
+    categories: need.categories,
+    categoryOverAmount: need.categoryOverAmount.toNumber(),
     requests,
-    covered: overrun.overAmount.lte(0) || covered,
-    canRequest: can(actor, 'po.manage') && overrun.overAmount.gt(0) && !covered && !hasPending,
+    covered: !over || covered,
+    canRequest: can(actor, 'po.manage') && over && !covered && !hasPending,
     canDecide: can(actor, 'boqOverrun.approve'),
   };
 }
@@ -377,8 +405,10 @@ export async function requestBoqOverrun(
     if (po.status === 'CANCELLED' || po.status === 'COMPLETED') {
       throw new DomainError('INVALID_STATE', 'ใบสั่งซื้อนี้ปิดแล้ว', 409);
     }
-    const overrun = await computePoOverrun(tx, po.id, await linesUnderReview(tx, po));
-    if (overrun.overAmount.lte(0)) throw new DomainError('NO_OVERRUN', 'ใบสั่งซื้อนี้ไม่ได้ซื้อเกิน BOQ');
+    const overrun = await computePoBoqOverruns(tx, po.id, await linesUnderReview(tx, po));
+    if (overrun.overAmount.lte(0) && overrun.categoryOverAmount.lte(0)) {
+      throw new DomainError('NO_OVERRUN', 'ใบสั่งซื้อนี้ไม่ได้ซื้อเกิน BOQ หรือเกินงบหมวด');
+    }
 
     const [pending] = await tx
       .select({ id: boqOverrunRequests.id })
@@ -403,6 +433,8 @@ export async function requestBoqOverrun(
         poRevision: po.currentRevision,
         overAmount: overrun.overAmount.toFixed(2),
         lines: overrun.lines,
+        categoryOverAmount: overrun.categoryOverAmount.toFixed(2),
+        categories: overrun.categories,
         reason: reason.data,
         requestedBy: actor.id,
       })
@@ -413,11 +445,11 @@ export async function requestBoqOverrun(
       entityId: po.id,
       action: 'boq_overrun_request',
       userId: actor.id,
-      note: `${number}: ซื้อเกิน BOQ ${overrun.overAmount.toFixed(2)} บาท`,
+      note: `${number}: ${overrunText(overrun)}`,
     });
     const owners = await usersWithRole(tx, ['OWNER']);
     await notify(tx, owners, {
-      title: `${number} ขออนุมัติซื้อเกิน BOQ (PO ${po.number})`,
+      title: `${number} ขออนุมัติ${overrun.overAmount.gt(0) ? 'ซื้อเกิน BOQ' : 'ซื้อเกินงบหมวด'} (PO ${po.number})`,
       href: `/po/${po.id}`,
       category: 'BOQ',
       level: 'OVER',

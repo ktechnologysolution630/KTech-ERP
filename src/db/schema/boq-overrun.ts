@@ -1,12 +1,12 @@
 import { pgTable, uuid, text, timestamp, integer, numeric, jsonb, uniqueIndex, index } from 'drizzle-orm/pg-core';
-import { type BoqOverrunLine } from '@/domain/boq-overrun';
+import { type BoqCategoryOverrun, type BoqOverrunLine } from '@/domain/boq-overrun';
 import { users } from './core';
 import { projects } from './master';
 import { pos } from './po';
 
 export type BoqOverrunStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
-/** ใบ AP: request to buy beyond the BOQ budget for one PO revision. */
+/** ใบ AP: request to buy beyond the BOQ budget (a line or a whole category) for one PO revision. */
 export const boqOverrunRequests = pgTable(
   'boq_overrun_requests',
   {
@@ -21,6 +21,9 @@ export const boqOverrunRequests = pgTable(
     poRevision: integer('po_revision').notNull(),
     overAmount: numeric('over_amount', { precision: 16, scale: 2 }).notNull(),
     lines: jsonb('lines').$type<BoqOverrunLine[]>().notNull(),
+    // BOQ categories (หมวด) the PO takes over their material budget, and the part this PO causes
+    categoryOverAmount: numeric('category_over_amount', { precision: 16, scale: 2 }).default('0').notNull(),
+    categories: jsonb('categories').$type<BoqCategoryOverrun[]>().default([]).notNull(),
     reason: text('reason').notNull(),
     status: text('status').$type<BoqOverrunStatus>().default('PENDING').notNull(),
     requestedBy: uuid('requested_by')

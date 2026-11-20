@@ -1,0 +1,2 @@
+ALTER TABLE "boq_overrun_requests" ADD COLUMN "category_over_amount" numeric(16, 2) DEFAULT '0' NOT NULL;--> statement-breakpoint
+ALTER TABLE "boq_overrun_requests" ADD COLUMN "categories" jsonb DEFAULT '[]'::jsonb NOT NULL;
