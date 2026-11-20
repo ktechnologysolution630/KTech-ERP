@@ -11,6 +11,7 @@ import {
   createInvoice,
   matchInvoice,
 } from '@/server/services/invoice';
+import { issueApCreditNote, voidApCreditNote } from '@/server/services/ap-credit-notes';
 import {
   requestInstallment,
   requestPrepaid,
@@ -90,5 +91,25 @@ export async function requestInstallmentAction(
   const db = await getDb();
   await requestInstallment(db, actor, installmentId, note);
   revalidatePath(`/po/${poId}`);
+  revalidatePath('/payables');
+}
+
+export async function issueApCreditNoteAction(
+  invoiceId: string,
+  input: { docDate?: string; vendorDocNo?: string; reason: string; gross: number },
+) {
+  const actor = await requireWriter();
+  const db = await getDb();
+  await issueApCreditNote(db, actor, invoiceId, input);
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath('/invoices');
+  revalidatePath('/payables');
+}
+
+export async function voidApCreditNoteAction(invoiceId: string, creditNoteId: string, reason: string) {
+  const actor = await requireWriter();
+  const db = await getDb();
+  await voidApCreditNote(db, actor, creditNoteId, reason);
+  revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath('/payables');
 }

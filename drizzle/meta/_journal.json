@@ -386,6 +386,41 @@
       "when": 1795146519448,
       "tag": "0054_gl_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1795148717848,
+      "tag": "0055_ap_credit_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795149289524,
+      "tag": "0056_opening_balances",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1795149686954,
+      "tag": "0057_gl_closings",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1795150031838,
+      "tag": "0058_bank_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1795150370919,
+      "tag": "0059_customer_credit",
+      "breakpoints": true
     }
   ]
 }

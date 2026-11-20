@@ -5,12 +5,14 @@ import { returnOnRefusal } from '@/lib/action-outcome';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { getInvoice } from '@/server/services/invoice';
+import { apCreditRoom, listApCreditNotes } from '@/server/services/ap-credit-notes';
+import { bangkokDateString } from '@/domain/thai';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { formatMoneyDisplay } from '@/domain/money';
 import { can } from '@/server/policy';
 import { DeleteDocButton } from '@/components/bulk-delete';
 import { deleteApInvoicesAction } from '@/app/(app)/accounting/delete-actions';
-import { cancelInvoiceAction, matchInvoiceAction } from '../actions';
+import { cancelInvoiceAction, issueApCreditNoteAction, matchInvoiceAction, voidApCreditNoteAction } from '../actions';
 
 export default async function InvoiceDetailPage({
   params,
@@ -26,6 +28,8 @@ export default async function InvoiceDetailPage({
   const inv = await getInvoice(db, actor, id);
 
   const matchedMap = new Map(inv.matches.map((m) => [m.payableId, m.gross]));
+  const [creditNotes, creditRoom] = await Promise.all([listApCreditNotes(db, actor, { invoiceId: id }), apCreditRoom(db, id)]);
+  const canCredit = inv.status === 'ACTIVE' && Number(creditRoom) > 0;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -121,6 +125,109 @@ export default async function InvoiceDetailPage({
             บันทึกการจับคู่ใบกำกับภาษี
           </button>
         </form>
+      )}
+
+
+      {(creditNotes.length > 0 || canCredit) && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">ใบลดหนี้ / ส่งคืนสินค้า</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              ผู้ขายลดราคาหรือรับคืนสินค้าตามใบแจ้งหนี้นี้ ระบบจะลงบัญชีกลับรายการ (Dr เจ้าหนี้ / Cr ซื้อ-สินค้า, ภาษีซื้อ) และหักยอดในใบสำคัญจ่ายครั้งถัดไปของผู้ขายรายนี้
+              ถ้ามีของคืนออกจากคลัง ให้ทำใบเบิกแบบ &quot;คืนผู้ขาย&quot; ที่เมนูคลังสินค้าด้วย
+            </p>
+          </div>
+
+          {creditNotes.length > 0 && (
+            <table className="w-full text-xs">
+              <thead className="text-slate-500">
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-1.5 pr-2 font-medium">เลขที่</th>
+                  <th className="py-1.5 pr-2 font-medium">วันที่</th>
+                  <th className="py-1.5 pr-2 font-medium">เหตุผล</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">ยอดรวม VAT</th>
+                  <th className="py-1.5 pr-2 font-medium">สถานะ</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {creditNotes.map((c) => (
+                  <tr key={c.id} className="border-b border-slate-100 align-top">
+                    <td className="py-1.5 pr-2 font-medium text-slate-800">
+                      {c.number}
+                      {c.vendorDocNo && <span className="block text-[10px] text-slate-400">ของผู้ขาย: {c.vendorDocNo}</span>}
+                    </td>
+                    <td className="py-1.5 pr-2">{c.docDate}</td>
+                    <td className="py-1.5 pr-2">{c.reason}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums">฿{formatMoneyDisplay(c.gross)}</td>
+                    <td className="py-1.5 pr-2">
+                      {c.voided ? (
+                        <span className="text-red-600">ยกเลิกแล้ว{c.voidReason ? `: ${c.voidReason}` : ''}</span>
+                      ) : c.payableStatus === 'OPEN' ? (
+                        <span className="text-amber-700">รอหักในใบสำคัญจ่าย</span>
+                      ) : (
+                        <span className="text-emerald-700">หักในใบสำคัญจ่ายแล้ว</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 text-right">
+                      {!c.voided && c.payableStatus === 'OPEN' && (
+                        <form
+                          action={async () => {
+                            'use server';
+                            await returnOnRefusal(`/invoices/${id}`, () => voidApCreditNoteAction(id, c.id, 'ยกเลิกโดยฝ่ายการเงิน'));
+                          }}
+                        >
+                          <ConfirmSubmitButton message={`ยืนยันยกเลิกใบลดหนี้ ${c.number}?`} className="text-red-600 hover:underline">
+                            ยกเลิก
+                          </ConfirmSubmitButton>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {canCredit && (
+            <form
+              action={async (fd: FormData) => {
+                'use server';
+                await returnOnRefusal(`/invoices/${id}`, () =>
+                  issueApCreditNoteAction(id, {
+                    docDate: String(fd.get('docDate') ?? '') || undefined,
+                    vendorDocNo: String(fd.get('vendorDocNo') ?? ''),
+                    reason: String(fd.get('reason') ?? ''),
+                    gross: Number(fd.get('gross') ?? 0),
+                  }),
+                );
+              }}
+              className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-2"
+            >
+              <label className="block">
+                <span className="text-slate-600">วันที่ใบลดหนี้</span>
+                <input type="date" name="docDate" defaultValue={bangkokDateString()} className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5" />
+              </label>
+              <label className="block">
+                <span className="text-slate-600">เลขที่ใบลดหนี้ของผู้ขาย</span>
+                <input name="vendorDocNo" maxLength={60} className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5" />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-slate-600">เหตุผล (เช่น ส่งคืนสินค้าชำรุด 5 ถุง, ลดราคา)</span>
+                <input name="reason" required maxLength={1000} className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5" />
+              </label>
+              <label className="block">
+                <span className="text-slate-600">ยอดลดหนี้รวม VAT (ลดได้ไม่เกิน ฿{formatMoneyDisplay(creditRoom)})</span>
+                <input type="number" name="gross" required min="0.01" max={creditRoom} step="0.01" className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-right" />
+              </label>
+              <div className="flex items-end">
+                <ConfirmSubmitButton message="ยืนยันออกใบลดหนี้? ระบบจะลงบัญชีกลับรายการให้ทันที" className="rounded-lg bg-slate-800 px-4 py-2 font-medium text-white">
+                  ออกใบลดหนี้
+                </ConfirmSubmitButton>
+              </div>
+            </form>
+          )}
+        </section>
       )}
 
       {inv.status === 'ACTIVE' && (

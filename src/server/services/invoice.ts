@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
+  apCreditNotes,
   invoicePayableMatches,
   invoices,
   payables,
@@ -336,6 +337,15 @@ export async function cancelInvoice(
     const [inv] = await tx.select().from(invoices).where(eq(invoices.id, id)).limit(1);
     if (!inv) throw new DomainError('NOT_FOUND', 'ไม่พบใบแจ้งหนี้', 404);
     if (inv.status === 'CANCELLED') return;
+
+    const [liveCreditNote] = await tx
+      .select({ number: apCreditNotes.number })
+      .from(apCreditNotes)
+      .where(and(eq(apCreditNotes.invoiceId, inv.id), eq(apCreditNotes.voided, false)))
+      .limit(1);
+    if (liveCreditNote) {
+      throw new DomainError('HAS_CREDIT_NOTE', `ใบแจ้งหนี้นี้มีใบลดหนี้ ${liveCreditNote.number} อยู่ ให้ยกเลิกใบลดหนี้ก่อน`, 409);
+    }
 
     // Check if there is a CREDIT_INVOICE payable linked to this invoice
     const linkedPayables = await tx

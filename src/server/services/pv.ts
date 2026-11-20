@@ -15,7 +15,7 @@ import {
   whtCerts,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { computeWht, D, round2, sum } from '@/domain/money';
+import { computeWht, D, round2, sum, type Decimal } from '@/domain/money';
 import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
@@ -56,6 +56,13 @@ async function lockPv(tx: Db, pvId: string) {
   const [pv] = await tx.select().from(pvs).where(eq(pvs.id, pvId)).limit(1);
   if (!pv) throw new DomainError('NOT_FOUND', 'ไม่พบใบสำคัญจ่าย', 404);
   return pv;
+}
+
+/** A vendor credit note nets against bills on a voucher; the voucher must still pay something */
+function assertPositiveNet(net: Decimal) {
+  if (!net.gt(0)) {
+    throw new DomainError('PV_NOT_POSITIVE', 'ยอดจ่ายสุทธิต้องมากกว่า 0 บาท ใบลดหนี้ต้องเลือกคู่กับใบแจ้งหนี้ที่ยอดมากกว่า', 400);
+  }
 }
 
 export interface CreatePvInput {
@@ -136,6 +143,7 @@ export async function createPv(
     const totalGross = sum(computedLines.map((l) => l.gross));
     const totalWht = sum(computedLines.map((l) => l.wht));
     const totalNet = sum(computedLines.map((l) => l.net));
+    assertPositiveNet(totalNet);
 
     const [created] = await tx
       .insert(pvs)
@@ -280,6 +288,7 @@ export async function updatePv(
     const totalGross = sum(computedLines.map((l) => l.gross));
     const totalWht = sum(computedLines.map((l) => l.wht));
     const totalNet = sum(computedLines.map((l) => l.net));
+    assertPositiveNet(totalNet);
 
     await tx.insert(pvLines).values(
       computedLines.map((l) => ({
