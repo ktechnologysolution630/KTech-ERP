@@ -5,6 +5,7 @@ import { GL_ACCOUNT_TYPE_LABEL, GL_BOOK_LABEL, JOURNAL_SOURCE_LABEL, SYSTEM_ACCO
 import { csvResponse, toCsv, type CsvCell } from '@/lib/csv';
 import { requireUser } from '@/server/auth/current-user';
 import { accountLedger, listGlAccounts, listJournal, trialBalance } from '@/server/services/gl';
+import { getStockCard } from '@/server/services/stock-card';
 
 /** Export CSV of a table, with the same filters as the page it was clicked on */
 export async function GET(req: Request, { params }: { params: Promise<{ kind: string }> }) {
@@ -53,6 +54,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
         const l = await accountLedger(db, actor, sp.get('account') ?? '', { from, to });
         headers = ['วันที่', 'เลขที่ JV', 'เลขที่เอกสาร', 'คู่ค้า', 'คำอธิบาย', 'เดบิต', 'เครดิต', 'ยอดคงเหลือ'];
         rows = [['', '', '', '', 'ยอดยกมา', '', '', l.opening], ...l.rows.map((r) => [r.date, r.number, r.sourceNumber, r.partyName, r.description, r.debit, r.credit, r.balance])];
+        break;
+      }
+      case 'stock-card': {
+        const c = await getStockCard(db, actor, { stockItemId: sp.get('item') ?? '', store: sp.get('store') ?? 'all', from, to });
+        const TYPE = { RECEIVE: 'รับเข้า', ISSUE: 'จ่ายออก', TRANSFER: 'โอนย้าย', ADJUST: 'ปรับปรุง (AJ)', RETURN: 'รับคืน' };
+        headers = ['วันที่', 'เลขที่', 'อ้างอิง', 'รายการ', 'หมายเหตุ', 'รับเข้า จำนวน', 'รับเข้า มูลค่า', 'จ่ายออก จำนวน', 'จ่ายออก มูลค่า', 'ทุน/หน่วย', 'คงเหลือ จำนวน', 'คงเหลือ มูลค่า', 'ทุนเฉลี่ย'];
+        rows = [
+          [from, '', '', `ยอดยกมา ${c.item.sku} ${c.item.name} (${c.storeName})`, '', '', '', '', '', '', c.opening.qty, c.opening.value, ''],
+          ...c.rows.map((r) => [r.date, r.number, r.reference, TYPE[r.type], r.notes, r.qtyIn, r.valueIn, r.qtyOut, r.valueOut, r.unitCost, r.balanceQty, r.balanceValue, r.avgCost]),
+        ];
         break;
       }
       default:

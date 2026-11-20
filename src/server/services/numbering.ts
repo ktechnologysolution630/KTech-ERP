@@ -57,6 +57,7 @@ export type DocPrefix =
   | 'DF'
   | 'AST'
   | 'JV'
+  | 'AJ'
   | 'V';
 
 /** Daily report number by report date, e.g. DR-20261104-001; several reports on one day get the next number. */
