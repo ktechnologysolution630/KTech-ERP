@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ClipboardCheck, FolderKanban, HandCoins, Landmark, Scale } from 'lucide-react';
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Boxes, ClipboardCheck, FolderKanban, HandCoins, Landmark, Scale, ShoppingCart, TrendingUp } from 'lucide-react';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
-import { getDashboardOverview, getOwnerDashboard } from '@/server/services/dashboard';
+import { getDashboardOverview, getOwnerDashboard, getSalesStockSnapshot } from '@/server/services/dashboard';
 import { formatMoneyDisplay } from '@/domain/money';
 import { PROJECT_STATUS_LABELS } from '@/domain/project';
 import { GroupedColumnChart, HorizontalBarChart } from './dashboard-charts';
@@ -37,7 +37,8 @@ export default async function DashboardPage() {
   // The company-wide figures are for finance and management; everyone else works from the portal
   if (!can(actor, 'export.view')) redirect('/inbox');
   const db = await getDb();
-  const [dash, overview] = await Promise.all([getOwnerDashboard(db, actor), getDashboardOverview(db, actor)]);
+  const [dash, overview, sales] = await Promise.all([getOwnerDashboard(db, actor), getDashboardOverview(db, actor), getSalesStockSnapshot(db, actor)]);
+  const salesChange = sales.sales.lastMonth > 0 ? ((sales.sales.thisMonth - sales.sales.lastMonth) / sales.sales.lastMonth) * 100 : null;
   const pendingTotal = dash.pendingApprovals.po + dash.pendingApprovals.pv + dash.pendingApprovals.closeShort;
 
   return (
@@ -117,6 +118,88 @@ export default async function DashboardPage() {
           </div>
           {pendingTotal === 0 && <div className="sr-only">ไม่มีรายการรออนุมัติ</div>}
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Tile
+          label="ยอดขายเดือนนี้"
+          value={baht(sales.sales.thisMonth)}
+          hint={salesChange === null ? `เดือนก่อน ${baht(sales.sales.lastMonth)}` : `${salesChange >= 0 ? '+' : ''}${salesChange.toFixed(1)}% จากเดือนก่อน`}
+          icon={<ShoppingCart className="h-4 w-4" />}
+        />
+        <Tile label="ยอดขายปีนี้" value={baht(sales.sales.ytd)} hint="ก่อน VAT จากสมุดบัญชี (หักรับคืน)" icon={<TrendingUp className="h-4 w-4" />} />
+        <Tile
+          label="กำไรขั้นต้นปีนี้"
+          value={baht(sales.grossProfitYtd)}
+          hint={sales.sales.ytd > 0 ? `${((sales.grossProfitYtd / sales.sales.ytd) * 100).toFixed(1)}% ของยอดขาย` : 'ยอดขาย − ต้นทุนขาย'}
+          icon={<Scale className="h-4 w-4" />}
+          alert={sales.grossProfitYtd < 0}
+        />
+        <Tile
+          label="มูลค่าสินค้าคงเหลือ"
+          value={baht(sales.stockValue)}
+          hint={sales.lowStock.length > 0 ? `ใกล้หมด ${sales.lowStock.length} รายการ` : 'ไม่มีสินค้าต่ำกว่าจุดสั่งซื้อ'}
+          icon={<Boxes className="h-4 w-4" />}
+          alert={sales.lowStock.length > 0}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <GroupedColumnChart
+            title="ยอดขายรายเดือน"
+            subtitle="12 เดือนล่าสุด ก่อน VAT (บาท) · จากรายการที่ลงบัญชีแล้ว"
+            series={[{ key: 'sales', label: 'ยอดขาย', color: CASH_IN }]}
+            rows={sales.sales.months.map((m) => ({
+              key: m.month,
+              label: monthName(m.month),
+              fullLabel: `${monthName(m.month)} ${Number(m.month.slice(0, 4)) + 543}`,
+              values: { sales: m.amount },
+            }))}
+            emptyText="ยังไม่มียอดขายที่ลงบัญชีใน 12 เดือนนี้"
+          />
+        </div>
+        <section className="rounded-xl border border-amber-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-amber-900">สินค้าใกล้หมด ({sales.lowStock.length})</h2>
+            <div className="flex items-center gap-2 text-[11px]">
+              {sales.lowStock.length > 0 && (
+                <a href={`/api/csv/low-stock?n=${sales.lowStock.length}`} download className="font-medium text-emerald-700 hover:underline">
+                  CSV
+                </a>
+              )}
+              <Link href="/stock?tab=low-stock" prefetch={false} className="font-medium text-[#2453d4] hover:underline">
+                ดูทั้งหมด
+              </Link>
+            </div>
+          </div>
+          {sales.lowStock.length === 0 ? (
+            <p className="py-6 text-center text-xs text-slate-400">ไม่มีสินค้าต่ำกว่าจุดสั่งซื้อ</p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead className="bg-amber-50 text-amber-900">
+                <tr>
+                  <th className="px-2 py-1.5 text-left">สินค้า</th>
+                  <th className="px-2 py-1.5 text-right">คงเหลือ</th>
+                  <th className="px-2 py-1.5 text-right">จุดสั่งซื้อ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sales.lowStock.slice(0, 8).map((i) => (
+                  <tr key={i.id}>
+                    <td className="px-2 py-1.5">
+                      <span className="font-mono text-[10px] text-slate-400">{i.sku}</span> {i.name}
+                    </td>
+                    <td className={`px-2 py-1.5 text-right font-semibold ${i.onHand <= 0 ? 'text-red-600' : 'text-amber-700'}`}>
+                      {i.onHand.toLocaleString('th-TH')} {i.unit}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-slate-500">{i.reorderPoint.toLocaleString('th-TH')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">

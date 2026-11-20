@@ -5,12 +5,17 @@ import {
   arInvoices,
   arReceipts,
   closeShortRequests,
+  glAccounts,
+  journalEntries,
+  journalLines,
   payables,
   pos,
   projectTasks,
   projects,
   pvLines,
   pvs,
+  stockBalances,
+  stockItems,
   vendors,
   type SessionUser,
 } from '@/db/schema';
@@ -464,5 +469,79 @@ export async function getOwnerDashboard(
       closeShort: pendingCs.length,
     },
     purchasesByProject,
+  };
+}
+
+export interface SalesStockSnapshot {
+  /** ยอดขายสุทธิ (บัญชีรายได้จากการขาย less รับคืน) from the books, before VAT */
+  sales: { thisMonth: number; lastMonth: number; ytd: number; months: { month: string; amount: number }[] };
+  /** Gross profit this year: net sales less ต้นทุนขาย */
+  grossProfitYtd: number;
+  /** Stock items at or below their reorder point, most short first */
+  lowStock: { id: string; sku: string; name: string; unit: string; onHand: number; reorderPoint: number }[];
+  stockValue: number;
+}
+
+/**
+ * ยอดขาย and สินค้าใกล้หมด for the executive dashboard. Sales come from the journal, so every source
+ * that posts (tax invoices, receipts, milestone billing, credit notes) counts once and cancelled
+ * documents drop out with their voided entries.
+ */
+export async function getSalesStockSnapshot(db: Db, actor: SessionUser, opts: { today?: Date } = {}): Promise<SalesStockSnapshot> {
+  assertCan(actor, 'export.view');
+  const today = bangkokDateString(opts.today ?? new Date());
+  const months = lastMonthKeys(today, 12);
+  const yearStart = `${today.slice(0, 4)}-01-01`;
+
+  const [monthRows, cogsRow, stockRows] = await Promise.all([
+    db
+      .select({
+        month: sql<string>`to_char(${journalEntries.entryDate}, 'YYYY-MM')`,
+        amount: sql<string>`coalesce(sum(${journalLines.credit} - ${journalLines.debit}), 0)`,
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.entryId))
+      .innerJoin(glAccounts, eq(glAccounts.id, journalLines.accountId))
+      .where(and(eq(journalEntries.status, 'POSTED'), inArray(glAccounts.systemKey, ['SALES', 'SALES_RETURN']), gte(journalEntries.entryDate, `${months[0]}-01`)))
+      .groupBy(sql`1`),
+    db
+      .select({ amount: sql<string>`coalesce(sum(${journalLines.debit} - ${journalLines.credit}), 0)` })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.entryId))
+      .innerJoin(glAccounts, eq(glAccounts.id, journalLines.accountId))
+      .where(and(eq(journalEntries.status, 'POSTED'), eq(glAccounts.systemKey, 'COGS'), gte(journalEntries.entryDate, yearStart))),
+    db
+      .select({
+        id: stockItems.id,
+        sku: stockItems.sku,
+        name: stockItems.name,
+        unit: stockItems.unit,
+        unitCost: stockItems.unitCost,
+        reorderPoint: stockItems.reorderPoint,
+        onHand: sql<string>`coalesce(sum(${stockBalances.quantity}), 0)`,
+      })
+      .from(stockItems)
+      .leftJoin(stockBalances, eq(stockBalances.stockItemId, stockItems.id))
+      .groupBy(stockItems.id),
+  ]);
+
+  const byMonth = new Map(monthRows.map((r) => [r.month, Number(r.amount)]));
+  const series = months.map((m) => ({ month: m, amount: byMonth.get(m) ?? 0 }));
+  const ytd = series.filter((s) => s.month >= yearStart.slice(0, 7)).reduce((a, s) => a + s.amount, 0);
+  const lowStock = stockRows
+    .map((r) => ({ id: r.id, sku: r.sku, name: r.name, unit: r.unit, onHand: Number(r.onHand), reorderPoint: Number(r.reorderPoint) }))
+    .filter((r) => r.reorderPoint > 0 && r.onHand <= r.reorderPoint)
+    .sort((a, b) => a.onHand / a.reorderPoint - b.onHand / b.reorderPoint);
+  const stockValue = stockRows.reduce((a, r) => a.plus(D(r.onHand).times(D(r.unitCost))), D(0));
+  return {
+    sales: {
+      thisMonth: series[series.length - 1]!.amount,
+      lastMonth: series[series.length - 2]?.amount ?? 0,
+      ytd: D(ytd).toDecimalPlaces(2).toNumber(),
+      months: series,
+    },
+    grossProfitYtd: D(ytd).minus(D(cogsRow[0]?.amount ?? 0)).toDecimalPlaces(2).toNumber(),
+    lowStock,
+    stockValue: stockValue.toDecimalPlaces(2).toNumber(),
   };
 }

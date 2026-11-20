@@ -8,7 +8,7 @@ import { PrintRoot } from '@/components/project-site/report-sheet';
 import { bahtText, D, formatMoneyDisplay } from '@/domain/money';
 import { SALES_VAT_LABEL, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { formatThaiDate } from '@/domain/thai';
-import type { CompanyHeader } from '@/components/doc-paper';
+import { companyBranchLabel, type CompanyHeader } from '@/components/doc-paper';
 import { SignedRow } from '@/components/signed-row';
 import type { Signer } from '@/domain/signature';
 import type { FormText } from '@/domain/form-templates';
@@ -56,13 +56,24 @@ export interface SalesDocViewData {
 
 const PAY_LABEL = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค', PROMPTPAY: 'พร้อมเพย์', CARD: 'บัตรเครดิต' } as const;
 
-function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company: CompanyHeader; signers: Signer[]; text: FormText }) {
+/** Tax documents print an original for the customer and a copy for the file (ต้นฉบับ / สำเนา) */
+const COPY_KINDS: readonly SalesDocKind[] = ['TI', 'RC', 'DN', 'STI'];
+
+/** สาขาของผู้ซื้อ as a tax invoice prints it: 00000 is the head office */
+const buyerBranch = (branch: string) => (!branch ? '' : branch === '00000' || branch === 'สำนักงานใหญ่' ? 'สำนักงานใหญ่' : `สาขาที่ ${branch}`);
+
+function Paper({ doc, company, signers, text, copyLabel }: { doc: SalesDocViewData; company: CompanyHeader; signers: Signer[]; text: FormText; copyLabel?: string }) {
   // The discount column prints only when some line has its own discount
   const lineDiscount = doc.lines.some((l) => Number(l.discount ?? 0) > 0);
   const nos = doc.lines.reduce<number[]>((acc, l, i) => [...acc, (acc[i - 1] ?? 0) + (l.isSection ? 0 : 1)], []);
   const money = (v: string) => formatMoneyDisplay(v);
   return (
-    <div className="a4-page mx-auto w-full max-w-[1000px] bg-white px-8 py-8 text-[13px] text-slate-800">
+    <div className="a4-page relative mx-auto w-full max-w-[1000px] bg-white px-8 py-8 text-[13px] text-slate-800">
+      {doc.status === 'CANCELLED' && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="-rotate-12 rounded-lg border-4 border-red-500/60 px-8 py-2 text-6xl font-black tracking-widest text-red-500/50">ยกเลิก</span>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-6">
         <div className="flex items-start gap-3">
           {company.logoUrl ? (
@@ -73,12 +84,15 @@ function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company
           )}
           <div className="text-xs text-slate-600">
             <p className="text-sm font-bold text-slate-900">{company.name}</p>
-            <p>ที่อยู่ : {company.address || '-'}</p>
+            <p>
+              {companyBranchLabel(company.branch)} · ที่อยู่ : {company.address || '-'}
+            </p>
             <p>เลขประจำตัวผู้เสียภาษีอากร: {company.taxId || '-'}</p>
             {company.contact && <p>{company.contact}</p>}
           </div>
         </div>
         <div className="text-right">
+          {copyLabel && <p className="mb-1 inline-block rounded border border-[#102d72] px-2 py-0.5 text-[11px] font-semibold text-[#102d72]">{copyLabel}</p>}
           <p className="text-2xl font-bold text-[#102d72]">{text.titleTh}</p>
           <p className="text-[10px] uppercase tracking-widest text-slate-500">{text.titleEn}</p>
           <table className="ml-auto mt-2 text-xs">
@@ -114,7 +128,7 @@ function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company
           <p className="text-sm font-semibold">{doc.customerName || '-'}</p>
           <p>{doc.customerAddress}</p>
           <p>
-            เลขประจำตัวผู้เสียภาษี: {doc.customerTaxId || '-'} {doc.customerBranch && `สาขา ${doc.customerBranch}`}
+            เลขประจำตัวผู้เสียภาษี: {doc.customerTaxId || '-'} {buyerBranch(doc.customerBranch)}
           </p>
           <p>
             ผู้ติดต่อ: {doc.contactName || '-'} · โทรศัพท์: {doc.phone || '-'} · อีเมล: {doc.email || '-'}
@@ -301,10 +315,17 @@ export function SalesDocView({
         </div>
       )}
       <div className="rounded-sm border border-slate-200 shadow-sm">
-        <Paper doc={doc} company={company} signers={signers} text={text} />
+        <Paper doc={doc} company={company} signers={signers} text={text} copyLabel={COPY_KINDS.includes(doc.kind) ? 'ต้นฉบับ (ลูกค้า)' : undefined} />
       </div>
       <PrintRoot>
-        <Paper doc={doc} company={company} signers={signers} text={text} />
+        {COPY_KINDS.includes(doc.kind) ? (
+          <>
+            <Paper doc={doc} company={company} signers={signers} text={text} copyLabel="ต้นฉบับ (ลูกค้า)" />
+            <Paper doc={doc} company={company} signers={signers} text={text} copyLabel="สำเนา (บริษัท)" />
+          </>
+        ) : (
+          <Paper doc={doc} company={company} signers={signers} text={text} />
+        )}
       </PrintRoot>
     </div>
   );
