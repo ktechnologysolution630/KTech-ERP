@@ -80,6 +80,7 @@ const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/sales/expense', label: 'รายจ่าย', menu: 'FIN_EXPENSE' },
   { href: '/accounting/bill-scan', label: 'สแกนบิล', menu: 'FIN_BILL_SCAN' },
   { href: '/sales/quotations', label: 'ใบเสนอราคา', menu: 'FIN_QUOTATIONS' },
+  { href: '/sales/sales-orders', label: 'ใบสั่งขาย (SO)', menu: 'FIN_SALES_ORDERS' },
   { href: '/ar/invoices', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)', menu: 'FIN_AR_INVOICES' },
   { href: '/sales/receipts', label: 'ใบเสร็จรับเงิน', menu: 'FIN_RECEIPTS' },
   { href: '/sales/tax-invoices', label: 'ใบกำกับภาษี', menu: 'FIN_TAX_INVOICES' },

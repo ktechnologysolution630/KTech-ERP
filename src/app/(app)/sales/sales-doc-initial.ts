@@ -8,6 +8,10 @@ export interface SalesDocFormLine {
   qty: string;
   unit: string;
   unitPrice: string;
+  /** ส่วนลดรายบรรทัด in baht, blank for none */
+  discount: string;
+  /** The stock item the line sells, blank for a service or free text line */
+  stockItemId: string;
 }
 
 export type SalesPayMethod = 'TRANSFER' | 'CASH' | 'CHEQUE' | 'PROMPTPAY' | 'CARD';
@@ -42,7 +46,12 @@ export interface SalesDocFormInitial {
  * How the form is used: a new document, a quotation or voucher changed in place, or a tax document
  * issued again in place of the one being corrected
  */
-export type SalesDocFormMode = { type: 'create' } | { type: 'edit'; id: string; number: string } | { type: 'reissue'; replacesId: string; number: string };
+export type SalesDocFormMode =
+  | { type: 'create' }
+  | { type: 'edit'; id: string; number: string }
+  | { type: 'reissue'; replacesId: string; number: string }
+  /** A new document filled from a quotation or sales order (QT → SO → TI) */
+  | { type: 'convert'; sourceId: string; number: string; sourceLabel: string };
 
 /** A stored amount as the form types it: blank for nothing, no trailing zeros */
 const typed = (v: string | null | undefined) => (v && Number(v) !== 0 ? String(Number(v)) : '');
@@ -77,7 +86,7 @@ export function salesDocFormInitial(doc: {
   accountName: string;
   accountNo: string;
   notes: string;
-  lines: { isSection: boolean; name: string; detail: string; qty: string; unit: string; unitPrice: string }[];
+  lines: { isSection: boolean; name: string; detail: string; qty: string; unit: string; unitPrice: string; discount?: string; stockItemId?: string | null }[];
 }): SalesDocFormInitial {
   return {
     docDate: doc.docDate,
@@ -103,6 +112,8 @@ export function salesDocFormInitial(doc: {
       qty: l.isSection ? '' : String(Number(l.qty)),
       unit: l.unit,
       unitPrice: l.isSection ? '' : typed(l.unitPrice),
+      discount: l.isSection ? '' : typed(l.discount),
+      stockItemId: l.stockItemId ?? '',
     })),
     notes: doc.notes,
     vatMode: doc.vatMode,

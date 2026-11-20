@@ -9,15 +9,19 @@ import { cancelSalesDoc, createSalesDoc, updateSalesDoc, type SalesDocInput } fr
 
 type Result = { ok: true; id: string } | { ok: false; error: string };
 
-/** With replacesId the new document is issued in place of that one, which is cancelled */
-export async function createSalesDocAction(input: SalesDocInput, replacesId?: string): Promise<Result> {
+/**
+ * With replacesId the new document is issued in place of that one, which is cancelled; with sourceId it
+ * is converted from a quotation or sales order (QT → SO → TI)
+ */
+export async function createSalesDocAction(input: SalesDocInput, replacesId?: string, sourceId?: string): Promise<Result> {
   const actor = await requireWriter();
   const db = await getDb();
   try {
-    const doc = await createSalesDoc(db, actor, input, { replacesId });
+    const doc = await createSalesDoc(db, actor, input, { replacesId, sourceId });
     const slug = SALES_DOC_META[input.kind].slug;
     revalidatePath(`/sales/${slug}`);
     if (replacesId) revalidatePath(`/sales/${slug}/${replacesId}`);
+    if (sourceId) revalidatePath('/sales', 'layout');
     return { ok: true, id: doc.id };
   } catch (err) {
     if (err instanceof DomainError) return { ok: false, error: err.message };

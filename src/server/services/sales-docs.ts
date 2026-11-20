@@ -1,14 +1,15 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { companyAccounts, customers, projects, salesDocLines, salesDocs, users, vendors, type SessionUser } from '@/db/schema';
+import { companyAccounts, customers, projects, salesDocLines, salesDocs, stockBalances, stockItems, stockMovements, users, vendors, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { D, round2 } from '@/domain/money';
-import { computeSalesTotals, SALES_DOC_META, type SalesDocKind } from '@/domain/sales-doc';
+import { D, round2, type Decimal } from '@/domain/money';
+import { canConvert, computeSalesTotals, lineAmount, SALES_DOC_META, STOCK_CUT_KINDS, type SalesDocKind } from '@/domain/sales-doc';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
-import { syncJournal } from './gl';
+import { SALES_STOCK_REF, syncJournal } from './gl';
+import { applyStockMovement } from './stock';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'วันที่ไม่ถูกต้อง');
 const money = z.number().finite().min(0, 'จำนวนเงินต้องไม่ติดลบ').max(1_000_000_000);
@@ -21,10 +22,12 @@ const lineSchema = z.object({
   qty: z.number().finite().min(0).max(1_000_000_000).default(0),
   unit: text(30),
   unitPrice: money.default(0),
+  discount: money.default(0),
+  stockItemId: z.string().uuid().nullable().optional(),
 });
 
 const docSchema = z.object({
-  kind: z.enum(['QT', 'RC', 'TI', 'DN', 'STI', 'INC', 'EXP']),
+  kind: z.enum(['QT', 'SO', 'RC', 'TI', 'DN', 'STI', 'INC', 'EXP']),
   docDate: isoDate,
   dueDate: isoDate.nullable().optional(),
   reference: text(200),
@@ -70,6 +73,7 @@ function parseDoc(input: SalesDocInput): ParsedDoc {
   if (d.kind === 'EXP' && !d.vendorId && !d.customerName) throw new DomainError('INVALID_SALES_DOC', 'กรุณาเลือกผู้ขาย / ผู้รับเงิน');
   if (d.kind !== 'STI' && d.kind !== 'EXP' && !d.customerId && !d.customerName) throw new DomainError('INVALID_SALES_DOC', 'กรุณาเลือกลูกค้า');
   if (d.kind === 'DN' && !d.reference) throw new DomainError('INVALID_SALES_DOC', 'ใบเพิ่มหนี้ต้องอ้างอิงเลขที่ใบกำกับภาษีเดิม');
+  if (items.some((l) => l.discount > l.qty * l.unitPrice + 0.005)) throw new DomainError('INVALID_SALES_DOC', 'ส่วนลดรายบรรทัดต้องไม่เกินจำนวนเงินของบรรทัดนั้น');
   if (d.kind === 'STI' && d.vatMode === 'EXCLUSIVE') throw new DomainError('INVALID_SALES_DOC', 'ใบกำกับภาษีอย่างย่อต้องเป็นราคารวม VAT');
   return d;
 }
@@ -122,6 +126,11 @@ async function docValues(tx: Tx, d: ParsedDoc) {
     const [p] = await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, d.projectId)).limit(1);
     if (!p) throw new DomainError('NOT_FOUND', 'ไม่พบโครงการ', 404);
   }
+  const itemIds = [...new Set(d.lines.filter((l) => !l.isSection && l.stockItemId).map((l) => l.stockItemId!))];
+  if (itemIds.length > 0) {
+    const found = await tx.select({ id: stockItems.id }).from(stockItems).where(inArray(stockItems.id, itemIds));
+    if (found.length !== itemIds.length) throw new DomainError('NOT_FOUND', 'ไม่พบสินค้าในคลัง', 404);
+  }
 
   const values = {
     docDate: d.docDate,
@@ -170,17 +179,75 @@ async function docValues(tx: Tx, d: ParsedDoc) {
       qty: l.isSection ? '0' : D(l.qty).toFixed(3),
       unit: l.isSection ? '' : l.unit,
       unitPrice: l.isSection ? '0' : round2(D(l.unitPrice)).toFixed(2),
-      amount: l.isSection ? '0' : round2(D(l.qty).times(D(l.unitPrice))).toFixed(2),
+      discount: l.isSection ? '0' : round2(D(l.discount)).toFixed(2),
+      amount: lineAmount(l).toFixed(2),
+      stockItemId: l.isSection ? null : (l.stockItemId ?? null),
     }));
   return { values, lines };
 }
 
 /**
- * Kinds changed in place once issued: a quotation and the receipt and payment vouchers are not tax
+ * Kinds changed in place once issued: a quotation, a sales order and the receipt and payment vouchers are not tax
  * documents. A receipt, tax invoice, debit note or abbreviated tax invoice is never written over; it is
  * cancelled and a new one issued in its place (createSalesDoc with replacesId).
  */
-export const SALES_EDIT_IN_PLACE: readonly SalesDocKind[] = ['QT', 'INC', 'EXP'];
+export const SALES_EDIT_IN_PLACE: readonly SalesDocKind[] = ['QT', 'SO', 'INC', 'EXP'];
+
+/**
+ * ตัดสต็อก: a tax invoice or abbreviated tax invoice takes the stock items on its lines out of the
+ * project's store (the central store when no project), at the moving average cost. Short stock refuses
+ * the whole document.
+ */
+async function cutStock(tx: Tx, doc: { id: string; kind: SalesDocKind; number: string; projectId: string | null }, actorId: string) {
+  if (!STOCK_CUT_KINDS.includes(doc.kind)) return;
+  const lines = await tx.select().from(salesDocLines).where(eq(salesDocLines.docId, doc.id)).orderBy(asc(salesDocLines.sort));
+  for (const l of lines) {
+    if (l.isSection || !l.stockItemId || D(l.qty).lte(0)) continue;
+    await applyStockMovement(tx as unknown as Db, {
+      stockItemId: l.stockItemId,
+      projectId: doc.projectId,
+      type: 'ISSUE',
+      quantity: D(l.qty).toNumber(),
+      referenceType: SALES_STOCK_REF,
+      referenceId: doc.id,
+      referenceNumber: doc.number,
+      performedBy: actorId,
+      notes: `ขาย ${l.name}`,
+    });
+  }
+}
+
+/** Puts back what a cancelled sale cut and has not been put back yet, at the cost it went out at */
+async function restoreStock(tx: Tx, doc: { id: string; number: string }, actorId: string) {
+  const moves = await tx
+    .select()
+    .from(stockMovements)
+    .where(and(eq(stockMovements.referenceType, SALES_STOCK_REF), eq(stockMovements.referenceId, doc.id)));
+  const open = new Map<string, { stockItemId: string; projectId: string | null; qty: Decimal; value: Decimal }>();
+  for (const m of moves) {
+    const key = `${m.stockItemId}|${m.projectId ?? ''}`;
+    const o = open.get(key) ?? { stockItemId: m.stockItemId, projectId: m.projectId, qty: D(0), value: D(0) };
+    const sign = m.type === 'ISSUE' ? 1 : -1;
+    o.qty = o.qty.plus(D(m.quantity).times(sign));
+    o.value = o.value.plus(D(m.totalValue).times(sign));
+    open.set(key, o);
+  }
+  for (const o of open.values()) {
+    if (o.qty.lte(0)) continue;
+    await applyStockMovement(tx as unknown as Db, {
+      stockItemId: o.stockItemId,
+      projectId: o.projectId,
+      type: 'RETURN',
+      quantity: o.qty.toNumber(),
+      unitCost: round2(o.value.div(o.qty)).toNumber(),
+      referenceType: SALES_STOCK_REF,
+      referenceId: doc.id,
+      referenceNumber: doc.number,
+      performedBy: actorId,
+      notes: `ยกเลิก ${doc.number} คืนสต็อก`,
+    });
+  }
+}
 
 /**
  * Issues a sales document; the number runs per kind and month (e.g. QT-6911-0001). With replacesId it
@@ -191,11 +258,12 @@ export async function createSalesDoc(
   db: Db,
   actor: SessionUser,
   input: SalesDocInput,
-  opts: { replacesId?: string } = {},
+  opts: { replacesId?: string; sourceId?: string } = {},
 ): Promise<{ id: string; number: string }> {
   assertCan(actor, 'ar.manage');
   const d = parseDoc(input);
   if (opts.replacesId && !z.string().uuid().safeParse(opts.replacesId).success) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสารเดิม', 404);
+  if (opts.sourceId && !z.string().uuid().safeParse(opts.sourceId).success) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสารต้นทาง', 404);
 
   return db.transaction(async (tx) => {
     const replaced = opts.replacesId ? (await tx.select().from(salesDocs).where(eq(salesDocs.id, opts.replacesId)).for('update'))[0] : undefined;
@@ -205,11 +273,20 @@ export async function createSalesDoc(
       if (replaced.status !== 'ISSUED') throw new DomainError('INVALID_STATUS', `${replaced.number} ถูกยกเลิกไปแล้ว`, 409);
     }
 
+    let sourceId = replaced?.sourceId ?? null;
+    if (opts.sourceId) {
+      const [src] = await tx.select().from(salesDocs).where(eq(salesDocs.id, opts.sourceId)).limit(1);
+      if (!src) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสารต้นทาง', 404);
+      if (src.status !== 'ISSUED') throw new DomainError('INVALID_STATUS', `${src.number} ถูกยกเลิกไปแล้ว`, 409);
+      if (!canConvert(src.kind, d.kind)) throw new DomainError('INVALID_SALES_DOC', `${SALES_DOC_META[src.kind].th}เปิดเป็น${SALES_DOC_META[d.kind].th}ไม่ได้`);
+      sourceId = src.id;
+    }
+
     const { values, lines } = await docValues(tx, d);
     const number = await nextDocNumber(tx, SALES_DOC_META[d.kind].prefix, new Date(`${d.docDate}T12:00:00+07:00`));
     const [doc] = await tx
       .insert(salesDocs)
-      .values({ ...values, kind: d.kind, number, createdBy: actor.id })
+      .values({ ...values, kind: d.kind, number, sourceId, createdBy: actor.id })
       .returning();
     await tx.insert(salesDocLines).values(lines(doc!.id));
     await logActivity(tx, {
@@ -224,8 +301,11 @@ export async function createSalesDoc(
       const why = `แก้ไขโดยออกใบใหม่ ${number}`;
       await tx.update(salesDocs).set({ status: 'CANCELLED', cancelReason: why, updatedAt: new Date() }).where(eq(salesDocs.id, replaced.id));
       await logActivity(tx, { entityType: 'SALES_DOC', entityId: replaced.id, action: 'CANCEL', userId: actor.id, note: why });
+      // The old one's goods go back before the new one takes them
+      await restoreStock(tx, replaced, actor.id);
       await syncJournal(tx, 'SALES_DOC', replaced.id, actor.id);
     }
+    await cutStock(tx, { id: doc!.id, kind: d.kind, number, projectId: doc!.projectId }, actor.id);
     await syncJournal(tx, 'SALES_DOC', doc!.id, actor.id);
     return { id: doc!.id, number };
   });
@@ -273,6 +353,7 @@ export async function cancelSalesDoc(db: Db, actor: SessionUser, id: string, rea
     if (doc.status === 'CANCELLED') throw new DomainError('INVALID_STATUS', 'เอกสารนี้ถูกยกเลิกไปแล้ว', 409);
     await tx.update(salesDocs).set({ status: 'CANCELLED', cancelReason: why, updatedAt: new Date() }).where(eq(salesDocs.id, id));
     await logActivity(tx, { entityType: 'SALES_DOC', entityId: id, action: 'CANCEL', userId: actor.id, note: why });
+    await restoreStock(tx, doc, actor.id);
     await syncJournal(tx, 'SALES_DOC', id, actor.id);
   });
 }
@@ -299,8 +380,31 @@ export async function getSalesDoc(db: Db, actor: SessionUser, id: string) {
     .where(eq(salesDocs.id, id))
     .limit(1);
   if (!row) throw new DomainError('NOT_FOUND', 'ไม่พบเอกสาร', 404);
-  const lines = await db.select().from(salesDocLines).where(eq(salesDocLines.docId, id)).orderBy(asc(salesDocLines.sort));
-  return { ...row.doc, projectLabel: row.projectCode ? `${row.projectCode} ${row.projectName}` : '', creatorName: row.creatorName, lines };
+  const [lines, source, children] = await Promise.all([
+    db
+      .select({ line: salesDocLines, itemCode: stockItems.sku })
+      .from(salesDocLines)
+      .leftJoin(stockItems, eq(stockItems.id, salesDocLines.stockItemId))
+      .where(eq(salesDocLines.docId, id))
+      .orderBy(asc(salesDocLines.sort)),
+    row.doc.sourceId
+      ? db.select({ id: salesDocs.id, kind: salesDocs.kind, number: salesDocs.number }).from(salesDocs).where(eq(salesDocs.id, row.doc.sourceId)).limit(1)
+      : Promise.resolve([]),
+    db
+      .select({ id: salesDocs.id, kind: salesDocs.kind, number: salesDocs.number, status: salesDocs.status })
+      .from(salesDocs)
+      .where(eq(salesDocs.sourceId, id))
+      .orderBy(asc(salesDocs.createdAt)),
+  ]);
+  return {
+    ...row.doc,
+    projectLabel: row.projectCode ? `${row.projectCode} ${row.projectName}` : '',
+    creatorName: row.creatorName,
+    lines: lines.map((l) => ({ ...l.line, itemCode: l.itemCode })),
+    /** The document this one was converted from, and the ones converted from it */
+    source: source[0] ?? null,
+    children,
+  };
 }
 
 /** Customers for the picker on sales documents */
@@ -407,6 +511,22 @@ export async function listCompanyAccounts(db: Db, actor: SessionUser): Promise<A
       recent: mine.slice(0, 10).map((d) => ({ id: d.id, kind: d.kind, number: d.number, docDate: d.docDate, party: d.party, amount: d.kind === 'EXP' ? -Number(d.payable) : Number(d.payable) })),
     };
   });
+}
+
+/** Stock items for the item picker on sales lines, with what is on hand in every store */
+export async function listStockItemsForSales(db: Db, actor: SessionUser) {
+  assertCan(actor, 'ar.manage');
+  const rows = await db
+    .select({
+      id: stockItems.id,
+      sku: stockItems.sku,
+      name: stockItems.name,
+      unit: stockItems.unit,
+      onHand: sql<string>`coalesce((select sum(${stockBalances.quantity}) from ${stockBalances} where ${stockBalances.stockItemId} = ${stockItems.id}), 0)`,
+    })
+    .from(stockItems)
+    .orderBy(asc(stockItems.sku));
+  return rows.map((r) => ({ ...r, onHand: Number(r.onHand) }));
 }
 
 /** Vendors for the payee picker on payment vouchers */

@@ -44,6 +44,7 @@ export async function saveAccountCategory(db: Db, actor: SessionUser, input: Acc
 
 const RUNNING = [
   ['QT', 'ใบเสนอราคา'],
+  ['SO', 'ใบสั่งขาย'],
   ['INV', 'ใบแจ้งหนี้'],
   ['REC', 'ใบเสร็จรับเงิน'],
   ['TI', 'ใบกำกับภาษี'],

@@ -48,6 +48,9 @@ import { assertCan } from '@/server/policy';
 import { nextDocNumber } from './numbering';
 import { assertPeriodOpen, closedThrough } from './gl-period';
 
+/** reference_type of the stock movements a sale cut (see sales-docs.ts) */
+export const SALES_STOCK_REF = 'SALES_DOC';
+
 /** The documents that post automatically, in the order a full re-post walks them */
 export const AUTO_SOURCES = ['AP_INVOICE', 'AP_CREDIT_NOTE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC', 'STOCK_ADJUST'] as const;
 export type AutoSource = (typeof AUTO_SOURCES)[number];
@@ -204,7 +207,12 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
     case 'SALES_DOC': {
       const [d] = await tx.select().from(salesDocs).where(eq(salesDocs.id, id));
       if (!d || d.status !== 'ISSUED') return null;
-      const lines = salesDocLines({ ...d, payMethod: d.payMethod });
+      // ต้นทุนขาย: what the stock it cut was worth when it went out, less anything put back
+      const [cost] = await tx
+        .select({ value: sql<string>`coalesce(sum(case when ${stockMovements.type} = 'ISSUE' then ${stockMovements.totalValue} else -${stockMovements.totalValue} end), 0)` })
+        .from(stockMovements)
+        .where(and(eq(stockMovements.referenceType, SALES_STOCK_REF), eq(stockMovements.referenceId, id)));
+      const lines = salesDocLines({ ...d, payMethod: d.payMethod, cogs: cost?.value ?? 0 });
       if (!lines) return null;
       const kind = d.kind as SalesDocKind;
       const book = kind === 'EXP' ? 'PS' : kind === 'TI' || kind === 'DN' ? 'SA' : 'RV';

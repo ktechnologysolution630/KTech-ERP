@@ -1,8 +1,9 @@
-import { pgTable, uuid, text, timestamp, numeric, date, boolean, integer, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, numeric, date, boolean, integer, index, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './core';
 import { projects, vendors } from './master';
 
 import { customers } from './ar';
+import { stockItems } from './stock';
 import type { SalesDocKind, SalesVatMode } from '@/domain/sales-doc';
 
 /**
@@ -76,6 +77,8 @@ export const salesDocs = pgTable(
     wht: numeric('wht', { precision: 14, scale: 2 }).default('0').notNull(),
     payable: numeric('payable', { precision: 14, scale: 2 }).default('0').notNull(),
     status: text('status').$type<'ISSUED' | 'CANCELLED'>().default('ISSUED').notNull(),
+    /** The quotation or sales order this document was converted from (QT → SO → TI) */
+    sourceId: uuid('source_id').references((): AnyPgColumn => salesDocs.id, { onDelete: 'set null' }),
     cancelReason: text('cancel_reason'),
     createdBy: uuid('created_by')
       .notNull()
@@ -99,7 +102,11 @@ export const salesDocLines = pgTable('sales_doc_lines', {
   qty: numeric('qty', { precision: 14, scale: 3 }).default('0').notNull(),
   unit: text('unit').default('').notNull(),
   unitPrice: numeric('unit_price', { precision: 14, scale: 2 }).default('0').notNull(),
+  /** ส่วนลดรายบรรทัด in baht; amount is qty × price less this */
+  discount: numeric('discount', { precision: 14, scale: 2 }).default('0').notNull(),
   amount: numeric('amount', { precision: 14, scale: 2 }).default('0').notNull(),
+  /** The stock item sold; a tax invoice cuts it from stock and books its cost */
+  stockItemId: uuid('stock_item_id').references(() => stockItems.id, { onDelete: 'set null' }),
 });
 
 export type AccountCategoryType = 'INCOME' | 'EXPENSE' | 'ASSET' | 'LIABILITY' | 'EQUITY' | 'OTHER';

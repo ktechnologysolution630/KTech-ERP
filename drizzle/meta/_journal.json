@@ -421,6 +421,13 @@
       "when": 1795150370919,
       "tag": "0059_customer_credit",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1795154865268,
+      "tag": "0060_sales_orders",
+      "breakpoints": true
     }
   ]
 }
