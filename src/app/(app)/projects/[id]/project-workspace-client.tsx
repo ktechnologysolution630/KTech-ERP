@@ -68,41 +68,8 @@ export type WorkspaceTab =
   | 'team'
   | 'settings';
 
-interface LinkedPR {
-  id: string;
-  number: string;
-  title: string;
-  status: string;
-  totalAmount: number;
-  createdAt: string;
-}
-
-interface LinkedPO {
-  id: string;
-  number: string;
-  vendorName: string | null;
-  status: string;
-  gross: number;
-  deliveryDate: string | null;
-}
-
-interface LinkedPRV {
-  id: string;
-  prvNumber: string;
-  title: string;
-  vendorName: string;
-  category: string;
-  totalAmount: number;
-  status: string;
-  dueDate: string | null;
-}
-
 interface ProjectWorkspaceProps {
   project: ProjectDetailDto & { progress?: number };
-  initialPrs?: LinkedPR[];
-  initialPos?: LinkedPO[];
-  initialPrvs?: LinkedPRV[];
-  allVendors?: { id: string; name: string; code: string }[];
   allUsers?: { id: string; name: string; email: string }[];
   initialBoq?: BoqDocumentDto | null;
   canEditBoq?: boolean;
@@ -125,10 +92,6 @@ interface ProjectWorkspaceProps {
 
 export function ProjectWorkspaceClient({
   project,
-  initialPrs = [],
-  initialPos = [],
-  initialPrvs = [],
-  allVendors = [],
   allUsers = [],
   initialBoq = null,
   canEditBoq = false,

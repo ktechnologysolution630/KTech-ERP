@@ -6,17 +6,11 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Plus,
-  Bold,
-  FileSpreadsheet,
-  Upload,
-  Download,
   Printer,
   Trash2,
   Save,
   CheckCircle2,
   AlertCircle,
-  X,
-  FileText,
 } from 'lucide-react';
 import { computeBoqLine } from '@/domain/boq';
 import { parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';

@@ -62,6 +62,31 @@ export async function readStoredFile(db: Db, id: string): Promise<{ name: string
   return row ?? null;
 }
 
+/**
+ * A stored file for this user to open. A file attached to a document is opened only by those who may see
+ * that document, the same rule as attaching it; other stored files (covers, logos, news images) stay open
+ * to every signed-in user. Null when it does not exist or is not theirs to see.
+ */
+export async function readStoredFileFor(
+  db: Db,
+  actor: SessionUser,
+  id: string,
+): Promise<{ name: string; content: Uint8Array } | null> {
+  const owners = await db
+    .select({ entityType: attachments.entityType, entityId: attachments.entityId })
+    .from(attachments)
+    .where(eq(attachments.url, `/api/upload?id=${id}`));
+  for (const owner of owners) {
+    try {
+      await assertEntityAccess(db, actor, owner.entityType, owner.entityId);
+    } catch (err) {
+      if (err instanceof DomainError) return null;
+      throw err;
+    }
+  }
+  return readStoredFile(db, id);
+}
+
 /** Frees the contents behind a URL from storeFile; other URLs (Blob, cover presets, old files on disk) are left alone. */
 export async function removeStoredFile(db: Db, url: string): Promise<void> {
   const id = STORED_FILE_URL.exec(url)?.[1];

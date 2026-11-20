@@ -15,7 +15,7 @@ import {
   type SessionUser,
 } from '@/db/schema';
 import { AGING_LABELS, agingBucket, invoiceBalance, type AgingBucket } from '@/domain/ar';
-import { D, sum } from '@/domain/money';
+import { D } from '@/domain/money';
 import { isProjectClosed, type ProjectStatus } from '@/domain/project';
 import { lastMonthKeys } from '@/domain/project-finance';
 import { computeProjectProgress, plannedProgressAt, type ScheduleTask } from '@/domain/schedule';

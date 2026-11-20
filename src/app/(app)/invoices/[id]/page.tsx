@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { ActionErrorBanner } from '@/components/action-error-banner';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { returnOnRefusal } from '@/lib/action-outcome';
 import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { getInvoice } from '@/server/services/invoice';
@@ -11,10 +14,13 @@ import { cancelInvoiceAction, matchInvoiceAction } from '../actions';
 
 export default async function InvoiceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { error: actionError } = await searchParams;
   const actor = await requireUser();
   const db = await getDb();
   const inv = await getInvoice(db, actor, id);
@@ -23,6 +29,7 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <ActionErrorBanner message={actionError} clearHref={`/invoices/${id}`} />
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -120,15 +127,15 @@ export default async function InvoiceDetailPage({
         <form
           action={async () => {
             'use server';
-            await cancelInvoiceAction(inv.id, 'ยกเลิกโดยฝ่ายการเงิน');
+            await returnOnRefusal(`/invoices/${id}`, () => cancelInvoiceAction(inv.id, 'ยกเลิกโดยฝ่ายการเงิน'));
           }}
         >
-          <button
-            type="submit"
+          <ConfirmSubmitButton
+            message="ยืนยันยกเลิกใบแจ้งหนี้นี้? ยกเลิกแล้วย้อนกลับไม่ได้"
             className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
           >
             ยกเลิกใบแจ้งหนี้
-          </button>
+          </ConfirmSubmitButton>
         </form>
       )}
     </div>

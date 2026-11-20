@@ -5,7 +5,7 @@ import { getDb } from '@/db/client';
 import { type EntityType } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { getCurrentUser } from '@/server/auth/current-user';
-import { addAttachment, readStoredFile, replacePhoto } from '@/server/services/attachments';
+import { addAttachment, readStoredFileFor, replacePhoto } from '@/server/services/attachments';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id');
   if (id !== null) {
     if (!UUID.test(id)) return NextResponse.json({ error: 'Invalid file' }, { status: 400 });
-    const stored = await readStoredFile(await getDb(), id);
+    const stored = await readStoredFileFor(await getDb(), user, id);
     if (!stored) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return fileResponse(new Uint8Array(stored.content), stored.name);
   }

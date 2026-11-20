@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { ActionErrorBanner } from '@/components/action-error-banner';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { messageOnRefusal, returnOnRefusal } from '@/lib/action-outcome';
 import { getDb } from '@/db/client';
 import { bangkokDateString, formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
@@ -27,10 +30,13 @@ import { ChequePanel, PvPayForm } from './pv-payment';
 
 export default async function PvDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { error: actionError } = await searchParams;
   const actor = await requireUser();
   const db = await getDb();
   const [pv, activities, attachments, comments] = await Promise.all([
@@ -49,6 +55,7 @@ export default async function PvDetailPage({
 
   return (
     <div className="space-y-6">
+      <ActionErrorBanner message={actionError} clearHref={`/pv/${id}`} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -131,21 +138,21 @@ export default async function PvDetailPage({
             overridePlaceholder={paysEarly ? 'เช่น ผู้ขายให้ส่วนลดเงินสด / ขอเร่งจ่ายเพื่อรับของงวดถัดไป' : undefined}
             onApprove={async (reason) => {
               'use server';
-              await approvePvAction(id, reason);
+              return messageOnRefusal(() => approvePvAction(id, reason));
             }}
             onReject={async (reason) => {
               'use server';
-              await rejectPvAction(id, reason);
+              return messageOnRefusal(() => rejectPvAction(id, reason));
             }}
           />
           {canApprove && (
             <form
               action={async (fd: FormData) => {
                 'use server';
-                await approvePvAction(
+                await returnOnRefusal(`/pv/${id}`, () => approvePvAction(
                   id,
                   String(fd.get('overrideReason') ?? ''),
-                );
+                ));
               }}
               className="flex items-center gap-2 text-xs"
             >
@@ -266,7 +273,7 @@ export default async function PvDetailPage({
             <form
               action={async () => {
                 'use server';
-                await submitPvAction(id);
+                await returnOnRefusal(`/pv/${id}`, () => submitPvAction(id));
               }}
             >
               <button
@@ -284,15 +291,15 @@ export default async function PvDetailPage({
             <form
               action={async () => {
                 'use server';
-                await cancelPvAction(id, 'ยกเลิกโดยฝ่ายการเงิน');
+                await returnOnRefusal(`/pv/${id}`, () => cancelPvAction(id, 'ยกเลิกโดยฝ่ายการเงิน'));
               }}
             >
-              <button
-                type="submit"
+              <ConfirmSubmitButton
+                message="ยืนยันยกเลิก PV นี้? รายการตั้งหนี้จะกลับไปค้างจ่าย และย้อนกลับไม่ได้"
                 className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
               >
                 ยกเลิก PV (คืนรายการตั้งหนี้)
-              </button>
+              </ConfirmSubmitButton>
             </form>
           )}
       </div>
@@ -308,7 +315,7 @@ export default async function PvDetailPage({
           comments={comments}
           onAddComment={async (body) => {
             'use server';
-            await addPvCommentAction(id, body);
+            return messageOnRefusal(() => addPvCommentAction(id, body));
           }}
         />
         <ActivityFeed items={activities} />
