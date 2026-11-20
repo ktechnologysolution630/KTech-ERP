@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
   advances,
+  apCreditNotes,
   arCreditNotes,
   arInvoices,
   arReceipts,
   boqOverrunRequests,
   docCounters,
+  invoices,
   pos,
   projects,
   prs,
@@ -38,6 +40,7 @@ export const DOC_NUMBER_TYPES = [
   { key: 'PR', label: 'ใบขอซื้อ (PR)' },
   { key: 'PO', label: 'ใบสั่งซื้อ (PO)' },
   { key: 'PV', label: 'ใบสำคัญจ่าย (PV)' },
+  { key: 'PCN', label: 'ใบลดหนี้ผู้ขาย/ส่งคืนสินค้า' },
   { key: 'AP', label: 'ใบขอซื้อเกิน BOQ (ใบ AP)' },
   { key: 'PRV', label: 'ใบขอเบิกค่าแรง (PRV)' },
   { key: 'INV', label: 'ใบแจ้งหนี้ลูกค้า' },
@@ -195,6 +198,12 @@ async function findDoc(tx: Db, key: DocNumberKey, number: string): Promise<Found
     case 'PV': {
       const [d] = await tx.select({ id: pvs.id }).from(pvs).where(eq(pvs.number, number)).limit(1);
       return d ? { id: d.id, entityType: 'PV', entityId: d.id, href: `/pv/${d.id}`, update: (t, n) => t.update(pvs).set({ number: n }).where(eq(pvs.id, d.id)) } : null;
+    }
+    case 'PCN': {
+      const [d] = await tx.select({ id: apCreditNotes.id, invoiceId: apCreditNotes.invoiceId }).from(apCreditNotes).where(eq(apCreditNotes.number, number)).limit(1);
+      if (!d) return null;
+      const [inv] = await tx.select({ poId: invoices.poId }).from(invoices).where(eq(invoices.id, d.invoiceId)).limit(1);
+      return { id: d.id, entityType: 'PO', entityId: inv!.poId, href: `/invoices/${d.invoiceId}`, update: (t, n) => t.update(apCreditNotes).set({ number: n }).where(eq(apCreditNotes.id, d.id)) };
     }
     case 'AP': {
       const [d] = await tx.select({ id: boqOverrunRequests.id, poId: boqOverrunRequests.poId }).from(boqOverrunRequests).where(eq(boqOverrunRequests.number, number)).limit(1);

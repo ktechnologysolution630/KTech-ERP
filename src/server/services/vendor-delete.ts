@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { invoices, milestones, payables, pos, prs, prvs, pvLines, pvs, vendors, whtCerts, type SessionUser } from '@/db/schema';
+import { apCreditNotes, invoices, milestones, payables, pos, prs, prvs, pvLines, pvs, vendors, whtCerts, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
@@ -24,7 +24,7 @@ export interface VendorDeleteResult {
 
 /** Every document naming these vendors, by vendor. A payable already cancelled and on no PV is left out: nothing depends on it. */
 export async function documentsOf(tx: Db, vendorIds: string[]): Promise<Map<string, VendorDocument[]>> {
-  const [poRows, invoiceRows, pvRows, whtRows, prvRows, milestoneRows, payableRows] = await Promise.all([
+  const [poRows, invoiceRows, pvRows, whtRows, prvRows, milestoneRows, payableRows, creditRows] = await Promise.all([
     tx.select({ vendorId: pos.vendorId, id: pos.id, number: pos.number, status: pos.status }).from(pos).where(inArray(pos.vendorId, vendorIds)),
     tx.select({ vendorId: invoices.vendorId, id: invoices.id, number: invoices.invoiceNo, status: invoices.status }).from(invoices).where(inArray(invoices.vendorId, vendorIds)),
     tx.select({ vendorId: pvs.vendorId, id: pvs.id, number: pvs.number, status: pvs.status }).from(pvs).where(inArray(pvs.vendorId, vendorIds)),
@@ -32,6 +32,7 @@ export async function documentsOf(tx: Db, vendorIds: string[]): Promise<Map<stri
     tx.select({ vendorId: prvs.vendorId, id: prvs.id, number: prvs.prvNumber }).from(prvs).where(inArray(prvs.vendorId, vendorIds)),
     tx.select({ vendorId: milestones.vendorId, projectId: milestones.projectId, title: milestones.title }).from(milestones).where(inArray(milestones.vendorId, vendorIds)),
     tx.select({ vendorId: payables.vendorId, id: payables.id, poId: payables.poId, note: payables.note, gross: payables.gross, status: payables.status }).from(payables).where(inArray(payables.vendorId, vendorIds)),
+    tx.select({ vendorId: apCreditNotes.vendorId, invoiceId: apCreditNotes.invoiceId, number: apCreditNotes.number, voided: apCreditNotes.voided }).from(apCreditNotes).where(inArray(apCreditNotes.vendorId, vendorIds)),
   ]);
   const onPv = new Set((await tx.select({ id: pvLines.payableId }).from(pvLines).where(inArray(pvLines.payableId, payableRows.map((p) => p.id)))).map((l) => l.id));
 
@@ -41,6 +42,7 @@ export async function documentsOf(tx: Db, vendorIds: string[]): Promise<Map<stri
   };
   for (const r of poRows) add(r.vendorId, { label: 'ใบสั่งซื้อ PO', number: r.number, href: `/po/${r.id}`, cancelled: r.status === 'CANCELLED' });
   for (const r of invoiceRows) add(r.vendorId, { label: 'ใบแจ้งหนี้', number: r.number, href: `/invoices/${r.id}`, cancelled: r.status === 'CANCELLED' });
+  for (const r of creditRows) add(r.vendorId, { label: 'ใบลดหนี้ผู้ขาย', number: r.number, href: `/invoices/${r.invoiceId}`, cancelled: r.voided });
   for (const r of pvRows) add(r.vendorId, { label: 'ใบสำคัญจ่าย PV', number: r.number, href: `/pv/${r.id}`, cancelled: r.status === 'CANCELLED' });
   for (const r of whtRows) add(r.vendorId, { label: '50 ทวิ', number: r.number, href: `/pv/${r.pvId}`, cancelled: r.status === 'VOID' });
   for (const r of prvRows) add(r.vendorId, { label: 'ใบขอเบิก PRV', number: r.number, href: `/prv/${r.id}`, cancelled: false });

@@ -30,9 +30,10 @@ export const GL_BOOK_LABEL: Record<GlBook, string> = {
 };
 
 /** The document a journal entry was made from */
-export type JournalSource = 'AP_INVOICE' | 'PV' | 'AR_INVOICE' | 'AR_RECEIPT' | 'AR_CREDIT_NOTE' | 'SALES_DOC' | 'STOCK_ADJUST' | 'MANUAL';
+export type JournalSource = 'AP_INVOICE' | 'AP_CREDIT_NOTE' | 'PV' | 'AR_INVOICE' | 'AR_RECEIPT' | 'AR_CREDIT_NOTE' | 'SALES_DOC' | 'STOCK_ADJUST' | 'MANUAL';
 export const JOURNAL_SOURCE_LABEL: Record<JournalSource, string> = {
   AP_INVOICE: 'ซื้อเชื่อ/รับสินค้า (RR)',
+  AP_CREDIT_NOTE: 'ใบลดหนี้ผู้ขาย/ส่งคืนสินค้า',
   PV: 'ใบสำคัญจ่าย (PV)',
   AR_INVOICE: 'ขายเชื่อ/ใบแจ้งหนี้ (IV)',
   AR_RECEIPT: 'ใบเสร็จรับเงิน (RE)',
@@ -172,8 +173,21 @@ export function apInvoiceLines(input: { beforeVat: Decimal.Value; vat: Decimal.V
   ]);
 }
 
+/**
+ * ใบลดหนี้ผู้ขาย / ส่งคืนสินค้า: the reverse of the bill it reduces.
+ * Dr เจ้าหนี้การค้า / Cr สินค้าคงเหลือ or ซื้อ, Cr ภาษีซื้อ (a bill with no tax invoice had its VAT in the cost).
+ */
+export function apCreditNoteLines(input: { beforeVat: Decimal.Value; vat: Decimal.Value; gross: Decimal.Value; isTaxInvoice: boolean; toInventory: boolean }): DraftLine[] {
+  const cost: SystemAccountKey = input.toInventory ? 'INVENTORY' : 'PURCHASE';
+  return finishLines([
+    dr('AP', input.gross),
+    cr(cost, input.beforeVat),
+    input.isTaxInvoice ? cr('VAT_INPUT', input.vat) : cr(cost, input.vat),
+  ]);
+}
+
 /** Bills whose debt was already booked to เจ้าหนี้การค้า (by the RR, or to be offset by a later bill) */
-const AP_SOURCES = new Set(['CREDIT_INVOICE', 'PREPAID_REQUEST', 'INSTALLMENT']);
+const AP_SOURCES = new Set(['CREDIT_INVOICE', 'PREPAID_REQUEST', 'INSTALLMENT', 'CREDIT_NOTE']);
 
 /**
  * ใบสำคัญจ่าย (PV), when it is paid. Purchase bills clear เจ้าหนี้การค้า; labour, contractor claims and

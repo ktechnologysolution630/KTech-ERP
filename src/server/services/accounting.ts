@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
+  apCreditNotes,
   arCreditNotes,
   arInvoices,
   arReceipts,
@@ -244,7 +245,7 @@ export async function inputVatReport(db: Db, actor: SessionUser, year: number, m
   assertCan(actor, 'ar.manage');
   const from = `${year}-${String(month).padStart(2, '0')}-01`;
   const to = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-  const [inv, exp, gr, projectRows] = await Promise.all([
+  const [inv, exp, gr, projectRows, credits] = await Promise.all([
     db
       .select({ i: invoices, vendorName: vendors.name, vendorTaxId: vendors.taxId, projectId: pos.projectId })
       .from(invoices)
@@ -260,6 +261,14 @@ export async function inputVatReport(db: Db, actor: SessionUser, year: number, m
       .from(stockDocs)
       .where(and(eq(stockDocs.type, 'RECEIVE'), ne(stockDocs.vat, '0.00'), ne(stockDocs.taxInvoiceNo, ''), gte(stockDocs.docDate, from), lte(stockDocs.docDate, to))),
     db.select({ id: projects.id, code: projects.code, name: projects.name }).from(projects),
+    // Vendor credit notes against tax invoices reduce the month's input VAT
+    db
+      .select({ c: apCreditNotes, invoiceNo: invoices.invoiceNo, vendorName: vendors.name, vendorTaxId: vendors.taxId, projectId: pos.projectId })
+      .from(apCreditNotes)
+      .innerJoin(invoices, eq(invoices.id, apCreditNotes.invoiceId))
+      .innerJoin(vendors, eq(vendors.id, apCreditNotes.vendorId))
+      .innerJoin(pos, eq(pos.id, invoices.poId))
+      .where(and(eq(apCreditNotes.voided, false), eq(invoices.isTaxInvoice, true), ne(apCreditNotes.vat, '0.00'), gte(apCreditNotes.docDate, from), lte(apCreditNotes.docDate, to))),
   ]);
   const projectName = new Map(projectRows.map((p) => [p.id, `${p.code} ${p.name}`]));
   const name = (id: string | null) => (id ? (projectName.get(id) ?? '-') : 'สำนักงาน / ส่วนกลาง');
@@ -302,6 +311,19 @@ export async function inputVatReport(db: Db, actor: SessionUser, year: number, m
       vat: n(d.vat),
       total: round2(D(d.beforeVat).plus(d.vat)).toNumber(),
       href: '/stock?tab=all-stock',
+    })),
+    ...credits.map(({ c, invoiceNo, vendorName, vendorTaxId, projectId }) => ({
+      key: `pcn-${c.id}`,
+      date: c.docDate,
+      number: c.vendorDocNo || c.number,
+      source: `ใบลดหนี้ ${c.number} (ใบแจ้งหนี้ ${invoiceNo})`,
+      vendorName,
+      vendorTaxId: vendorTaxId ?? '',
+      projectName: name(projectId),
+      base: -n(c.beforeVat),
+      vat: -n(c.vat),
+      total: -n(c.gross),
+      href: `/invoices/${c.invoiceId}`,
     })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.number.localeCompare(b.number)));
   return {

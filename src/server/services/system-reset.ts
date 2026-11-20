@@ -4,6 +4,7 @@ import { type PgTable } from 'drizzle-orm/pg-core';
 import { type Db } from '@/db/client';
 import {
   activityLogs,
+  apCreditNotes,
   advanceExpenses,
   advances,
   arCreditNotes,
@@ -92,6 +93,7 @@ const GROUPS: { label: string; table: PgTable }[] = [
   { label: 'ใบรับของ', table: receipts },
   { label: 'ใบขอเบิกงวดผู้รับเหมา (PRV)', table: prvs },
   { label: 'ใบแจ้งหนี้ผู้ขาย (AP)', table: invoices },
+  { label: 'ใบลดหนี้ผู้ขาย/ส่งคืนสินค้า', table: apCreditNotes },
   { label: 'รายการตั้งจ่าย', table: payables },
   { label: 'ใบสำคัญจ่าย (PV)', table: pvs },
   { label: 'หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)', table: whtCerts },
@@ -193,6 +195,7 @@ export async function resetSystem(db: Db, actor: SessionUser, confirm: string): 
       await tx.delete(pvLines);
       await tx.delete(pvs);
       await tx.delete(invoicePayableMatches);
+      await tx.delete(apCreditNotes);
       await tx.delete(payables);
       await tx.delete(invoices);
 

@@ -69,6 +69,7 @@ const PAYABLE_SOURCE: Record<string, string> = {
   CONTRACTOR_CLAIM: 'เบิกงวดผู้รับเหมา',
   EXPENSE: 'เบิกค่าใช้จ่าย',
   LABOR: 'ค่าแรง',
+  CREDIT_NOTE: 'ใบลดหนี้ผู้ขาย',
 };
 
 /**
@@ -106,6 +107,7 @@ export async function deletePayables(db: Db, actor: SessionUser, ids: string[]):
         if (t.status === 'PAID') return 'จ่ายเงินแล้ว ลบไม่ได้';
         if (t.status === 'IN_PV') return 'อยู่ในใบสำคัญจ่ายแล้ว ยกเลิกหรือลบใบสำคัญจ่ายก่อน';
         if (t.sourceType === 'CREDIT_INVOICE') return 'เกิดจากใบแจ้งหนี้ผู้ขาย ให้ยกเลิกแล้วลบใบแจ้งหนี้นั้นแทน';
+        if (t.sourceType === 'CREDIT_NOTE') return 'เกิดจากใบลดหนี้ผู้ขาย ให้ยกเลิกใบลดหนี้นั้นแทน';
         if (t.sourceType === 'CONTRACTOR_CLAIM' || t.sourceType === 'EXPENSE') return 'เกิดจากใบขอเบิก (PRV) ให้ลบใบขอเบิกนั้นแทน';
         const pv = [...new Set(onPvs.filter((l) => l.payableId === t.id).map((l) => l.pvNumber))];
         return pv.length > 0 ? `เคยอยู่ในใบสำคัญจ่าย ${pv.join(', ')} ลบใบสำคัญจ่ายนั้นก่อน` : null;

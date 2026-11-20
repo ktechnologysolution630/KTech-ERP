@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 import { type Db } from '@/db/client';
 import {
+  apCreditNotes,
   activityLogs,
   advances,
   arCreditNotes,
@@ -47,6 +48,7 @@ export type DocPrefix =
   | 'VT'
   | 'RC'
   | 'CN'
+  | 'PCN'
   | 'ADV'
   | 'RS'
   | 'MAT'
@@ -85,6 +87,7 @@ export const NUMBERED_DOCS: Partial<Record<DocPrefix, { table: PgTable; column: 
   INV: { table: arInvoices, column: arInvoices.number },
   RC: { table: arReceipts, column: arReceipts.number },
   CN: { table: arCreditNotes, column: arCreditNotes.number },
+  PCN: { table: apCreditNotes, column: apCreditNotes.number },
   QT: { table: salesDocs, column: salesDocs.number },
   REC: { table: salesDocs, column: salesDocs.number },
   TI: { table: salesDocs, column: salesDocs.number },

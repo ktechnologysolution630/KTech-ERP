@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
+  apCreditNotes,
   arCreditNotes,
   arInvoices,
   arReceipts,
@@ -20,6 +21,7 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import {
+  apCreditNoteLines,
   apInvoiceLines,
   arCreditNoteLines,
   arInvoiceLines,
@@ -41,7 +43,7 @@ import { assertCan } from '@/server/policy';
 import { nextDocNumber } from './numbering';
 
 /** The documents that post automatically, in the order a full re-post walks them */
-export const AUTO_SOURCES = ['AP_INVOICE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC'] as const;
+export const AUTO_SOURCES = ['AP_INVOICE', 'AP_CREDIT_NOTE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC'] as const;
 export type AutoSource = (typeof AUTO_SOURCES)[number];
 
 /**
@@ -71,6 +73,30 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
         partyName: row.vendorName,
         projectId: row.projectId,
         lines: apInvoiceLines({ ...row.inv, toInventory: Boolean(stocked) }),
+      };
+    }
+    case 'AP_CREDIT_NOTE': {
+      const [row] = await tx
+        .select({ cn: apCreditNotes, inv: invoices, poNumber: pos.number, projectId: pos.projectId, vendorName: vendors.name })
+        .from(apCreditNotes)
+        .innerJoin(invoices, eq(invoices.id, apCreditNotes.invoiceId))
+        .innerJoin(pos, eq(pos.id, invoices.poId))
+        .innerJoin(vendors, eq(vendors.id, apCreditNotes.vendorId))
+        .where(eq(apCreditNotes.id, id));
+      if (!row || row.cn.voided) return null;
+      const [stocked] = await tx
+        .select({ one: sql<number>`1` })
+        .from(poLines)
+        .where(and(eq(poLines.poId, row.inv.poId), isNotNull(poLines.stockItemId)))
+        .limit(1);
+      return {
+        date: row.cn.docDate,
+        book: 'PU',
+        sourceNumber: row.cn.number,
+        description: `ลดหนี้/ส่งคืนสินค้า ตามใบแจ้งหนี้ ${row.inv.invoiceNo}: ${row.cn.reason}`,
+        partyName: row.vendorName,
+        projectId: row.projectId,
+        lines: apCreditNoteLines({ ...row.cn, isTaxInvoice: row.inv.isTaxInvoice, toInventory: Boolean(stocked) }),
       };
     }
     case 'PV': {
@@ -226,7 +252,7 @@ export async function syncJournal(tx: Db, source: AutoSource, id: string, actorI
 }
 
 async function sourceIds(db: Db, source: AutoSource): Promise<string[]> {
-  const table = { AP_INVOICE: invoices, PV: pvs, AR_INVOICE: arInvoices, AR_RECEIPT: arReceipts, AR_CREDIT_NOTE: arCreditNotes, SALES_DOC: salesDocs }[source];
+  const table = { AP_INVOICE: invoices, AP_CREDIT_NOTE: apCreditNotes, PV: pvs, AR_INVOICE: arInvoices, AR_RECEIPT: arReceipts, AR_CREDIT_NOTE: arCreditNotes, SALES_DOC: salesDocs }[source];
   const rows = await db.select({ id: table.id }).from(table);
   return rows.map((r) => r.id);
 }
@@ -467,6 +493,8 @@ export function sourceHref(e: { sourceType: JournalSource; sourceId: string | nu
       return extra.invoiceId ? `/ar/invoices/${extra.invoiceId}` : null;
     case 'AP_INVOICE':
       return `/invoices/${e.sourceId}`;
+    case 'AP_CREDIT_NOTE':
+      return extra.invoiceId ? `/invoices/${extra.invoiceId}` : null;
     case 'SALES_DOC':
       return extra.kind ? `/sales/${SALES_DOC_META[extra.kind].slug}/${e.sourceId}` : null;
     default:

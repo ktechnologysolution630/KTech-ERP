@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { and, count, eq, inArray, isNotNull, like, ne, or, type SQL } from 'drizzle-orm';
+import { and, count, eq, inArray, isNotNull, like, ne, notInArray, or, type SQL } from 'drizzle-orm';
 import { type PgTable } from 'drizzle-orm/pg-core';
 import { type Db } from '@/db/client';
 import {
   accountCategories,
   advanceExpenses,
   advances,
+  apCreditNotes,
   arCreditNotes,
   arInvoices,
   arReceipts,
@@ -212,6 +213,8 @@ export async function deleteApInvoices(db: Db, actor: SessionUser, ids: string[]
         const payableIds = linked.filter((p) => p.invoiceId && goIds.includes(p.invoiceId)).map((p) => p.id);
         await removeTraces(tx, [...goIds, ...payableIds], goIds.map((id) => `/invoices/${id}`));
         // Matches to payables go with either side (on delete cascade)
+        // Cancelled vendor credit notes of the bill go with it (a live one keeps the bill from being cancelled)
+        await tx.delete(apCreditNotes).where(inArray(apCreditNotes.invoiceId, goIds));
         if (payableIds.length > 0) await tx.delete(payables).where(inArray(payables.id, payableIds));
         await tx.delete(invoices).where(inArray(invoices.id, goIds));
         // In the history of the PO, as the bill's other steps are
@@ -416,9 +419,9 @@ async function countOf(db: Db, table: PgTable, where?: SQL) {
 }
 
 /** Payables that only exist because a vendor bill was keyed in go with the bill */
-const BILL_PAYABLE = eq(payables.sourceType, 'CREDIT_INVOICE');
+const BILL_PAYABLE = inArray(payables.sourceType, ['CREDIT_INVOICE', 'CREDIT_NOTE']);
 /** What a payment left on the payables that stay */
-const PAID_OR_HELD = and(ne(payables.sourceType, 'CREDIT_INVOICE'), inArray(payables.status, ['IN_PV', 'PAID']));
+const PAID_OR_HELD = and(notInArray(payables.sourceType, ['CREDIT_INVOICE', 'CREDIT_NOTE']), inArray(payables.status, ['IN_PV', 'PAID']));
 /** Milestones marked paid by the customer's settled invoice */
 const paidByBilling = (db: Db) =>
   and(eq(milestones.status, 'PAID'), inArray(milestones.id, db.select({ id: arInvoices.milestoneId }).from(arInvoices).where(isNotNull(arInvoices.milestoneId))));
@@ -426,11 +429,12 @@ const paidByBilling = (db: Db) =>
 export async function previewAccountingWipe(db: Db, actor: SessionUser): Promise<AccountingWipePreview> {
   assertCan(actor, 'accounting.delete');
   const salesCounts = await db.select({ kind: salesDocs.kind, n: count() }).from(salesDocs).groupBy(salesDocs.kind);
-  const [arInv, arRc, arCn, apInv, pvCount, whtCount, advCount, rsCount, heldPayables, paidInstallments, billedMilestones, claimedTrips, journalCount] = await Promise.all([
+  const [arInv, arRc, arCn, apInv, apCn, pvCount, whtCount, advCount, rsCount, heldPayables, paidInstallments, billedMilestones, claimedTrips, journalCount] = await Promise.all([
     countOf(db, arInvoices),
     countOf(db, arReceipts),
     countOf(db, arCreditNotes),
     countOf(db, invoices),
+    countOf(db, apCreditNotes),
     countOf(db, pvs),
     countOf(db, whtCerts),
     countOf(db, advances),
@@ -447,6 +451,7 @@ export async function previewAccountingWipe(db: Db, actor: SessionUser): Promise
     { label: 'ใบเสร็จรับชำระจากใบแจ้งหนี้', count: arRc },
     { label: 'ใบลดหนี้', count: arCn },
     { label: 'ใบแจ้งหนี้ผู้ขาย (AP)', count: apInv },
+    { label: 'ใบลดหนี้ผู้ขาย/ส่งคืนสินค้า', count: apCn },
     { label: 'ใบสำคัญจ่าย (PV)', count: pvCount },
     { label: 'หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)', count: whtCount },
     { label: 'ใบขอเงินทดรองจ่าย', count: advCount },
@@ -536,8 +541,9 @@ export async function wipeAccounting(db: Db, actor: SessionUser, confirm: string
       await tx.delete(whtCerts);
       await tx.delete(pvs);
       await tx.update(payables).set({ status: 'OPEN', updatedAt: new Date() }).where(PAID_OR_HELD);
-      await tx.update(payables).set({ invoiceId: null, updatedAt: new Date() }).where(and(ne(payables.sourceType, 'CREDIT_INVOICE'), isNotNull(payables.invoiceId)));
+      await tx.update(payables).set({ invoiceId: null, updatedAt: new Date() }).where(and(notInArray(payables.sourceType, ['CREDIT_INVOICE', 'CREDIT_NOTE']), isNotNull(payables.invoiceId)));
       await tx.update(poInstallments).set({ status: 'REQUESTED' }).where(eq(poInstallments.status, 'PAID'));
+      await tx.delete(apCreditNotes);
       await tx.delete(payables).where(BILL_PAYABLE);
       await tx.delete(invoices);
 
