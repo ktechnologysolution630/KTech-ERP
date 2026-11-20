@@ -14,12 +14,15 @@ export function MobileReceiveForm({
   projectLabel,
   defaultDate,
   lines,
+  afterSaveHref,
 }: {
   poId: string;
   poNumber: string;
   vendorName: string;
   projectLabel: string;
   defaultDate: string;
+  /** Where to go once saved: the PO, or back to the receive list for someone who can't open POs */
+  afterSaveHref?: string;
   lines: {
     id: string;
     description: string;
@@ -67,7 +70,7 @@ export function MobileReceiveForm({
           fd.set('file', resized);
           await fetch('/api/upload', { method: 'POST', body: fd });
         }
-        router.push(`/po/${poId}`);
+        router.push(afterSaveHref ?? `/po/${poId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'บันทึกรับของไม่สำเร็จ');
       }

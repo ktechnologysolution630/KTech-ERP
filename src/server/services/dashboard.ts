@@ -14,6 +14,7 @@ import {
   projects,
   pvLines,
   pvs,
+  salesDocs,
   stockBalances,
   stockItems,
   vendors,
@@ -132,9 +133,24 @@ export async function getDashboardOverview(
       .orderBy(asc(projects.code)),
   ]);
 
+  // Sales documents move money too: receipts, receipt vouchers and cash sales in; payment vouchers out
+  const salesMoney = await db
+    .select({
+      month: sql<string>`to_char(${salesDocs.docDate}, 'YYYY-MM')`,
+      kind: salesDocs.kind,
+      amount: sql<string>`coalesce(sum(${salesDocs.payable} + ${salesDocs.wht}), 0)`,
+    })
+    .from(salesDocs)
+    .where(and(eq(salesDocs.status, 'ISSUED'), inArray(salesDocs.kind, ['RC', 'INC', 'STI', 'EXP']), gte(salesDocs.docDate, windowStart)))
+    .groupBy(sql`1`, salesDocs.kind);
+
   // Cash per month
   const inByMonth = new Map(receiptMonths.map((r) => [r.month, toNumber(r.amount)]));
   const outByMonth = new Map(paidMonths.map((r) => [r.month, toNumber(r.amount)]));
+  for (const r of salesMoney) {
+    const into = r.kind === 'EXP' ? outByMonth : inByMonth;
+    into.set(r.month, (into.get(r.month) ?? 0) + toNumber(r.amount));
+  }
   const monthly = months.map((month) => ({
     month,
     cashIn: round2(inByMonth.get(month) ?? 0),
@@ -180,6 +196,26 @@ export async function getDashboardOverview(
     if (balance <= 0) continue;
     receivableInvoices += 1;
     const { bucket } = agingBucket(inv.dueDate, today);
+    agingAr.set(bucket, agingAr.get(bucket)! + balance);
+  }
+  // Credit tax invoices (TI) are receivables until receipts opened from them (TI → RC) collect them
+  const [taxInvoices, tiReceipts] = await Promise.all([
+    db
+      .select({ id: salesDocs.id, total: salesDocs.total, dueDate: salesDocs.dueDate, docDate: salesDocs.docDate })
+      .from(salesDocs)
+      .where(and(eq(salesDocs.status, 'ISSUED'), eq(salesDocs.kind, 'TI'))),
+    db
+      .select({ sourceId: salesDocs.sourceId, amount: sql<string>`coalesce(sum(${salesDocs.total}), 0)` })
+      .from(salesDocs)
+      .where(and(eq(salesDocs.status, 'ISSUED'), eq(salesDocs.kind, 'RC')))
+      .groupBy(salesDocs.sourceId),
+  ]);
+  const collected = new Map(tiReceipts.map((r) => [r.sourceId, toNumber(r.amount)]));
+  for (const ti of taxInvoices) {
+    const balance = round2(toNumber(ti.total) - (collected.get(ti.id) ?? 0));
+    if (balance <= 0) continue;
+    receivableInvoices += 1;
+    const { bucket } = agingBucket(ti.dueDate ?? ti.docDate, today);
     agingAr.set(bucket, agingAr.get(bucket)! + balance);
   }
   for (const p of openPayables) {

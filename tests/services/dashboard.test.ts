@@ -7,6 +7,7 @@ import { createInvoice } from '@/server/services/invoice';
 import { requestPrepaid } from '@/server/services/payable';
 import { createPv, submitPv, approvePv, markPvPaid } from '@/server/services/pv';
 import { getDashboardOverview, getOwnerDashboard } from '@/server/services/dashboard';
+import { createSalesDoc } from '@/server/services/sales-docs';
 import { createArInvoice, issueArCreditNote, issueArInvoice, recordArReceipt, upsertCustomer } from '@/server/services/ar';
 import { compactNumber, niceAxisMax } from '@/domain/chart';
 import { bangkokDateString } from '@/domain/thai';
@@ -179,5 +180,26 @@ describe('dashboard overview', () => {
     expect(o.aging.find((a) => a.bucket === 'D1_30')).toMatchObject({ receivable: 45_300, payable: 0 });
     expect(o.aging.find((a) => a.bucket === 'NOT_DUE')).toMatchObject({ receivable: 0, payable: 500 });
     expect(o.projects.find((p) => p.id === f.projectA)).toMatchObject({ cost: 1_500, received: 51_000, overBudget: false });
+  });
+});
+describe('dashboard overview with sales documents', () => {
+  test('a credit tax invoice is a receivable until a receipt from it collects it; the receipt is cash in', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const today = bangkokDateString();
+    const ti = await createSalesDoc(db, f.users.finance, { kind: 'TI', docDate: today, customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', lines: [{ name: 'งานติดตั้ง', qty: 1, unitPrice: 10000 }] });
+    const before = await getDashboardOverview(db, f.users.finance);
+    expect(before.receivable).toMatchObject({ total: 10700, invoices: 1 });
+    expect(before.thisMonth.cashIn).toBe(0);
+
+    await createSalesDoc(
+      db,
+      f.users.finance,
+      { kind: 'RC', docDate: today, customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', payMethod: 'TRANSFER', lines: [{ name: 'รับชำระ', qty: 1, unitPrice: 4000 }] },
+      { sourceId: ti.id },
+    );
+    const after = await getDashboardOverview(db, f.users.finance);
+    expect(after.receivable).toMatchObject({ total: 6420, invoices: 1 });
+    expect(after.thisMonth.cashIn).toBe(4280);
   });
 });
