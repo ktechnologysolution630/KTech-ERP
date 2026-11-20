@@ -3,7 +3,7 @@ import { expandHiddenMenus, MENU_KEYS, type MenuKey } from './menu';
 
 /** Menus with nothing in them the role can use lead to an error page or a redirect, so a preset leaves them out. */
 const EVERYONE: MenuKey[] = ['PROJECTS', 'TIMELINE', 'FIN_ADVANCES', 'FIN_RECEIPT_SUBSTITUTES'];
-const STOCK: MenuKey[] = ['STOCK_OVERVIEW', 'STOCK_MOVEMENTS', 'STOCK_LOW', 'STOCK_ISSUES', 'STOCK_USAGE', 'STOCK_ALL', 'STOCK_COUNT', 'STOCK_ADJUST'];
+const STOCK: MenuKey[] = ['STOCK_OVERVIEW', 'STOCK_MOVEMENTS', 'STOCK_LOW', 'STOCK_ISSUES', 'STOCK_USAGE', 'STOCK_ALL', 'STOCK_COUNT', 'STOCK_ADJUST', 'STOCK_CARD'];
 const FOREMAN: MenuKey[] = [...EVERYONE, ...STOCK, 'PUR_PR', 'PUR_RECEIVE', 'LABOR_PRV', 'FIN_ASSETS', 'AS_WARRANTY'];
 const ENGINEER: MenuKey[] = [...FOREMAN, 'LABOR_REPORT'];
 const PURCHASING: MenuKey[] = [...EVERYONE, ...STOCK, 'PUR_OVERVIEW', 'PUR_PROJECT_REPORT', 'PUR_PR', 'PUR_PO', 'PUR_AP', 'PUR_VENDORS', 'PUR_ITEMS', 'PUR_RECEIVE', 'LABOR_PRV', 'LABOR_CONTRACTORS'];
