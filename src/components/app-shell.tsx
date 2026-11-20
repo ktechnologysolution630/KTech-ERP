@@ -53,6 +53,10 @@ interface AppShellProps {
   unreadCount?: number;
   /** From Settings; shown in the top bar */
   companyName: string;
+  /** English company name from the form letterhead settings, shown as the sidebar brand */
+  companyNameEn: string;
+  /** The company logo from settings, else the shipped one */
+  logoUrl: string;
   /**
    * Documents waiting on this user, still being counted when the page is sent so the page does not wait
    * for it; null hides the menu from users who approve nothing
@@ -69,7 +73,7 @@ function PendingBadge({ count }: { count: Promise<number> }) {
   return n > 0 ? <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{n}</span> : null;
 }
 
-export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {
+export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, logoUrl, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,13 +134,16 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
         {/* Brand / Logo Header */}
         <div className="h-14 border-b border-slate-200 px-3.5 flex items-center justify-between shrink-0">
           <Link href={canSee('DASHBOARD') ? '/dashboard' : '/inbox'} prefetch={false} className="flex items-center gap-2.5 overflow-hidden">
-            <Image src={LOGO_URL} alt="K Technology Solution" width={36} height={33} priority className="h-9 w-auto shrink-0 object-contain" />
+            {logoUrl === LOGO_URL ? (
+              <Image src={LOGO_URL} alt={companyNameEn} width={36} height={33} priority className="h-9 w-auto shrink-0 object-contain" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- a logo set in settings can be any URL
+              <img src={logoUrl} alt={companyNameEn} className="h-9 w-9 shrink-0 object-contain" />
+            )}
             {!collapsed && (
-              <div className="leading-tight">
-                <span className="font-bold text-slate-900 text-sm tracking-tight">K Tec ERP</span>
-                <span className="block text-[8px] font-bold text-slate-400 tracking-wider uppercase">
-                  CONSTRUCTION MANAGEMENT
-                </span>
+              <div className="leading-tight min-w-0" title={`${companyNameEn} · ${companyName}`}>
+                <span className="block font-bold text-[#1e4f9c] text-[11px] tracking-tight uppercase line-clamp-2">{companyNameEn}</span>
+                <span className="block text-[8px] font-bold text-slate-400 tracking-wider uppercase">K Tec ERP</span>
               </div>
             )}
           </Link>
