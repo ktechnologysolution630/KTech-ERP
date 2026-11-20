@@ -414,6 +414,13 @@
       "when": 1795150031838,
       "tag": "0058_bank_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1795150370919,
+      "tag": "0059_customer_credit",
+      "breakpoints": true
     }
   ]
 }

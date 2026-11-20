@@ -18,7 +18,12 @@ export interface CustomerRow {
   phone: string;
   email: string;
   creditDays: number;
+  /** 0 = no limit */
+  creditLimit: number;
+  salespersonId: string;
   active: boolean;
+  /** What issued bills still owe; shown, not saved */
+  outstanding?: number;
 }
 
 const EMPTY: Omit<CustomerRow, 'id'> & { id?: string } = {
@@ -31,13 +36,28 @@ const EMPTY: Omit<CustomerRow, 'id'> & { id?: string } = {
   phone: '',
   email: '',
   creditDays: 30,
+  creditLimit: 0,
+  salespersonId: '',
   active: true,
 };
 
 const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
 
 /** `canDelete`: owner and admin may remove customers no invoice is made out to */
-export function CustomersClient({ customers, canDelete = false }: { customers: CustomerRow[]; canDelete?: boolean }) {
+export function CustomersClient({
+  customers,
+  canDelete = false,
+  salespeople = [],
+  salesBySalesperson = [],
+}: {
+  customers: CustomerRow[];
+  canDelete?: boolean;
+  salespeople?: { id: string; name: string }[];
+  /** ยอดขายตามพนักงานขาย ปีนี้ */
+  salesBySalesperson?: { name: string; bills: number; beforeVat: number }[];
+}) {
+  const salespersonName = new Map(salespeople.map((p) => [p.id, p.name]));
+  const fmt = (v: number) => v.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<(Omit<CustomerRow, 'id'> & { id?: string }) | null>(null);
@@ -91,6 +111,8 @@ export function CustomersClient({ customers, canDelete = false }: { customers: C
               <th className="px-3 py-2 text-left">ผู้ติดต่อ</th>
               <th className="px-3 py-2 text-left">โทรศัพท์</th>
               <th className="px-3 py-2 text-right">เครดิต</th>
+              <th className="px-3 py-2 text-right">วงเงิน / ค้างชำระ</th>
+              <th className="px-3 py-2 text-left">พนักงานขาย</th>
               <th className="px-3 py-2 text-left">สถานะ</th>
               <th className="px-3 py-2" />
             </tr>
@@ -98,7 +120,7 @@ export function CustomersClient({ customers, canDelete = false }: { customers: C
           <tbody className="divide-y divide-slate-100">
             {shown.length === 0 && (
               <tr>
-                <td colSpan={canDelete ? 10 : 9} className="py-12 text-center text-slate-400">ยังไม่มีลูกค้า</td>
+                <td colSpan={canDelete ? 12 : 11} className="py-12 text-center text-slate-400">ยังไม่มีลูกค้า</td>
               </tr>
             )}
             {shown.map((c) => (
@@ -115,6 +137,11 @@ export function CustomersClient({ customers, canDelete = false }: { customers: C
                 <td className="px-3 py-2">{c.contactName || '-'}</td>
                 <td className="px-3 py-2">{c.phone || '-'}</td>
                 <td className="px-3 py-2 text-right">{c.creditDays} วัน</td>
+                <td className={`px-3 py-2 text-right tabular-nums ${c.creditLimit > 0 && (c.outstanding ?? 0) > c.creditLimit ? 'font-semibold text-red-600' : ''}`}>
+                  {c.creditLimit > 0 ? fmt(c.creditLimit) : 'ไม่จำกัด'}
+                  <span className="block text-[10px] text-slate-500">ค้าง {fmt(c.outstanding ?? 0)}{c.creditLimit > 0 && (c.outstanding ?? 0) > c.creditLimit ? ' · เกินวงเงิน' : ''}</span>
+                </td>
+                <td className="px-3 py-2">{salespersonName.get(c.salespersonId) ?? '-'}</td>
                 <td className="px-3 py-2">{c.active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
                 <td className="px-3 py-2 text-right">
                   <button
@@ -132,6 +159,23 @@ export function CustomersClient({ customers, canDelete = false }: { customers: C
         </table>
       </div>
 
+      {salesBySalesperson.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <h2 className="text-sm font-semibold text-slate-900 mb-2">ยอดขายตามพนักงานขาย (ปีนี้ ก่อน VAT)</h2>
+          <table className="w-full text-xs">
+            <tbody className="divide-y divide-slate-100">
+              {salesBySalesperson.map((r) => (
+                <tr key={r.name}>
+                  <td className="py-1.5">{r.name}</td>
+                  <td className="py-1.5 text-right text-slate-500">{r.bills} ใบ</td>
+                  <td className="py-1.5 text-right tabular-nums font-medium">{fmt(r.beforeVat)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {form && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
           <form
@@ -139,7 +183,7 @@ export function CustomersClient({ customers, canDelete = false }: { customers: C
               e.preventDefault();
               setError(null);
               startTransition(async () => {
-                const r = await saveCustomerAction({ ...form, taxId: form.taxId || null });
+                const r = await saveCustomerAction({ ...form, taxId: form.taxId || null, salespersonId: form.salespersonId || null });
                 if (!r.ok) {
                   setError(r.error);
                   return;
@@ -164,6 +208,21 @@ export function CustomersClient({ customers, canDelete = false }: { customers: C
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">เครดิต (วัน)</span>
                 <input type="number" min={0} max={365} value={form.creditDays} onChange={(e) => set('creditDays', Math.trunc(Number(e.target.value) || 0))} className={inputClass} />
+              </label>
+              <label className="block">
+                <span className="block font-medium text-slate-700 mb-1">วงเงินเครดิต (บาท, 0 = ไม่จำกัด)</span>
+                <input type="number" min={0} step="0.01" value={form.creditLimit} onChange={(e) => set('creditLimit', Number(e.target.value) || 0)} className={inputClass} />
+              </label>
+              <label className="block">
+                <span className="block font-medium text-slate-700 mb-1">พนักงานขาย</span>
+                <select value={form.salespersonId} onChange={(e) => set('salespersonId', e.target.value)} className={inputClass}>
+                  <option value="">— ไม่ระบุ —</option>
+                  {salespeople.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block col-span-2">
                 <span className="block font-medium text-slate-700 mb-1">ชื่อลูกค้า *</span>
