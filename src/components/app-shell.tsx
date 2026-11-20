@@ -75,6 +75,7 @@ function PendingBadge({ count }: { count: Promise<number> }) {
 const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
   { href: '/ar/customers', label: 'ลูกค้า', menu: 'FIN_CUSTOMERS' },
   { href: '/accounting', label: 'ภาพรวมบัญชี', menu: 'FIN_ACCOUNTING_OVERVIEW' },
+  { href: '/accounting/gl', label: 'สมุดรายวัน / ผังบัญชี', menu: 'FIN_GL' },
   { href: '/sales/income', label: 'รายรับ', menu: 'FIN_INCOME' },
   { href: '/sales/expense', label: 'รายจ่าย', menu: 'FIN_EXPENSE' },
   { href: '/accounting/bill-scan', label: 'สแกนบิล', menu: 'FIN_BILL_SCAN' },

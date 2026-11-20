@@ -54,6 +54,7 @@ export const MENU_TREE = [
     children: [
       { key: 'FIN_CUSTOMERS', label: 'ลูกค้า' },
       { key: 'FIN_ACCOUNTING_OVERVIEW', label: 'ภาพรวมบัญชี' },
+      { key: 'FIN_GL', label: 'สมุดรายวัน / ผังบัญชี / งบทดลอง' },
       { key: 'FIN_INCOME', label: 'รายรับ' },
       { key: 'FIN_EXPENSE', label: 'รายจ่าย' },
       { key: 'FIN_BILL_SCAN', label: 'สแกนบิล' },
@@ -195,6 +196,7 @@ const PATHS: [string, MenuKey[]][] = [
   ['/cash-bank', ['FIN_CASH_BANK']],
   ['/accounting', ['FIN_ACCOUNTING_OVERVIEW']],
   ['/accounting/input-vat', ['FIN_INPUT_VAT']],
+  ['/accounting/gl', ['FIN_GL']],
   ['/accounting/bill-scan', ['FIN_BILL_SCAN']],
   ['/accounting/settings', ['FIN_ACCOUNTING_SETTINGS']],
   ['/accounting/wht', ['FIN_WHT']],

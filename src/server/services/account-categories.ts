@@ -54,6 +54,7 @@ const RUNNING = [
   ['EXP', 'รายจ่าย (ใบสำคัญจ่าย)'],
   ['PV', 'ใบสำคัญจ่ายตามใบสั่งซื้อ'],
   ['WHT', 'หัก ณ ที่จ่าย (50 ทวิ)'],
+  ['JV', 'สมุดรายวัน (ลงบัญชีอัตโนมัติ)'],
 ] as const;
 
 /** Where each document's running number stands this month and what the next one will be */

@@ -379,6 +379,13 @@
       "when": 1795144301436,
       "tag": "0053_boq_overrun_category",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1795146519448,
+      "tag": "0054_gl_journal",
+      "breakpoints": true
     }
   ]
 }

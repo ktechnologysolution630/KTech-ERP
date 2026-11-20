@@ -8,6 +8,7 @@ import { computeSalesTotals, SALES_DOC_META, type SalesDocKind } from '@/domain/
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
+import { syncJournal } from './gl';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'วันที่ไม่ถูกต้อง');
 const money = z.number().finite().min(0, 'จำนวนเงินต้องไม่ติดลบ').max(1_000_000_000);
@@ -223,7 +224,9 @@ export async function createSalesDoc(
       const why = `แก้ไขโดยออกใบใหม่ ${number}`;
       await tx.update(salesDocs).set({ status: 'CANCELLED', cancelReason: why, updatedAt: new Date() }).where(eq(salesDocs.id, replaced.id));
       await logActivity(tx, { entityType: 'SALES_DOC', entityId: replaced.id, action: 'CANCEL', userId: actor.id, note: why });
+      await syncJournal(tx, 'SALES_DOC', replaced.id, actor.id);
     }
+    await syncJournal(tx, 'SALES_DOC', doc!.id, actor.id);
     return { id: doc!.id, number };
   });
 }
@@ -254,6 +257,7 @@ export async function updateSalesDoc(db: Db, actor: SessionUser, id: string, inp
       userId: actor.id,
       note: `${SALES_DOC_META[doc.kind].th} ${doc.number}: ${doc.payable} → ${values.payable} บาท`,
     });
+    await syncJournal(tx, 'SALES_DOC', id, actor.id);
     return { id, number: doc.number };
   });
 }
@@ -269,6 +273,7 @@ export async function cancelSalesDoc(db: Db, actor: SessionUser, id: string, rea
     if (doc.status === 'CANCELLED') throw new DomainError('INVALID_STATUS', 'เอกสารนี้ถูกยกเลิกไปแล้ว', 409);
     await tx.update(salesDocs).set({ status: 'CANCELLED', cancelReason: why, updatedAt: new Date() }).where(eq(salesDocs.id, id));
     await logActivity(tx, { entityType: 'SALES_DOC', entityId: id, action: 'CANCEL', userId: actor.id, note: why });
+    await syncJournal(tx, 'SALES_DOC', id, actor.id);
   });
 }
 

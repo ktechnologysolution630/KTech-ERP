@@ -21,6 +21,8 @@ import {
   docCounters,
   invoicePayableMatches,
   invoices,
+  journalEntries,
+  journalLines,
   milestones,
   notifications,
   payables,
@@ -113,6 +115,7 @@ const GROUPS: { label: string; table: PgTable }[] = [
   { label: 'ค่าใช้จ่ายรถ', table: vehicleTripExpenses },
   { label: 'ตำแหน่ง GPS รถ', table: vehiclePositions },
   { label: 'ใบตรวจสภาพทรัพย์สิน', table: assetInspections },
+  { label: 'สมุดรายวัน (รายการบัญชีอัตโนมัติ)', table: journalEntries },
   { label: 'ประวัติการทำงาน (Activity log)', table: activityLogs },
   { label: 'การแจ้งเตือน', table: notifications },
 ];
@@ -172,6 +175,10 @@ export async function resetSystem(db: Db, actor: SessionUser, confirm: string): 
       await tx.delete(receiptSubstituteLines);
       await tx.delete(receiptSubstitutes);
       await tx.delete(advances);
+
+      // The books: entries go, the chart of accounts stays
+      await tx.delete(journalLines);
+      await tx.delete(journalEntries);
 
       // Receivables and sales documents
       await tx.delete(arCreditNotes);

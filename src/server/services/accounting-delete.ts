@@ -12,6 +12,8 @@ import {
   companyAccounts,
   customers,
   invoices,
+  journalEntries,
+  journalLines,
   milestones,
   notifications,
   payables,
@@ -424,7 +426,7 @@ const paidByBilling = (db: Db) =>
 export async function previewAccountingWipe(db: Db, actor: SessionUser): Promise<AccountingWipePreview> {
   assertCan(actor, 'accounting.delete');
   const salesCounts = await db.select({ kind: salesDocs.kind, n: count() }).from(salesDocs).groupBy(salesDocs.kind);
-  const [arInv, arRc, arCn, apInv, pvCount, whtCount, advCount, rsCount, heldPayables, paidInstallments, billedMilestones, claimedTrips] = await Promise.all([
+  const [arInv, arRc, arCn, apInv, pvCount, whtCount, advCount, rsCount, heldPayables, paidInstallments, billedMilestones, claimedTrips, journalCount] = await Promise.all([
     countOf(db, arInvoices),
     countOf(db, arReceipts),
     countOf(db, arCreditNotes),
@@ -437,6 +439,7 @@ export async function previewAccountingWipe(db: Db, actor: SessionUser): Promise
     countOf(db, poInstallments, eq(poInstallments.status, 'PAID')),
     countOf(db, milestones, paidByBilling(db)),
     countOf(db, vehicleTripExpenses, isNotNull(vehicleTripExpenses.claimId)),
+    countOf(db, journalEntries),
   ]);
   const documents = [
     ...SALES_DOC_KINDS.map((k) => ({ label: SALES_DOC_META[k].th, count: salesCounts.find((s) => s.kind === k)?.n ?? 0 })),
@@ -448,6 +451,7 @@ export async function previewAccountingWipe(db: Db, actor: SessionUser): Promise
     { label: 'หนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)', count: whtCount },
     { label: 'ใบขอเงินทดรองจ่าย', count: advCount },
     { label: 'ใบรับรองแทนใบเสร็จ', count: rsCount },
+    { label: 'สมุดรายวัน (รายการบัญชีอัตโนมัติ)', count: journalCount },
   ].filter((d) => d.count > 0);
   const resets = [
     { label: 'รายการในคิวตั้งจ่ายที่กลับเป็น "รอตั้งจ่าย"', count: heldPayables },
@@ -490,6 +494,7 @@ export async function wipeAccounting(db: Db, actor: SessionUser, confirm: string
         ...(await numbersOf(tx.select({ number: whtCerts.number }).from(whtCerts))),
         ...(await numbersOf(tx.select({ number: advances.number }).from(advances))),
         ...(await numbersOf(tx.select({ number: receiptSubstitutes.number }).from(receiptSubstitutes))),
+        ...(await numbersOf(tx.select({ number: journalEntries.number }).from(journalEntries))),
       ];
       // Picked up before the invoices go: the milestones their settlement marked paid
       const billedMilestoneIds = ids(await tx.select({ id: milestones.id }).from(milestones).where(paidByBilling(tx)));
@@ -507,6 +512,10 @@ export async function wipeAccounting(db: Db, actor: SessionUser, confirm: string
             like(notifications.href, '/receipt-substitutes/%'),
           ),
         );
+
+      // The books: every entry came from the documents going now; the chart of accounts stays
+      await tx.delete(journalLines);
+      await tx.delete(journalEntries);
 
       // Advances and the receipt substitutes that cleared them
       await tx.update(vehicleTripExpenses).set({ claimId: null }).where(isNotNull(vehicleTripExpenses.claimId));
