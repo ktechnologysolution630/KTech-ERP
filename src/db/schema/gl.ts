@@ -70,3 +70,25 @@ export const journalLines = pgTable(
   },
   (t) => [index('journal_lines_entry_idx').on(t.entryId), index('journal_lines_account_idx').on(t.accountId)],
 );
+
+/**
+ * ปิดงวด / ปิดบัญชีสิ้นปี: the books are closed up to closedThrough while a closing is not reopened. No entry
+ * dated on or before the latest open closing can be posted, changed or voided. A year-end closing also
+ * carries the entry that moved the year's income and expenses into retained earnings.
+ */
+export const glClosings = pgTable(
+  'gl_closings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    closedThrough: date('closed_through').notNull(),
+    kind: text('kind').$type<'PERIOD' | 'YEAR'>().notNull(),
+    yearCloseEntryId: uuid('year_close_entry_id').references(() => journalEntries.id),
+    note: text('note').default('').notNull(),
+    closedBy: uuid('closed_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    reopenedAt: timestamp('reopened_at', { withTimezone: true }),
+    reopenedBy: uuid('reopened_by').references(() => users.id, { onDelete: 'set null' }),
+    reopenReason: text('reopen_reason'),
+  },
+  (t) => [index('gl_closings_through_idx').on(t.closedThrough)],
+);

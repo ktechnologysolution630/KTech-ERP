@@ -20,6 +20,7 @@ import { D, round2, sum } from '@/domain/money';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
+import { assertPeriodOpen } from './gl-period';
 
 /**
  * ยอดยกมา (Express: บันทึกยอดยกมา): the balances a company brings in when it starts using the system.
@@ -106,6 +107,12 @@ export async function saveOpeningEntry(db: Db, actor: SessionUser, input: Openin
   }
 
   return db.transaction(async (tx) => {
+    const [prev] = await tx
+      .select({ date: journalEntries.entryDate })
+      .from(journalEntries)
+      .where(and(eq(journalEntries.sourceType, 'OPENING'), eq(journalEntries.status, 'POSTED')));
+    if (prev) await assertPeriodOpen(tx, prev.date);
+    await assertPeriodOpen(tx, d.date);
     if (lines.length > 0) {
       const found = await tx.select({ id: glAccounts.id }).from(glAccounts).where(inArray(glAccounts.id, lines.map((l) => l.accountId)));
       if (found.length !== lines.length) throw new DomainError('NOT_FOUND', 'ไม่พบบางบัญชีในผังบัญชี', 404);

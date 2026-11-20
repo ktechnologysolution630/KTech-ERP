@@ -13,6 +13,7 @@ import {
   companyAccounts,
   customers,
   invoices,
+  glClosings,
   journalEntries,
   journalLines,
   milestones,
@@ -519,6 +520,7 @@ export async function wipeAccounting(db: Db, actor: SessionUser, confirm: string
         );
 
       // The books: every entry came from the documents going now; the chart of accounts stays
+      await tx.delete(glClosings);
       await tx.delete(journalLines);
       await tx.delete(journalEntries);
 

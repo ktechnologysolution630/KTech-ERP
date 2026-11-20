@@ -41,6 +41,7 @@ import { D, round2, sum } from '@/domain/money';
 import { SALES_DOC_META, type SalesDocKind } from '@/domain/sales-doc';
 import { assertCan } from '@/server/policy';
 import { nextDocNumber } from './numbering';
+import { assertPeriodOpen, closedThrough } from './gl-period';
 
 /** The documents that post automatically, in the order a full re-post walks them */
 export const AUTO_SOURCES = ['AP_INVOICE', 'AP_CREDIT_NOTE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC'] as const;
@@ -223,6 +224,9 @@ export async function syncJournal(tx: Db, source: AutoSource, id: string, actorI
     const lines = await tx.select().from(journalLines).where(eq(journalLines.entryId, existing[0]!.id));
     if (entryFingerprint({ date: existing[0]!.entryDate, lines }) === entryFingerprint({ date: draft.date, lines: resolved })) return existing[0]!.id;
   }
+  // A closed period's books stay as they are: refuse before anything is written
+  for (const e of existing) await assertPeriodOpen(tx, e.entryDate);
+  if (draft) await assertPeriodOpen(tx, draft.date);
   if (existing.length > 0) {
     await tx
       .update(journalEntries)
@@ -272,7 +276,21 @@ export async function repostAll(db: Db, actor: SessionUser): Promise<{ posted: n
     let posted = 0;
     for (const source of AUTO_SOURCES) {
       for (const id of await sourceIds(tx, source)) {
-        const entryId = await syncJournal(tx, source, id, actor.id);
+        let entryId: string | null;
+        try {
+          entryId = await syncJournal(tx, source, id, actor.id);
+        } catch (err) {
+          // A document in a closed period keeps the entry it has; nothing was written before the refusal
+          if (err instanceof DomainError && err.code === 'PERIOD_CLOSED') {
+            const [kept_] = await tx
+              .select({ id: journalEntries.id })
+              .from(journalEntries)
+              .where(and(eq(journalEntries.sourceType, source), eq(journalEntries.sourceId, id), eq(journalEntries.status, 'POSTED')));
+            if (kept_) kept.add(kept_.id);
+            continue;
+          }
+          throw err;
+        }
         if (!entryId) continue;
         kept.add(entryId);
         if (!beforeIds.has(entryId)) posted++;
@@ -280,10 +298,11 @@ export async function repostAll(db: Db, actor: SessionUser): Promise<{ posted: n
     }
     // Entries of documents that were deleted outright
     const orphans = await tx
-      .select({ id: journalEntries.id })
+      .select({ id: journalEntries.id, entryDate: journalEntries.entryDate })
       .from(journalEntries)
       .where(and(eq(journalEntries.status, 'POSTED'), inArray(journalEntries.sourceType, [...AUTO_SOURCES])));
-    const orphanIds = orphans.map((o) => o.id).filter((oid) => !kept.has(oid));
+    const through = await closedThrough(tx);
+    const orphanIds = orphans.filter((o) => !kept.has(o.id) && !(through && o.entryDate <= through)).map((o) => o.id);
     if (orphanIds.length > 0) {
       await tx.update(journalEntries).set({ status: 'VOID', voidedAt: new Date(), voidReason: 'ไม่พบเอกสารต้นทาง' }).where(inArray(journalEntries.id, orphanIds));
     }

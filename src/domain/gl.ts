@@ -30,7 +30,7 @@ export const GL_BOOK_LABEL: Record<GlBook, string> = {
 };
 
 /** The document a journal entry was made from */
-export type JournalSource = 'AP_INVOICE' | 'AP_CREDIT_NOTE' | 'PV' | 'AR_INVOICE' | 'AR_RECEIPT' | 'AR_CREDIT_NOTE' | 'SALES_DOC' | 'STOCK_ADJUST' | 'OPENING' | 'MANUAL';
+export type JournalSource = 'AP_INVOICE' | 'AP_CREDIT_NOTE' | 'PV' | 'AR_INVOICE' | 'AR_RECEIPT' | 'AR_CREDIT_NOTE' | 'SALES_DOC' | 'STOCK_ADJUST' | 'OPENING' | 'YEAR_CLOSE' | 'MANUAL';
 export const JOURNAL_SOURCE_LABEL: Record<JournalSource, string> = {
   AP_INVOICE: 'ซื้อเชื่อ/รับสินค้า (RR)',
   AP_CREDIT_NOTE: 'ใบลดหนี้ผู้ขาย/ส่งคืนสินค้า',
@@ -41,6 +41,7 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalSource, string> = {
   SALES_DOC: 'เอกสารขาย/รับ-จ่าย',
   STOCK_ADJUST: 'ปรับปรุงสต็อก (AJ)',
   OPENING: 'ยอดยกมา',
+  YEAR_CLOSE: 'ปิดบัญชีสิ้นปี',
   MANUAL: 'บันทึกด้วยมือ',
 };
 
@@ -65,7 +66,8 @@ export type SystemAccountKey =
   | 'COGS'
   | 'LABOR_COST'
   | 'EXPENSE'
-  | 'STOCK_ADJUST';
+  | 'STOCK_ADJUST'
+  | 'RETAINED_EARNINGS';
 
 export const SYSTEM_ACCOUNT_LABEL: Record<SystemAccountKey, string> = {
   CASH: 'เงินสด',
@@ -88,6 +90,7 @@ export const SYSTEM_ACCOUNT_LABEL: Record<SystemAccountKey, string> = {
   LABOR_COST: 'ค่าแรงและผู้รับเหมาช่วง',
   EXPENSE: 'ค่าใช้จ่ายทั่วไป',
   STOCK_ADJUST: 'กำไร(ขาดทุน)จากการปรับปรุงสต็อก',
+  RETAINED_EARNINGS: 'กำไร(ขาดทุน)สะสม',
 };
 
 /** The chart a new company starts with (Thai standard numbering); seeded by the migration */
@@ -108,7 +111,7 @@ export const DEFAULT_CHART: { code: string; name: string; type: GlAccountType; s
   { code: '2130', name: 'ภาษีหัก ณ ที่จ่ายค้างจ่าย', type: 'LIABILITY', systemKey: 'WHT_PAYABLE' },
   { code: '2140', name: 'ค่าใช้จ่ายค้างจ่าย', type: 'LIABILITY' },
   { code: '3100', name: 'ทุนจดทะเบียน', type: 'EQUITY' },
-  { code: '3200', name: 'กำไร(ขาดทุน)สะสม', type: 'EQUITY' },
+  { code: '3200', name: 'กำไร(ขาดทุน)สะสม', type: 'EQUITY', systemKey: 'RETAINED_EARNINGS' },
   { code: '4100', name: 'รายได้จากการขาย/บริการ', type: 'INCOME', systemKey: 'SALES' },
   { code: '4110', name: 'รับคืนสินค้า/ส่วนลดจ่าย', type: 'INCOME', systemKey: 'SALES_RETURN' },
   { code: '4900', name: 'รายได้อื่น', type: 'INCOME', systemKey: 'OTHER_INCOME' },
