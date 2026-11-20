@@ -32,7 +32,9 @@ export type EntityType =
   | 'COMPANY_ACCOUNT'
   | 'ACCOUNT_CATEGORY'
   /** The wipe of all accounting documents */
-  | 'ACCOUNTING';
+  | 'ACCOUNTING'
+  /** The reset of every document in the system */
+  | 'SYSTEM';
 
 /** Project workspace files: documents (folders, versions by name) or photos (albums). */
 export type AttachmentKind = 'FILE' | 'PHOTO';

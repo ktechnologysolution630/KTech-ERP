@@ -34,6 +34,11 @@ export default async function SettingsPage() {
               ล้างข้อมูลบัญชีทั้งหมด →
             </Link>
           )}
+          {can(actor, 'data.delete') && (
+            <Link href="/settings/system-reset" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100">
+              ล้างข้อมูลทั้งระบบ →
+            </Link>
+          )}
         </div>
       </div>
 
