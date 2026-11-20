@@ -69,6 +69,8 @@ const customerSchema = z.object({
   phone: z.string().trim().max(50).default(''),
   email: z.string().trim().max(200).default(''),
   creditDays: z.number().int().min(0).max(365).default(30),
+  creditLimit: z.number().finite().min(0, 'วงเงินต้องไม่ติดลบ').max(10_000_000_000_000).default(0),
+  salespersonId: z.string().uuid().nullable().or(z.literal('').transform(() => null)).default(null),
   active: z.boolean().default(true),
 });
 
@@ -94,6 +96,8 @@ export async function upsertCustomer(db: Db, actor: SessionUser, input: Customer
     phone: d.phone,
     email: d.email,
     creditDays: d.creditDays,
+    creditLimit: d.creditLimit.toFixed(2),
+    salespersonId: d.salespersonId,
     active: d.active,
   };
   if (d.id) {

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
+  apCreditNotes,
   arCreditNotes,
   arInvoices,
   arReceipts,
@@ -23,6 +24,7 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import {
+  apCreditNoteLines,
   apInvoiceLines,
   arCreditNoteLines,
   arInvoiceLines,
@@ -44,12 +46,13 @@ import { SALES_DOC_META, type SalesDocKind } from '@/domain/sales-doc';
 import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { nextDocNumber } from './numbering';
+import { assertPeriodOpen, closedThrough } from './gl-period';
 
-/** The documents that post automatically, in the order a full re-post walks them */
 /** reference_type of the stock movements a sale cut (see sales-docs.ts) */
 export const SALES_STOCK_REF = 'SALES_DOC';
 
-export const AUTO_SOURCES = ['AP_INVOICE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC', 'STOCK_ADJUST'] as const;
+/** The documents that post automatically, in the order a full re-post walks them */
+export const AUTO_SOURCES = ['AP_INVOICE', 'AP_CREDIT_NOTE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC', 'STOCK_ADJUST'] as const;
 export type AutoSource = (typeof AUTO_SOURCES)[number];
 
 /**
@@ -81,6 +84,30 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
         lines: apInvoiceLines({ ...row.inv, toInventory: Boolean(stocked) }),
       };
     }
+    case 'AP_CREDIT_NOTE': {
+      const [row] = await tx
+        .select({ cn: apCreditNotes, inv: invoices, poNumber: pos.number, projectId: pos.projectId, vendorName: vendors.name })
+        .from(apCreditNotes)
+        .innerJoin(invoices, eq(invoices.id, apCreditNotes.invoiceId))
+        .innerJoin(pos, eq(pos.id, invoices.poId))
+        .innerJoin(vendors, eq(vendors.id, apCreditNotes.vendorId))
+        .where(eq(apCreditNotes.id, id));
+      if (!row || row.cn.voided) return null;
+      const [stocked] = await tx
+        .select({ one: sql<number>`1` })
+        .from(poLines)
+        .where(and(eq(poLines.poId, row.inv.poId), isNotNull(poLines.stockItemId)))
+        .limit(1);
+      return {
+        date: row.cn.docDate,
+        book: 'PU',
+        sourceNumber: row.cn.number,
+        description: `ลดหนี้/ส่งคืนสินค้า ตามใบแจ้งหนี้ ${row.inv.invoiceNo}: ${row.cn.reason}`,
+        partyName: row.vendorName,
+        projectId: row.projectId,
+        lines: apCreditNoteLines({ ...row.cn, isTaxInvoice: row.inv.isTaxInvoice, toInventory: Boolean(stocked) }),
+      };
+    }
     case 'PV': {
       const [pv] = await tx.select({ pv: pvs, vendorName: vendors.name }).from(pvs).innerJoin(vendors, eq(vendors.id, pvs.vendorId)).where(eq(pvs.id, id));
       if (!pv || pv.pv.status !== 'PAID' || !pv.pv.paidAt) return null;
@@ -103,6 +130,8 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
     case 'AR_INVOICE': {
       const [row] = await tx.select({ inv: arInvoices, customerName: customers.name }).from(arInvoices).innerJoin(customers, eq(customers.id, arInvoices.customerId)).where(eq(arInvoices.id, id));
       if (!row || !['ISSUED', 'PARTIAL', 'PAID'].includes(row.inv.status)) return null;
+      // Brought forward: its debt is already in the opening entry
+      if (row.inv.isOpening) return null;
       return {
         date: row.inv.docDate,
         book: 'SA',
@@ -234,6 +263,9 @@ export async function syncJournal(tx: Db, source: AutoSource, id: string, actorI
     const lines = await tx.select().from(journalLines).where(eq(journalLines.entryId, existing[0]!.id));
     if (entryFingerprint({ date: existing[0]!.entryDate, lines }) === entryFingerprint({ date: draft.date, lines: resolved })) return existing[0]!.id;
   }
+  // A closed period's books stay as they are: refuse before anything is written
+  for (const e of existing) await assertPeriodOpen(tx, e.entryDate);
+  if (draft) await assertPeriodOpen(tx, draft.date);
   if (existing.length > 0) {
     await tx
       .update(journalEntries)
@@ -265,7 +297,7 @@ export async function syncJournal(tx: Db, source: AutoSource, id: string, actorI
 }
 
 async function sourceIds(db: Db, source: AutoSource): Promise<string[]> {
-  const table = { AP_INVOICE: invoices, PV: pvs, AR_INVOICE: arInvoices, AR_RECEIPT: arReceipts, AR_CREDIT_NOTE: arCreditNotes, SALES_DOC: salesDocs, STOCK_ADJUST: stockAdjustRequests }[source];
+  const table = { AP_INVOICE: invoices, AP_CREDIT_NOTE: apCreditNotes, PV: pvs, AR_INVOICE: arInvoices, AR_RECEIPT: arReceipts, AR_CREDIT_NOTE: arCreditNotes, SALES_DOC: salesDocs, STOCK_ADJUST: stockAdjustRequests }[source];
   const rows = await db.select({ id: table.id }).from(table);
   return rows.map((r) => r.id);
 }
@@ -283,7 +315,21 @@ export async function repostAll(db: Db, actor: SessionUser): Promise<{ posted: n
     let posted = 0;
     for (const source of AUTO_SOURCES) {
       for (const id of await sourceIds(tx, source)) {
-        const entryId = await syncJournal(tx, source, id, actor.id);
+        let entryId: string | null;
+        try {
+          entryId = await syncJournal(tx, source, id, actor.id);
+        } catch (err) {
+          // A document in a closed period keeps the entry it has; nothing was written before the refusal
+          if (err instanceof DomainError && err.code === 'PERIOD_CLOSED') {
+            const [kept_] = await tx
+              .select({ id: journalEntries.id })
+              .from(journalEntries)
+              .where(and(eq(journalEntries.sourceType, source), eq(journalEntries.sourceId, id), eq(journalEntries.status, 'POSTED')));
+            if (kept_) kept.add(kept_.id);
+            continue;
+          }
+          throw err;
+        }
         if (!entryId) continue;
         kept.add(entryId);
         if (!beforeIds.has(entryId)) posted++;
@@ -291,10 +337,11 @@ export async function repostAll(db: Db, actor: SessionUser): Promise<{ posted: n
     }
     // Entries of documents that were deleted outright
     const orphans = await tx
-      .select({ id: journalEntries.id })
+      .select({ id: journalEntries.id, entryDate: journalEntries.entryDate })
       .from(journalEntries)
       .where(and(eq(journalEntries.status, 'POSTED'), inArray(journalEntries.sourceType, [...AUTO_SOURCES])));
-    const orphanIds = orphans.map((o) => o.id).filter((oid) => !kept.has(oid));
+    const through = await closedThrough(tx);
+    const orphanIds = orphans.filter((o) => !kept.has(o.id) && !(through && o.entryDate <= through)).map((o) => o.id);
     if (orphanIds.length > 0) {
       await tx.update(journalEntries).set({ status: 'VOID', voidedAt: new Date(), voidReason: 'ไม่พบเอกสารต้นทาง' }).where(inArray(journalEntries.id, orphanIds));
     }
@@ -506,6 +553,8 @@ export function sourceHref(e: { sourceType: JournalSource; sourceId: string | nu
       return extra.invoiceId ? `/ar/invoices/${extra.invoiceId}` : null;
     case 'AP_INVOICE':
       return `/invoices/${e.sourceId}`;
+    case 'AP_CREDIT_NOTE':
+      return extra.invoiceId ? `/invoices/${extra.invoiceId}` : null;
     case 'SALES_DOC':
       return extra.kind ? `/sales/${SALES_DOC_META[extra.kind].slug}/${e.sourceId}` : null;
     default:

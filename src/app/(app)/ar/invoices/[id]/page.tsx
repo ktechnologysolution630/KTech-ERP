@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { AGING_LABELS, AR_INVOICE_STATUS_LABELS, PAY_METHOD_LABELS } from '@/domain/ar';
 import { DomainError } from '@/domain/errors';
 import { getArInvoice } from '@/server/services/ar';
+import { checkCustomerCredit } from '@/server/services/customer-credit';
 import { baht, requireArUser } from '../../ar-guard';
 import { can } from '@/server/policy';
 import { DeleteDocButton } from '@/components/bulk-delete';
@@ -20,8 +21,20 @@ export default async function ArInvoiceDetailPage({ params }: { params: Promise<
     throw err;
   }
 
+  // Express-style warning: a draft about to be issued, or an open bill, that takes the customer over their limit
+  const credit =
+    inv.status === 'DRAFT' || inv.status === 'ISSUED' || inv.status === 'PARTIAL'
+      ? await checkCustomerCredit(db, actor, inv.customerId, inv.status === 'DRAFT' ? inv.gross : 0)
+      : null;
+
   return (
     <div className="space-y-4 text-xs">
+      {credit?.over && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+          ลูกค้ารายนี้{inv.status === 'DRAFT' ? 'จะ' : ''}เกินวงเงินเครดิต {credit.overBy.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท
+          (วงเงิน {credit.limit.toLocaleString('th-TH', { minimumFractionDigits: 2 })} · ค้างชำระ{inv.status === 'DRAFT' ? 'รวมใบนี้' : ''} {credit.after.toLocaleString('th-TH', { minimumFractionDigits: 2 })})
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/ar/invoices" className="text-slate-500 hover:text-slate-800">
           ← ใบแจ้งหนี้ทั้งหมด

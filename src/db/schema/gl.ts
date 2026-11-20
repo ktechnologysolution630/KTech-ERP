@@ -70,3 +70,59 @@ export const journalLines = pgTable(
   },
   (t) => [index('journal_lines_entry_idx').on(t.entryId), index('journal_lines_account_idx').on(t.accountId)],
 );
+
+/**
+ * ปิดงวด / ปิดบัญชีสิ้นปี: the books are closed up to closedThrough while a closing is not reopened. No entry
+ * dated on or before the latest open closing can be posted, changed or voided. A year-end closing also
+ * carries the entry that moved the year's income and expenses into retained earnings.
+ */
+export const glClosings = pgTable(
+  'gl_closings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    closedThrough: date('closed_through').notNull(),
+    kind: text('kind').$type<'PERIOD' | 'YEAR'>().notNull(),
+    yearCloseEntryId: uuid('year_close_entry_id').references(() => journalEntries.id),
+    note: text('note').default('').notNull(),
+    closedBy: uuid('closed_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    reopenedAt: timestamp('reopened_at', { withTimezone: true }),
+    reopenedBy: uuid('reopened_by').references(() => users.id, { onDelete: 'set null' }),
+    reopenReason: text('reopen_reason'),
+  },
+  (t) => [index('gl_closings_through_idx').on(t.closedThrough)],
+);
+
+/** กระทบยอดเงินฝากธนาคาร: one bank statement matched against the books of one account */
+export const bankReconciliations = pgTable(
+  'bank_reconciliations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => glAccounts.id),
+    statementDate: date('statement_date').notNull(),
+    statementBalance: numeric('statement_balance', { precision: 16, scale: 2 }).notNull(),
+    /** The book balance on the statement date, kept to show what was outstanding then */
+    bookBalance: numeric('book_balance', { precision: 16, scale: 2 }).notNull(),
+    note: text('note').default('').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('bank_reconciliations_account_idx').on(t.accountId, t.statementDate)],
+);
+
+/** A journal line ticked as on the bank statement; each line is reconciled once */
+export const bankRecLines = pgTable(
+  'bank_rec_lines',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    reconciliationId: uuid('reconciliation_id')
+      .notNull()
+      .references(() => bankReconciliations.id, { onDelete: 'cascade' }),
+    journalLineId: uuid('journal_line_id')
+      .notNull()
+      .references(() => journalLines.id, { onDelete: 'cascade' }),
+  },
+  (t) => [uniqueIndex('bank_rec_lines_line_idx').on(t.journalLineId)],
+);

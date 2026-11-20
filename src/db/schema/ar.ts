@@ -18,6 +18,10 @@ export const customers = pgTable(
     phone: text('phone').default('').notNull(),
     email: text('email').default('').notNull(),
     creditDays: integer('credit_days').default(30).notNull(),
+    /** วงเงินเครดิต: outstanding bills above it raise a warning; 0 means no limit */
+    creditLimit: numeric('credit_limit', { precision: 16, scale: 2 }).default('0.00').notNull(),
+    /** พนักงานขาย who looks after the customer */
+    salespersonId: uuid('salesperson_id').references(() => users.id, { onDelete: 'set null' }),
     active: boolean('active').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -47,6 +51,8 @@ export const arInvoices = pgTable(
     status: text('status').$type<ArInvoiceStatus>().default('DRAFT').notNull(),
     note: text('note').default('').notNull(),
     voidReason: text('void_reason'),
+    /** ลูกหนี้คงค้างยกมา: owed from before the system; its debt is in the opening entry, so it posts nothing itself */
+    isOpening: boolean('is_opening').default(false).notNull(),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id),

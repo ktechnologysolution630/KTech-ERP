@@ -40,6 +40,8 @@ export const EXPENSE_GROUP: Record<PayableSourceType, string> = {
   CONTRACTOR_CLAIM: 'ค่าผู้รับเหมาช่วง',
   LABOR: 'ค่าแรง',
   EXPENSE: 'ค่าใช้จ่ายโครงการอื่นๆ',
+  CREDIT_NOTE: 'ค่าวัสดุ/สั่งซื้อ (PO)',
+  OPENING: 'เจ้าหนี้ยกมา',
 };
 
 const COMMITTED_PO = ['APPROVED', 'ORDERED', 'COMPLETED'] as const;

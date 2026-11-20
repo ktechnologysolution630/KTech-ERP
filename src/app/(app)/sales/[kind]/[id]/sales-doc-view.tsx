@@ -51,12 +51,14 @@ export interface SalesDocViewData {
   status: 'ISSUED' | 'CANCELLED';
   cancelReason: string | null;
   creatorName: string;
-  lines: { id: string; isSection: boolean; name: string; detail: string; qty: string; unit: string; unitPrice: string; amount: string }[];
+  lines: { id: string; isSection: boolean; name: string; detail: string; qty: string; unit: string; unitPrice: string; discount?: string; amount: string }[];
 }
 
 const PAY_LABEL = { TRANSFER: 'โอนเงิน', CASH: 'เงินสด', CHEQUE: 'เช็ค', PROMPTPAY: 'พร้อมเพย์', CARD: 'บัตรเครดิต' } as const;
 
 function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company: CompanyHeader; signers: Signer[]; text: FormText }) {
+  // The discount column prints only when some line has its own discount
+  const lineDiscount = doc.lines.some((l) => Number(l.discount ?? 0) > 0);
   const nos = doc.lines.reduce<number[]>((acc, l, i) => [...acc, (acc[i - 1] ?? 0) + (l.isSection ? 0 : 1)], []);
   const money = (v: string) => formatMoneyDisplay(v);
   return (
@@ -133,6 +135,7 @@ function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company
             <th className="w-20 border border-[#102d72] px-2 py-1.5 text-right">จำนวน</th>
             <th className="w-20 border border-[#102d72] px-2 py-1.5">หน่วย</th>
             <th className="w-28 border border-[#102d72] px-2 py-1.5 text-right">ราคาต่อหน่วย</th>
+            {lineDiscount && <th className="w-24 border border-[#102d72] px-2 py-1.5 text-right">ส่วนลด</th>}
             <th className="w-28 border border-[#102d72] px-2 py-1.5 text-right">จำนวนเงิน</th>
           </tr>
         </thead>
@@ -141,7 +144,7 @@ function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company
             l.isSection ? (
               <tr key={l.id} className="bg-slate-50">
                 <td className="border border-slate-200" />
-                <td colSpan={5} className="border border-slate-200 px-2 py-1.5 font-semibold">
+                <td colSpan={lineDiscount ? 6 : 5} className="border border-slate-200 px-2 py-1.5 font-semibold">
                   {l.name}
                 </td>
               </tr>
@@ -155,6 +158,7 @@ function Paper({ doc, company, signers, text }: { doc: SalesDocViewData; company
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{Number(l.qty).toLocaleString('th-TH')}</td>
                 <td className="border border-slate-200 px-2 py-1.5 text-center">{l.unit}</td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{money(l.unitPrice)}</td>
+                {lineDiscount && <td className="border border-slate-200 px-2 py-1.5 text-right">{Number(l.discount ?? 0) > 0 ? money(l.discount!) : '-'}</td>}
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{money(l.amount)}</td>
               </tr>
             ),

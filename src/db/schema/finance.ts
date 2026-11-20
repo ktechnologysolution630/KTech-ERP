@@ -22,7 +22,11 @@ export type PayableSourceType =
   | 'INSTALLMENT'
   | 'CONTRACTOR_CLAIM'
   | 'LABOR'
-  | 'EXPENSE';
+  | 'EXPENSE'
+  /** ใบลดหนี้ผู้ขาย: a negative amount that a payment voucher nets against the vendor's bills */
+  | 'CREDIT_NOTE'
+  /** เจ้าหนี้คงค้างยกมา: owed from before the system; its debt is in the opening entry */
+  | 'OPENING';
 
 export type PayableStatus = 'OPEN' | 'IN_PV' | 'PAID' | 'CANCELLED';
 
@@ -89,6 +93,40 @@ export const payables = pgTable('payables', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index('payables_project_idx').on(t.projectId)]);
+
+/**
+ * ใบลดหนี้ผู้ขาย / ส่งคืนสินค้า (Express: RRGR): the vendor takes back part of a bill, for goods returned
+ * or a price reduction. It owes us its amount, so it carries a negative payable that the next payment
+ * voucher to the vendor nets off, and it reverses the bill's cost and input VAT in the books.
+ */
+export const apCreditNotes = pgTable(
+  'ap_credit_notes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    number: text('number').notNull(),
+    invoiceId: uuid('invoice_id')
+      .notNull()
+      .references(() => invoices.id),
+    vendorId: uuid('vendor_id')
+      .notNull()
+      .references(() => vendors.id),
+    docDate: date('doc_date').notNull(),
+    /** The vendor's own credit-note number, which the input VAT report lists */
+    vendorDocNo: text('vendor_doc_no').default('').notNull(),
+    reason: text('reason').notNull(),
+    beforeVat: numeric('before_vat', { precision: 14, scale: 2 }).notNull(),
+    vat: numeric('vat', { precision: 14, scale: 2 }).notNull(),
+    gross: numeric('gross', { precision: 14, scale: 2 }).notNull(),
+    payableId: uuid('payable_id').references(() => payables.id),
+    voided: boolean('voided').default(false).notNull(),
+    voidReason: text('void_reason'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('ap_credit_notes_number_idx').on(t.number), index('ap_credit_notes_invoice_idx').on(t.invoiceId)],
+);
 
 export const invoicePayableMatches = pgTable('invoice_payable_matches', {
   id: uuid('id').defaultRandom().primaryKey(),
