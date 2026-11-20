@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { computeBoqLine, computeBoqTotals, type BoqRowInput } from '@/domain/boq';
+import { computeBoqCategoryTotals, computeBoqLine, computeBoqTotals, type BoqRowInput } from '@/domain/boq';
 import type { BoqDocumentDto, SaveBoqInput } from '@/server/services/boq';
 
 export interface BoqRow {
@@ -129,6 +129,11 @@ export function BoqLineGrid({
 
   // Decimal arithmetic, same rules the server stores
   const totals = computeBoqTotals({ rows: rows.map(toRowInput), overheadPercent, discountAmount, vatPercent });
+  // Per-category summary (หมวด), shown once the sheet has at least one category row
+  const categoryTotals = rows.some((r) => r.isCategory)
+    ? computeBoqCategoryTotals(rows.map((r) => ({ ...toRowInput(r), no: r.no, description: r.description })))
+    : [];
+  const directCost = totals.directCost.toNumber();
 
   return (
     <>
@@ -325,6 +330,53 @@ export function BoqLineGrid({
           </tbody>
         </table>
       </div>
+
+      {categoryTotals.length > 0 && (
+        <section aria-label="สรุปราคาแยกตามหมวดงาน" className="border-t-2 border-slate-700 break-inside-avoid">
+          <div className="bg-slate-100 border-b border-slate-400 px-4 py-2 font-bold text-slate-900">
+            สรุปราคาแยกตามหมวดงาน
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-400 font-semibold text-slate-800 text-center">
+                  <th className="border-r border-slate-400 py-1.5 px-2 w-12">ลำดับ</th>
+                  <th className="border-r border-slate-400 py-1.5 px-4 text-left">หมวดงาน</th>
+                  <th className="border-r border-slate-400 py-1.5 px-2 w-32">ค่าวัสดุสิ่งของ</th>
+                  <th className="border-r border-slate-400 py-1.5 px-2 w-32">ค่าแรง</th>
+                  <th className="border-r border-slate-400 py-1.5 px-2 w-32">รวมเป็นเงิน</th>
+                  <th className="py-1.5 px-2 w-20">สัดส่วน</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-300">
+                {categoryTotals.map((c, i) => {
+                  const total = c.total.toNumber();
+                  return (
+                    <tr key={`${i}-${c.no}-${c.name}`}>
+                      <td className="border-r border-slate-300 py-1.5 px-2 text-center font-mono">{c.no || '-'}</td>
+                      <td className="border-r border-slate-300 py-1.5 px-4 text-slate-900">{c.name}</td>
+                      <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono">{formatBaht(c.material.toNumber())}</td>
+                      <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono">{formatBaht(c.labor.toNumber())}</td>
+                      <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono font-bold text-slate-900">{formatBaht(total)}</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-slate-600">
+                        {directCost > 0 ? `${((total / directCost) * 100).toFixed(2)}%` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-slate-100 border-t-2 border-slate-600 font-bold">
+                  <td className="border-r border-slate-400 py-2 px-2" />
+                  <td className="border-r border-slate-400 py-2 px-4 text-slate-900">รวมทุกหมวด</td>
+                  <td className="border-r border-slate-400 py-2 px-2 text-right font-mono">{formatBaht(totals.materialTotal.toNumber())}</td>
+                  <td className="border-r border-slate-400 py-2 px-2 text-right font-mono">{formatBaht(totals.laborTotal.toNumber())}</td>
+                  <td className="border-r border-slate-400 py-2 px-2 text-right font-mono text-slate-900">{formatBaht(directCost)}</td>
+                  <td className="py-2 px-2 text-right font-mono">{directCost > 0 ? '100.00%' : '-'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-12 border-t-2 border-slate-700">
         <div className="md:col-span-6 p-4 border-b md:border-b-0 md:border-r border-slate-400 space-y-2">
