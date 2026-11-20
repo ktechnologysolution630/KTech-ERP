@@ -42,7 +42,7 @@ import {
   type TrialBalanceRow,
 } from '@/domain/gl';
 import { D, round2, sum } from '@/domain/money';
-import { SALES_DOC_META, type SalesDocKind } from '@/domain/sales-doc';
+import { SALES_DOC_META, settlesInvoice, type SalesDocKind } from '@/domain/sales-doc';
 import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { nextDocNumber } from './numbering';
@@ -212,7 +212,13 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
         .select({ value: sql<string>`coalesce(sum(case when ${stockMovements.type} = 'ISSUE' then ${stockMovements.totalValue} else -${stockMovements.totalValue} end), 0)` })
         .from(stockMovements)
         .where(and(eq(stockMovements.referenceType, SALES_STOCK_REF), eq(stockMovements.referenceId, id)));
-      const lines = salesDocLines({ ...d, payMethod: d.payMethod, cogs: cost?.value ?? 0 });
+      const [source] = d.sourceId ? await tx.select({ kind: salesDocs.kind }).from(salesDocs).where(eq(salesDocs.id, d.sourceId)).limit(1) : [];
+      const lines = salesDocLines({
+        ...d,
+        payMethod: d.payMethod,
+        cogs: cost?.value ?? 0,
+        settlesInvoice: settlesInvoice(d.kind as SalesDocKind, source?.kind as SalesDocKind | undefined),
+      });
       if (!lines) return null;
       const kind = d.kind as SalesDocKind;
       const book = kind === 'EXP' ? 'PS' : kind === 'TI' || kind === 'DN' ? 'SA' : 'RV';

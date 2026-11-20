@@ -31,7 +31,14 @@ export default async function NewInvoicePage({
       </div>
 
       <InvoiceForm
-        pos={validPos.map((p) => ({ id: p.id, number: p.number, vendorName: p.vendorName, gross: String(p.gross) }))}
+        pos={validPos.map((p) => ({
+          id: p.id,
+          number: p.number,
+          vendorName: p.vendorName,
+          gross: String(p.gross),
+          // The PO's own VAT rate, so the bill's VAT fills itself in (0 for a PO without VAT)
+          vatRate: Number(p.beforeVat) > 0 ? Math.round((Number(p.vat) / Number(p.beforeVat)) * 100) : 0,
+        }))}
         billing={billing}
         initialPoId={sp.poId ?? ''}
         today={bangkokDateString()}

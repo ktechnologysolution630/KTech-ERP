@@ -263,10 +263,15 @@ export function salesDocLines(input: {
   payable: Decimal.Value;
   /** Cost of the stock the sale handed over (TI, STI): Dr ต้นทุนขาย / Cr สินค้าคงเหลือ */
   cogs?: Decimal.Value;
+  /** A receipt against a tax invoice (TI → RC): the sale and VAT are already booked, so it clears ลูกหนี้ */
+  settlesInvoice?: boolean;
 }): DraftLine[] | null {
   const money = cashOrBank(input.payMethod);
   const cogs = D(input.cogs ?? 0);
   const cost = cogs.isZero() ? [] : [dr('COGS', cogs), cr('INVENTORY', cogs)];
+  if (input.kind === 'RC' && input.settlesInvoice) {
+    return finishLines([dr(money, input.payable), dr('WHT_RECEIVABLE', input.wht), dr('RETENTION_AR', input.retention), cr('AR', input.total)]);
+  }
   switch (input.kind) {
     case 'RC':
     case 'STI':

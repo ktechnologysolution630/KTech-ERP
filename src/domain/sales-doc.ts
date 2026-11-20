@@ -49,7 +49,15 @@ export const categoryOptions = (rows: { code: string; name: string; vatDefault: 
 export const CONVERT_TO: Partial<Record<SalesDocKind, readonly SalesDocKind[]>> = {
   QT: ['SO', 'TI'],
   SO: ['TI'],
+  // รับชำระ (RE): a receipt against a credit tax invoice collects its receivable
+  TI: ['RC'],
 };
+
+/**
+ * A receipt opened from a tax invoice only collects money the invoice already booked: it clears
+ * ลูกหนี้ instead of booking the sale and output VAT a second time.
+ */
+export const settlesInvoice = (kind: SalesDocKind, sourceKind: SalesDocKind | null | undefined) => kind === 'RC' && sourceKind === 'TI';
 export const canConvert = (from: SalesDocKind, to: SalesDocKind) => (CONVERT_TO[from] ?? []).includes(to);
 
 /** Sales that hand goods over: lines tied to a stock item are cut from stock and costed (ต้นทุนขาย) */

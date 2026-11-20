@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { computeSalesTotals, lineAmount } from '@/domain/sales-doc';
 import { cancelSalesDoc, createSalesDoc, getSalesDoc, updateSalesDoc } from '@/server/services/sales-docs';
 import { listJournal } from '@/server/services/gl';
+import { outputVatReport } from '@/server/services/ar';
 import { recordStockMovement, upsertStockItem } from '@/server/services/stock';
 import { CENTRAL_KEY, getStockCard } from '@/server/services/stock-card';
 import { bangkokDateString } from '@/domain/thai';
@@ -80,5 +81,47 @@ describe('QT → SO → TI with stock cut and cost of sales', () => {
     await cancelSalesDoc(db, f.users.finance, ti.id, 'ลูกค้ายกเลิก');
     expect(Number(await onHand())).toBe(20);
     expect((await listJournal(db, f.users.finance, { source: 'SALES_DOC' })).rows).toHaveLength(0);
+  });
+});
+
+describe('TI → RC collects the receivable', () => {
+  test('a receipt from a tax invoice clears ลูกหนี้, stays out of output VAT, and cannot collect more than the invoice', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const lines = [{ name: 'ค่าบริการติดตั้ง', qty: 1, unitPrice: 10000 }];
+    const ti = await createSalesDoc(db, f.users.finance, { kind: 'TI', docDate: '2026-11-12', customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', lines });
+
+    const rc = await createSalesDoc(
+      db,
+      f.users.finance,
+      { kind: 'RC', docDate: '2026-11-15', customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', payMethod: 'TRANSFER', lines: [{ name: 'รับชำระ', qty: 1, unitPrice: 6000 }] },
+      { sourceId: ti.id },
+    );
+    const j = await listJournal(db, f.users.finance, { source: 'SALES_DOC' });
+    const rcEntry = j.rows.find((r) => r.sourceNumber === rc.number)!;
+    // 6,000 + VAT 420 = 6,420 received: Dr bank / Cr ลูกหนี้, no second sale or VAT
+    expect(rcEntry.lines.map((l) => [l.code, l.debit, l.credit])).toEqual([
+      ['1120', 6420, 0],
+      ['1130', 0, 6420],
+    ]);
+
+    const vat = await outputVatReport(db, f.users.finance, 2026, 11);
+    expect(vat.rows.map((r) => r.number)).toEqual([ti.number]);
+
+    // 10,700 − 6,420 = 4,280 left on the invoice
+    await expect(
+      createSalesDoc(
+        db,
+        f.users.finance,
+        { kind: 'RC', docDate: '2026-11-16', customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', payMethod: 'TRANSFER', lines: [{ name: 'รับชำระ', qty: 1, unitPrice: 5000 }] },
+        { sourceId: ti.id },
+      ),
+    ).rejects.toMatchObject({ code: 'OVER_RECEIPT' });
+    await createSalesDoc(
+      db,
+      f.users.finance,
+      { kind: 'RC', docDate: '2026-11-16', customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', payMethod: 'TRANSFER', lines: [{ name: 'รับชำระ', qty: 1, unitPrice: 4000 }] },
+      { sourceId: ti.id },
+    );
   });
 });

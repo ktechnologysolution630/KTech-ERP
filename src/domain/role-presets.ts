@@ -33,6 +33,8 @@ const VISIBLE: Partial<Record<Role, MenuKey[]>> = {
     'FIN_CUSTOMERS',
     'FIN_AR_INVOICES',
     'FIN_ACCOUNTING_OVERVIEW',
+    // สมุดรายวัน งบทดลอง ยอดยกมา ปิดงวด กระทบยอดธนาคาร: finance may post and view the books (gl.manage)
+    'FIN_GL',
     'FIN_BILL_SCAN',
     'FIN_ACCOUNTING_SETTINGS',
     'FIN_INPUT_VAT',
