@@ -13,8 +13,9 @@ export function ApprovalBar({
 }: {
   canApprove: boolean;
   approverHint?: string;
-  onApprove: (overrideReason?: string) => Promise<void>;
-  onReject: (reason: string) => Promise<void>;
+  /** A returned string is a refusal to show (see messageOnRefusal) */
+  onApprove: (overrideReason?: string) => Promise<void | string>;
+  onReject: (reason: string) => Promise<void | string>;
   requireOverrideReason?: boolean;
   overrideLabel?: string;
   overridePlaceholder?: string;
@@ -48,9 +49,11 @@ export function ApprovalBar({
               setError(null);
               startTransition(async () => {
                 try {
-                  await onApprove(overrideReason || undefined);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+                  const refusal = await onApprove(overrideReason || undefined);
+                  if (refusal) setError(refusal);
+                } catch {
+                  // Refusals come back as a returned message; a throw here is unexpected and its text is hidden in production
+                  setError('ทำรายการไม่สำเร็จ กรุณาลองใหม่');
                 }
               });
             }}
@@ -104,11 +107,16 @@ export function ApprovalBar({
               setError(null);
               startTransition(async () => {
                 try {
-                  await onReject(reason);
+                  const refusal = await onReject(reason);
+                  if (refusal) {
+                    setError(refusal);
+                    return;
+                  }
                   setShowReject(false);
                   setReason('');
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+                } catch {
+                  // Refusals come back as a returned message; a throw here is unexpected and its text is hidden in production
+                  setError('ทำรายการไม่สำเร็จ กรุณาลองใหม่');
                 }
               });
             }}

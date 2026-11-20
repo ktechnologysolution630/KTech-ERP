@@ -13,7 +13,7 @@ try {
   if (match) {
     authSecret = match[1].trim();
   }
-} catch (e) {
+} catch {
   // ignore
 }
 

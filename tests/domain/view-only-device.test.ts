@@ -125,11 +125,12 @@ describe('every action that writes refuses a view-only device', () => {
     expect(blocked.map((a) => a.name)).toEqual([]);
   });
 
+  // Called directly, or through returnOnRefusal / messageOnRefusal as `() => someAction(...)`
   test('an action written inside a page hands over to a guarded action', () => {
     const inline = sources.filter((s) => !/^'use server';/.test(s.text)).flatMap((s) => [...s.text.matchAll(/'use server';([\s\S]{0,400}?)\}\}/g)].map((m) => ({ file: s.file, body: m[1]! })));
     expect(inline.length).toBeGreaterThan(20);
     const names = new Set(actions.filter((a) => !READ_ONLY.includes(a.name)).map((a) => a.name));
-    const unguarded = inline.filter((i) => ![...i.body.matchAll(/await (\w+Action)\(/g)].some((m) => names.has(m[1]!)));
+    const unguarded = inline.filter((i) => ![...i.body.matchAll(/(?:await|=>)\s+(\w+Action)\(/g)].some((m) => names.has(m[1]!)));
     expect(unguarded.map((i) => i.file)).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, X, Users, Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2 } from 'lucide-react';
 import { MasterWorkbookImport } from '@/components/master-workbook-import';
 import { VendorProfileDialog } from '@/components/vendor-profile-dialog';
 import { emptyVendorProfile } from '@/components/vendor-profile-values';

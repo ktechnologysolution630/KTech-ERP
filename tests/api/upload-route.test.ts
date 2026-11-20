@@ -24,6 +24,7 @@ describe('uploaded file storage', () => {
   let db: Db;
   let pm: SessionUser;
   let foreman: SessionUser;
+  let otherForeman: SessionUser;
   let projectId: string;
 
   beforeEach(async () => {
@@ -31,6 +32,7 @@ describe('uploaded file storage', () => {
     const f = await seedBasics(db);
     pm = f.users.pm;
     foreman = f.users.foreman;
+    otherForeman = f.users.otherForeman;
     projectId = f.projectA;
     session.db = db;
     session.user = pm;
@@ -62,6 +64,15 @@ describe('uploaded file storage', () => {
     expect((await get('')).status).toBe(400);
     session.user = null;
     expect((await get(`id=${idOf(stored.url)}`)).status).toBe(401);
+  });
+
+  test('a file attached to a project opens only for those who may see that project', async () => {
+    const saved = await addAttachment(db, pm, { entityType: 'PROJECT', entityId: projectId, file: png('แบบ.png') });
+    const query = `id=${idOf(saved!.url)}`;
+    session.user = foreman;
+    expect((await get(query)).status).toBe(200);
+    session.user = otherForeman;
+    expect((await get(query)).status).toBe(404);
   });
 
   test('deleting an attachment frees its contents', async () => {

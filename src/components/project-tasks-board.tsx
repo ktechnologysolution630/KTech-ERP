@@ -120,6 +120,7 @@ export function ProjectTasksBoard({
     const { taskId, form } = dialog;
     if (taskId) {
       // Parent is fixed after creation; everything else is editable
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { parentId: _parent, ...rest } = form;
       submit(() => updateTaskAction(projectId, taskId, rest), () => setDialog(null));
     } else {

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Package, ArrowRight, FileText, CheckCircle2, Clock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Package, ArrowRight } from 'lucide-react';
 
 function formatMoney(amount: number | string): string {
   return `฿${Number(amount || 0).toLocaleString('th-TH', {
