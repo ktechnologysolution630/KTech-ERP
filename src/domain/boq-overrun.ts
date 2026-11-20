@@ -112,11 +112,19 @@ export interface BoqCategoryOverrun {
   thisPo: string;
   /** How far the category ends up over its budget with this PO counted */
   over: string;
+  /** The part of `over` this PO causes (never more than `thisPo`); the owner approves this amount */
+  overByThisPo: string;
+}
+
+/** Category overrun this PO causes in total; above zero the PO needs the owner's approval (AP). */
+export function categoryOverAmount(overruns: Pick<BoqCategoryOverrun, 'overByThisPo'>[]): Decimal {
+  return sum(overruns.map((o) => D(o.overByThisPo)));
 }
 
 /**
  * Compares, for each category this PO's lines draw on, the category's material budget with what
- * other live POs commit to it plus this PO. Only categories that end up over budget are returned.
+ * other live POs commit to it plus this PO. Only categories that end up over budget are returned;
+ * the PO then needs the owner's approval (AP) before it can be approved.
  */
 export function computeBoqCategoryOverrun(input: {
   /** Category of each BOQ item line */
@@ -158,7 +166,16 @@ export function computeBoqCategoryOverrun(input: {
       committedElsewhere: e.toFixed(2),
       thisPo: mine.toFixed(2),
       over: over.toFixed(2),
+      overByThisPo: Decimal.min(mine, over).toFixed(2),
     });
   }
   return out;
+}
+
+/**
+ * The amount an AP asks the owner to approve: the larger of the line overrun and the category
+ * overrun (a line overrun is usually also part of its category's overrun, so they are not added).
+ */
+export function apAmount(ap: { overAmount: Decimal.Value; categoryOverAmount?: Decimal.Value | null }): Decimal {
+  return Decimal.max(D(ap.overAmount), D(ap.categoryOverAmount ?? 0));
 }

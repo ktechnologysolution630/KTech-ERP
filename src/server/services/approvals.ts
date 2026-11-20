@@ -24,6 +24,7 @@ import {
 import { APPROVAL_TYPES, NO_PROJECT_NAME, type ApprovalItem, type ApprovalType } from '@/domain/approvals';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
+import { apAmount } from '@/domain/boq-overrun';
 import { bangkokDateString } from '@/domain/thai';
 import { can } from '@/server/policy';
 import { decideAdvance, decideReceiptSubstitute } from './advances';
@@ -176,7 +177,7 @@ export async function listPendingApprovals(db: Db, actor: SessionUser): Promise<
   }
 
   for (const r of overrunRows) {
-    result.push(item({ type: 'BOQ_OVERRUN', id: r.id, number: r.number, title: r.reason, amount: money(r.overAmount), href: `/po/${r.poId}`, projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
+    result.push(item({ type: 'BOQ_OVERRUN', id: r.id, number: r.number, title: r.reason, amount: money(apAmount(r).toFixed(2)), href: `/po/${r.poId}`, projectId: r.projectId, createdAt: r.createdAt, requesterId: r.requestedBy }));
   }
 
   for (const vo of voRows) {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ApDecisionButtons } from '@/components/boq-overrun-panel';
 import { PurchasingDocTable, type PurchasingDocRow } from '@/components/purchasing-doc-table';
 import type { BoqOverrunRequestDto } from '@/server/services/boq-overrun';
+import { apAmount } from '@/domain/boq-overrun';
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -92,7 +93,10 @@ export function ApproveClient({
                       </Link>
                     </td>
                     <td className="px-3.5 py-2.5">{r.requestedByName}</td>
-                    <td className="px-3.5 py-2.5 text-right font-mono font-semibold">{baht(r.overAmount)}</td>
+                    <td className="px-3.5 py-2.5 text-right font-mono font-semibold">
+                      {baht(apAmount(r).toNumber())}
+                      {r.categoryOverAmount > 0 && <div className="text-[11px] font-normal text-red-600">เกินงบหมวด</div>}
+                    </td>
                     <td className="px-3.5 py-2.5 text-slate-600 max-w-xs">{r.reason}</td>
                     <td className="px-3.5 py-2.5">
                       {canDecideOverrun ? <ApDecisionButtons request={r} /> : <span className="text-slate-400">รอเจ้าของอนุมัติ</span>}
