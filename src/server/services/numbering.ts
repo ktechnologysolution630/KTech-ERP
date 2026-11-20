@@ -9,6 +9,7 @@ import {
   arReceipts,
   boqOverrunRequests,
   docCounters,
+  journalEntries,
   pos,
   prs,
   prvs,
@@ -53,6 +54,7 @@ export type DocPrefix =
   | 'WAR'
   | 'DF'
   | 'AST'
+  | 'JV'
   | 'V';
 
 /** Daily report number by report date, e.g. DR-20261104-001; several reports on one day get the next number. */
@@ -92,6 +94,7 @@ export const NUMBERED_DOCS: Partial<Record<DocPrefix, { table: PgTable; column: 
   EXP: { table: salesDocs, column: salesDocs.number },
   ADV: { table: advances, column: advances.number },
   VO: { table: variationOrders, column: variationOrders.number },
+  JV: { table: journalEntries, column: journalEntries.number },
 };
 
 /**

@@ -1,0 +1,66 @@
+import { NextResponse } from 'next/server';
+import { getDb } from '@/db/client';
+import { DomainError } from '@/domain/errors';
+import { GL_ACCOUNT_TYPE_LABEL, GL_BOOK_LABEL, JOURNAL_SOURCE_LABEL, SYSTEM_ACCOUNT_LABEL, type GlBook } from '@/domain/gl';
+import { csvResponse, toCsv, type CsvCell } from '@/lib/csv';
+import { requireUser } from '@/server/auth/current-user';
+import { accountLedger, listGlAccounts, listJournal, trialBalance } from '@/server/services/gl';
+
+/** Export CSV of a table, with the same filters as the page it was clicked on */
+export async function GET(req: Request, { params }: { params: Promise<{ kind: string }> }) {
+  try {
+    const { kind } = await params;
+    const sp = new URL(req.url).searchParams;
+    const actor = await requireUser();
+    const db = await getDb();
+    const from = sp.get('from') ?? '1900-01-01';
+    const to = sp.get('to') ?? '2999-12-31';
+    let headers: string[];
+    let rows: CsvCell[][];
+    switch (kind) {
+      case 'gl-journal': {
+        const j = await listJournal(db, actor, {
+          from: sp.get('from') ?? undefined,
+          to: sp.get('to') ?? undefined,
+          book: sp.get('book') ?? undefined,
+          source: sp.get('source') ?? undefined,
+          q: sp.get('q') ?? undefined,
+          includeVoid: sp.get('void') === '1',
+          pageSize: 5000,
+        });
+        headers = ['เลขที่ JV', 'วันที่', 'สมุด', 'ประเภทเอกสาร', 'เลขที่เอกสาร', 'คู่ค้า', 'คำอธิบาย', 'รหัสบัญชี', 'ชื่อบัญชี', 'เดบิต', 'เครดิต', 'สถานะ'];
+        rows = j.rows.flatMap((e) =>
+          e.lines.map((l) => [e.number, e.date, GL_BOOK_LABEL[e.book as GlBook], JOURNAL_SOURCE_LABEL[e.sourceType], e.sourceNumber, e.partyName, e.description, l.code, l.name, l.debit, l.credit, e.status === 'VOID' ? 'ยกเลิก' : 'ลงบัญชีแล้ว']),
+        );
+        break;
+      }
+      case 'gl-trial-balance': {
+        const tb = await trialBalance(db, actor, { from, to });
+        headers = ['รหัสบัญชี', 'ชื่อบัญชี', 'ประเภท', 'ยกมา เดบิต', 'ยกมา เครดิต', 'ระหว่างงวด เดบิต', 'ระหว่างงวด เครดิต', 'คงเหลือ เดบิต', 'คงเหลือ เครดิต'];
+        rows = [
+          ...tb.rows.map((r) => [r.code, r.name, GL_ACCOUNT_TYPE_LABEL[r.type], r.openingDebit, r.openingCredit, r.periodDebit, r.periodCredit, r.closingDebit, r.closingCredit]),
+          ['', 'รวม', '', tb.totals.openingDebit, tb.totals.openingCredit, tb.totals.periodDebit, tb.totals.periodCredit, tb.totals.closingDebit, tb.totals.closingCredit],
+        ];
+        break;
+      }
+      case 'gl-accounts': {
+        const accounts = await listGlAccounts(db, actor);
+        headers = ['รหัสบัญชี', 'ชื่อบัญชี', 'ประเภท', 'ใช้ลงบัญชีอัตโนมัติ', 'ยอดคงเหลือ (เดบิต+)', 'สถานะ'];
+        rows = accounts.map((a) => [a.code, a.name, GL_ACCOUNT_TYPE_LABEL[a.type], a.systemKey ? SYSTEM_ACCOUNT_LABEL[a.systemKey] : '', a.balance, a.active ? 'ใช้งาน' : 'ปิดใช้งาน']);
+        break;
+      }
+      case 'gl-ledger': {
+        const l = await accountLedger(db, actor, sp.get('account') ?? '', { from, to });
+        headers = ['วันที่', 'เลขที่ JV', 'เลขที่เอกสาร', 'คู่ค้า', 'คำอธิบาย', 'เดบิต', 'เครดิต', 'ยอดคงเหลือ'];
+        rows = [['', '', '', '', 'ยอดยกมา', '', '', l.opening], ...l.rows.map((r) => [r.date, r.number, r.sourceNumber, r.partyName, r.description, r.debit, r.credit, r.balance])];
+        break;
+      }
+      default:
+        return NextResponse.json({ error: 'ไม่รู้จักรายงานนี้' }, { status: 404 });
+    }
+    return csvResponse(`${kind}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, rows));
+  } catch (err) {
+    if (err instanceof DomainError) return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    throw err;
+  }
+}

@@ -9,6 +9,7 @@ import { createPv, submitPv, approvePv, markPvPaid } from '@/server/services/pv'
 import { createTestDb } from '../helpers/test-db';
 import { EARLY_PAY_REASON, receiveAll } from '../helpers/receive';
 import { seedBasics } from '../helpers/fixtures';
+import { listJournal, trialBalance } from '@/server/services/gl';
 
 describe('e2e flow: credit PO', () => {
   test('PR -> approve -> PO credit 30d -> approve(buyerHead) -> ordered -> receive 60%+40% -> invoice -> PV -> approve -> paid -> COMPLETED', async () => {
@@ -98,5 +99,16 @@ describe('e2e flow: credit PO', () => {
 
     const finalPo = await getPo(db, f.users.buyer, po.id);
     expect(finalPo.status).toBe('COMPLETED');
+
+    // Auto-GL: the bill (RR) and the payment (PV) each posted; AP is cleared
+    const journal = await listJournal(db, f.users.finance, {});
+    expect(journal.rows.map((r) => [r.book, r.sourceType]).sort()).toEqual([
+      ['PS', 'PV'],
+      ['PU', 'AP_INVOICE'],
+    ]);
+    const tb = await trialBalance(db, f.users.finance, { from: '2026-01-01', to: '2026-12-31' });
+    expect(tb.rows.find((r) => r.code === '2110')).toMatchObject({ closingDebit: 0, closingCredit: 0 });
+    expect(tb.rows.find((r) => r.code === '1140')).toMatchObject({ closingDebit: 700 });
+    expect(tb.rows.find((r) => r.code === '1120')).toMatchObject({ closingCredit: 10700 });
   });
 });

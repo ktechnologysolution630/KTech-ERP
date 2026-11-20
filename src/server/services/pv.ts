@@ -23,6 +23,7 @@ import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
 import { lockPo, registerPvCommittedGrossResolver } from './po';
 import { triggerPoAutoComplete } from './receipt';
+import { syncJournal } from './gl';
 
 // Hook for Task 16 WHT certificate issuance
 let whtCertIssuer: (tx: Db, pvId: string) => Promise<string | null> = async () => null;
@@ -656,6 +657,7 @@ export async function markPvPaid(
     for (const poId of touchedPoIds) {
       await triggerPoAutoComplete(tx, poId);
     }
+    await syncJournal(tx, 'PV', pv.id, actor.id);
   });
 }
 
@@ -746,6 +748,7 @@ export async function updateCheque(db: Db, actor: SessionUser, id: string, input
       note: reason,
       data: { chequeNo: pv.chequeNo, whtCertId: pv.whtCertId },
     });
+    await syncJournal(tx, 'PV', pv.id, actor.id);
   });
 }
 

@@ -56,7 +56,9 @@ export type Action =
   | 'vehicle.request'
   | 'vehicle.approve'
   | 'vehicle.track'
-  | 'vehicle.manage';
+  | 'vehicle.manage'
+  | 'gl.view'
+  | 'gl.manage';
 
 export interface PolicyContext {
   projectId?: string | null;
@@ -174,6 +176,10 @@ export function can(u: SessionUser, action: Action, ctx: PolicyContext = {}): bo
     case 'advance.pay': {
       return hasRole(u, ['FINANCE', 'OWNER']);
     }
+    case 'gl.view': {
+      return hasRole(u, ['FINANCE', 'GENERAL_MANAGER', 'OWNER', 'ADMIN']);
+    }
+    case 'gl.manage':
     case 'ar.manage':
     case 'invoice.manage':
     case 'pv.manage': {

@@ -22,6 +22,7 @@ import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { lockPo, registerPoHasPayablesResolver } from './po';
 import { registerPoAutoCompleteHook, triggerPoAutoComplete } from './receipt';
+import { syncJournal } from './gl';
 
 // Register PO has non-cancelled payables resolver for cancelPo check
 registerPoHasPayablesResolver(async (tx, poId) => {
@@ -220,6 +221,7 @@ export async function createInvoice(
     });
 
     await triggerPoAutoComplete(tx, po.id);
+    await syncJournal(tx, 'AP_INVOICE', created!.id, actor.id);
 
     return { id: created!.id, warnings };
   });
@@ -376,6 +378,7 @@ export async function cancelInvoice(
       note: reason.trim(),
       data: { invoiceId: inv.id, invoiceNo: inv.invoiceNo },
     });
+    await syncJournal(tx, 'AP_INVOICE', inv.id, actor.id);
   });
 }
 

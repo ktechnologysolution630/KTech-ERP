@@ -29,6 +29,7 @@ import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
+import { syncJournal } from './gl';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ไม่ถูกต้อง');
 const money = (msg: string) => z.number().finite().min(0, msg).max(10_000_000_000_000);
@@ -274,6 +275,7 @@ export async function issueArInvoice(db: Db, actor: SessionUser, id: string): Pr
       .set({ number, status: 'ISSUED', issuedAt: new Date(), updatedAt: new Date() })
       .where(eq(arInvoices.id, id));
     await logActivity(tx, { entityType: 'AR_INVOICE', entityId: id, action: 'ISSUE', userId: actor.id, note: number });
+    await syncJournal(tx, 'AR_INVOICE', id, actor.id);
     return number;
   });
 }
@@ -335,6 +337,7 @@ export async function voidArInvoice(db: Db, actor: SessionUser, id: string, reas
     }
     await tx.update(arInvoices).set({ status: 'VOID', voidReason: why, updatedAt: new Date() }).where(eq(arInvoices.id, id));
     await logActivity(tx, { entityType: 'AR_INVOICE', entityId: id, action: 'VOID', userId: actor.id, note: why });
+    await syncJournal(tx, 'AR_INVOICE', id, actor.id);
   });
 }
 
@@ -396,6 +399,7 @@ export async function recordArReceipt(
       .returning();
     await refreshInvoiceStatus(tx, inv, receiptDate);
     await logActivity(tx, { entityType: 'AR_INVOICE', entityId: invoiceId, action: 'RECEIPT', userId: actor.id, note: number });
+    await syncJournal(tx, 'AR_RECEIPT', row.id, actor.id);
     return { id: row.id, number };
   });
 }
@@ -413,6 +417,7 @@ export async function voidArReceipt(db: Db, actor: SessionUser, receiptId: strin
     await tx.update(arReceipts).set({ voided: true, voidReason: why }).where(eq(arReceipts.id, receiptId));
     await refreshInvoiceStatus(tx, inv, rc.receiptDate);
     await logActivity(tx, { entityType: 'AR_INVOICE', entityId: inv.id, action: 'RECEIPT_VOID', userId: actor.id, note: `${rc.number}: ${why}` });
+    await syncJournal(tx, 'AR_RECEIPT', receiptId, actor.id);
   });
 }
 
@@ -461,6 +466,7 @@ export async function issueArCreditNote(
       .returning();
     await refreshInvoiceStatus(tx, inv, docDate);
     await logActivity(tx, { entityType: 'AR_INVOICE', entityId: invoiceId, action: 'CREDIT_NOTE', userId: actor.id, note: number });
+    await syncJournal(tx, 'AR_CREDIT_NOTE', row.id, actor.id);
     return { id: row.id, number };
   });
 }
@@ -479,6 +485,7 @@ export async function voidArCreditNote(db: Db, actor: SessionUser, creditNoteId:
     await tx.update(arCreditNotes).set({ voided: true }).where(eq(arCreditNotes.id, creditNoteId));
     await refreshInvoiceStatus(tx, inv, cn.docDate);
     await logActivity(tx, { entityType: 'AR_INVOICE', entityId: inv.id, action: 'CREDIT_NOTE_VOID', userId: actor.id, note: `${cn.number}: ${why}` });
+    await syncJournal(tx, 'AR_CREDIT_NOTE', creditNoteId, actor.id);
   });
 }
 
