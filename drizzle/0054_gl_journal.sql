@@ -49,8 +49,7 @@ CREATE UNIQUE INDEX "journal_entries_number_idx" ON "journal_entries" USING btre
 CREATE INDEX "journal_entries_source_idx" ON "journal_entries" USING btree ("source_type","source_id");--> statement-breakpoint
 CREATE INDEX "journal_entries_date_idx" ON "journal_entries" USING btree ("entry_date");--> statement-breakpoint
 CREATE INDEX "journal_lines_entry_idx" ON "journal_lines" USING btree ("entry_id");--> statement-breakpoint
-CREATE INDEX "journal_lines_account_idx" ON "journal_lines" USING btree ("account_id");
---> statement-breakpoint
+CREATE INDEX "journal_lines_account_idx" ON "journal_lines" USING btree ("account_id");--> statement-breakpoint
 INSERT INTO "gl_accounts" ("code", "name", "type", "system_key", "sort") VALUES
 ('1110', 'เงินสด', 'ASSET', 'CASH', 0),
 ('1120', 'เงินฝากธนาคาร', 'ASSET', 'BANK', 10),

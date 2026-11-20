@@ -6,7 +6,8 @@ const baht = (v: string) => formatMoneyDisplay(Number(v).toFixed(2));
 
 /**
  * Tells the buyer (on the PO form) or the approver (on the PO) that the order takes a BOQ category
- * (หมวด/กลุ่มงาน) over its material budget. Saving and approving go on; this only warns.
+ * (หมวด/กลุ่มงาน) over its material budget. Saving goes on, but the PO cannot be approved until the
+ * owner approves an AP covering the overrun.
  */
 export function BoqCategoryOverrunNote({ overruns, className = '' }: { overruns: BoqCategoryOverrun[]; className?: string }) {
   if (overruns.length === 0) return null;
@@ -15,7 +16,10 @@ export function BoqCategoryOverrunNote({ overruns, className = '' }: { overruns:
       <h2 className="flex items-center gap-1.5 text-sm font-bold">
         <AlertTriangle className="h-4 w-4" /> สั่งซื้อเกินงบของกลุ่ม {overruns.length} กลุ่ม
       </h2>
-      <p className="mt-0.5 text-red-800">เทียบงบวัสดุของหมวดใน BOQ กับยอด PO ทั้งหมดที่ใช้หมวดนั้น (ก่อน VAT) รวมใบนี้</p>
+      <p className="mt-0.5 text-red-800">
+        เทียบงบวัสดุของหมวดใน BOQ ของโครงการกับยอด PO ทั้งหมดที่ใช้หมวดนั้น (ก่อน VAT) รวมใบนี้ ·{' '}
+        <strong>ต้องให้เจ้าของอนุมัติ (ใบ AP) ก่อนจึงจะอนุมัติ PO ได้</strong>
+      </p>
       <ul className="mt-2 space-y-1">
         {overruns.map((o) => (
           <li key={o.categoryId} className="rounded border border-red-200 bg-white px-2 py-1.5">

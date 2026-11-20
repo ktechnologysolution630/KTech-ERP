@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
-import { boqCategoryOfLines, computeBoqCategoryOverrun, computeBoqOverrun } from '@/domain/boq-overrun';
+import { boqCategoryOfLines, categoryOverAmount, computeBoqCategoryOverrun, computeBoqOverrun } from '@/domain/boq-overrun';
 import { D } from '@/domain/money';
 import { getProjectBoqSheet, saveProjectMainBoq } from '@/server/services/boq';
 import {
@@ -185,7 +185,7 @@ describe('over-BOQ approval (AP)', () => {
   });
 });
 
-describe('group (BOQ category) budget warning', () => {
+describe('group (BOQ category) budget needs the owner', () => {
   test('items belong to the nearest category row above them in the same BOQ', () => {
     const cats = boqCategoryOfLines([
       { id: 'x', boqId: 'b1', isCategory: false, no: '', description: 'ก่อนหมวด' },
@@ -207,8 +207,20 @@ describe('group (BOQ category) budget warning', () => {
       thisPoByBoqLine: new Map([['a', D(20_000)]]),
     });
     expect(r).toEqual([
-      { categoryId: 'c1', name: 'งานพื้นและวัสดุปู', budget: '150000.00', committedElsewhere: '140000.00', thisPo: '20000.00', over: '10000.00' },
+      { categoryId: 'c1', name: 'งานพื้นและวัสดุปู', budget: '150000.00', committedElsewhere: '140000.00', thisPo: '20000.00', over: '10000.00', overByThisPo: '10000.00' },
     ]);
+  });
+
+  test('a PO is held to its own part when the group was already over', () => {
+    const cat = { id: 'c1', name: 'g' };
+    const r = computeBoqCategoryOverrun({
+      categoryOf: new Map([['a', cat]]),
+      budgetByBoqLine: new Map([['a', 100_000]]),
+      committedElsewhereByBoqLine: new Map([['a', 150_000]]),
+      thisPoByBoqLine: new Map([['a', D(5_000)]]),
+    });
+    expect(r[0]).toMatchObject({ over: '55000.00', overByThisPo: '5000.00' });
+    expect(categoryOverAmount(r).toFixed(2)).toBe('5000.00');
   });
 
   test('within the group budget there is nothing to warn about', () => {
@@ -231,7 +243,7 @@ describe('group (BOQ category) budget warning', () => {
     await submitPo(db, f.users.buyer, po2.id);
     const check = await getPoBoqCheck(db, f.users.buyer, po2.id);
     expect(check.categories).toEqual([
-      { categoryId: expect.any(String), name: '1 งานฐานราก', budget: '200000.00', committedElsewhere: '160000.00', thisPo: '60000.00', over: '20000.00' },
+      { categoryId: expect.any(String), name: '1 งานฐานราก', budget: '200000.00', committedElsewhere: '160000.00', thisPo: '60000.00', over: '20000.00', overByThisPo: '20000.00' },
     ]);
 
     const opts = await listBoqMaterialOptions(db, f.users.buyer);
@@ -239,5 +251,78 @@ describe('group (BOQ category) budget warning', () => {
     // Editing po2: its own lines are not counted twice
     const editing = await listBoqMaterialOptions(db, f.users.buyer, { excludePoId: po2.id });
     expect(editing.find((o) => o.id === pileLine.id)).toMatchObject({ committed: 160_000, categoryCommitted: 160_000 });
+  });
+});
+
+describe('owner approval when a PO goes over its BOQ category (หมวด) budget', () => {
+  async function setupTwoLines() {
+    const { db, f } = await setup();
+    const sheet = await getProjectBoqSheet(db, f.users.pm, f.projectA);
+    const lines = [
+      ...sheet.boq!.lines.map((l) => ({ ...l })),
+      { isCategory: false, isBold: false, no: '1.2', description: 'เหล็กเสริม', qty: 5, unit: 'ตัน', materialRate: 10_000, laborRate: 0, note: '' },
+    ];
+    await saveProjectMainBoq(db, f.users.pm, f.projectA, {
+      baseUpdatedAt: sheet.boq!.updatedAt,
+      revision: 0,
+      estimateDate: null,
+      projectTitle: '',
+      location: '',
+      owner: '',
+      workDetail: '',
+      estimator: '',
+      overheadPercent: 0,
+      discountAmount: 0,
+      vatPercent: 7,
+      remarks: '',
+      lines,
+    });
+    const saved = await getProjectBoqSheet(db, f.users.pm, f.projectA);
+    return { db, f, pileLine: saved.boq!.lines[1], steelLine: saved.boq!.lines[2] };
+  }
+
+  async function approveWithAp(db: Awaited<ReturnType<typeof setup>>['db'], f: Awaited<ReturnType<typeof setup>>['f'], poId: string) {
+    const ap = await requestBoqOverrun(db, f.users.buyer, poId, 'จำเป็นตามหน้างาน');
+    await decideBoqOverrun(db, f.users.owner, ap.id, true, '');
+    await approvePo(db, f.users.owner, poId);
+  }
+
+  test('each line within budget but the category over: the owner must approve an AP first', async () => {
+    const { db, f, pileLine, steelLine } = await setupTwoLines();
+    // Category budget 200,000 + 50,000 = 250,000. Steel: 60,000 against 50,000 (line over, AP approved)
+    const po1 = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, steelLine.id!, 3));
+    await submitPo(db, f.users.buyer, po1.id);
+    await reviewPo(db, f.users.buyerHead, po1.id);
+    await approveWithAp(db, f, po1.id);
+
+    // Piles: 200,000 is exactly its line budget, but the category ends up at 260,000
+    const po2 = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id!, 10));
+    await submitPo(db, f.users.buyer, po2.id);
+    await reviewPo(db, f.users.buyerHead, po2.id);
+    const check = await getPoBoqCheck(db, f.users.buyer, po2.id);
+    expect(check).toMatchObject({ overAmount: 0, categoryOverAmount: 10_000, covered: false, canRequest: true });
+
+    await expect(approvePo(db, f.users.owner, po2.id)).rejects.toMatchObject({ code: 'BOQ_OVERRUN', status: 409 });
+
+    const ap = await requestBoqOverrun(db, f.users.buyer, po2.id, 'เสาเข็มเพิ่มตามหน้างาน');
+    const [dto] = (await getPoBoqCheck(db, f.users.owner, po2.id)).requests;
+    expect(dto).toMatchObject({ number: ap.number, overAmount: 0, categoryOverAmount: 10_000 });
+    expect(dto.categories[0]).toMatchObject({ name: '1 งานฐานราก', overByThisPo: '10000.00' });
+
+    // Only the owner decides
+    await expect(decideBoqOverrun(db, f.users.buyerHead, ap.id, true, '')).rejects.toMatchObject({ status: 403 });
+    await decideBoqOverrun(db, f.users.owner, ap.id, true, '');
+    await approvePo(db, f.users.owner, po2.id);
+    expect((await getPo(db, f.users.owner, po2.id)).status).toBe('APPROVED');
+  });
+
+  test('a PO within its category budget needs no AP', async () => {
+    const { db, f, pileLine } = await setupTwoLines();
+    const po = await createPo(db, f.users.buyer, poInput(f.projectA, f.vendorCo, pileLine.id!, 10));
+    await submitPo(db, f.users.buyer, po.id);
+    await reviewPo(db, f.users.buyerHead, po.id);
+    expect(await getPoBoqCheck(db, f.users.buyer, po.id)).toMatchObject({ categoryOverAmount: 0, covered: true, canRequest: false });
+    await approvePo(db, f.users.owner, po.id);
+    expect((await getPo(db, f.users.owner, po.id)).status).toBe('APPROVED');
   });
 });

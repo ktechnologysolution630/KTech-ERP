@@ -16,8 +16,8 @@ import {
 import { receiveDirect } from '../helpers/fixtures';
 import { D } from '@/domain/money';
 import { DomainError } from '@/domain/errors';
-import { eq } from 'drizzle-orm';
-import { notifications } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { activityLogs, notifications } from '@/db/schema';
 import { getInbox } from '@/server/services/inbox';
 
 describe('PO service', () => {
@@ -466,5 +466,27 @@ describe('the purchasing head checks a PO before the owner', () => {
     expect(await notesTo(db, f.users.owner.id, po.id)).toEqual([`ใบสั่งซื้อ ${po.number} รออนุมัติ`]);
     await approvePo(db, f.users.owner, po.id);
     expect((await getPo(db, f.users.buyer, po.id)).status).toBe('APPROVED');
+  });
+
+  test('cancelling a PO twice leaves one cancel in its history', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const po = await createPo(db, f.users.buyer, {
+      projectId: f.projectA,
+      vendorId: f.vendorCo,
+      paymentType: 'CREDIT',
+      vatMode: 'NONE',
+      billDiscount: D(0),
+      shipping: D(0),
+      lines: [{ description: 'ทรายหยาบ', unitName: 'คิว', qty: D(5), unitPrice: D(400), discount: D(0) }],
+    });
+    await cancelPo(db, f.users.buyer, po.id, 'ผิดใบ');
+    await cancelPo(db, f.users.buyer, po.id, 'กดซ้ำ');
+    expect((await getPo(db, f.users.buyer, po.id)).status).toBe('CANCELLED');
+    const cancels = await db
+      .select()
+      .from(activityLogs)
+      .where(and(eq(activityLogs.entityId, po.id), eq(activityLogs.action, 'cancel')));
+    expect(cancels).toHaveLength(1);
   });
 });

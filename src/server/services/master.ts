@@ -2,7 +2,6 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import {
-  attachments,
   customers,
   items,
   projectMembers,

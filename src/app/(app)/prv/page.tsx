@@ -4,7 +4,7 @@ import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { getPrvs } from '@/server/services/prv';
 import { PrvDeleteButton } from './prv-delete-button';
-import { Receipt, Plus, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Receipt, Plus, FileText, CheckCircle2, Clock } from 'lucide-react';
 import { GsapReveal } from '@/components/gsap-animator';
 import { PRV_CATEGORY_LABELS } from '@/domain/prv';
 

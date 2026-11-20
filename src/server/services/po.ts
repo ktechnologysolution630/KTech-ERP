@@ -1190,6 +1190,11 @@ export async function cancelPo(
 
   await db.transaction(async (tx) => {
     const po = await lockPo(tx, id);
+    // Already cancelled: nothing to do, and no second entry in the history
+    if (po.status === 'CANCELLED') return;
+    if (po.status === 'COMPLETED') {
+      throw new DomainError('INVALID_STATUS', 'ไม่สามารถยกเลิก PO ที่รับของครบแล้วได้', 409);
+    }
     const receivedMap = await receivedQtyByPoLine(tx, id);
     const anyReceived = Array.from(receivedMap.values()).some((q) => q.gt(0));
     const hasPayables = await poHasPayablesResolver(tx, id);

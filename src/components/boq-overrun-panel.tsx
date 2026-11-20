@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { apAmount } from '@/domain/boq-overrun';
 import type { BoqOverrunRequestDto, PoBoqCheck } from '@/server/services/boq-overrun';
 import { decideBoqOverrunAction, requestBoqOverrunAction, type ApActionResult } from '@/app/(app)/po/ap-actions';
 
@@ -51,7 +52,7 @@ export function ApDecisionButtons({ request }: { request: BoqOverrunRequestDto }
         type="button"
         disabled={isPending}
         onClick={() => {
-          if (confirm(`อนุมัติ ${request.number} ซื้อเกิน BOQ ${baht(request.overAmount)} บาท?`)) {
+          if (confirm(`อนุมัติ ${request.number} ${request.categoryOverAmount > 0 ? 'ซื้อเกินงบหมวด/BOQ' : 'ซื้อเกิน BOQ'} ${baht(apAmount(request).toNumber())} บาท?`)) {
             submit(() => decideBoqOverrunAction(request.poId, request.id, true, ''));
           }
         }}
@@ -84,7 +85,14 @@ export function BoqOverrunPanel({ poId, check }: { poId: string; check: PoBoqChe
   const { isPending, error, submit } = useApSubmit();
   const [reason, setReason] = useState('');
 
-  if (check.overAmount <= 0 && check.requests.length === 0) return null;
+  const over = check.overAmount > 0 || check.categoryOverAmount > 0;
+  if (!over && check.requests.length === 0) return null;
+  const title = [
+    check.overAmount > 0 && `ซื้อเกิน BOQ ${baht(check.overAmount)} บาท`,
+    check.categoryOverAmount > 0 && `เกินงบหมวด ${baht(check.categoryOverAmount)} บาท`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <section
@@ -100,14 +108,14 @@ export function BoqOverrunPanel({ poId, check }: { poId: string; check: PoBoqChe
         )}
         <div>
           <h2 className="font-bold text-slate-900 text-sm">
-            {check.overAmount > 0 ? `ซื้อเกิน BOQ ${baht(check.overAmount)} บาท` : 'ไม่เกิน BOQ'}
+            {over ? title : 'ไม่เกิน BOQ'}
           </h2>
           <p className="text-slate-600">
-            {check.overAmount <= 0
-              ? 'ยอดปัจจุบันอยู่ในงบวัสดุของ BOQ'
+            {!over
+              ? 'ยอดปัจจุบันอยู่ในงบวัสดุของ BOQ และงบของหมวด'
               : check.covered
-                ? 'มีใบ AP ที่อนุมัติแล้วครอบคลุมยอดนี้ อนุมัติใบสั่งซื้อได้'
-                : 'ต้องได้รับอนุมัติใบ AP (ขออนุมัติซื้อเกิน BOQ) จากเจ้าของก่อน จึงจะอนุมัติใบสั่งซื้อนี้ได้'}
+                ? 'มีใบ AP ที่เจ้าของอนุมัติแล้วครอบคลุมยอดนี้ อนุมัติใบสั่งซื้อได้'
+                : 'ต้องได้รับอนุมัติใบ AP จากเจ้าของก่อน จึงจะอนุมัติใบสั่งซื้อนี้ได้'}
           </p>
         </div>
       </div>
@@ -159,7 +167,7 @@ export function BoqOverrunPanel({ poId, check }: { poId: string; check: PoBoqChe
             required
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="เหตุผลที่ต้องซื้อเกิน BOQ เช่น ราคาวัสดุปรับขึ้น / ปริมาณหน้างานเพิ่ม"
+            placeholder="เหตุผลที่ต้องซื้อเกิน BOQ / เกินงบหมวด เช่น ราคาวัสดุปรับขึ้น / ปริมาณหน้างานเพิ่ม"
             className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2"
           />
           <button
@@ -167,7 +175,7 @@ export function BoqOverrunPanel({ poId, check }: { poId: string; check: PoBoqChe
             disabled={isPending || reason.trim() === ''}
             className="px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-blue-700 text-white font-semibold disabled:opacity-50"
           >
-            {isPending ? 'กำลังส่ง...' : 'ขออนุมัติซื้อเกิน BOQ (ใบ AP)'}
+            {isPending ? 'กำลังส่ง...' : 'ขออนุมัติเจ้าของ (ใบ AP)'}
           </button>
         </form>
       )}
@@ -187,8 +195,13 @@ export function BoqOverrunPanel({ poId, check }: { poId: string; check: PoBoqChe
                   {STATUS_LABEL[r.status]}
                 </span>
                 <span className="text-slate-500">ฉบับที่ {r.poRevision}</span>
-                <span className="ml-auto font-mono font-semibold">{baht(r.overAmount)} บาท</span>
+                <span className="ml-auto font-mono font-semibold">{baht(apAmount(r).toNumber())} บาท</span>
               </div>
+              {r.categories.length > 0 && (
+                <p className="text-red-700">
+                  เกินงบหมวด: {r.categories.map((c) => `${c.name} ${baht(c.overByThisPo ?? c.over)}`).join(' · ')} บาท
+                </p>
+              )}
               <p className="text-slate-600">
                 เหตุผล: {r.reason} · ผู้ขอ {r.requestedByName}
                 {r.decidedByName && ` · ผู้พิจารณา ${r.decidedByName}`}

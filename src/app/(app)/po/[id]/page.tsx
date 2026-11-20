@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { ActionErrorBanner } from '@/components/action-error-banner';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { messageOnRefusal, returnOnRefusal } from '@/lib/action-outcome';
 import { PAY_METHOD_LABEL } from '@/domain/payment-terms';
 import { getDb } from '@/db/client';
 import { computeDocTotals, D } from '@/domain/money';
@@ -52,10 +55,13 @@ import {
 
 export default async function PoDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { error: actionError } = await searchParams;
   const actor = await requireUser();
   const db = await getDb();
   const [po, settings, activities, attachments, comments, receipts, closeShortReqs, summary] =
@@ -109,6 +115,7 @@ export default async function PoDetailPage({
 
   return (
     <div className="space-y-6">
+      <ActionErrorBanner message={actionError} clearHref={`/po/${id}`} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -188,11 +195,11 @@ export default async function PoDetailPage({
           approverHint="รอหัวหน้าจัดซื้อตรวจสอบ: เมื่ออนุมัติแล้วจะส่งต่อให้เจ้าของอนุมัติ (ผู้เปิด PO ตรวจเองไม่ได้)"
           onApprove={async () => {
             'use server';
-            await reviewPoAction(id);
+            return messageOnRefusal(() => reviewPoAction(id));
           }}
           onReject={async (reason) => {
             'use server';
-            await rejectPoAction(id, reason);
+            return messageOnRefusal(() => rejectPoAction(id, reason));
           }}
         />
       )}
@@ -207,11 +214,11 @@ export default async function PoDetailPage({
           }
           onApprove={async () => {
             'use server';
-            await approvePoAction(id);
+            return messageOnRefusal(() => approvePoAction(id));
           }}
           onReject={async (reason) => {
             'use server';
-            await rejectPoAction(id, reason);
+            return messageOnRefusal(() => rejectPoAction(id, reason));
           }}
         />
       )}
@@ -361,7 +368,7 @@ export default async function PoDetailPage({
                         <form
                           action={async () => {
                             'use server';
-                            await requestInstallmentAction(po.id, inst.id);
+                            await returnOnRefusal(`/po/${id}`, () => requestInstallmentAction(po.id, inst.id));
                           }}
                         >
                           <button
@@ -393,7 +400,7 @@ export default async function PoDetailPage({
               <form
                 action={async () => {
                   'use server';
-                  await approveCloseShortAction(po.id, pendingCloseShort.request.id);
+                  await returnOnRefusal(`/po/${id}`, () => approveCloseShortAction(po.id, pendingCloseShort.request.id));
                 }}
               >
                 <button
@@ -406,11 +413,11 @@ export default async function PoDetailPage({
               <form
                 action={async () => {
                   'use server';
-                  await rejectCloseShortAction(
+                  await returnOnRefusal(`/po/${id}`, () => rejectCloseShortAction(
                     po.id,
                     pendingCloseShort.request.id,
                     'ไม่อนุมัติปิดยอด ให้ตามของต่อ',
-                  );
+                  ));
                 }}
               >
                 <button
@@ -434,10 +441,10 @@ export default async function PoDetailPage({
           <form
             action={async (fd: FormData) => {
               'use server';
-              await requestCloseShortAction(
+              await returnOnRefusal(`/po/${id}`, () => requestCloseShortAction(
                 po.id,
                 String(fd.get('closeShortReason') ?? ''),
-              );
+              ));
             }}
             className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs"
           >
@@ -466,7 +473,7 @@ export default async function PoDetailPage({
             <form
               action={async () => {
                 'use server';
-                await submitPoAction(id);
+                await returnOnRefusal(`/po/${id}`, () => submitPoAction(id));
               }}
             >
               <button
@@ -484,7 +491,7 @@ export default async function PoDetailPage({
             <form
               action={async () => {
                 'use server';
-                await requestPrepaidAction(id);
+                await returnOnRefusal(`/po/${id}`, () => requestPrepaidAction(id));
               }}
             >
               <button
@@ -510,7 +517,7 @@ export default async function PoDetailPage({
           <form
             action={async () => {
               'use server';
-              await markOrderedAction(id);
+              await returnOnRefusal(`/po/${id}`, () => markOrderedAction(id));
             }}
           >
             <button
@@ -528,15 +535,15 @@ export default async function PoDetailPage({
             <form
               action={async () => {
                 'use server';
-                await cancelPoAction(id, 'ยกเลิกโดยฝ่ายจัดซื้อ');
+                await returnOnRefusal(`/po/${id}`, () => cancelPoAction(id, 'ยกเลิกโดยฝ่ายจัดซื้อ'));
               }}
             >
-              <button
-                type="submit"
+              <ConfirmSubmitButton
+                message="ยืนยันยกเลิก PO นี้? ยกเลิกแล้วย้อนกลับไม่ได้"
                 className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
               >
                 ยกเลิก PO
-              </button>
+              </ConfirmSubmitButton>
             </form>
           )}
 
@@ -562,7 +569,7 @@ export default async function PoDetailPage({
           comments={comments}
           onAddComment={async (body) => {
             'use server';
-            await addPoCommentAction(id, body);
+            return messageOnRefusal(() => addPoCommentAction(id, body));
           }}
         />
         <ActivityFeed items={activities} />

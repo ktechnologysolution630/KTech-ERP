@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { ActionErrorBanner } from '@/components/action-error-banner';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { messageOnRefusal, returnOnRefusal } from '@/lib/action-outcome';
 import { getDb } from '@/db/client';
 import { formatThaiDate } from '@/domain/thai';
 import { formatMoneyDisplay } from '@/domain/money';
@@ -31,10 +34,13 @@ import {
 
 export default async function PrDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { error: actionError } = await searchParams;
   const actor = await requireUser();
   const db = await getDb();
   const [pr, activities, attachments, comments] = await Promise.all([
@@ -76,6 +82,7 @@ export default async function PrDetailPage({
 
   return (
     <div className="space-y-6">
+      <ActionErrorBanner message={actionError} clearHref={`/pr/${id}`} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -174,11 +181,11 @@ export default async function PrDetailPage({
           }
           onApprove={async () => {
             'use server';
-            await approvePrAction(id);
+            return messageOnRefusal(() => approvePrAction(id));
           }}
           onReject={async (reason) => {
             'use server';
-            await rejectPrAction(id, reason);
+            return messageOnRefusal(() => rejectPrAction(id, reason));
           }}
         />
       )}
@@ -305,7 +312,7 @@ export default async function PrDetailPage({
           <form
             action={async () => {
               'use server';
-              await submitPrAction(id);
+              await returnOnRefusal(`/pr/${id}`, () => submitPrAction(id));
             }}
           >
             <button
@@ -320,30 +327,30 @@ export default async function PrDetailPage({
           <form
             action={async () => {
               'use server';
-              await closePrAction(id);
+              await returnOnRefusal(`/pr/${id}`, () => closePrAction(id));
             }}
           >
-            <button
-              type="submit"
+            <ConfirmSubmitButton
+              message="ยืนยันปิดใบขอซื้อนี้?"
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700"
             >
               ปิดใบขอซื้อ
-            </button>
+            </ConfirmSubmitButton>
           </form>
         )}
         {pr.status !== 'CANCELLED' && pr.status !== 'CLOSED' && (
           <form
             action={async () => {
               'use server';
-              await cancelPrAction(id);
+              await returnOnRefusal(`/pr/${id}`, () => cancelPrAction(id));
             }}
           >
-            <button
-              type="submit"
+            <ConfirmSubmitButton
+              message="ยืนยันยกเลิกใบขอซื้อนี้? ยกเลิกแล้วย้อนกลับไม่ได้"
               className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
             >
               ยกเลิกใบขอซื้อ
-            </button>
+            </ConfirmSubmitButton>
           </form>
         )}
       </div>
@@ -354,7 +361,7 @@ export default async function PrDetailPage({
           comments={comments}
           onAddComment={async (body) => {
             'use server';
-            await addPrCommentAction(id, body);
+            return messageOnRefusal(() => addPrCommentAction(id, body));
           }}
         />
         <ActivityFeed items={activities} />

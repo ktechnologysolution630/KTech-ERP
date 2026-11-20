@@ -13,10 +13,12 @@ export function CommentBox({
     userName: string;
     createdAt: Date;
   }[];
-  onAddComment: (body: string) => Promise<void>;
+  /** A returned string is a refusal to show (see messageOnRefusal) */
+  onAddComment: (body: string) => Promise<void | string>;
 }) {
   const [body, setBody] = useState('');
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -40,9 +42,18 @@ export function CommentBox({
         onSubmit={(e) => {
           e.preventDefault();
           if (!body.trim()) return;
+          setError(null);
           startTransition(async () => {
-            await onAddComment(body);
-            setBody('');
+            try {
+              const refusal = await onAddComment(body);
+              if (refusal) {
+                setError(refusal);
+                return;
+              }
+              setBody('');
+            } catch {
+              setError('ส่งความคิดเห็นไม่สำเร็จ กรุณาลองใหม่');
+            }
           });
         }}
         className="flex gap-2"
@@ -62,6 +73,7 @@ export function CommentBox({
           ส่ง
         </button>
       </form>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

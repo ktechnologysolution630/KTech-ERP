@@ -1,4 +1,6 @@
 import { getDb } from '@/db/client';
+import { ActionErrorBanner } from '@/components/action-error-banner';
+import { returnOnRefusal } from '@/lib/action-outcome';
 import { requireUser } from '@/server/auth/current-user';
 import { listVendors } from '@/server/services/master';
 import { listOpenPayables } from '@/server/services/payable';
@@ -8,7 +10,7 @@ import { PvPayablesTable, readPvPayables } from '../pv-payables-table';
 export default async function NewPvPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vendorId?: string }>;
+  searchParams: Promise<{ vendorId?: string; error?: string | string[] }>;
 }) {
   const sp = await searchParams;
   const actor = await requireUser();
@@ -26,6 +28,10 @@ export default async function NewPvPage({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <ActionErrorBanner
+        message={sp.error}
+        clearHref={selectedVendorId ? `/pv/new?vendorId=${encodeURIComponent(selectedVendorId)}` : '/pv/new'}
+      />
       <div>
         <h1 className="text-xl font-bold text-slate-900">
           สร้างใบสำคัญจ่าย (New Payment Voucher)
@@ -63,7 +69,10 @@ export default async function NewPvPage({
       <form
         action={async (fd: FormData) => {
           'use server';
-          await createPvAction({ vendorId: String(fd.get('vendorId') ?? ''), ...readPvPayables(fd) });
+          const vendorId = String(fd.get('vendorId') ?? '');
+          await returnOnRefusal(`/pv/new?vendorId=${encodeURIComponent(vendorId)}`, () =>
+            createPvAction({ vendorId, ...readPvPayables(fd) }),
+          );
         }}
         className="rounded-xl border border-slate-200 bg-white p-6 space-y-4"
       >

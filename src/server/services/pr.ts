@@ -572,6 +572,11 @@ export async function cancelPr(db: Db, actor: SessionUser, id: string): Promise<
     const [pr] = await tx.select().from(prs).where(eq(prs.id, id)).limit(1);
     if (!pr) throw new DomainError('NOT_FOUND', 'ไม่พบใบขอซื้อ', 404);
     assertCan(actor, 'pr.create', { projectId: pr.projectId });
+    // Already cancelled: nothing to do, and no second entry in the history
+    if (pr.status === 'CANCELLED') return;
+    if (pr.status === 'CLOSED') {
+      throw new DomainError('INVALID_STATE', 'ไม่สามารถยกเลิกใบขอซื้อที่ปิดแล้วได้', 409);
+    }
 
     const lines = await tx.select().from(prLines).where(eq(prLines.prId, id));
     const orderedMap = await orderedQtyByPrLine(

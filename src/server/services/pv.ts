@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { type Db } from '@/db/client';
 import {
   invoices,
@@ -15,7 +15,7 @@ import {
   whtCerts,
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
-import { computeWht, D, round2, sum, type Decimal } from '@/domain/money';
+import { computeWht, D, round2, sum } from '@/domain/money';
 import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';

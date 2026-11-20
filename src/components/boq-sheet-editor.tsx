@@ -6,19 +6,13 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Plus,
-  Bold,
-  FileSpreadsheet,
-  Upload,
-  Download,
   Printer,
   Trash2,
   Save,
   CheckCircle2,
   AlertCircle,
-  X,
-  FileText,
 } from 'lucide-react';
-import { computeBoqLine } from '@/domain/boq';
+import { computeBoqCategoryTotals, computeBoqLine } from '@/domain/boq';
 import { parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
 import { bangkokDateString } from '@/domain/thai';
 import type { BoqDocumentDto } from '@/server/services/boq';
@@ -220,6 +214,16 @@ export function BoqSheetEditor({
         ].join(','),
       );
     });
+
+    // Per-category summary under the sheet, as on the printed document
+    if (rows.some((r) => r.isCategory)) {
+      csvRows.push('', '"สรุปราคาแยกตามหมวดงาน"', ['ลำดับ', 'หมวดงาน', 'ค่าวัสดุ', 'ค่าแรง', 'รวมเป็นเงิน'].join(','));
+      computeBoqCategoryTotals(rows.map((r) => ({ ...toRowInput(r), no: r.no, description: r.description }))).forEach((c) => {
+        csvRows.push(
+          [`"${c.no}"`, `"${c.name.replace(/"/g, '""')}"`, c.material.toFixed(2), c.labor.toFixed(2), c.total.toFixed(2)].join(','),
+        );
+      });
+    }
 
     const blob = new Blob(['﻿' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

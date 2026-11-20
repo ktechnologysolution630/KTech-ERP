@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listBoqOverrunRequests } from '@/server/services/boq-overrun';
+import { apAmount } from '@/domain/boq-overrun';
 import { ApDecisionButtons } from '@/components/boq-overrun-panel';
 import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
 import { deleteBoqOverrunRequestsAction } from '@/app/(app)/delete-actions';
@@ -38,7 +39,7 @@ export default async function PurchasingApPage() {
     if (r.status === 'PENDING') row.pending += 1;
     if (r.status === 'APPROVED') {
       row.approved += 1;
-      row.approvedOver += r.overAmount;
+      row.approvedOver += apAmount(r).toNumber();
     }
     if (r.status === 'REJECTED') row.rejected += 1;
     byProject.set(r.projectId, row);
@@ -135,7 +136,10 @@ export default async function PurchasingApPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-2">{r.requestedByName}</td>
-                    <td className="px-4 py-2 text-right font-mono font-semibold">{baht(r.overAmount)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-semibold">
+                      {baht(apAmount(r).toNumber())}
+                      {r.categoryOverAmount > 0 && <div className="text-[11px] font-normal text-red-600">เกินงบหมวด</div>}
+                    </td>
                     <td className="px-4 py-2 text-slate-600 max-w-xs">{r.reason}</td>
                     <td className="px-4 py-2">
                       {canDecide && r.status === 'PENDING' ? (
