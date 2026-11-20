@@ -19,6 +19,7 @@ export const MENU_TREE = [
       { key: 'STOCK_ALL', label: 'สต็อกทั้งหมด' },
       { key: 'STOCK_COUNT', label: 'นับสต็อก' },
       { key: 'STOCK_ADJUST', label: 'ปรับปรุงยอดสต็อก' },
+      { key: 'STOCK_CARD', label: 'สมุดคุมสต็อก (Stock Card)' },
     ],
   },
   {
@@ -163,6 +164,7 @@ const PATHS: [string, MenuKey[]][] = [
   ['/projects', ['PROJECTS']],
   ['/timeline', ['TIMELINE']],
   ['/stock', ['STOCK_OVERVIEW', 'STOCK_MOVEMENTS', 'STOCK_LOW', 'STOCK_ISSUES', 'STOCK_USAGE', 'STOCK_ALL', 'STOCK_COUNT', 'STOCK_ADJUST']],
+  ['/stock/card', ['STOCK_CARD']],
   ['/purchasing', ['PUR_OVERVIEW']],
   ['/purchasing/project-report', ['PUR_PROJECT_REPORT']],
   ['/api/reports/project-purchase', ['PUR_PROJECT_REPORT']],
