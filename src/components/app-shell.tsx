@@ -30,11 +30,8 @@ import {
   BarChart2,
   ClipboardCheck,
   ClipboardList,
-  CalendarClock,
   Layers,
   PenLine,
-  Car,
-  MapPin,
   Hash,
   FileCog,
 } from 'lucide-react';
@@ -49,6 +46,7 @@ import {
   markMyNotificationReadAction,
 } from '@/app/(app)/notification-actions';
 import { NotificationBell } from './notification-bell';
+import { FinanceNav, isFinancePath } from './finance-nav';
 
 interface AppShellProps {
   user: SessionUser;
@@ -71,35 +69,6 @@ function PendingBadge({ count }: { count: Promise<number> }) {
   return n > 0 ? <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{n}</span> : null;
 }
 
-/** Receivables (ฝั่งขาย) pages in the finance menu */
-const AR_LINKS: { href: string; label: string; menu: MenuKey }[] = [
-  { href: '/ar/customers', label: 'ลูกค้า', menu: 'FIN_CUSTOMERS' },
-  { href: '/accounting', label: 'ภาพรวมบัญชี', menu: 'FIN_ACCOUNTING_OVERVIEW' },
-  { href: '/accounting/gl', label: 'สมุดรายวัน / ผังบัญชี', menu: 'FIN_GL' },
-  { href: '/sales/income', label: 'รายรับ', menu: 'FIN_INCOME' },
-  { href: '/sales/expense', label: 'รายจ่าย', menu: 'FIN_EXPENSE' },
-  { href: '/accounting/bill-scan', label: 'สแกนบิล', menu: 'FIN_BILL_SCAN' },
-  { href: '/sales/quotations', label: 'ใบเสนอราคา', menu: 'FIN_QUOTATIONS' },
-  { href: '/sales/sales-orders', label: 'ใบสั่งขาย (SO)', menu: 'FIN_SALES_ORDERS' },
-  { href: '/ar/invoices', label: 'ใบแจ้งหนี้/วางบิล (ลูกค้า)', menu: 'FIN_AR_INVOICES' },
-  { href: '/sales/receipts', label: 'ใบเสร็จรับเงิน', menu: 'FIN_RECEIPTS' },
-  { href: '/sales/tax-invoices', label: 'ใบกำกับภาษี', menu: 'FIN_TAX_INVOICES' },
-  { href: '/ar/credit-notes', label: 'ใบลดหนี้', menu: 'FIN_CREDIT_NOTES' },
-  { href: '/sales/debit-notes', label: 'ใบเพิ่มหนี้', menu: 'FIN_DEBIT_NOTES' },
-  { href: '/sales/abbreviated-tax-invoices', label: 'ใบกำกับภาษีอย่างย่อ', menu: 'FIN_SHORT_TAX_INVOICES' },
-  { href: '/ar/receivables', label: 'ลูกหนี้', menu: 'FIN_RECEIVABLES' },
-  { href: '/accounting/input-vat', label: 'ภาษีซื้อ', menu: 'FIN_INPUT_VAT' },
-  { href: '/ar/output-vat', label: 'ภาษีขาย', menu: 'FIN_OUTPUT_VAT' },
-  { href: '/accounting/wht', label: 'หัก ณ ที่จ่าย', menu: 'FIN_WHT' },
-  { href: '/accounting/reports', label: 'รายงานบัญชี', menu: 'FIN_ACCOUNTING_REPORTS' },
-  { href: '/accounting/wht-report', label: 'รายงานภาษีหัก ณ ที่จ่าย', menu: 'FIN_WHT_REPORT' },
-  { href: '/accounting/project-budget-report', label: 'รายงานงบประมาณโครงการ', menu: 'FIN_PROJECT_BUDGET' },
-  { href: '/cash-bank', label: 'เงินสด / ธนาคาร', menu: 'FIN_CASH_BANK' },
-  { href: '/advances', label: 'เงินทดรองจ่าย', menu: 'FIN_ADVANCES' },
-  { href: '/receipt-substitutes', label: 'ใบรับรองแทนใบเสร็จ', menu: 'FIN_RECEIPT_SUBSTITUTES' },
-  { href: '/accounting/settings', label: 'ตั้งค่าบัญชีและภาษี', menu: 'FIN_ACCOUNTING_SETTINGS' },
-];
-
 export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCount = null, canManageUsers = false, canManageSettings = false, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -118,7 +87,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
     pathname.startsWith('/labor-payments') || pathname.startsWith('/prv') || pathname.startsWith('/payables'),
   );
   const [openFinance, setOpenFinance] = useState<boolean>(
-    pathname.startsWith('/invoices') || pathname.startsWith('/pv') || pathname.startsWith('/exports') || pathname.startsWith('/assets') || pathname.startsWith('/vehicles'),
+    isFinancePath(pathname),
   );
   const [openAfterService, setOpenAfterService] = useState<boolean>(
     pathname.startsWith('/handover') || pathname.startsWith('/warranty'),
@@ -764,14 +733,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                   type="button"
                   onClick={() => setOpenFinance(!openFinance)}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
-                    pathname.startsWith('/invoices') ||
-                    pathname.startsWith('/pv') ||
-                    pathname.startsWith('/exports') ||
-                    pathname.startsWith('/assets') ||
-                    pathname.startsWith('/ar') ||
-                    pathname.startsWith('/advances') ||
-                    pathname.startsWith('/receipt-substitutes') ||
-                    pathname.startsWith('/vehicles')
+                    isFinancePath(pathname)
                       ? 'bg-slate-100 text-slate-900 font-semibold'
                       : 'text-slate-700 hover:bg-slate-100'
                   }`}
@@ -791,119 +753,7 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
 
                 {openFinance && !collapsed && (
                   <div className="ml-4 pl-3 border-l border-slate-200 mt-1 space-y-0.5">
-                    {AR_LINKS.filter((l) => canSee(l.menu)).map((l) => (
-                      <Link
-                        key={l.href}
-                        href={l.href}
-                        prefetch={false}
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                          pathname === l.href || (l.href !== '/accounting' && pathname.startsWith(`${l.href}/`))
-                            ? 'bg-blue-50 text-blue-700 font-semibold'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                        }`}
-                      >
-                        <FileText className="w-3.5 h-3.5 shrink-0" />
-                        <span>{l.label}</span>
-                      </Link>
-                    ))}
-                    {canSee('FIN_AP_INVOICES') && (
-                    <Link
-                      href="/invoices"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        pathname.startsWith('/invoices')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <FileText className="w-3.5 h-3.5 shrink-0" />
-                      <span>ใบแจ้งหนี้ผู้ขาย (AP)</span>
-                    </Link>
-                    )}
-                    {canSee('FIN_PV') && (
-                    <Link
-                      href="/pv"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        pathname.startsWith('/pv')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <FileText className="w-3.5 h-3.5 shrink-0" />
-                      <span>ใบสำคัญจ่าย (PV)</span>
-                    </Link>
-                    )}
-                    {canSee('FIN_CHEQUES') && (
-                    <Link
-                      href="/cheques"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        pathname.startsWith('/cheques')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <CalendarClock className="w-3.5 h-3.5 shrink-0" />
-                      <span>ตารางจ่ายเช็ค</span>
-                    </Link>
-                    )}
-                    {canSee('FIN_EXPORTS') && (
-                    <Link
-                      href="/exports"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        pathname.startsWith('/exports')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <BarChart2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>รายงาน/50 ทวิ</span>
-                    </Link>
-                    )}
-                    {canSee('FIN_ASSETS') && (
-                    <Link
-                      href="/assets"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        pathname.startsWith('/assets')
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
-                      <span>ตรวจเช็คทรัพย์สิน</span>
-                    </Link>
-                    )}
-                    {(['VEH_FLEET', 'VEH_TRIPS', 'VEH_LIVE', 'VEH_REPORT'] as const).some((k) => canSee(k)) && (
-                      <p className="flex items-center gap-1.5 px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                        <Car className="w-3 h-3" /> การใช้รถ
-                      </p>
-                    )}
-                    {([
-                      // In the order the work happens: register the vehicle, use it, watch it, report on it
-                      ['VEH_FLEET', '/vehicles/fleet', '1. ทะเบียนรถ', ClipboardList],
-                      ['VEH_TRIPS', '/vehicles', '2. ขอใช้รถ / รับรถ / คืนรถ', Car],
-                      ['VEH_LIVE', '/vehicles/live', '3. ติดตามรถ Realtime', MapPin],
-                      ['VEH_REPORT', '/vehicles/report', '4. รายงานการใช้รถ', FileText],
-                    ] as const).map(([key, href, label, Icon]) =>
-                      canSee(key) ? (
-                        <Link
-                          key={key}
-                          href={href}
-                          prefetch={false}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                            (href === '/vehicles' ? pathname === '/vehicles' || /^\/vehicles\/(new|[0-9a-f-]{36})/.test(pathname) : pathname.startsWith(href))
-                              ? 'bg-blue-50 text-blue-700 font-semibold'
-                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span>{label}</span>
-                        </Link>
-                      ) : null,
-                    )}
+                    <FinanceNav pathname={pathname} canSee={canSee} />
                   </div>
                 )}
               </div>
