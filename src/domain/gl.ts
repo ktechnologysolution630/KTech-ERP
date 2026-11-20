@@ -272,6 +272,15 @@ export function salesDocLines(input: {
   }
 }
 
+/**
+ * ปรับปรุงสต็อก (AJ), when approved: a count above the books is a gain (Dr สินค้าคงเหลือ), below is a
+ * loss (Cr สินค้าคงเหลือ), valued at the average cost the adjustment moved at.
+ */
+export function stockAdjustLines(input: { value: Decimal.Value }): DraftLine[] {
+  const v = D(input.value);
+  return finishLines(v.gte(0) ? [dr('INVENTORY', v), cr('STOCK_ADJUST', v)] : [dr('STOCK_ADJUST', v.abs()), cr('INVENTORY', v.abs())]);
+}
+
 /** One line per account and side, so a PV of ten bills reads as a short entry */
 function merge(lines: DraftLine[]): DraftLine[] {
   const byKey = new Map<string, DraftLine>();

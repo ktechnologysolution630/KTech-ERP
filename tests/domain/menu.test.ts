@@ -138,7 +138,7 @@ describe('every page and entry is accounted for', () => {
   test('every tickable entry actually controls a page', () => {
     const urls: [string, string?][] = [
       ['/dashboard'], ['/approvals'], ['/projects'], ['/timeline'],
-      ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'],
+      ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'], ['/stock/card'],
       ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/purchasing/items'], ['/receive'],
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],
       ['/ar/customers'], ['/ar/invoices'], ['/accounting'], ['/accounting/gl'], ['/accounting/input-vat'], ['/accounting/bill-scan'], ['/accounting/settings'], ['/accounting/wht'], ['/accounting/reports'], ['/accounting/wht-report'], ['/accounting/project-budget-report'], ['/sales/income'], ['/sales/expense'], ['/ar/credit-notes'], ['/cash-bank'], ['/sales/quotations'], ['/sales/receipts'], ['/sales/tax-invoices'], ['/sales/debit-notes'], ['/sales/abbreviated-tax-invoices'], ['/ar/receivables'], ['/ar/output-vat'], ['/advances'], ['/receipt-substitutes'], ['/invoices'], ['/pv'], ['/cheques'], ['/exports'], ['/assets'],

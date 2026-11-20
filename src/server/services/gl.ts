@@ -15,6 +15,9 @@ import {
   pvLines as pvLineTable,
   pvs,
   salesDocs,
+  stockAdjustRequests,
+  stockItems,
+  stockMovements,
   vendors,
   type SessionUser,
 } from '@/db/schema';
@@ -29,6 +32,7 @@ import {
   pvLines,
   salesDocLines,
   sideOf,
+  stockAdjustLines,
   type EntryDraft,
   type GlAccountType,
   type JournalSource,
@@ -37,11 +41,12 @@ import {
 } from '@/domain/gl';
 import { D, round2, sum } from '@/domain/money';
 import { SALES_DOC_META, type SalesDocKind } from '@/domain/sales-doc';
+import { bangkokDateString } from '@/domain/thai';
 import { assertCan } from '@/server/policy';
 import { nextDocNumber } from './numbering';
 
 /** The documents that post automatically, in the order a full re-post walks them */
-export const AUTO_SOURCES = ['AP_INVOICE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC'] as const;
+export const AUTO_SOURCES = ['AP_INVOICE', 'PV', 'AR_INVOICE', 'AR_RECEIPT', 'AR_CREDIT_NOTE', 'SALES_DOC', 'STOCK_ADJUST'] as const;
 export type AutoSource = (typeof AUTO_SOURCES)[number];
 
 /**
@@ -141,6 +146,32 @@ async function draftFor(tx: Db, source: AutoSource, id: string): Promise<EntryDr
         lines: arCreditNoteLines(row.c),
       };
     }
+    case 'STOCK_ADJUST': {
+      const [row] = await tx
+        .select({ req: stockAdjustRequests, itemName: stockItems.name })
+        .from(stockAdjustRequests)
+        .innerJoin(stockItems, eq(stockItems.id, stockAdjustRequests.stockItemId))
+        .where(eq(stockAdjustRequests.id, id));
+      if (!row || row.req.status !== 'APPROVED') return null;
+      const [mv] = await tx
+        .select({ quantity: stockMovements.quantity, unitCost: stockMovements.unitCost, createdAt: stockMovements.createdAt })
+        .from(stockMovements)
+        .where(and(eq(stockMovements.referenceType, 'ADJUSTMENT'), eq(stockMovements.referenceId, id)))
+        .limit(1);
+      if (!mv) return null;
+      const value = round2(D(mv.quantity).times(D(mv.unitCost)));
+      if (value.isZero()) return null;
+      const at = row.req.approvedAt ?? mv.createdAt;
+      return {
+        date: bangkokDateString(at),
+        book: 'GL',
+        sourceNumber: row.req.requestNumber,
+        description: `ปรับปรุงสต็อก ${row.itemName} ${D(mv.quantity).gt(0) ? '+' : ''}${D(mv.quantity).toNumber()}: ${row.req.reason}`,
+        partyName: '',
+        projectId: row.req.projectId,
+        lines: stockAdjustLines({ value }),
+      };
+    }
     case 'SALES_DOC': {
       const [d] = await tx.select().from(salesDocs).where(eq(salesDocs.id, id));
       if (!d || d.status !== 'ISSUED') return null;
@@ -226,7 +257,7 @@ export async function syncJournal(tx: Db, source: AutoSource, id: string, actorI
 }
 
 async function sourceIds(db: Db, source: AutoSource): Promise<string[]> {
-  const table = { AP_INVOICE: invoices, PV: pvs, AR_INVOICE: arInvoices, AR_RECEIPT: arReceipts, AR_CREDIT_NOTE: arCreditNotes, SALES_DOC: salesDocs }[source];
+  const table = { AP_INVOICE: invoices, PV: pvs, AR_INVOICE: arInvoices, AR_RECEIPT: arReceipts, AR_CREDIT_NOTE: arCreditNotes, SALES_DOC: salesDocs, STOCK_ADJUST: stockAdjustRequests }[source];
   const rows = await db.select({ id: table.id }).from(table);
   return rows.map((r) => r.id);
 }

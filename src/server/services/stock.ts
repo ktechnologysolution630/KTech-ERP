@@ -24,10 +24,12 @@ import {
 import { DomainError } from '@/domain/errors';
 import { D, Decimal, round2 } from '@/domain/money';
 import { DEFAULT_STOCK_CATEGORY, STOCK_CATEGORIES } from '@/domain/stock';
+import { movingAverage } from '@/domain/stock-card';
 import { assertCan, can, isSiteScopedOnly } from '@/server/policy';
 import { logActivity } from './activity';
 import { notify, usersWithRole } from './notifications';
 import { nextDocNumber } from './numbering';
+import { syncJournal } from './gl';
 
 /** The central store is the stock location without a project. */
 export const CENTRAL_STORE = 'คลังกลาง';
@@ -298,6 +300,12 @@ export async function applyStockMovement(tx: Db, input: StockMovementInput): Pro
   const qty = D(input.quantity);
   // Issues and transfers are valued at the item's standard cost when no cost is given
   const unitCost = D(input.unitCost && input.unitCost > 0 ? input.unitCost : item.unitCost);
+  // On hand in every store before this movement, for the moving average cost
+  const [onHandRow] = await tx
+    .select({ qty: sql<string>`coalesce(sum(${stockBalances.quantity}), 0)` })
+    .from(stockBalances)
+    .where(eq(stockBalances.stockItemId, item.id));
+  const onHand = D(onHandRow?.qty ?? 0);
 
   switch (input.type) {
     case 'RECEIVE':
@@ -345,9 +353,10 @@ export async function applyStockMovement(tx: Db, input: StockMovementInput): Pro
     vat: round2(D(input.vat ?? 0)).toFixed(2),
     extraCost: round2(D(input.extraCost ?? 0)).toFixed(2),
   });
-  // Receipts at a new price become the item's standard cost
-  if (input.type === 'RECEIVE' && input.unitCost && input.unitCost > 0) {
-    await tx.update(stockItems).set({ unitCost: unitCost.toFixed(2), updatedAt: new Date() }).where(eq(stockItems.id, item.id));
+  // Goods coming in at a cost are averaged with what is on hand (ต้นทุนเฉลี่ยเคลื่อนที่)
+  if ((input.type === 'RECEIVE' || input.type === 'RETURN') && input.unitCost && input.unitCost > 0) {
+    const avg = movingAverage(onHand, item.unitCost, qty, unitCost);
+    await tx.update(stockItems).set({ unitCost: avg.toFixed(2), updatedAt: new Date() }).where(eq(stockItems.id, item.id));
   }
   return movementNumber;
 }
@@ -547,7 +556,7 @@ export async function requestStockAdjust(db: Db, actor: SessionUser, input: Stoc
     const diff = D(data.countedQty).minus(current);
     if (diff.isZero()) throw new DomainError('INVALID_STOCK', 'ยอดตรวจนับเท่ากับยอดในระบบ ไม่ต้องปรับ');
 
-    const requestNumber = await nextDocNumber(tx, 'SAR');
+    const requestNumber = await nextDocNumber(tx, 'AJ');
     const [req] = await tx
       .insert(stockAdjustRequests)
       .values({
@@ -604,6 +613,7 @@ export async function decideStockAdjust(
       .set({ status, approvedBy: actor.id, approvedAt: new Date() })
       .where(eq(stockAdjustRequests.id, requestId));
     await logActivity(tx, { entityType: 'STOCK_ADJUST', entityId: req.id, action: approve ? 'APPROVE' : 'REJECT', userId: actor.id });
+    if (approve) await syncJournal(tx, 'STOCK_ADJUST', req.id, actor.id);
     await notify(tx, [req.requestedBy], {
       title: `${req.requestNumber} ${approve ? 'อนุมัติปรับยอดแล้ว' : 'ไม่อนุมัติปรับยอด'}`,
       href: '/stock?tab=stock-adjust',

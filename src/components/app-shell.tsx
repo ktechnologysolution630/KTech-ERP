@@ -457,6 +457,21 @@ export function AppShell({ user, unreadCount = 0, companyName, pendingApprovalCo
                       <span>ปรับปรุงยอดสต็อก</span>
                     </Link>
                     )}
+
+                    {canSee('STOCK_CARD') && (
+                    <Link
+                      href="/stock/card"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname === '/stock/card'
+                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                      <span>สมุดคุมสต็อก (Stock Card)</span>
+                    </Link>
+                    )}
                   </div>
                 )}
               </div>
