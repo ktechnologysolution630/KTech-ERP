@@ -141,12 +141,12 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
               <img src={logoUrl} alt={companyNameEn} className={`${collapsed ? 'h-7 w-7' : 'h-9 w-9'} shrink-0 object-contain`} />
             )}
             {!collapsed && (
-              <div className="min-w-0 flex flex-col justify-center gap-0.5" title={`${companyNameEn} · ${companyName}`}>
-                <span className="block line-clamp-2 font-bold text-[#1e4f9c] text-[11px] leading-[14px] tracking-tight uppercase">
-                  {shortCompanyName(companyNameEn)}
-                </span>
-                <span className="block text-[9px] leading-3 font-semibold text-slate-400 tracking-[0.18em] uppercase">K Tec ERP</span>
-              </div>
+              <span
+                className="min-w-0 line-clamp-2 font-bold text-[#1e4f9c] text-[11px] leading-[14px] tracking-tight uppercase"
+                title={`${companyNameEn} · ${companyName}`}
+              >
+                {shortCompanyName(companyNameEn)}
+              </span>
             )}
           </Link>
 
