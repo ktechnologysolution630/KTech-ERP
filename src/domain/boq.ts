@@ -68,3 +68,41 @@ export function computeBoqTotals(input: {
     grandTotal: afterDiscount.plus(vatAmount),
   };
 }
+
+/** Material, labour and total of one BOQ category (หมวด), before overhead, discount and VAT. */
+export interface BoqCategoryTotal {
+  /** Category row's ลำดับ, or '' for items placed above the first category */
+  no: string;
+  name: string;
+  material: Decimal;
+  labor: Decimal;
+  total: Decimal;
+}
+
+/**
+ * Sums each category's items: an item belongs to the nearest category row above it.
+ * Items above the first category row are grouped as "ไม่ระบุหมวด". Categories are kept in sheet
+ * order, empty ones included, so the summary mirrors the sheet. The totals add up to `directCost`.
+ */
+export function computeBoqCategoryTotals(
+  rows: (BoqRowInput & { no: string; description: string })[],
+): BoqCategoryTotal[] {
+  const out: BoqCategoryTotal[] = [];
+  let current: BoqCategoryTotal | null = null;
+  for (const row of rows) {
+    if (row.isCategory) {
+      current = { no: row.no, name: row.description.trim() || 'หมวดงาน', material: D(0), labor: D(0), total: D(0) };
+      out.push(current);
+      continue;
+    }
+    if (!current) {
+      current = { no: '', name: 'ไม่ระบุหมวด', material: D(0), labor: D(0), total: D(0) };
+      out.push(current);
+    }
+    const line = computeBoqLine(row);
+    current.material = current.material.plus(line.material);
+    current.labor = current.labor.plus(line.labor);
+    current.total = current.total.plus(line.total);
+  }
+  return out;
+}

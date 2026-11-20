@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { computeBoqLine, computeBoqTotals } from '@/domain/boq';
+import { computeBoqCategoryTotals, computeBoqLine, computeBoqTotals } from '@/domain/boq';
 
 describe('boq totals', () => {
   test('category rows and empty cells contribute nothing', () => {
@@ -50,5 +50,33 @@ describe('boq totals', () => {
     });
     expect(t.afterDiscount.toFixed(2)).toBe('0.00');
     expect(t.grandTotal.toFixed(2)).toBe('0.00');
+  });
+});
+
+describe('boq category totals', () => {
+  const row = (no: string, description: string, qty: number | '', materialRate: number | '', laborRate: number | '') => ({
+    isCategory: false, no, description, qty, materialRate, laborRate,
+  });
+  const cat = (no: string, description: string) => ({ isCategory: true, no, description, qty: '' as const, materialRate: '' as const, laborRate: '' as const });
+
+  test('items add up under the nearest category above them, in sheet order', () => {
+    const rows = [
+      row('', 'ก่อนหมวด', 1, 100, 0),
+      cat('1', 'งานโครงสร้าง'),
+      row('1.1', 'คอนกรีต', 10, 2200, 350),
+      row('1.2', 'เหล็ก', 500, 28, 6),
+      cat('2', 'งานสถาปัตยกรรม'),
+      cat('3', 'งานสุขาภิบาล'),
+      row('3.1', 'สุขภัณฑ์', 2, 3000, 500),
+    ];
+    const totals = computeBoqCategoryTotals(rows);
+    expect(totals.map((t) => [t.no, t.name, t.material.toFixed(2), t.labor.toFixed(2), t.total.toFixed(2)])).toEqual([
+      ['', 'ไม่ระบุหมวด', '100.00', '0.00', '100.00'],
+      ['1', 'งานโครงสร้าง', '36000.00', '6500.00', '42500.00'],
+      ['2', 'งานสถาปัตยกรรม', '0.00', '0.00', '0.00'],
+      ['3', 'งานสุขาภิบาล', '6000.00', '1000.00', '7000.00'],
+    ]);
+    const direct = computeBoqTotals({ rows, overheadPercent: 0, discountAmount: 0, vatPercent: 0 }).directCost;
+    expect(totals.reduce((s, t) => s + t.total.toNumber(), 0).toFixed(2)).toBe(direct.toFixed(2));
   });
 });
