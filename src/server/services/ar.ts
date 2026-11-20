@@ -26,6 +26,7 @@ import {
 import { DomainError } from '@/domain/errors';
 import { D, Decimal, round2, sum } from '@/domain/money';
 import { bangkokDateString } from '@/domain/thai';
+import { settlesInvoice, type SalesDocKind } from '@/domain/sales-doc';
 import { assertCan } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
@@ -654,8 +655,16 @@ export async function outputVatReport(db: Db, actor: SessionUser, year: number, 
     .from(salesDocs)
     .leftJoin(projects, eq(projects.id, salesDocs.projectId))
     .where(and(eq(salesDocs.status, 'ISSUED'), inArray(salesDocs.kind, ['RC', 'TI', 'STI', 'DN', 'INC']), gte(salesDocs.docDate, from), lte(salesDocs.docDate, to)));
+  // A receipt against a tax invoice carries the invoice's VAT, which is reported on the invoice itself
+  const sourceIds = [...new Set(docs.map(({ d }) => d.sourceId).filter((x): x is string => !!x))];
+  const sourceKinds = new Map(
+    sourceIds.length > 0
+      ? (await db.select({ id: salesDocs.id, kind: salesDocs.kind }).from(salesDocs).where(inArray(salesDocs.id, sourceIds))).map((r) => [r.id, r.kind])
+      : [],
+  );
   for (const { d, projectName } of docs) {
     if (Number(d.vat) === 0) continue;
+    if (settlesInvoice(d.kind as SalesDocKind, d.sourceId ? (sourceKinds.get(d.sourceId) as SalesDocKind | undefined) : undefined)) continue;
     rows.push({
       date: d.docDate,
       number: d.number,

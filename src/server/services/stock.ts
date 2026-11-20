@@ -4,6 +4,7 @@ import { type Db } from '@/db/client';
 import {
   items,
   poLines,
+  prLines,
   pos,
   projects,
   stockAdjustRequests,
@@ -414,16 +415,28 @@ export async function syncReceiptToStock(
     const name = line.description.trim();
     // The item tied to the PO line wins; otherwise one with the same name, otherwise a new one
     const [linked] = line.poLineId
-      ? await tx.select({ id: poLines.stockItemId }).from(poLines).where(eq(poLines.id, line.poLineId)).limit(1)
+      ? await tx
+          .select({ id: poLines.stockItemId, itemCode: items.code })
+          .from(poLines)
+          // The item master row comes from the PO line, or from the PR line it was ordered from
+          .leftJoin(prLines, eq(prLines.id, poLines.prLineId))
+          .leftJoin(items, eq(items.id, sql`coalesce(${poLines.itemId}, ${prLines.itemId})`))
+          .where(eq(poLines.id, line.poLineId))
+          .limit(1)
       : [];
     const [existing] = linked?.id
       ? [{ id: linked.id }]
       : await tx.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.name, name)).limit(1);
-    const stockItemId =
-      existing?.id ??
-      (
+    let stockItemId = existing?.id;
+    if (!stockItemId) {
+      // A new stock item keeps the item master's code (CM-001), unless another stock item holds it
+      const itemCode = linked?.itemCode?.trim() ?? '';
+      const [taken] = itemCode
+        ? await tx.select({ id: stockItems.id }).from(stockItems).where(eq(stockItems.sku, itemCode)).limit(1)
+        : [];
+      stockItemId = (
         await writeStockItem(tx, {
-          sku: '',
+          sku: itemCode && !taken ? itemCode : '',
           name,
           category: DEFAULT_STOCK_CATEGORY,
           unit: line.unit || 'ชิ้น',
@@ -432,6 +445,7 @@ export async function syncReceiptToStock(
           notes: '',
         })
       ).id;
+    }
 
     // Later receipts of this line go into the same item even if it is renamed
     if (line.poLineId && !linked?.id) {

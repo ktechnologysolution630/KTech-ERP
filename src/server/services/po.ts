@@ -1363,6 +1363,8 @@ export async function listPos(
       creatorName: users.name,
       status: pos.status,
       paymentType: pos.paymentType,
+      beforeVat: pos.beforeVat,
+      vat: pos.vat,
       gross: pos.gross,
       pendingRevision: pos.pendingRevision,
       closedShort: pos.closedShort,

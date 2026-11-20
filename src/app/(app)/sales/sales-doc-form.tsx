@@ -31,6 +31,8 @@ export interface SalesStockItemOption {
   unit: string;
   /** On hand in every store */
   onHand: number;
+  /** On hand per store, keyed by project id ('' = central store) */
+  byStore?: Record<string, number>;
 }
 
 export interface SalesAccountOption {
@@ -358,7 +360,11 @@ export function SalesDocForm({
                           <option value="">ไม่ผูกสินค้าในคลัง (งานบริการ)</option>
                           {stockItems.map((s) => (
                             <option key={s.id} value={s.id}>
-                              {s.sku} {s.name} (คงเหลือ {s.onHand} {s.unit})
+                              {`${s.sku} ${s.name} (${
+                                STOCK_CUT_KINDS.includes(kind)
+                                  ? `${projectId ? 'คลังโครงการ' : 'คลังกลาง'}คงเหลือ ${s.byStore?.[projectId] ?? 0} ${s.unit} · ทุกคลัง ${s.onHand}`
+                                  : `คงเหลือ ${s.onHand} ${s.unit}`
+                              })`}
                             </option>
                           ))}
                         </select>

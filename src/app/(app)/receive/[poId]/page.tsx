@@ -3,6 +3,7 @@ import { bangkokDateString } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { getPoOrNotFound } from '@/app/(app)/po/get-po-or-not-found';
 import { MobileReceiveForm } from '@/components/mobile-receive-form';
+import { isMenuVisible } from '@/domain/menu';
 
 export default async function ReceivePoPage({
   params,
@@ -32,6 +33,8 @@ export default async function ReceivePoPage({
       projectLabel={`${po.projectCode} - ${po.projectName}`}
       defaultDate={bangkokDateString()}
       lines={remainingLines}
+      // A foreman usually has the receive menu but not the PO menu, and would land on "no access"
+      afterSaveHref={isMenuVisible(actor.hiddenMenus, 'PUR_PO') ? `/po/${po.id}` : '/receive'}
     />
   );
 }

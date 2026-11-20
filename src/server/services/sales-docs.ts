@@ -193,6 +193,21 @@ async function docValues(tx: Tx, d: ParsedDoc) {
  */
 export const SALES_EDIT_IN_PLACE: readonly SalesDocKind[] = ['QT', 'SO', 'INC', 'EXP'];
 
+/** Receipts against one tax invoice (TI → RC) may not collect more than the invoice's total */
+async function assertWithinInvoice(tx: Tx, sourceId: string, total: Decimal, replacingId?: string) {
+  const [src] = await tx.select().from(salesDocs).where(eq(salesDocs.id, sourceId)).limit(1);
+  if (!src || src.kind !== 'TI') return;
+  const others = await tx
+    .select({ id: salesDocs.id, total: salesDocs.total })
+    .from(salesDocs)
+    .where(and(eq(salesDocs.sourceId, sourceId), eq(salesDocs.kind, 'RC'), eq(salesDocs.status, 'ISSUED')));
+  const received = others.filter((o) => o.id !== replacingId).reduce((acc, o) => acc.plus(o.total), D(0));
+  const left = D(src.total).minus(received);
+  if (total.gt(left)) {
+    throw new DomainError('OVER_RECEIPT', `รับชำระเกินยอดใบกำกับภาษี ${src.number} (คงค้าง ${left.toFixed(2)} บาท)`, 409);
+  }
+}
+
 /**
  * ตัดสต็อก: a tax invoice or abbreviated tax invoice takes the stock items on its lines out of the
  * project's store (the central store when no project), at the moving average cost. Short stock refuses
@@ -283,6 +298,7 @@ export async function createSalesDoc(
     }
 
     const { values, lines } = await docValues(tx, d);
+    if (sourceId && d.kind === 'RC') await assertWithinInvoice(tx, sourceId, D(values.total), replaced?.id);
     const number = await nextDocNumber(tx, SALES_DOC_META[d.kind].prefix, new Date(`${d.docDate}T12:00:00+07:00`));
     const [doc] = await tx
       .insert(salesDocs)
@@ -528,7 +544,20 @@ export async function listStockItemsForSales(db: Db, actor: SessionUser) {
     .leftJoin(stockBalances, eq(stockBalances.stockItemId, stockItems.id))
     .groupBy(stockItems.id)
     .orderBy(asc(stockItems.sku));
-  return rows.map((r) => ({ ...r, onHand: Number(r.onHand) }));
+  // A tax invoice cuts from one store (the project's, or central), so the picker shows that store's balance too
+  const perStore = await db
+    .select({
+      stockItemId: stockBalances.stockItemId,
+      projectId: stockBalances.projectId,
+      qty: sql<string>`coalesce(sum(${stockBalances.quantity}), 0)`,
+    })
+    .from(stockBalances)
+    .groupBy(stockBalances.stockItemId, stockBalances.projectId);
+  return rows.map((r) => ({
+    ...r,
+    onHand: Number(r.onHand),
+    byStore: Object.fromEntries(perStore.filter((b) => b.stockItemId === r.id).map((b) => [b.projectId ?? '', Number(b.qty)])),
+  }));
 }
 
 /** Vendors for the payee picker on payment vouchers */

@@ -16,7 +16,7 @@ export function InvoiceForm({
   initialPoId,
   today,
 }: {
-  pos: { id: string; number: string; vendorName: string; gross: string }[];
+  pos: { id: string; number: string; vendorName: string; gross: string; vatRate: number }[];
   billing: PoBillingInfo[];
   initialPoId: string;
   today: string;
@@ -24,6 +24,15 @@ export function InvoiceForm({
   const [poId, setPoId] = useState(initialPoId);
   const [invoiceDate, setInvoiceDate] = useState(today);
   const [error, setError] = useState<string | null>(null);
+  const [beforeVat, setBeforeVat] = useState('');
+  const [vat, setVat] = useState('0.00');
+  // VAT follows the amount at the PO's rate until someone types their own (a bill can differ by a satang)
+  const [vatTouched, setVatTouched] = useState(false);
+  const vatRate = pos.find((p) => p.id === poId)?.vatRate ?? 0;
+  const vatFor = (amount: string, rate: number) => {
+    const n = Number(amount);
+    return Number.isFinite(n) && amount !== '' ? (Math.round(n * rate) / 100).toFixed(2) : '0.00';
+  };
   const [pending, startTransition] = useTransition();
 
   const info = billing.find((b) => b.poId === poId);
@@ -59,7 +68,16 @@ export function InvoiceForm({
     >
       <div>
         <label className={label}>ใบสั่งซื้อ (PO) *</label>
-        <select name="poId" value={poId} onChange={(e) => setPoId(e.target.value)} required className={input}>
+        <select
+          name="poId"
+          value={poId}
+          onChange={(e) => {
+            setPoId(e.target.value);
+            if (!vatTouched) setVat(vatFor(beforeVat, pos.find((p) => p.id === e.target.value)?.vatRate ?? 0));
+          }}
+          required
+          className={input}
+        >
           <option value="">-- เลือก PO --</option>
           {pos.map((p) => (
             <option key={p.id} value={p.id}>
@@ -101,11 +119,33 @@ export function InvoiceForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={label}>ยอดก่อน VAT (บาท) *</label>
-          <input type="number" step="0.01" name="beforeVat" required className={input} />
+          <input
+            type="number"
+            step="0.01"
+            name="beforeVat"
+            required
+            value={beforeVat}
+            onChange={(e) => {
+              setBeforeVat(e.target.value);
+              if (!vatTouched) setVat(vatFor(e.target.value, vatRate));
+            }}
+            className={input}
+          />
         </div>
         <div>
-          <label className={label}>VAT (บาท) *</label>
-          <input type="number" step="0.01" name="vat" defaultValue="0.00" required className={input} />
+          <label className={label}>VAT (บาท) *{vatRate > 0 && <span className="font-normal text-slate-500"> · คำนวณ {vatRate}% ตาม PO</span>}</label>
+          <input
+            type="number"
+            step="0.01"
+            name="vat"
+            required
+            value={vat}
+            onChange={(e) => {
+              setVat(e.target.value);
+              setVatTouched(true);
+            }}
+            className={input}
+          />
         </div>
       </div>
 
