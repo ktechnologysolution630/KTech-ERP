@@ -6,7 +6,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { DateInput } from '@/components/date-input';
 import { AmountInWords, DocPaper, MetaRow, SignatureRow, paperCell, paperInput, type CompanyHeader } from '@/components/doc-paper';
 import { formatMoneyDisplay } from '@/domain/money';
-import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, SALES_DOC_META, SALES_VAT_LABEL, type CategoryOption, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
+import { ACCOUNT_CATEGORIES, EXPENSE_CATEGORIES, computeSalesTotals, lineAmount, SALES_DOC_META, STOCK_CUT_KINDS, SALES_VAT_LABEL, type CategoryOption, type SalesDocKind, type SalesVatMode } from '@/domain/sales-doc';
 import { THAI_BANKS } from '@/domain/vendor-profile';
 import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
 import { createSalesDocAction, updateSalesDocAction } from './actions';
@@ -22,6 +22,15 @@ export interface SalesCustomerOption {
   contactName: string;
   phone: string;
   email: string;
+}
+
+export interface SalesStockItemOption {
+  id: string;
+  sku: string;
+  name: string;
+  unit: string;
+  /** On hand in every store */
+  onHand: number;
 }
 
 export interface SalesAccountOption {
@@ -41,7 +50,7 @@ const PAY_METHODS = [
 type PayMethod = (typeof PAY_METHODS)[number][0];
 
 type Line = SalesDocFormLine;
-const item = (): Line => ({ isSection: false, name: '', detail: '', qty: '1', unit: '', unitPrice: '' });
+const item = (): Line => ({ isSection: false, name: '', detail: '', qty: '1', unit: '', unitPrice: '', discount: '', stockItemId: '' });
 const n = (v: string) => {
   const x = Number(v);
   return Number.isFinite(x) && x > 0 ? x : 0;
@@ -57,6 +66,7 @@ export function SalesDocForm({
   accounts = [],
   categories,
   projects,
+  stockItems = [],
   today,
   forms,
   initial,
@@ -76,6 +86,8 @@ export function SalesDocForm({
   /** Active categories from ตั้งค่าบัญชี; the built-in list is used when none are set up */
   categories?: CategoryOption[];
   projects: { id: string; code: string; name: string }[];
+  /** Items a line can be tied to; a tax invoice cuts them from stock */
+  stockItems?: SalesStockItemOption[];
   today: string;
 }) {
   const router = useRouter();
@@ -112,7 +124,7 @@ export function SalesDocForm({
   const totals = useMemo(
     () =>
       computeSalesTotals({
-        lines: lines.map((l) => ({ isSection: l.isSection, qty: n(l.qty), unitPrice: n(l.unitPrice) })),
+        lines: lines.map((l) => ({ isSection: l.isSection, qty: n(l.qty), unitPrice: n(l.unitPrice), discount: n(l.discount) })),
         discountType,
         discountValue: n(discountValue),
         vatMode,
@@ -173,12 +185,21 @@ export function SalesDocForm({
         accountName,
         accountNo,
         notes,
-        lines: lines.map((l) => ({ isSection: l.isSection, name: l.name, detail: l.detail, qty: n(l.qty), unit: l.unit, unitPrice: n(l.unitPrice) })),
+        lines: lines.map((l) => ({
+          isSection: l.isSection,
+          name: l.name,
+          detail: l.detail,
+          qty: n(l.qty),
+          unit: l.unit,
+          unitPrice: n(l.unitPrice),
+          discount: l.isSection ? 0 : n(l.discount),
+          stockItemId: !l.isSection && l.stockItemId ? l.stockItemId : null,
+        })),
       };
       const r =
         mode.type === 'edit'
           ? await updateSalesDocAction(mode.id, input)
-          : await createSalesDocAction(input, mode.type === 'reissue' ? mode.replacesId : undefined);
+          : await createSalesDocAction(input, mode.type === 'reissue' ? mode.replacesId : undefined, mode.type === 'convert' ? mode.sourceId : undefined);
       if (!r.ok) {
         setError(r.error);
         return;
@@ -192,10 +213,17 @@ export function SalesDocForm({
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
         <div>
           <h1 className="text-lg font-bold text-slate-900">
-            {mode.type === 'create' ? `สร้าง${meta.th}` : mode.type === 'edit' ? `แก้ไข${meta.th} ${mode.number}` : `แก้ไข${meta.th} ${mode.number} โดยออกใบใหม่`}
+            {mode.type === 'create'
+              ? `สร้าง${meta.th}`
+              : mode.type === 'convert'
+                ? `สร้าง${meta.th}จาก${mode.sourceLabel} ${mode.number}`
+                : mode.type === 'edit'
+                  ? `แก้ไข${meta.th} ${mode.number}`
+                  : `แก้ไข${meta.th} ${mode.number} โดยออกใบใหม่`}
           </h1>
           <p className="text-xs text-slate-500">
             {mode.type === 'reissue' ? `เมื่อบันทึก ${mode.number} จะถูกยกเลิก และออกใบใหม่เลขใหม่แทน (เอกสารภาษีที่ออกแล้วแก้ทับไม่ได้)` : meta.hint}
+            {STOCK_CUT_KINDS.includes(kind) && stockItems.length > 0 && ` · รายการที่เลือกสินค้าจะตัดสต็อกจาก${projectId ? 'คลังโครงการ' : 'คลังกลาง'}และลงต้นทุนขายให้อัตโนมัติ`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -292,6 +320,7 @@ export function SalesDocForm({
                 <th className="w-24 border border-[#102d72] px-2 py-2">จำนวน</th>
                 <th className="w-24 border border-[#102d72] px-2 py-2">หน่วย</th>
                 <th className="w-32 border border-[#102d72] px-2 py-2">ราคาต่อหน่วย</th>
+                <th className="w-28 border border-[#102d72] px-2 py-2">ส่วนลด (บาท)</th>
                 <th className="w-32 border border-[#102d72] px-2 py-2">จำนวนเงิน</th>
                 <th className="w-8 border border-[#102d72]" aria-label="ลบ" />
               </tr>
@@ -301,7 +330,7 @@ export function SalesDocForm({
                 return l.isSection ? (
                   <tr key={i} className="bg-slate-50">
                     <td className="border border-slate-200" />
-                    <td colSpan={5} className="border border-slate-200 px-1 py-1">
+                    <td colSpan={6} className="border border-slate-200 px-1 py-1">
                       <input value={l.name} onChange={(e) => setLine(i, { name: e.target.value })} placeholder="ชื่อพื้นที่หลัก เช่น ห้องโถง" aria-label={`พื้นที่หลักแถวที่ ${i + 1}`} className={`${paperCell} font-semibold`} />
                     </td>
                     <td className="border border-slate-200 px-1 text-center">
@@ -316,6 +345,24 @@ export function SalesDocForm({
                     <td className="border border-slate-200 px-1 py-1">
                       <input value={l.name} onChange={(e) => setLine(i, { name: e.target.value })} placeholder="ชื่อรายการ" aria-label={`ชื่อรายการแถวที่ ${i + 1}`} className={`${paperCell} font-medium`} />
                       <textarea value={l.detail} onChange={(e) => setLine(i, { detail: e.target.value })} placeholder="รายละเอียดรายการ" rows={1} aria-label={`รายละเอียดแถวที่ ${i + 1}`} className={`${paperCell} mt-1 resize-y text-xs text-slate-600`} />
+                      {stockItems.length > 0 && (
+                        <select
+                          value={l.stockItemId}
+                          onChange={(e) => {
+                            const s = stockItems.find((x) => x.id === e.target.value);
+                            setLine(i, { stockItemId: e.target.value, ...(s && !l.name ? { name: s.name } : {}), ...(s && !l.unit ? { unit: s.unit } : {}) });
+                          }}
+                          aria-label={`สินค้าในคลังแถวที่ ${i + 1}`}
+                          className="mt-1 w-full rounded border border-slate-200 px-1 py-0.5 text-xs text-slate-600"
+                        >
+                          <option value="">ไม่ผูกสินค้าในคลัง (งานบริการ)</option>
+                          {stockItems.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.sku} {s.name} (คงเหลือ {s.onHand} {s.unit})
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td className="border border-slate-200 px-1 py-1">
                       <input type="number" min={0} step="any" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} aria-label={`จำนวนแถวที่ ${i + 1}`} className={`${paperCell} text-right`} />
@@ -326,7 +373,12 @@ export function SalesDocForm({
                     <td className="border border-slate-200 px-1 py-1">
                       <input type="number" min={0} step="0.01" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} placeholder="0.00" aria-label={`ราคาต่อหน่วยแถวที่ ${i + 1}`} className={`${paperCell} text-right`} />
                     </td>
-                    <td className="border border-slate-200 px-2 py-2 text-right font-medium">{formatMoneyDisplay((n(l.qty) * n(l.unitPrice)).toFixed(2))}</td>
+                    <td className="border border-slate-200 px-1 py-1">
+                      <input type="number" min={0} step="0.01" value={l.discount} onChange={(e) => setLine(i, { discount: e.target.value })} placeholder="0" aria-label={`ส่วนลดแถวที่ ${i + 1}`} className={`${paperCell} text-right`} />
+                    </td>
+                    <td className="border border-slate-200 px-2 py-2 text-right font-medium">
+                      {formatMoneyDisplay(lineAmount({ qty: n(l.qty), unitPrice: n(l.unitPrice), discount: n(l.discount) }).toFixed(2))}
+                    </td>
                     <td className="border border-slate-200 px-1 py-2 text-center">
                       {lines.filter((x) => !x.isSection).length > 1 && (
                         <button type="button" onClick={() => setLines((p) => p.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-600" title={`ลบแถวที่ ${i + 1}`}>

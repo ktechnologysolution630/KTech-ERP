@@ -19,6 +19,7 @@ export type FormKind =
   | 'EXP'
   | 'PO'
   | 'QT'
+  | 'SO'
   | 'RC'
   | 'TI'
   | 'DN'
@@ -121,6 +122,7 @@ export const FORM_DEFS: readonly FormDef[] = [
     },
   },
   salesDef('QT', 'EXTERNAL', 'ใบเสนอราคา'),
+  salesDef('SO', 'EXTERNAL', 'ใบสั่งขาย'),
   salesDef('TI', 'EXTERNAL', 'ใบกำกับภาษี'),
   salesDef('RC', 'EXTERNAL', 'ใบเสร็จรับเงิน'),
   salesDef('DN', 'EXTERNAL', 'ใบเพิ่มหนี้'),

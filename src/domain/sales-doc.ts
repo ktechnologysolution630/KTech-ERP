@@ -1,13 +1,14 @@
 import { D, Decimal, round2, sum } from '@/domain/money';
 
 /** Sales documents kept outside the milestone billing flow */
-export type SalesDocKind = 'QT' | 'RC' | 'TI' | 'DN' | 'STI' | 'INC' | 'EXP';
-export const SALES_DOC_KINDS: readonly SalesDocKind[] = ['QT', 'RC', 'TI', 'DN', 'STI', 'INC', 'EXP'];
+export type SalesDocKind = 'QT' | 'SO' | 'RC' | 'TI' | 'DN' | 'STI' | 'INC' | 'EXP';
+export const SALES_DOC_KINDS: readonly SalesDocKind[] = ['QT', 'SO', 'RC', 'TI', 'DN', 'STI', 'INC', 'EXP'];
 /** Money comes in on these; EXP is money going out */
 export const MONEY_IN_KINDS: readonly SalesDocKind[] = ['RC', 'INC'];
 
-export const SALES_DOC_META: Record<SalesDocKind, { slug: string; th: string; en: string; hint: string; prefix: 'QT' | 'REC' | 'TI' | 'DN' | 'STI' | 'INC' | 'EXP' }> = {
+export const SALES_DOC_META: Record<SalesDocKind, { slug: string; th: string; en: string; hint: string; prefix: 'QT' | 'SO' | 'REC' | 'TI' | 'DN' | 'STI' | 'INC' | 'EXP' }> = {
   QT: { slug: 'quotations', th: 'ใบเสนอราคา', en: 'QUOTATION', hint: 'เสนอราคางานก่อสร้างให้ลูกค้าก่อนเปิดโครงการ', prefix: 'QT' },
+  SO: { slug: 'sales-orders', th: 'ใบสั่งขาย', en: 'SALES ORDER', hint: 'ยืนยันคำสั่งซื้อของลูกค้า ยังไม่ลงบัญชีและยังไม่ตัดสต็อก เปิดใบกำกับภาษีจากใบนี้ได้', prefix: 'SO' },
   RC: { slug: 'receipts', th: 'ใบเสร็จรับเงิน', en: 'RECEIPT', hint: 'บันทึกการรับชำระเงินและออกใบเสร็จ', prefix: 'REC' },
   TI: { slug: 'tax-invoices', th: 'ใบกำกับภาษี', en: 'TAX INVOICE', hint: 'ออกใบกำกับภาษีขายให้ลูกค้า', prefix: 'TI' },
   DN: { slug: 'debit-notes', th: 'ใบเพิ่มหนี้', en: 'DEBIT NOTE', hint: 'เรียกเก็บเพิ่มจากใบกำกับภาษีที่ออกไปแล้ว', prefix: 'DN' },
@@ -41,10 +42,32 @@ export interface CategoryOption {
 export const categoryOptions = (rows: { code: string; name: string; vatDefault: 'VAT7' | 'NONE'; whtRate: string }[]): CategoryOption[] =>
   rows.map((c) => ({ label: `${c.code} ${c.name}`, vatDefault: c.vatDefault, whtRate: Number(c.whtRate) }));
 
+/**
+ * แปลงเอกสาร (Express: QT → SO → IV): the kinds a document can be carried into, copying its customer
+ * and lines. The tax invoice (TI) is the credit sale that cuts stock and sets up the receivable.
+ */
+export const CONVERT_TO: Partial<Record<SalesDocKind, readonly SalesDocKind[]>> = {
+  QT: ['SO', 'TI'],
+  SO: ['TI'],
+};
+export const canConvert = (from: SalesDocKind, to: SalesDocKind) => (CONVERT_TO[from] ?? []).includes(to);
+
+/** Sales that hand goods over: lines tied to a stock item are cut from stock and costed (ต้นทุนขาย) */
+export const STOCK_CUT_KINDS: readonly SalesDocKind[] = ['TI', 'STI'];
+
 export interface SalesLineInput {
   isSection?: boolean;
   qty: number;
   unitPrice: number;
+  /** ส่วนลดรายบรรทัด in baht, taken off qty × price */
+  discount?: number;
+}
+
+/** A line's amount: qty × price less its own discount, never below zero */
+export function lineAmount(l: SalesLineInput): Decimal {
+  if (l.isSection) return D(0);
+  const gross = round2(D(l.qty).times(D(l.unitPrice)));
+  return round2(gross.minus(Decimal.min(D(l.discount || 0), gross)));
 }
 
 export interface SalesTotals {
@@ -62,7 +85,7 @@ export interface SalesTotals {
 const RATE = D('0.07');
 
 /**
- * Totals of a sales document. Discount is a percent or an amount off the subtotal; VAT is added on
+ * Totals of a sales document. Each line carries its own discount first; the bill discount is a percent or an amount off the subtotal; VAT is added on
  * top (แยก VAT) or taken out of the price (ราคารวม VAT); withholding tax is on the amount before VAT.
  */
 export function computeSalesTotals(input: {
@@ -74,7 +97,7 @@ export function computeSalesTotals(input: {
   /** หักประกันผลงาน, percent of the amount before VAT */
   retentionRate?: number;
 }): SalesTotals {
-  const subtotal = round2(sum(input.lines.filter((l) => !l.isSection).map((l) => round2(D(l.qty).times(D(l.unitPrice))))));
+  const subtotal = round2(sum(input.lines.filter((l) => !l.isSection).map(lineAmount)));
   const rawDiscount = input.discountType === 'PERCENT' ? subtotal.times(D(input.discountValue || 0)).div(100) : D(input.discountValue || 0);
   const discount = round2(Decimal.min(rawDiscount, subtotal));
   const afterDiscount = round2(subtotal.minus(discount));

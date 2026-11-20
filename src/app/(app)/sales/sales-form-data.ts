@@ -5,13 +5,13 @@ import { bangkokDateString } from '@/domain/thai';
 import { listAccountCategories } from '@/server/services/account-categories';
 import { getFormTemplates } from '@/server/services/form-templates';
 import { listProjects } from '@/server/services/master';
-import { listCompanyAccounts, listCustomersForSales, listVendorsForSales } from '@/server/services/sales-docs';
+import { listCompanyAccounts, listCustomersForSales, listStockItemsForSales, listVendorsForSales } from '@/server/services/sales-docs';
 import { getSettings } from '@/server/services/settings';
 import { companyHeaderFrom } from '@/components/doc-paper-data';
 
 /** Everything the sales form needs besides the document itself, for the new and edit pages alike */
 export async function loadSalesFormData(db: Db, actor: SessionUser, kind: SalesDocKind) {
-  const [customers, projects, settings, vendors, accounts, categories, forms] = await Promise.all([
+  const [customers, projects, settings, vendors, accounts, categories, forms, stockItems] = await Promise.all([
     listCustomersForSales(db, actor),
     listProjects(db, actor),
     getSettings(db),
@@ -19,6 +19,7 @@ export async function loadSalesFormData(db: Db, actor: SessionUser, kind: SalesD
     listCompanyAccounts(db, actor),
     listAccountCategories(db, actor, { types: [kind === 'EXP' ? 'EXPENSE' : 'INCOME'], activeOnly: true }),
     getFormTemplates(db),
+    kind === 'EXP' ? Promise.resolve([]) : listStockItemsForSales(db, actor),
   ]);
   return {
     kind,
@@ -31,6 +32,7 @@ export async function loadSalesFormData(db: Db, actor: SessionUser, kind: SalesD
       .map((a) => ({ id: a.id, label: `${a.bank} ${a.accountNo} (${a.accountName})`, isDefaultReceive: a.isDefaultReceive, isDefaultPay: a.isDefaultPay })),
     categories: categoryOptions(categories),
     projects,
+    stockItems,
     today: bangkokDateString(),
   };
 }

@@ -243,8 +243,12 @@ export function salesDocLines(input: {
   wht: Decimal.Value;
   retention: Decimal.Value;
   payable: Decimal.Value;
+  /** Cost of the stock the sale handed over (TI, STI): Dr ต้นทุนขาย / Cr สินค้าคงเหลือ */
+  cogs?: Decimal.Value;
 }): DraftLine[] | null {
   const money = cashOrBank(input.payMethod);
+  const cogs = D(input.cogs ?? 0);
+  const cost = cogs.isZero() ? [] : [dr('COGS', cogs), cr('INVENTORY', cogs)];
   switch (input.kind) {
     case 'RC':
     case 'STI':
@@ -255,10 +259,11 @@ export function salesDocLines(input: {
         dr('RETENTION_AR', input.retention),
         cr(input.kind === 'INC' ? 'OTHER_INCOME' : 'SALES', input.beforeVat),
         cr('VAT_OUTPUT', input.vat),
+        ...(input.kind === 'STI' ? cost : []),
       ]);
     case 'TI':
     case 'DN':
-      return finishLines([dr('AR', input.total), cr('SALES', input.beforeVat), cr('VAT_OUTPUT', input.vat)]);
+      return finishLines([dr('AR', input.total), cr('SALES', input.beforeVat), cr('VAT_OUTPUT', input.vat), ...(input.kind === 'TI' ? cost : [])]);
     case 'EXP':
       return finishLines([
         dr('EXPENSE', input.beforeVat),

@@ -33,6 +33,7 @@ export type DocPrefix =
   | 'TRF'
   | 'BRW'
   | 'QT'
+  | 'SO'
   | 'REC'
   | 'TI'
   | 'STI'
@@ -87,6 +88,7 @@ export const NUMBERED_DOCS: Partial<Record<DocPrefix, { table: PgTable; column: 
   RC: { table: arReceipts, column: arReceipts.number },
   CN: { table: arCreditNotes, column: arCreditNotes.number },
   QT: { table: salesDocs, column: salesDocs.number },
+  SO: { table: salesDocs, column: salesDocs.number },
   REC: { table: salesDocs, column: salesDocs.number },
   TI: { table: salesDocs, column: salesDocs.number },
   STI: { table: salesDocs, column: salesDocs.number },

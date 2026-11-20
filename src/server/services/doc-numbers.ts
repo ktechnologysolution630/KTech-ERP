@@ -44,6 +44,7 @@ export const DOC_NUMBER_TYPES = [
   { key: 'RC', label: 'ใบเสร็จรับเงินงวดงาน' },
   { key: 'CN', label: 'ใบลดหนี้' },
   { key: 'QT', label: 'ใบเสนอราคา' },
+  { key: 'SO', label: 'ใบสั่งขาย' },
   { key: 'REC', label: 'ใบเสร็จรับเงิน (เมนูบัญชี)' },
   { key: 'TI', label: 'ใบกำกับภาษี' },
   { key: 'STI', label: 'ใบกำกับภาษีอย่างย่อ' },
@@ -223,6 +224,7 @@ async function findDoc(tx: Db, key: DocNumberKey, number: string): Promise<Found
         : null;
     }
     case 'QT':
+    case 'SO':
     case 'REC':
     case 'TI':
     case 'STI':
