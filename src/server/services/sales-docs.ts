@@ -522,9 +522,11 @@ export async function listStockItemsForSales(db: Db, actor: SessionUser) {
       sku: stockItems.sku,
       name: stockItems.name,
       unit: stockItems.unit,
-      onHand: sql<string>`coalesce((select sum(${stockBalances.quantity}) from ${stockBalances} where ${stockBalances.stockItemId} = ${stockItems.id}), 0)`,
+      onHand: sql<string>`coalesce(sum(${stockBalances.quantity}), 0)`,
     })
     .from(stockItems)
+    .leftJoin(stockBalances, eq(stockBalances.stockItemId, stockItems.id))
+    .groupBy(stockItems.id)
     .orderBy(asc(stockItems.sku));
   return rows.map((r) => ({ ...r, onHand: Number(r.onHand) }));
 }

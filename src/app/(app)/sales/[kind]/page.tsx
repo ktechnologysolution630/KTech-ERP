@@ -33,6 +33,13 @@ export default async function SalesDocListPage({ params, searchParams }: { param
         </div>
         <div className="flex items-center gap-2">
           {canDelete && <BulkDeleteBar />}
+          <a
+            href={`/api/csv/sales-docs?kind=${slug}${showCancelled ? '&cancelled=1' : ''}&v=${docs.length}`}
+            download
+            className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+          >
+            Export CSV
+          </a>
           <Link
             href={showCancelled ? `/sales/${slug}` : `/sales/${slug}?cancelled=1`}
             className={`rounded-lg border px-3 py-2 text-xs font-medium ${showCancelled ? 'border-[#2453d4] bg-blue-50 text-[#2453d4]' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}

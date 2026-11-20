@@ -6,6 +6,9 @@ import { csvResponse, toCsv, type CsvCell } from '@/lib/csv';
 import { requireUser } from '@/server/auth/current-user';
 import { accountLedger, listGlAccounts, listJournal, trialBalance } from '@/server/services/gl';
 import { getStockCard } from '@/server/services/stock-card';
+import { getSalesStockSnapshot } from '@/server/services/dashboard';
+import { listSalesDocs } from '@/server/services/sales-docs';
+import { kindFromSlug, SALES_DOC_META, SALES_VAT_LABEL } from '@/domain/sales-doc';
 
 /** Export CSV of a table, with the same filters as the page it was clicked on */
 export async function GET(req: Request, { params }: { params: Promise<{ kind: string }> }) {
@@ -64,6 +67,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
           [from, '', '', `ยอดยกมา ${c.item.sku} ${c.item.name} (${c.storeName})`, '', '', '', '', '', '', c.opening.qty, c.opening.value, ''],
           ...c.rows.map((r) => [r.date, r.number, r.reference, TYPE[r.type], r.notes, r.qtyIn, r.valueIn, r.qtyOut, r.valueOut, r.unitCost, r.balanceQty, r.balanceValue, r.avgCost]),
         ];
+        break;
+      }
+      case 'sales-docs': {
+        const docKind = kindFromSlug(sp.get('kind') ?? '');
+        if (!docKind) return NextResponse.json({ error: 'ไม่รู้จักประเภทเอกสาร' }, { status: 404 });
+        const docs = await listSalesDocs(db, actor, docKind, { includeCancelled: sp.get('cancelled') === '1' });
+        headers = ['เลขที่', 'วันที่', 'อ้างอิง', 'ลูกค้า / ผู้รับเงิน', 'เลขผู้เสียภาษี', 'โครงการ', 'VAT', 'ก่อน VAT', 'VAT', 'ยอดรวม', 'หัก ณ ที่จ่าย', 'สุทธิ', 'สถานะ'];
+        rows = docs
+          .filter((d) => d.docDate >= from && d.docDate <= to)
+          .map((d) => [d.number, d.docDate, d.reference, d.customerName, d.customerTaxId, d.projectLabel, SALES_VAT_LABEL[d.vatMode], d.beforeVat, d.vat, d.total, d.wht, d.payable, d.status === 'ISSUED' ? 'ออกแล้ว' : `ยกเลิก: ${d.cancelReason ?? ''}`]);
+        return csvResponse(`${SALES_DOC_META[docKind].prefix}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, rows));
+      }
+      case 'low-stock': {
+        const s = await getSalesStockSnapshot(db, actor);
+        headers = ['รหัสสินค้า', 'ชื่อสินค้า', 'หน่วย', 'คงเหลือทุกคลัง', 'จุดสั่งซื้อ', 'ขาดอีก'];
+        rows = s.lowStock.map((i) => [i.sku, i.name, i.unit, i.onHand, i.reorderPoint, Math.max(0, i.reorderPoint - i.onHand)]);
         break;
       }
       default:
