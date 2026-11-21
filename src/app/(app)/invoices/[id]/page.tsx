@@ -13,6 +13,7 @@ import { can } from '@/server/policy';
 import { DeleteDocButton } from '@/components/bulk-delete';
 import { deleteApInvoicesAction } from '@/app/(app)/accounting/delete-actions';
 import { cancelInvoiceAction, issueApCreditNoteAction, matchInvoiceAction, voidApCreditNoteAction } from '../actions';
+import { loadOrNotFound } from '@/app/(app)/or-not-found';
 
 export default async function InvoiceDetailPage({
   params,
@@ -25,7 +26,7 @@ export default async function InvoiceDetailPage({
   const { error: actionError } = await searchParams;
   const actor = await requireUser();
   const db = await getDb();
-  const inv = await getInvoice(db, actor, id);
+  const inv = await loadOrNotFound(id, () => getInvoice(db, actor, id));
 
   const matchedMap = new Map(inv.matches.map((m) => [m.payableId, m.gross]));
   const [creditNotes, creditRoom] = await Promise.all([listApCreditNotes(db, actor, { invoiceId: id }), apCreditRoom(db, id)]);

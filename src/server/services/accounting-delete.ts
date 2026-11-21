@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, count, eq, inArray, isNotNull, like, ne, notInArray, or, type SQL } from 'drizzle-orm';
+import { and, count, eq, inArray, isNotNull, like, notInArray, or, type SQL } from 'drizzle-orm';
 import { type PgTable } from 'drizzle-orm/pg-core';
 import { type Db } from '@/db/client';
 import {
