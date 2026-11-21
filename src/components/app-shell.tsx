@@ -3,7 +3,7 @@
 import React, { Suspense, use, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { LOGO_URL } from '@/domain/brand';
+import { LOGO_URL, shortCompanyName } from '@/domain/brand';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Briefcase,
@@ -132,19 +132,21 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         {/* Brand / Logo Header */}
-        <div className="h-14 border-b border-slate-200 px-3.5 flex items-center justify-between shrink-0">
-          <Link href={canSee('DASHBOARD') ? '/dashboard' : '/inbox'} prefetch={false} className="flex items-center gap-2.5 overflow-hidden">
+        <div className={`h-14 border-b border-slate-200 flex items-center justify-between shrink-0 ${collapsed ? 'px-1.5 gap-0.5' : 'px-3.5 gap-2'}`}>
+          <Link href={canSee('DASHBOARD') ? '/dashboard' : '/inbox'} prefetch={false} className="flex items-center gap-2.5 overflow-hidden min-w-0">
             {logoUrl === LOGO_URL ? (
-              <Image src={LOGO_URL} alt={companyNameEn} width={36} height={33} priority className="h-9 w-auto shrink-0 object-contain" />
+              <Image src={LOGO_URL} alt={companyNameEn} width={36} height={33} priority className={`${collapsed ? 'h-7' : 'h-9'} w-auto shrink-0 object-contain`} />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element -- a logo set in settings can be any URL
-              <img src={logoUrl} alt={companyNameEn} className="h-9 w-9 shrink-0 object-contain" />
+              <img src={logoUrl} alt={companyNameEn} className={`${collapsed ? 'h-7 w-7' : 'h-9 w-9'} shrink-0 object-contain`} />
             )}
             {!collapsed && (
-              <div className="leading-tight min-w-0" title={`${companyNameEn} · ${companyName}`}>
-                <span className="block font-bold text-[#1e4f9c] text-[11px] tracking-tight uppercase line-clamp-2">{companyNameEn}</span>
-                <span className="block text-[8px] font-bold text-slate-400 tracking-wider uppercase">K Tec ERP</span>
-              </div>
+              <span
+                className="min-w-0 line-clamp-2 font-bold text-[#1e4f9c] text-[11px] leading-[14px] tracking-tight uppercase"
+                title={`${companyNameEn} · ${companyName}`}
+              >
+                {shortCompanyName(companyNameEn)}
+              </span>
             )}
           </Link>
 
@@ -152,7 +154,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden md:flex items-center justify-center w-6 h-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            className={`hidden md:flex items-center justify-center shrink-0 ${collapsed ? 'w-5' : 'w-6'} h-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition`}
             title={collapsed ? 'ขยายแถบเมนู' : 'ย่อแถบเมนู'}
           >
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
