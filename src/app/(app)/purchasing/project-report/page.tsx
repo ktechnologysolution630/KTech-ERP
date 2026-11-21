@@ -116,7 +116,7 @@ function ReportBody({ report }: { report: ProjectPurchaseReport }) {
             <h3 className="border-b border-slate-100 px-4 py-2.5 text-sm font-bold text-slate-900">รายละเอียดใบสั่งซื้อ</h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[860px] text-xs">
-                <thead className="bg-[#102d72] text-white">
+                <thead className="bg-slate-50 text-slate-500">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">รายการ</th>
                     <th className="px-3 py-2 text-left font-medium">หมวดหมู่</th>
@@ -152,7 +152,7 @@ function PoRows({ po }: { po: ProjectPurchaseReport['pos'][number] }) {
     <>
       <tr className="keep-together border-t border-slate-200 bg-slate-50">
         <td colSpan={5} className="px-3 py-2">
-          <Link href={`/po/${po.id}`} className="font-mono font-semibold text-[#2453d4] hover:underline">
+          <Link href={`/po/${po.id}`} className="font-mono font-semibold text-brand hover:underline">
             {po.number}
           </Link>
           <span className="text-slate-500"> · {formatThaiDate(po.date)} · </span>

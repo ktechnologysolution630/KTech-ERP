@@ -42,7 +42,7 @@ export function PortalProjects({ projects, scope }: { projects: PortalProject[];
       <div className="flex items-end justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <FolderKanban className="w-4 h-4 text-[#2453d4]" />
+            <FolderKanban className="w-4 h-4 text-brand" />
             {scope === 'MINE' ? 'โครงการของฉัน' : 'โครงการที่กำลังดำเนินการ'}
           </h2>
           <p className="text-[11px] text-slate-400">
@@ -88,7 +88,7 @@ export function PortalProjects({ projects, scope }: { projects: PortalProject[];
                     <span className="font-semibold text-slate-700">{p.progress}%</span>
                   </div>
                   <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#2453d4] to-emerald-500" style={{ width: `${Math.min(100, p.progress)}%` }} />
+                    <div className="h-full bg-gradient-to-r from-brand to-emerald-500" style={{ width: `${Math.min(100, p.progress)}%` }} />
                   </div>
                 </div>
                 <div>
@@ -109,7 +109,7 @@ export function PortalProjects({ projects, scope }: { projects: PortalProject[];
                         <span
                           key={m.id}
                           title={m.name}
-                          className={`w-7 h-7 rounded-full bg-blue-100 text-[#2453d4] text-[10px] font-bold flex items-center justify-center ring-2 ring-white ${i > 0 ? '-ml-2' : ''}`}
+                          className={`w-7 h-7 rounded-full bg-blue-100 text-brand text-[10px] font-bold flex items-center justify-center ring-2 ring-white ${i > 0 ? '-ml-2' : ''}`}
                         >
                           {initials(m.name)}
                         </span>
@@ -118,7 +118,7 @@ export function PortalProjects({ projects, scope }: { projects: PortalProject[];
                     </>
                   )}
                 </div>
-                <Link href={`/projects/${p.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#2453d4] hover:underline">
+                <Link href={`/projects/${p.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
                   รายละเอียด <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>

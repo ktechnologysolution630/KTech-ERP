@@ -39,7 +39,7 @@ export function LaborPaymentsClient({ tab, pay, receive }: LaborPaymentsClientPr
             key={t}
             href={`/labor-payments?tab=${t}`}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              tab === t ? 'bg-blue-50 text-[#2453d4] font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              tab === t ? 'bg-blue-50 text-brand font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             {TAB_LABELS[t]}
@@ -88,11 +88,11 @@ export function LaborPaymentsClient({ tab, pay, receive }: LaborPaymentsClientPr
                   <tr key={p.id} className="hover:bg-slate-50">
                     <td className="py-3">
                       <Link href={`/labor-payments/${p.id}?kind=${kindParam}`} className="flex items-center gap-2 group">
-                        <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#2453d4] flex items-center justify-center shrink-0">
+                        <span className="w-8 h-8 rounded-lg bg-blue-50 text-brand flex items-center justify-center shrink-0">
                           <Folder className="w-4 h-4" />
                         </span>
                         <span>
-                          <span className="block font-semibold text-slate-800 group-hover:text-[#2453d4]">{p.name}</span>
+                          <span className="block font-semibold text-slate-800 group-hover:text-brand">{p.name}</span>
                           <span className="block font-mono text-[11px] text-slate-400">{p.code}</span>
                         </span>
                       </Link>
@@ -107,7 +107,7 @@ export function LaborPaymentsClient({ tab, pay, receive }: LaborPaymentsClientPr
                     <td className="py-3 text-right">
                       <Link
                         href={`/labor-payments/${p.id}?kind=${kindParam}`}
-                        className="inline-flex items-center gap-1 text-[#2453d4] hover:underline font-medium"
+                        className="inline-flex items-center gap-1 text-brand hover:underline font-medium"
                       >
                         เปิดแผนงวด <ArrowRight className="w-3 h-3" />
                       </Link>

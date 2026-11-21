@@ -60,13 +60,13 @@ export function ItemsTable({ items, canDelete }: { items: ItemRow[]; canDelete: 
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ค้นหารหัส ชื่อ หรือหมวด เช่น AA01"
               aria-label="ค้นหาสินค้า"
-              className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-[#2453d4] focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-brand focus:outline-none"
             />
           </div>
           <button
             type="button"
             onClick={() => setCheckingDuplicates(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:border-[#2453d4] hover:text-[#2453d4]"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:border-brand hover:text-brand"
           >
             <ScanSearch className="h-4 w-4" /> ตรวจสอบรายการสินค้าซ้ำ
           </button>

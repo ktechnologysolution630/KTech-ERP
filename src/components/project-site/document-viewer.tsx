@@ -51,7 +51,7 @@ export function DocumentViewer({ name, url, onClose }: { name: string; url: stri
     <div className="flex h-full flex-col items-center justify-center gap-3 bg-white p-8 text-center text-sm text-slate-600">
       <FileQuestion className="h-10 w-10 text-slate-400" />
       <p>{message}</p>
-      <a href={url} download={name} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+      <a href={url} download={name} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700">
         <Download className="h-4 w-4" /> ดาวน์โหลดไฟล์
       </a>
     </div>
@@ -77,7 +77,7 @@ export function DocumentViewer({ name, url, onClose }: { name: string; url: stri
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-white p-8 text-center text-sm text-slate-600">
         <FileQuestion className="h-10 w-10 text-slate-400" />
         <p>อุปกรณ์นี้แสดง PDF ในหน้านี้ไม่ได้</p>
-        <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+        <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700">
           <ExternalLink className="h-4 w-4" /> เปิดในแท็บใหม่
         </a>
       </div>

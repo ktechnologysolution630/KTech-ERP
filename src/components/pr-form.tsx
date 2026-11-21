@@ -677,7 +677,7 @@ export function PrForm({
   return (
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
-        <span className="mr-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-[#2453d4]">แบบฟอร์ม: {meta.label}</span>
+        <span className="mr-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-brand">แบบฟอร์ม: {meta.label}</span>
         {error && (
           <p role="alert" className="text-xs font-medium text-red-600">
             {error}
@@ -694,7 +694,7 @@ export function PrForm({
           type="button"
           disabled={pending}
           onClick={() => handleSave(false)}
-          className="rounded-lg border border-[#2453d4] bg-white px-4 py-2 text-sm font-medium text-[#2453d4] hover:bg-blue-50 disabled:opacity-50"
+          className="rounded-lg border border-brand bg-white px-4 py-2 text-sm font-medium text-brand hover:bg-blue-50 disabled:opacity-50"
         >
           บันทึกร่าง
         </button>
@@ -702,7 +702,7 @@ export function PrForm({
           type="button"
           disabled={pending}
           onClick={() => handleSave(true)}
-          className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
         >
           {pending ? 'กำลังบันทึก...' : existing ? 'บันทึกและส่งขออนุมัติ' : 'สร้างเอกสารและส่งขออนุมัติ'}
         </button>

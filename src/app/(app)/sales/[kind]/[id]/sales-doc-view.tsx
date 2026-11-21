@@ -80,7 +80,7 @@ function Paper({ doc, company, signers, text, copyLabel }: { doc: SalesDocViewDa
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logoUrl} alt="" className="h-16 w-16 object-contain" />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded bg-[#2453d4] text-lg font-bold text-white">{company.name.replace(/^บริษัท\s*/, '').slice(0, 2)}</div>
+            <div className="flex h-16 w-16 items-center justify-center rounded bg-brand text-lg font-bold text-white">{company.name.replace(/^บริษัท\s*/, '').slice(0, 2)}</div>
           )}
           <div className="text-xs text-slate-600">
             <p className="text-sm font-bold text-slate-900">{company.name}</p>
@@ -142,7 +142,7 @@ function Paper({ doc, company, signers, text, copyLabel }: { doc: SalesDocViewDa
         </div>
       </div>
       <table className="mt-4 w-full border-collapse text-xs">
-        <thead className="bg-[#102d72] text-white">
+        <thead className="bg-slate-50 text-slate-500">
           <tr>
             <th className="w-12 border border-[#102d72] px-2 py-1.5">ลำดับ</th>
             <th className="border border-[#102d72] px-2 py-1.5 text-left">รายการ</th>
@@ -232,7 +232,7 @@ function Paper({ doc, company, signers, text, copyLabel }: { doc: SalesDocViewDa
                 <td className="text-right">-{money(doc.retention)}</td>
               </tr>
             )}
-            <tr className="bg-[#102d72] font-bold text-white">
+            <tr className="bg-slate-50 font-bold text-slate-500">
               <td>{doc.kind === 'EXP' ? 'ยอดสุทธิที่ต้องจ่าย' : 'ยอดชำระ'}</td>
               <td className="text-right">{money(doc.payable)}</td>
             </tr>

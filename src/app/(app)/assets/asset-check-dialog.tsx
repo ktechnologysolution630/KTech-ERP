@@ -21,7 +21,7 @@ const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 /** Just under the server action limit in next.config.ts */
 const MAX_PHOTO_BYTES = 4.5 * 1024 * 1024;
 
-const primaryButton = 'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#2453d4] px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60';
+const primaryButton = 'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60';
 const secondaryButton = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60';
 
 function locationErrorMessage(err: GeolocationPositionError): string {
@@ -38,8 +38,8 @@ function StepBar({ current }: { current: Step }) {
         const done = i < currentIndex;
         const active = i === currentIndex;
         return (
-          <li key={s.key} aria-current={active ? 'step' : undefined} className={`flex flex-col items-center gap-1 text-center text-[11px] font-medium ${active ? 'text-[#2453d4]' : done ? 'text-emerald-700' : 'text-slate-400'}`}>
-            <span className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold ${active ? 'border-[#2453d4] bg-blue-50' : done ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200'}`}>
+          <li key={s.key} aria-current={active ? 'step' : undefined} className={`flex flex-col items-center gap-1 text-center text-[11px] font-medium ${active ? 'text-brand' : done ? 'text-emerald-700' : 'text-slate-400'}`}>
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold ${active ? 'border-brand bg-blue-50' : done ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200'}`}>
               {done ? <Check className="h-4 w-4" /> : i + 1}
             </span>
             {s.label}
@@ -59,7 +59,7 @@ function PhotoStep({ preview, busy, onPick, onNext }: { preview: string | null; 
       ) : (
         <p className="text-slate-600">ถ่ายรูปทรัพย์สินให้เห็นชัดเจน ถ้าหาไม่พบให้ถ่ายจุดที่เคยเก็บไว้</p>
       )}
-      <label className={`${preview ? secondaryButton : primaryButton} w-full cursor-pointer focus-within:ring-2 focus-within:ring-[#2453d4] ${busy ? 'pointer-events-none opacity-60' : ''}`}>
+      <label className={`${preview ? secondaryButton : primaryButton} w-full cursor-pointer focus-within:ring-2 focus-within:ring-brand ${busy ? 'pointer-events-none opacity-60' : ''}`}>
         <input
           type="file"
           accept="image/*"
@@ -171,7 +171,7 @@ function ConfirmStep({ preview, location, busy, error, onSubmit, onBack }: { pre
         >
           <div className="grid grid-cols-3 gap-2">
             {PROBLEM_RESULTS.map((r) => (
-              <label key={r} className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 font-semibold focus-within:ring-2 focus-within:ring-[#2453d4] ${result === r ? 'border-amber-600 bg-amber-50 text-amber-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              <label key={r} className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 font-semibold focus-within:ring-2 focus-within:ring-brand ${result === r ? 'border-amber-600 bg-amber-50 text-amber-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <input type="radio" name="check-problem" value={r} checked={result === r} onChange={() => setResult(r)} className="sr-only" />
                 {INSPECTION_RESULT_LABELS[r]}
               </label>
@@ -181,7 +181,7 @@ function ConfirmStep({ preview, location, busy, error, onSubmit, onBack }: { pre
             <span className="mb-1 block font-medium text-slate-700">
               รายละเอียด <span className="text-red-500">*</span>
             </span>
-            <textarea required rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-hidden" />
+            <textarea required rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-hidden" />
           </label>
           <div className="flex justify-between gap-2">
             <button type="button" onClick={() => setReportingProblem(false)} disabled={busy} className={secondaryButton}>

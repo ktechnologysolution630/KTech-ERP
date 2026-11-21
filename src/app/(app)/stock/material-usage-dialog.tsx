@@ -10,7 +10,7 @@ import { createStockDocAction } from './actions';
 const CENTRAL = 'CENTRAL';
 const toProjectId = (v: string) => (v === CENTRAL ? null : v);
 const keyOf = (id: string | null) => id ?? CENTRAL;
-const input = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#2453d4] focus:outline-none disabled:bg-slate-100 disabled:text-slate-500';
+const input = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand focus:outline-none disabled:bg-slate-100 disabled:text-slate-500';
 
 /**
  * Records what a site used: pick the project, tick the materials it holds and say how much went.
@@ -142,7 +142,7 @@ export function MaterialUsageDialog({ data, meName, today, onClose }: { data: St
                 role="tab"
                 aria-selected={tab === k}
                 onClick={() => setTab(k)}
-                className={`-mb-px border-b-2 pb-2 ${tab === k ? 'border-[#2453d4] text-[#2453d4]' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+                className={`-mb-px border-b-2 pb-2 ${tab === k ? 'border-brand text-brand' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
               >
                 {l}
               </button>
@@ -304,7 +304,7 @@ export function MaterialUsageDialog({ data, meName, today, onClose }: { data: St
             type="button"
             onClick={save}
             disabled={isPending || ticked.size === 0 || tab !== 'record'}
-            className="ml-auto inline-flex items-center gap-2 rounded-md bg-[#2453d4] px-5 py-2.5 font-semibold text-white hover:bg-[#1c43ab] disabled:bg-blue-300"
+            className="ml-auto inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2.5 font-semibold text-white hover:bg-brand-hover disabled:bg-blue-300"
           >
             <Save className="h-4 w-4" />
             {isPending ? 'กำลังบันทึก...' : 'บันทึกการใช้วัสดุ'}

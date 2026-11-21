@@ -88,7 +88,7 @@ export default async function PrDetailPage({
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900">{pr.number}</h1>
             <DocStatusBadge status={pr.status} />
-            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-[#2453d4]">{PR_TYPE_META[pr.prType].label}</span>
+            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand">{PR_TYPE_META[pr.prType].label}</span>
             {pr.status === 'APPROVED' && (
               <DocStatusBadge
                 status={pr.orderProgress}

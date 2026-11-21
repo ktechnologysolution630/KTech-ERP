@@ -129,7 +129,7 @@ function HandoverDialog({ row, today, onClose }: { row: HandoverRow; today: stri
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="submit" disabled={isPending} className="px-5 py-2 rounded-lg bg-[#2453d4] text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+          <button type="submit" disabled={isPending} className="px-5 py-2 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
             {isPending ? 'กำลังบันทึก…' : 'บันทึก'}
           </button>
         </div>
@@ -188,7 +188,7 @@ export function HandoverClient({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-[#102d72] text-white">
+              <tr className="bg-slate-50 text-slate-500">
                 {canDelete && (
                   <th className="w-8 py-3 px-4">
                     <SelectAllBox items={deletable} />
@@ -216,7 +216,7 @@ export function HandoverClient({
                   <tr key={r.projectId} className="hover:bg-slate-50">
                     {canDelete && <td className="py-3 px-4">{r.handover && <SelectBox id={r.handover.id} label={`${r.code} ${r.name}`} />}</td>}
                     <td className="py-3 px-4">
-                      <Link href={`/projects/${r.projectId}`} className="font-semibold text-slate-800 hover:text-[#2453d4] hover:underline">
+                      <Link href={`/projects/${r.projectId}`} className="font-semibold text-slate-800 hover:text-brand hover:underline">
                         {r.name}
                       </Link>
                       <div className="text-[10px] text-slate-400 font-mono">
@@ -238,7 +238,7 @@ export function HandoverClient({
                         <button
                           type="button"
                           onClick={() => setEditing(r)}
-                          className="inline-flex items-center gap-1 text-[#2453d4] hover:underline font-medium"
+                          className="inline-flex items-center gap-1 text-brand hover:underline font-medium"
                         >
                           <ClipboardCheck className="w-3.5 h-3.5" />
                           {r.handover ? 'แก้ไข' : 'บันทึกการส่งมอบ'}

@@ -19,7 +19,7 @@ import { DateInput } from '@/components/date-input';
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const groupKey = (projectId: string | null) => projectId ?? NO_PROJECT_KEY;
-const fieldClass = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-hidden';
+const fieldClass = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-hidden';
 
 function DecisionDialog({ item, approve, onClose }: { item: ApprovalItem; approve: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -88,7 +88,7 @@ function DecisionDialog({ item, approve, onClose }: { item: ApprovalItem; approv
           </p>
         )}
         <div className="flex items-center justify-between gap-2">
-          <Link href={item.href} className="font-semibold text-[#2453d4] hover:underline">
+          <Link href={item.href} className="font-semibold text-brand hover:underline">
             เปิดดูเอกสาร
           </Link>
           <div className="flex gap-2">
@@ -172,7 +172,7 @@ export function ApprovalsClient({ items, projectKey }: { items: ApprovalItem[]; 
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] text-xs">
-                  <thead className="bg-[#102d72] text-white">
+                  <thead className="bg-slate-50 text-slate-500">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium">รายการ</th>
                       <th className="px-3 py-2.5 text-left font-medium">วันที่</th>
@@ -187,7 +187,7 @@ export function ApprovalsClient({ items, projectKey }: { items: ApprovalItem[]; 
                     {inProject.map((i) => (
                       <tr key={`${i.type}-${i.id}`}>
                         <td className="max-w-sm px-4 py-3">
-                          <Link href={i.href} className="font-semibold text-[#2453d4] hover:underline">
+                          <Link href={i.href} className="font-semibold text-brand hover:underline">
                             {i.number}
                           </Link>
                           <div className="truncate text-slate-600" title={i.title}>
@@ -229,7 +229,7 @@ export function ApprovalsClient({ items, projectKey }: { items: ApprovalItem[]; 
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-xs">
-                  <thead className="bg-[#102d72] text-white">
+                  <thead className="bg-slate-50 text-slate-500">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium">โครงการ</th>
                       <th className="px-3 py-2.5 text-center font-medium">เอกสารรออนุมัติ</th>
@@ -246,7 +246,7 @@ export function ApprovalsClient({ items, projectKey }: { items: ApprovalItem[]; 
                         </td>
                         <td className="px-3 py-3 text-slate-600">{g.typeLabels.join(', ')}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <Link href={`/approvals?project=${groupKey(g.projectId)}`} prefetch={false} className="font-semibold text-[#2453d4] hover:underline">
+                          <Link href={`/approvals?project=${groupKey(g.projectId)}`} prefetch={false} className="font-semibold text-brand hover:underline">
                             ดูเอกสาร
                           </Link>
                         </td>

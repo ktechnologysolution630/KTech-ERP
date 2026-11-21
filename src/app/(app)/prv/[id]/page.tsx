@@ -84,7 +84,7 @@ export default async function PrvDetailPage({ params }: { params: Promise<{ id: 
       {/* Items Table */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-3.5 py-2.5 text-left font-medium">ลำดับ</th>
               <th className="px-3.5 py-2.5 text-left font-medium">รายละเอียดงานที่ขอเบิก</th>

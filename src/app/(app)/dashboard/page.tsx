@@ -168,7 +168,7 @@ export default async function DashboardPage() {
                   CSV
                 </a>
               )}
-              <Link href="/stock?tab=low-stock" prefetch={false} className="font-medium text-[#2453d4] hover:underline">
+              <Link href="/stock?tab=low-stock" prefetch={false} className="font-medium text-brand hover:underline">
                 ดูทั้งหมด
               </Link>
             </div>
@@ -252,7 +252,7 @@ export default async function DashboardPage() {
               <h2 className="text-sm font-bold text-slate-900">สถานะโครงการที่เปิดอยู่</h2>
               <p className="mt-0.5 text-[11px] text-slate-500">ความคืบหน้าจริงเทียบแผน และต้นทุนที่ตั้งหนี้แล้ว (ก่อน VAT) เทียบงบ</p>
             </div>
-            <Link href="/timeline" className="shrink-0 text-[11px] font-medium text-[#2453d4] hover:underline">
+            <Link href="/timeline" className="shrink-0 text-[11px] font-medium text-brand hover:underline">
               ดู Timeline
             </Link>
           </div>
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
                   {overview.projects.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/70">
                       <td className="max-w-[260px] px-5 py-3">
-                        <Link href={`/projects/${p.id}`} prefetch={false} className="block truncate font-semibold text-slate-900 hover:text-[#2453d4] hover:underline" title={p.name}>
+                        <Link href={`/projects/${p.id}`} prefetch={false} className="block truncate font-semibold text-slate-900 hover:text-brand hover:underline" title={p.name}>
                           {p.name}
                         </Link>
                         <div className="mt-0.5 text-[10px] text-slate-500">
@@ -463,7 +463,7 @@ export default async function DashboardPage() {
                     <Link
                       href={`/projects/${p.projectId}`}
                       prefetch={false}
-                      className="text-[#2453d4] hover:underline font-semibold"
+                      className="text-brand hover:underline font-semibold"
                     >
                       {p.name}
                     </Link>

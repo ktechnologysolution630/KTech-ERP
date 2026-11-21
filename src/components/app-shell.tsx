@@ -48,6 +48,7 @@ import {
 } from '@/app/(app)/notification-actions';
 import { NotificationBell } from './notification-bell';
 import { FinanceNav, isFinancePath } from './finance-nav';
+import { PageTransition, useShellMotion } from './motion';
 
 interface AppShellProps {
   user: SessionUser;
@@ -80,6 +81,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
   const searchParams = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
 
+  useShellMotion();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -117,7 +119,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
   const initials = displayName ? displayName.slice(0, 2) : 'อผ';
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc] text-slate-800 font-sans antialiased">
+    <div className="min-h-screen flex bg-slate-50 text-slate-800 font-sans antialiased">
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
@@ -128,12 +130,12 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
 
       {/* Left Sidebar */}
       <aside
-        className={`fixed md:sticky top-0 z-50 h-screen bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out ${
+        className={`fixed md:sticky top-0 z-50 h-screen apple-glass border-r border-black/[0.06] flex flex-col transition-[width,transform] duration-300 ease-out ${
           collapsed ? 'md:w-16' : 'w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         {/* Brand / Logo Header */}
-        <div className={`h-14 border-b border-slate-200 flex items-center justify-between shrink-0 ${collapsed ? 'px-1.5 gap-0.5' : 'px-3.5 gap-2'}`}>
+        <div className={`h-14 border-b border-black/[0.05] flex items-center justify-between shrink-0 ${collapsed ? 'px-1.5 gap-0.5' : 'px-3.5 gap-2'}`}>
           <Link href={canSee('DASHBOARD') ? '/dashboard' : '/inbox'} prefetch={false} className="flex items-center gap-2.5 overflow-hidden min-w-0">
             {logoUrl === LOGO_URL ? (
               <Image src={LOGO_URL} alt={companyNameEn} width={36} height={33} priority className={`${collapsed ? 'h-7' : 'h-9'} w-auto shrink-0 object-contain`} />
@@ -143,7 +145,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
             )}
             {!collapsed && (
               <span
-                className="min-w-0 line-clamp-2 font-bold text-[#1e4f9c] text-[11px] leading-[14px] tracking-tight uppercase"
+                className="min-w-0 line-clamp-2 font-bold text-brand text-[11px] leading-[14px] tracking-tight uppercase"
                 title={`${companyNameEn} · ${companyName}`}
               >
                 {shortCompanyName(companyNameEn)}
@@ -259,7 +261,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                 prefetch={false}
                 className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
                   pathname === '/projects'
-                    ? 'bg-blue-50 text-[#2453d4] font-semibold border-l-2 border-[#2453d4]'
+                    ? 'bg-blue-50 text-brand font-semibold border-l-2 border-brand'
                     : 'text-slate-700 hover:bg-slate-100'
                 }`}
                 title="โครงการ"
@@ -279,7 +281,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                 prefetch={false}
                 className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
                   pathname === '/timeline'
-                    ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                    ? 'bg-blue-50 text-brand font-semibold'
                     : 'text-slate-700 hover:bg-slate-100'
                 }`}
                 title="Timeline โครงการ"
@@ -324,7 +326,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('overview')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -339,7 +341,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('movements')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -354,7 +356,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('low-stock')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -369,7 +371,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('issues')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -384,7 +386,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('material-usage')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -399,7 +401,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('all-stock')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -414,7 +416,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('stock-count')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -429,7 +431,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isStockActive('stock-adjust') || isStockActive('document-history')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -444,7 +446,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname === '/stock/card'
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -490,7 +492,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname === '/purchasing/project-report'
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -504,7 +506,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname === '/purchasing'
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -546,7 +548,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname === '/purchasing/approve'
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -560,7 +562,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname === '/purchasing/ap'
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -574,7 +576,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname === '/purchasing/vendors' || pathname.startsWith('/master/vendors')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -588,7 +590,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname.startsWith('/purchasing/items') || pathname.startsWith('/master/items')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -648,7 +650,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isLaborActive('payment-milestones')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -663,7 +665,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isLaborActive('receive-milestones')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -678,7 +680,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         isLaborActive('milestones')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -693,7 +695,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname.startsWith('/labor-payments/contractors')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -708,7 +710,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname.startsWith('/prv')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -723,7 +725,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       prefetch={false}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
                         pathname.startsWith('/payables')
-                          ? 'bg-blue-50 text-[#2453d4] font-semibold'
+                          ? 'bg-blue-50 text-brand font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
@@ -938,9 +940,9 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
         </div>
 
         {/* Bottom Profile in Sidebar (Images 2-5) */}
-        <div className="p-3 border-t border-slate-200 bg-white shrink-0">
+        <div className="p-3 border-t border-black/[0.05] shrink-0">
           <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="flex items-center gap-2.5 rounded-lg hover:bg-slate-50">
-            <div className="w-8 h-8 rounded-full bg-[#2453d4] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-b from-blue-400 to-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
               {initials}
             </div>
             {!collapsed && (
@@ -956,7 +958,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar (Images 2-5) */}
-        <header className="h-14 border-b border-slate-200 bg-white px-4 md:px-6 flex items-center justify-between shrink-0 sticky top-0 z-30">
+        <header className="h-14 border-b border-black/[0.06] apple-glass px-4 md:px-6 flex items-center justify-between shrink-0 sticky top-0 z-30">
           <div className="flex items-center gap-3">
             {/* Mobile Menu Button */}
             <button
@@ -990,7 +992,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
             />
 
             {/* User Avatar Circle */}
-            <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="w-8 h-8 rounded-full bg-emerald-600 ring-2 ring-emerald-100 overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+            <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="w-8 h-8 rounded-full bg-gradient-to-b from-slate-400 to-slate-600 ring-2 ring-white overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
               <span>{initials}</span>
             </Link>
 
@@ -1011,7 +1013,9 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
         <KeepServerAwake />
 
         {/* Page Content Body */}
-        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">{children}</main>
+        <main className="flex-1 p-4 md:p-6 xl:p-8 overflow-x-hidden">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
   );

@@ -237,7 +237,7 @@ export function SalesDocForm({
           <button type="button" onClick={() => router.back()} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {pending ? 'กำลังบันทึก...' : mode.type === 'edit' ? 'บันทึกการแก้ไข' : mode.type === 'reissue' ? 'ออกใบใหม่แทนใบเดิม' : 'สร้างเอกสาร'}
           </button>
         </div>
@@ -315,7 +315,7 @@ export function SalesDocForm({
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-sm">
-            <thead className="bg-[#102d72] text-xs text-white">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="w-12 border border-[#102d72] px-2 py-2">ลำดับ</th>
                 <th className="border border-[#102d72] px-2 py-2">รายการ</th>
@@ -398,7 +398,7 @@ export function SalesDocForm({
             </tbody>
           </table>
           <div className="mt-2 flex gap-2">
-            <button type="button" onClick={() => setLines((p) => [...p, item()])} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50">
+            <button type="button" onClick={() => setLines((p) => [...p, item()])} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-brand px-3 py-1.5 text-xs font-medium text-brand hover:bg-blue-50">
               <Plus className="h-3.5 w-3.5" /> เพิ่มรายการ
             </button>
             <button type="button" onClick={() => setLines((p) => [...p, { ...item(), isSection: true, qty: '0' }])} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-400 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
@@ -516,7 +516,7 @@ export function SalesDocForm({
                 <span>-{formatMoneyDisplay(totals.retention.toFixed(2))}</span>
               </div>
             )}
-            <div className="flex items-center justify-between gap-3 bg-[#102d72] px-3 py-1.5 font-bold text-white">
+            <div className="flex items-center justify-between gap-3 bg-ink px-3 py-1.5 font-bold text-white">
               <span>{isExpense ? 'ยอดสุทธิที่ต้องจ่าย' : 'ยอดชำระ'}</span>
               <span>{formatMoneyDisplay(totals.payable.toFixed(2))}</span>
             </div>

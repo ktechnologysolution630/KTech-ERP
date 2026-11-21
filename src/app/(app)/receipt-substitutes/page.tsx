@@ -26,14 +26,14 @@ export default async function ReceiptSubstitutesPage() {
         </div>
         <div className="flex items-center gap-2">
           {canDelete && <BulkDeleteBar />}
-          <Link href="/receipt-substitutes/new" className="px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700">
+          <Link href="/receipt-substitutes/new" className="px-3 py-2 rounded-lg bg-brand text-white text-xs font-medium hover:bg-blue-700">
             + สร้างเอกสาร
           </Link>
         </div>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs min-w-[760px]">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2">
@@ -63,7 +63,7 @@ export default async function ReceiptSubstitutesPage() {
                   </td>
                 )}
                 <td className="px-3 py-2">
-                  <Link href={`/receipt-substitutes/${r.id}`} className="font-mono text-[#2453d4] hover:underline">
+                  <Link href={`/receipt-substitutes/${r.id}`} className="font-mono text-brand hover:underline">
                     {r.number ?? '(ร่าง)'}
                   </Link>
                 </td>

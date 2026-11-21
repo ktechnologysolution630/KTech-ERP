@@ -57,8 +57,8 @@ const CENTRAL = 'CENTRAL';
 const toProjectId = (v: string) => (v === CENTRAL ? null : v);
 const toOption = (id: string | null) => id ?? CENTRAL;
 
-const input = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#2453d4] focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
-const cell = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-[#2453d4] focus:outline-none read-only:bg-slate-50';
+const input = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
+const cell = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-brand focus:outline-none read-only:bg-slate-50';
 
 function Field({ label, required, children, wide }: { label: string; required?: boolean; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -570,7 +570,7 @@ export function StockDocDialog({
             <div className="overflow-x-auto">
               {kind === 'RECEIVE' ? (
                 <table className="w-full min-w-[1250px] text-xs">
-                  <thead className="bg-[#102d72] text-white">
+                  <thead className="bg-slate-50 text-slate-500">
                     <tr>
                       {['รูป', 'SKU', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วย', 'ส่วนลด', 'VAT', 'ต้นทุนเพิ่ม', 'ต้นทุนจริงต่อหน่วย', 'มูลค่าก่อน VAT', 'รวมสุทธิ', 'หมายเหตุ', 'จัดการ'].map((h) => (
                         <th key={h} className="px-2 py-2.5 text-left font-semibold">
@@ -639,14 +639,14 @@ export function StockDocDialog({
                       <td className="px-2 py-2.5 text-right">{formatMoneyDisplay(totals.vat.toFixed(2))}</td>
                       <td colSpan={2} />
                       <td className="px-2 py-2.5 text-right">{formatMoneyDisplay(totals.beforeVat.toFixed(2))}</td>
-                      <td className="px-2 py-2.5 text-right text-[#2453d4]">{formatMoneyDisplay(totals.net.toFixed(2))}</td>
+                      <td className="px-2 py-2.5 text-right text-brand">{formatMoneyDisplay(totals.net.toFixed(2))}</td>
                       <td colSpan={2} />
                     </tr>
                   </tfoot>
                 </table>
               ) : (
                 <table className="w-full min-w-[760px] text-xs">
-                  <thead className="bg-[#102d72] text-white">
+                  <thead className="bg-slate-50 text-slate-500">
                     <tr>
                       {['ลำดับ', 'รายการ', 'SKU', 'คงเหลือที่ต้นทาง', 'จำนวน', 'หน่วย', 'หมายเหตุ', ''].map((h) => (
                         <th key={h} className="px-2 py-2.5 text-left font-semibold">
@@ -704,7 +704,7 @@ export function StockDocDialog({
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="submit" disabled={isPending} className="rounded-md bg-[#2453d4] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-60">
+          <button type="submit" disabled={isPending} className="rounded-md bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60">
             {isPending ? 'กำลังบันทึก...' : kind === 'RECEIVE' ? 'ยืนยันรับเข้า' : 'บันทึกรายการ'}
           </button>
         </div>
@@ -725,7 +725,7 @@ function Shell({ kind, onClose, children }: { kind: StockDocKind; onClose: () =>
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-[#2453d4]">สถานะ: {STATUS_LABEL[kind]}</span>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-brand">สถานะ: {STATUS_LABEL[kind]}</span>
             <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="ปิด">
               <X className="h-5 w-5" />
             </button>

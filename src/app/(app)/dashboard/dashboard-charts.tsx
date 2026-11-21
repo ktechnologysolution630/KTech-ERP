@@ -55,7 +55,7 @@ export function GroupedColumnChart({
   const axisMax = niceAxisMax(largest);
 
   const toggle = (
-    <button type="button" onClick={() => setAsTable(!asTable)} className="shrink-0 text-[11px] font-medium text-[#2453d4] hover:underline">
+    <button type="button" onClick={() => setAsTable(!asTable)} className="shrink-0 text-[11px] font-medium text-brand hover:underline">
       {asTable ? 'ดูเป็นกราฟ' : 'ดูเป็นตาราง'}
     </button>
   );
@@ -124,7 +124,7 @@ export function GroupedColumnChart({
                       onMouseLeave={() => setActive(null)}
                       onFocus={() => setActive(i)}
                       onBlur={() => setActive(null)}
-                      className={`relative flex flex-1 items-end justify-center gap-0.5 rounded-t outline-none focus-visible:ring-2 focus-visible:ring-[#2453d4] ${active === i ? 'bg-slate-100/70' : ''}`}
+                      className={`relative flex flex-1 items-end justify-center gap-0.5 rounded-t outline-none focus-visible:ring-2 focus-visible:ring-brand ${active === i ? 'bg-slate-100/70' : ''}`}
                     >
                       {series.map((s) => {
                         const v = r.values[s.key] ?? 0;

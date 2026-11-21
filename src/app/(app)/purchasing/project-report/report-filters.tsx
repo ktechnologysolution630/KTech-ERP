@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateInput } from '@/components/date-input';
 
-const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-none';
+const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-none';
 
 /** Filters of the project purchasing report; "สร้างรายงาน" puts them in the URL so the page renders the report. */
 export function ReportFilters({
@@ -70,7 +70,7 @@ export function ReportFilters({
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} maxLength={200} placeholder="เลขที่ PO, ผู้ขาย หรือชื่อรายการ" className={inputClass} />
         </label>
         <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={!projectId || badRange || isPending} className="rounded-lg bg-[#2453d4] px-5 py-2 font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="submit" disabled={!projectId || badRange || isPending} className="rounded-lg bg-brand px-5 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {isPending ? 'กำลังสร้าง...' : 'สร้างรายงาน'}
           </button>
           <button

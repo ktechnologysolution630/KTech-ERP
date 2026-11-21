@@ -53,8 +53,8 @@ export function ChatPanel({ projectId, me }: { projectId: string; me: string }) 
             const mine = m.userId === me;
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-xs ${mine ? 'bg-[#2453d4] text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'}`}>
-                  {!mine && <div className="font-semibold text-[11px] text-[#2453d4] mb-0.5">{m.userName}</div>}
+                <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-xs ${mine ? 'bg-brand text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'}`}>
+                  {!mine && <div className="font-semibold text-[11px] text-brand mb-0.5">{m.userName}</div>}
                   <div className="whitespace-pre-wrap break-words">{m.body}</div>
                   <div className={`mt-1 text-[10px] ${mine ? 'text-blue-100' : 'text-slate-400'}`}>{timeText(m.createdAt)}</div>
                 </div>
@@ -83,9 +83,9 @@ export function ChatPanel({ projectId, me }: { projectId: string; me: string }) 
           }}
           maxLength={4000}
           placeholder="พิมพ์ข้อความ แล้วกด Enter (Shift+Enter ขึ้นบรรทัดใหม่)"
-          className="flex-1 resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-[#2453d4]"
+          className="flex-1 resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-brand"
         />
-        <button type="submit" disabled={isPending || !text.trim()} className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-semibold disabled:opacity-50">
+        <button type="submit" disabled={isPending || !text.trim()} className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-brand text-white text-xs font-semibold disabled:opacity-50">
           <Send className="w-3.5 h-3.5" /> ส่ง
         </button>
       </form>

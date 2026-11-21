@@ -54,7 +54,7 @@ export function PoBoqDialog({
         <div className="space-y-4 p-6 text-sm">
           <label className="block max-w-md">
             <span className="mb-1 block text-slate-700">เอกสาร BOQ</span>
-            <select value={source} onChange={(e) => setSource(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 focus:border-[#2453d4] focus:outline-none">
+            <select value={source} onChange={(e) => setSource(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 focus:border-brand focus:outline-none">
               <option value="">เลือกเอกสาร BOQ ก่อนเลือกรายการ</option>
               {sources.map((s) => (
                 <option key={s} value={s}>
@@ -154,7 +154,7 @@ export function PoBoqDialog({
           <button
             type="button"
             onClick={() => onSave(picks, added)}
-            className="inline-flex items-center gap-2 rounded-md bg-[#2453d4] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab]"
+            className="inline-flex items-center gap-2 rounded-md bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
           >
             <Save className="h-4 w-4" /> บันทึก
           </button>

@@ -226,13 +226,13 @@ export function ProjectWorkspaceClient({
           <div className="liquid-glass-clean !bg-white/95 text-slate-900 p-4 rounded-xl shadow-lg border border-white/60 w-full sm:w-64 shrink-0">
             <div className="flex items-center justify-between text-xs font-semibold mb-1">
               <span className="text-slate-600">ความคืบหน้า</span>
-              <span className="font-mono text-sm font-bold text-[#2453d4]">
+              <span className="font-mono text-sm font-bold text-brand">
                 {project.progress ?? 0}%
               </span>
             </div>
             <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-full bg-[#2453d4] rounded-full transition-all duration-500"
+                className="h-full bg-brand rounded-full transition-all duration-500"
                 style={{ width: `${project.progress ?? 0}%` }}
               />
             </div>
@@ -662,7 +662,7 @@ export function ProjectWorkspaceClient({
                     <h3 className="text-sm font-bold text-slate-900">ทีมงาน</h3>
                     <p className="text-xs text-slate-400 mt-0.5">ทีมงานโครงการ</p>
                   </div>
-                  <button type="button" onClick={() => setActiveTab('team')} className="text-xs font-medium text-[#2453d4] hover:underline">
+                  <button type="button" onClick={() => setActiveTab('team')} className="text-xs font-medium text-brand hover:underline">
                     {teamCount} คน · ดูทีมงาน
                   </button>
                 </div>

@@ -12,43 +12,12 @@ interface GsapRevealProps {
   stagger?: number;
 }
 
-export function GsapReveal({
-  children,
-  className = '',
-  delay = 0,
-  duration = 0.6,
-  y = 20,
-  stagger = 0.08,
-}: GsapRevealProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const elements = containerRef.current.children;
-    if (elements.length === 0) return;
-
-    gsap.fromTo(
-      elements,
-      { opacity: 0, y, filter: 'blur(4px)' },
-      {
-        opacity: 1,
-        y: 0,
-        filter: 'blur(0px)',
-        duration,
-        delay,
-        stagger,
-        ease: 'power3.out',
-        // A leftover transform or filter traps fixed-position dialogs inside the animated card
-        clearProps: 'transform,filter',
-      },
-    );
-  }, [delay, duration, y, stagger]);
-
-  return (
-    <div ref={containerRef} className={className}>
-      {children}
-    </div>
-  );
+/**
+ * Kept for existing callers: entrance motion now comes from the app-wide PageTransition,
+ * so this only renders its wrapper (animating here too would play the entrance twice).
+ */
+export function GsapReveal({ children, className = '' }: GsapRevealProps) {
+  return <div className={className}>{children}</div>;
 }
 
 export function GsapCounter({

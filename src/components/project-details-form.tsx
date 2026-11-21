@@ -24,7 +24,7 @@ interface ProjectDetailsFormProps {
 }
 
 const inputClass =
-  'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4] disabled:bg-slate-50 disabled:text-slate-500';
+  'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
 
 function toFormState(p: ProjectDetailDto): ProjectDetailsFormInput {
   return {
@@ -276,7 +276,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
           <button
             type="submit"
             disabled={isPending}
-            className="px-4 py-2 bg-[#2453d4] hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-60"
+            className="px-4 py-2 bg-brand hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-60"
           >
             {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>

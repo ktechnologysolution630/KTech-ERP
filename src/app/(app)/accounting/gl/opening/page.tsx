@@ -35,7 +35,7 @@ export default async function OpeningPage() {
   return (
     <div className="max-w-5xl space-y-5">
       <div>
-        <Link href="/accounting/gl" className="text-xs text-[#2453d4] hover:underline">
+        <Link href="/accounting/gl" className="text-xs text-brand hover:underline">
           ← สมุดรายวันและบัญชีแยกประเภท
         </Link>
         <h1 className="mt-1 text-xl font-bold text-slate-900">บันทึกยอดยกมา</h1>
@@ -73,7 +73,7 @@ export default async function OpeningPage() {
                 <tr key={r.id} className="border-b border-slate-100">
                   <td className="py-1.5 pr-2">{r.customerName}</td>
                   <td className="py-1.5 pr-2">
-                    <Link href={`/ar/invoices/${r.id}`} className="text-[#2453d4] hover:underline">
+                    <Link href={`/ar/invoices/${r.id}`} className="text-brand hover:underline">
                       {r.number}
                     </Link>
                   </td>

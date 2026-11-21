@@ -57,7 +57,7 @@ export default async function WhtReportPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
       <table className="w-full min-w-[1000px] border-collapse">
-        <thead className="bg-[#102d72] text-white">
+        <thead className="bg-slate-50 text-slate-500">
           <tr>
             {['ลำดับ', 'วันที่จ่าย', 'เลขที่หนังสือรับรอง', 'เลขเอกสารอ้างอิง', 'ชื่อผู้ถูกหักภาษี', 'เลขประจำตัวผู้เสียภาษี', 'ประเภทแบบ', 'ประเภทรายได้', 'ฐานภาษี', 'อัตรา %', 'ภาษีที่หัก', 'สถานะ'].map((h) => (
               <th key={h} className={`border border-[#102d72] px-2 py-2 font-medium ${['ฐานภาษี', 'อัตรา %', 'ภาษีที่หัก'].includes(h) ? 'text-right' : 'text-left'}`}>
@@ -196,7 +196,7 @@ export default async function WhtReportPage({ searchParams }: { searchParams: Pr
             <option value="ALL">ทั้งหมด</option>
           </select>
         </label>
-        <button className="rounded-lg bg-[#2453d4] px-4 py-2 font-semibold text-white">ค้นหา</button>
+        <button className="rounded-lg bg-brand px-4 py-2 font-semibold text-white">ค้นหา</button>
       </form>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">{report}</div>
       <PrintRoot>

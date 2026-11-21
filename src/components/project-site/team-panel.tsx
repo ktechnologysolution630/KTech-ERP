@@ -54,7 +54,7 @@ export function TeamPanel({ projectId }: { projectId: string }) {
             {data.members.map((m) => (
               <div key={m.userId} className="rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-blue-50 text-[#2453d4] flex items-center justify-center text-xs font-bold shrink-0">{m.name.slice(0, 2)}</div>
+                  <div className="w-9 h-9 rounded-full bg-blue-50 text-brand flex items-center justify-center text-xs font-bold shrink-0">{m.name.slice(0, 2)}</div>
                   <div className="min-w-0 text-xs">
                     <div className="font-semibold text-slate-900 truncate">{m.name}</div>
                     <div className="text-slate-500 truncate">{m.email}</div>
@@ -92,7 +92,7 @@ export function TeamPanel({ projectId }: { projectId: string }) {
           </div>
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อหรืออีเมล..." className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#2453d4]" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อหรืออีเมล..." className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand" />
           </div>
           <div className="space-y-1.5 max-h-80 overflow-y-auto">
             {candidates.length === 0 ? (
@@ -108,7 +108,7 @@ export function TeamPanel({ projectId }: { projectId: string }) {
                     type="button"
                     disabled={isPending}
                     onClick={() => act(() => addMemberAction(projectId, c.id))}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#2453d4] text-white text-[11px] disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-brand text-white text-[11px] disabled:opacity-50"
                   >
                     <UserPlus className="w-3 h-3" /> เพิ่ม
                   </button>

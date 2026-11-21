@@ -20,7 +20,7 @@ import { AttachmentsBox } from '@/components/attachments';
 import { saveVendorProfileAction } from '@/app/(app)/purchasing/vendors/profile-actions';
 
 const TABS = ['ข้อมูลทั่วไป', 'ที่อยู่และผู้ติดต่อ', 'ภาษีและชำระเงิน', 'บัญชีธนาคาร', 'เอกสารแนบ'] as const;
-const inputCls = 'mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-normal focus:border-[#2453d4] focus:outline-none';
+const inputCls = 'mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-normal focus:border-brand focus:outline-none';
 
 function Field({ label, children, wide, required }: { label: string; children: ReactNode; wide?: boolean; required?: boolean }) {
   return (
@@ -114,9 +114,9 @@ export function VendorProfileDialog({
               role="tab"
               aria-selected={tab === i}
               onClick={() => setTab(i)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium ${tab === i ? 'border-b-2 border-[#2453d4] text-[#2453d4]' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium ${tab === i ? 'border-b-2 border-brand text-brand' : 'text-slate-500 hover:text-slate-800'}`}
             >
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${tab === i ? 'bg-[#2453d4] text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${tab === i ? 'bg-brand text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
               {t}
             </button>
           ))}
@@ -252,7 +252,7 @@ export function VendorProfileDialog({
                     </div>
                   </div>
                 ))}
-                <button type="button" onClick={() => set({ contacts: [...v.contacts, emptyContact(v.contacts.length === 0)] })} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50">
+                <button type="button" onClick={() => set({ contacts: [...v.contacts, emptyContact(v.contacts.length === 0)] })} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-brand px-3 py-1.5 text-xs font-medium text-brand hover:bg-blue-50">
                   <Plus className="h-3.5 w-3.5" /> เพิ่มผู้ติดต่อ
                 </button>
               </section>
@@ -452,7 +452,7 @@ export function VendorProfileDialog({
                   </label>
                 </div>
               ))}
-              <button type="button" onClick={() => set({ bankAccounts: [...v.bankAccounts, emptyBankAccount(v.bankAccounts.length === 0)] })} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[#2453d4] px-3 py-1.5 text-xs font-medium text-[#2453d4] hover:bg-blue-50">
+              <button type="button" onClick={() => set({ bankAccounts: [...v.bankAccounts, emptyBankAccount(v.bankAccounts.length === 0)] })} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-brand px-3 py-1.5 text-xs font-medium text-brand hover:bg-blue-50">
                 <Plus className="h-3.5 w-3.5" /> เพิ่มบัญชีธนาคาร
               </button>
               <p className="text-[11px] text-slate-500">ไฟล์หน้าสมุดบัญชีแนบได้ที่แท็บ &quot;เอกสารแนบ&quot;</p>
@@ -478,7 +478,7 @@ export function VendorProfileDialog({
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:bg-slate-100">
             ยกเลิก
           </button>
-          <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-[#2453d4] px-4 py-2 font-semibold text-white shadow-sm hover:bg-[#1c43ab] disabled:opacity-60">
+          <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-brand px-4 py-2 font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-60">
             {pending ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         </div>

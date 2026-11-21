@@ -24,7 +24,7 @@ export default async function GlClosePage() {
   return (
     <div className="max-w-4xl space-y-5">
       <div>
-        <Link href="/accounting/gl" className="text-xs text-[#2453d4] hover:underline">
+        <Link href="/accounting/gl" className="text-xs text-brand hover:underline">
           ← สมุดรายวันและบัญชีแยกประเภท
         </Link>
         <h1 className="mt-1 text-xl font-bold text-slate-900">ปิดงวด / ปิดบัญชีสิ้นปี</h1>

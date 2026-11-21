@@ -68,7 +68,7 @@ export function ReceiveListClient({ projectGroups }: ReceiveListClientProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-[#102d72] text-white">
+              <tr className="bg-slate-50 text-slate-500">
                 <th className="py-3 px-4 font-medium w-2/5">โครงการ</th>
                 <th className="py-3 px-4 font-medium text-center">Waiting Receive</th>
                 <th className="py-3 px-4 font-medium text-center">Partially Received</th>
@@ -96,7 +96,7 @@ export function ReceiveListClient({ projectGroups }: ReceiveListClientProps) {
                           <div className="flex items-center gap-2">
                             <span className="text-slate-400">
                               {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-[#2453d4]" />
+                                <ChevronDown className="w-4 h-4 text-brand" />
                               ) : (
                                 <ChevronRight className="w-4 h-4" />
                               )}
@@ -126,7 +126,7 @@ export function ReceiveListClient({ projectGroups }: ReceiveListClientProps) {
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${
                               group.partiallyCount > 0
-                                ? 'bg-blue-50 text-[#2453d4]'
+                                ? 'bg-blue-50 text-brand'
                                 : 'text-slate-400'
                             }`}
                           >
@@ -163,7 +163,7 @@ export function ReceiveListClient({ projectGroups }: ReceiveListClientProps) {
                                   className="flex items-center justify-between p-3 rounded-lg bg-white border border-slate-200 hover:border-blue-300 transition"
                                 >
                                   <div className="flex items-center gap-3">
-                                    <div className="w-7 h-7 rounded bg-blue-50 text-[#2453d4] flex items-center justify-center">
+                                    <div className="w-7 h-7 rounded bg-blue-50 text-brand flex items-center justify-center">
                                       <Package className="w-3.5 h-3.5" />
                                     </div>
                                     <div>
@@ -185,7 +185,7 @@ export function ReceiveListClient({ projectGroups }: ReceiveListClientProps) {
                                     </span>
                                     <Link
                                       href={`/receive/${po.id}`}
-                                      className="px-3 py-1 rounded bg-[#2453d4] hover:bg-blue-700 text-white font-medium text-xs flex items-center gap-1 transition"
+                                      className="px-3 py-1 rounded bg-brand hover:bg-blue-700 text-white font-medium text-xs flex items-center gap-1 transition"
                                     >
                                       <span>บันทึกรับของ</span>
                                       <ArrowRight className="w-3 h-3" />

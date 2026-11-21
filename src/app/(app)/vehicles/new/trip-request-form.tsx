@@ -15,7 +15,7 @@ interface Booking {
   driverName: string;
 }
 
-const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#2453d4] focus:outline-none focus:ring-2 focus:ring-blue-100';
+const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-blue-100';
 const label = 'mb-1 block text-xs font-semibold text-slate-700';
 
 function nextHalfHour(addHours = 0) {
@@ -182,7 +182,7 @@ export function TripRequestForm({
         <button type="button" onClick={() => router.back()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           ยกเลิก
         </button>
-        <button type="submit" disabled={pending} className="rounded-lg bg-[#2453d4] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+        <button type="submit" disabled={pending} className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
           {pending ? 'กำลังส่ง...' : 'ส่งคำขอใช้รถ'}
         </button>
       </div>

@@ -458,7 +458,7 @@ export function BoqLineGrid({
             <span className="font-mono font-medium text-slate-800">{formatBaht(totals.vatAmount.toNumber())}</span>
           </div>
 
-          <div className="flex items-center justify-between p-3.5 px-4 bg-[#102d72] text-white">
+          <div className="flex items-center justify-between p-3.5 px-4 bg-ink text-white">
             <span className="font-bold text-sm tracking-wide">สรุปรวมราคาทั้งสิ้น</span>
             <span className="font-mono font-bold text-base tracking-tight">฿{formatBaht(totals.grandTotal.toNumber())}</span>
           </div>

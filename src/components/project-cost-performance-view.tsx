@@ -112,7 +112,7 @@ export function ProjectCostPerformanceView({
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-6xl mx-auto space-y-6">
         <div className="text-center pt-2">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">แบบรายงานประสิทธิภาพต้นทุนโครงการ</h2>
-          <div className="w-16 h-1 bg-[#2453d4] rounded-full mx-auto mt-2" />
+          <div className="w-16 h-1 bg-brand rounded-full mx-auto mt-2" />
         </div>
 
         <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-4 sm:p-5 text-xs text-slate-700 grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-8">
@@ -133,7 +133,7 @@ export function ProjectCostPerformanceView({
         {!data.hasSchedule && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
             ยังไม่มีงานที่กำหนดวันเริ่ม-วันเสร็จ จึงยังไม่มีแผน (PV/SPI) — เพิ่มงานพร้อมวันที่ในแท็บ{' '}
-            <Link href={`/projects/${projectId}?tab=tasks`} className="text-[#2453d4] underline">
+            <Link href={`/projects/${projectId}?tab=tasks`} className="text-brand underline">
               งาน
             </Link>
           </div>
@@ -141,7 +141,7 @@ export function ProjectCostPerformanceView({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <span className="inline-block px-2.5 py-1 rounded bg-blue-50 text-[#2453d4] border border-blue-200 text-xs font-bold">
+            <span className="inline-block px-2.5 py-1 rounded bg-blue-50 text-brand border border-blue-200 text-xs font-bold">
               สรุปค่าดัชนีมูลค่างานที่ทำได้ (EVM)
             </span>
             <span className="text-[11px] text-slate-400">หน่วย: บาท</span>
@@ -240,7 +240,7 @@ export function ProjectCostPerformanceView({
                   <tr>
                     <td colSpan={5} className="py-8 text-center font-sans text-slate-400">
                       ยังไม่มี BOQ —{' '}
-                      <Link href={`/projects/${projectId}?tab=boq`} className="text-[#2453d4] underline">
+                      <Link href={`/projects/${projectId}?tab=boq`} className="text-brand underline">
                         ไปที่แท็บ BOQ
                       </Link>
                     </td>
@@ -256,7 +256,7 @@ export function ProjectCostPerformanceView({
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                           <div
-                            className={`h-full ${c.usedPercent > 100 ? 'bg-rose-500' : c.usedPercent > 85 ? 'bg-amber-500' : 'bg-[#2453d4]'}`}
+                            className={`h-full ${c.usedPercent > 100 ? 'bg-rose-500' : c.usedPercent > 85 ? 'bg-amber-500' : 'bg-brand'}`}
                             style={{ width: `${Math.min(100, c.usedPercent)}%` }}
                           />
                         </div>

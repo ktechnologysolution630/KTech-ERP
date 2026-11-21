@@ -8,7 +8,7 @@ import { formatMoneyDisplay } from '@/domain/money';
 import type { GlAccountDto } from '@/server/services/gl';
 import { repostAllAction, saveGlAccountAction, setSystemAccountAction } from './actions';
 
-const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-[#2453d4] focus:outline-none';
+const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-brand focus:outline-none';
 
 /** ลงบัญชีย้อนหลัง: posts documents made before Auto-GL and re-checks every entry against its document */
 export function RepostButton() {
@@ -78,7 +78,7 @@ export function AccountsClient({ accounts, canManage }: { accounts: GlAccountDto
               Export CSV
             </a>
             {canManage && (
-              <button type="button" onClick={() => setEditing({ code: '', name: '', type: 'EXPENSE', active: true })} className="inline-flex items-center gap-1 rounded-lg bg-[#2453d4] px-3 py-1.5 text-xs font-semibold text-white">
+              <button type="button" onClick={() => setEditing({ code: '', name: '', type: 'EXPENSE', active: true })} className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white">
                 <Plus className="h-3.5 w-3.5" /> เพิ่มบัญชี
               </button>
             )}
@@ -86,7 +86,7 @@ export function AccountsClient({ accounts, canManage }: { accounts: GlAccountDto
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-xs">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 {['รหัส', 'ชื่อบัญชี', 'หมวด', 'ใช้ลงบัญชีอัตโนมัติ', 'ยอดคงเหลือ', 'สถานะ', ''].map((h, i) => (
                   <th key={i} className={`px-3 py-2.5 font-medium ${h === 'ยอดคงเหลือ' ? 'text-right' : 'text-left'}`}>
@@ -106,7 +106,7 @@ export function AccountsClient({ accounts, canManage }: { accounts: GlAccountDto
                   <td className="px-3 py-2">{a.active ? 'ใช้งาน' : 'ปิดใช้งาน'}</td>
                   <td className="px-3 py-2 text-right">
                     {canManage && (
-                      <button type="button" onClick={() => setEditing({ id: a.id, code: a.code, name: a.name, type: a.type, active: a.active })} aria-label={`แก้ไข ${a.code}`} className="text-slate-500 hover:text-[#2453d4]">
+                      <button type="button" onClick={() => setEditing({ id: a.id, code: a.code, name: a.name, type: a.type, active: a.active })} aria-label={`แก้ไข ${a.code}`} className="text-slate-500 hover:text-brand">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -194,7 +194,7 @@ export function AccountsClient({ accounts, canManage }: { accounts: GlAccountDto
               <button type="button" onClick={() => setEditing(null)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
                 ยกเลิก
               </button>
-              <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+              <button type="button" disabled={pending} onClick={save} className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
                 บันทึก
               </button>
             </div>

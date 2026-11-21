@@ -41,7 +41,7 @@ const EMPTY: Omit<CustomerRow, 'id'> & { id?: string } = {
   active: true,
 };
 
-const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
 /** `canDelete`: owner and admin may remove customers no invoice is made out to */
 export function CustomersClient({
@@ -88,7 +88,7 @@ export function CustomersClient({
           <button
             type="button"
             onClick={() => setForm({ ...EMPTY })}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white text-xs font-medium hover:bg-blue-700"
           >
             <Plus className="w-3.5 h-3.5" /> เพิ่มลูกค้า
           </button>
@@ -97,7 +97,7 @@ export function CustomersClient({
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs min-w-[800px]">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2">
@@ -256,7 +256,7 @@ export function CustomersClient({
             {error && <p role="alert" className="text-red-600 font-medium">{error}</p>}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setForm(null)} className="px-3 py-1.5 border border-slate-200 rounded-lg">ยกเลิก</button>
-              <button type="submit" disabled={isPending} className="px-4 py-1.5 bg-[#2453d4] text-white rounded-lg font-semibold disabled:opacity-60">
+              <button type="submit" disabled={isPending} className="px-4 py-1.5 bg-brand text-white rounded-lg font-semibold disabled:opacity-60">
                 {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
               </button>
             </div>

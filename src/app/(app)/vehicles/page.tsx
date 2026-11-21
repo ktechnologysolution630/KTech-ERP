@@ -37,7 +37,7 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
         </div>
         <div className="flex items-center gap-2">
           {canDelete && <BulkDeleteBar />}
-          <Link href="/vehicles/new" prefetch={false} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab]">
+          <Link href="/vehicles/new" prefetch={false} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover">
             <Plus className="h-4 w-4" /> ขอใช้รถ
           </Link>
         </div>
@@ -54,7 +54,7 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
           </div>
         )}
         {FILTERS.map((f) => (
-          <Link key={f.key} href={href({ filter: f.key })} prefetch={false} className={`rounded-full border px-3 py-1 font-medium ${filter.key === f.key ? 'border-[#2453d4] bg-blue-50 text-[#2453d4]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+          <Link key={f.key} href={href({ filter: f.key })} prefetch={false} className={`rounded-full border px-3 py-1 font-medium ${filter.key === f.key ? 'border-brand bg-blue-50 text-brand' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
             {f.label}
           </Link>
         ))}
@@ -77,7 +77,7 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
                   <SelectBox id={t.id} label={t.number} />
                 </span>
               )}
-              <Link href={`/vehicles/${t.id}`} prefetch={false} className="block h-full rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-xs transition hover:border-[#2453d4]">
+              <Link href={`/vehicles/${t.id}`} prefetch={false} className="block h-full rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-xs transition hover:border-brand">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-bold text-slate-900">{t.plateNo || t.vehicleCode}</p>

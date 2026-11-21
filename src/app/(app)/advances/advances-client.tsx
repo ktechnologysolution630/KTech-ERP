@@ -13,7 +13,7 @@ import { requestAdvanceAction } from './actions';
 type Tab = 'all' | 'clearing' | 'outstanding';
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
 export function AdvancesClient({
   data,
@@ -58,7 +58,7 @@ export function AdvancesClient({
           <button
             type="button"
             onClick={() => setForm({ purpose: '', amount: 0, projectId: '' })}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white text-xs font-medium hover:bg-blue-700"
           >
             <Plus className="w-3.5 h-3.5" /> ใบขอเงินทดรองจ่าย
           </button>
@@ -77,7 +77,7 @@ export function AdvancesClient({
             key={k}
             type="button"
             onClick={() => setTab(k)}
-            className={`px-3 py-1.5 rounded-lg ${tab === k ? 'bg-blue-50 text-[#2453d4] font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`px-3 py-1.5 rounded-lg ${tab === k ? 'bg-blue-50 text-brand font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             {label}
           </button>
@@ -127,7 +127,7 @@ export function AdvancesClient({
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs min-w-[900px]">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2">
@@ -158,7 +158,7 @@ export function AdvancesClient({
                   </td>
                 )}
                 <td className="px-3 py-2">
-                  <Link href={`/advances/${r.id}`} className="font-mono text-[#2453d4] hover:underline">
+                  <Link href={`/advances/${r.id}`} className="font-mono text-brand hover:underline">
                     {r.number}
                   </Link>
                   <div className="text-slate-400">{r.requestDate}</div>
@@ -227,7 +227,7 @@ export function AdvancesClient({
             {error && <p role="alert" className="text-red-600 font-medium">{error}</p>}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setForm(null)} className="px-3 py-1.5 border border-slate-200 rounded-lg">ยกเลิก</button>
-              <button type="submit" disabled={isPending} className="px-4 py-1.5 bg-[#2453d4] text-white rounded-lg font-semibold disabled:opacity-60">
+              <button type="submit" disabled={isPending} className="px-4 py-1.5 bg-brand text-white rounded-lg font-semibold disabled:opacity-60">
                 {isPending ? 'กำลังส่ง...' : 'ส่งขออนุมัติ'}
               </button>
             </div>

@@ -173,7 +173,7 @@ export function BoqOverrunPanel({ poId, check }: { poId: string; check: PoBoqChe
           <button
             type="submit"
             disabled={isPending || reason.trim() === ''}
-            className="px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-blue-700 text-white font-semibold disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-brand hover:bg-blue-700 text-white font-semibold disabled:opacity-50"
           >
             {isPending ? 'กำลังส่ง...' : 'ขออนุมัติเจ้าของ (ใบ AP)'}
           </button>

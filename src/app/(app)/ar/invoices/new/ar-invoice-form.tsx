@@ -14,7 +14,7 @@ interface Option {
 }
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
 export function ArInvoiceForm({
   customers,
@@ -195,7 +195,7 @@ export function ArInvoiceForm({
       </div>
       {error && <p role="alert" className="text-red-600 font-medium">{error}</p>}
       <div className="flex justify-end">
-        <button type="submit" disabled={isPending} className="px-4 py-2 bg-[#2453d4] text-white rounded-lg font-semibold disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="px-4 py-2 bg-brand text-white rounded-lg font-semibold disabled:opacity-60">
           {isPending ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง'}
         </button>
       </div>

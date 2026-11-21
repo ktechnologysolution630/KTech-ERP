@@ -103,7 +103,7 @@ export function FilesPanel({ projectId, kind, me }: { projectId: string; kind: '
             type="button"
             disabled={!!busy}
             onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2453d4] text-white font-semibold disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white font-semibold disabled:opacity-60"
           >
             {isPhoto ? <ImagePlus className="w-3.5 h-3.5" /> : <Upload className="w-3.5 h-3.5" />}
             {busy ?? (isPhoto ? 'อัปโหลดรูป' : 'อัปโหลดเอกสาร')}
@@ -199,10 +199,10 @@ export function FilesPanel({ projectId, kind, me }: { projectId: string; kind: '
                   <td className="px-3 py-2">{f.uploaderName}</td>
                   <td className="px-3 py-2">{dateText(f.createdAt)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => setViewing({ name: f.name, url: f.url })} className="p-1 rounded text-slate-500 hover:text-[#2453d4]" title="ดูเอกสาร" aria-label={`ดูเอกสาร ${f.name}`}>
+                    <button type="button" onClick={() => setViewing({ name: f.name, url: f.url })} className="p-1 rounded text-slate-500 hover:text-brand" title="ดูเอกสาร" aria-label={`ดูเอกสาร ${f.name}`}>
                       <Eye className="w-3.5 h-3.5" />
                     </button>
-                    <a href={f.url} download={f.name} className="inline-flex p-1 rounded text-slate-500 hover:text-[#2453d4]" title="ดาวน์โหลด" aria-label={`ดาวน์โหลด ${f.name}`}>
+                    <a href={f.url} download={f.name} className="inline-flex p-1 rounded text-slate-500 hover:text-brand" title="ดาวน์โหลด" aria-label={`ดาวน์โหลด ${f.name}`}>
                       <Download className="w-3.5 h-3.5" />
                     </a>
                     <button type="button" onClick={() => void remove(f.id, f.name)} className="p-1 rounded text-slate-400 hover:text-red-600" title="ลบ" aria-label={`ลบ ${f.name}`}>

@@ -12,7 +12,7 @@ import {
   saveOpeningEntryAction,
 } from './actions';
 
-const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-[#2453d4] focus:outline-none';
+const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-brand focus:outline-none';
 const money = (v: number) => formatMoneyDisplay(v.toFixed(2));
 const btn = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white disabled:opacity-50';
 

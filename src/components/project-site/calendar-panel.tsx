@@ -65,7 +65,7 @@ export function CalendarPanel({ projectId, today }: { projectId: string; today: 
               วันนี้
             </button>
           </div>
-          <button type="button" onClick={() => setNewOn(selected)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2453d4] text-white text-xs font-semibold">
+          <button type="button" onClick={() => setNewOn(selected)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-semibold">
             <Plus className="w-3.5 h-3.5" /> เพิ่มนัดหมาย
           </button>
         </div>
@@ -87,10 +87,10 @@ export function CalendarPanel({ projectId, today }: { projectId: string; today: 
                 onClick={() => setSelected(date)}
                 onDoubleClick={() => setNewOn(date)}
                 className={`min-h-[84px] rounded-lg border p-1 text-left align-top transition ${
-                  selected === date ? 'border-[#2453d4] ring-1 ring-[#2453d4]' : 'border-slate-100 hover:border-slate-300'
+                  selected === date ? 'border-brand ring-1 ring-brand' : 'border-slate-100 hover:border-slate-300'
                 } ${date === today ? 'bg-blue-50/50' : 'bg-white'}`}
               >
-                <div className={`text-[11px] font-semibold ${date === today ? 'text-[#2453d4]' : 'text-slate-600'}`}>{day}</div>
+                <div className={`text-[11px] font-semibold ${date === today ? 'text-brand' : 'text-slate-600'}`}>{day}</div>
                 <div className="space-y-0.5 mt-0.5">
                   {items.slice(0, 3).map((it) => (
                     <div key={it.id} className={`truncate rounded px-1 text-[10px] ${KIND_STYLE[it.kind]}`}>
@@ -176,7 +176,7 @@ function EventDialog({ projectId, date, onClose, onSaved }: { projectId: string;
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', eventDate: date, allDay: true, startTime: '09:00', endTime: '10:00', note: '' });
-  const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-none';
+  const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-brand focus:outline-none';
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" role="dialog" aria-label="เพิ่มนัดหมาย" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <form
@@ -235,7 +235,7 @@ function EventDialog({ projectId, date, onClose, onSaved }: { projectId: string;
           <button type="button" onClick={onClose} className="px-3 py-1.5 border border-slate-200 rounded-lg">
             ยกเลิก
           </button>
-          <button type="submit" disabled={isPending} className="px-4 py-1.5 bg-[#2453d4] text-white rounded-lg font-semibold disabled:opacity-60">
+          <button type="submit" disabled={isPending} className="px-4 py-1.5 bg-brand text-white rounded-lg font-semibold disabled:opacity-60">
             {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         </div>

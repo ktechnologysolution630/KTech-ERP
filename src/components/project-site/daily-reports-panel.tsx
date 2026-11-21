@@ -21,7 +21,7 @@ import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox, type Delete
 import { deleteDailyReportsAction } from '@/app/(app)/delete-actions';
 
 const WEATHER: Record<DailyWeather, string> = { SUNNY: 'แดด', CLOUDY: 'เมฆครึ้ม', RAIN: 'ฝนตก', HEAVY_RAIN: 'ฝนตกหนัก', OTHER: 'อื่นๆ' };
-const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-[#2453d4] focus:outline-none bg-white disabled:bg-slate-50';
+const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-brand focus:outline-none bg-white disabled:bg-slate-50';
 const dateText = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 /** Rows offered by default, as on the paper form; rows left blank are not saved */
 const DEFAULT_ROWS = 5;
@@ -29,7 +29,7 @@ const DEFAULT_ROWS = 5;
 const MIN_PHOTO_SLOTS = 6;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 /** A cell input framed by the table lines, as on the printed form; phones have no table lines, so an underline marks the field */
-const plainInput = 'block w-full border-b border-slate-300 bg-transparent px-2 py-1.5 text-xs sm:border-b-0 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#2453d4] disabled:cursor-not-allowed';
+const plainInput = 'block w-full border-b border-slate-300 bg-transparent px-2 py-1.5 text-xs sm:border-b-0 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand disabled:cursor-not-allowed';
 
 const WORK_COLS = 'sm:grid-cols-[minmax(0,1.6fr)_90px_90px_minmax(0,1fr)]';
 const RESOURCE_COLS = 'sm:grid-cols-[repeat(5,minmax(0,1fr))]';
@@ -119,7 +119,7 @@ function ReportList({ projectId, canDelete, onOpen }: { projectId: string; canDe
       {error && <p className="p-3 text-xs text-red-600">{error}</p>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2">
@@ -156,7 +156,7 @@ function ReportList({ projectId, canDelete, onOpen }: { projectId: string; canDe
                     </td>
                   )}
                   <td className="px-3 py-2">
-                    <div className="font-mono font-semibold text-[#2453d4]">{r.number}</div>
+                    <div className="font-mono font-semibold text-brand">{r.number}</div>
                     <div className="text-slate-500">{dateText(r.reportDate)}</div>
                   </td>
                   <td className="px-3 py-2">
@@ -766,7 +766,7 @@ const duration = form ? projectDuration(project.startDate, project.endDate, form
                           </div>
                         ) : (
                           <label className={`flex aspect-[2/1] w-full flex-col items-center justify-center gap-1 rounded border border-dashed border-blue-300 bg-blue-50/60 text-slate-600 ${isNext ? 'cursor-pointer hover:bg-blue-50' : 'cursor-pointer'}`}>
-                            <ImagePlus className="h-6 w-6 text-[#2453d4]" />
+                            <ImagePlus className="h-6 w-6 text-brand" />
                             <span>รูปที่ {i + 1}</span>
                             <input
                               type="file"
@@ -811,7 +811,7 @@ const duration = form ? projectDuration(project.startDate, project.endDate, form
         <button type="button" disabled={isPending || !form} onClick={() => persist(false)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold hover:bg-slate-50 disabled:opacity-60">
           {isPending ? 'กำลังบันทึก...' : 'บันทึก Draft'}
         </button>
-        <button type="button" disabled={isPending || !form} onClick={() => persist(true)} className="rounded-lg bg-[#2453d4] px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+        <button type="button" disabled={isPending || !form} onClick={() => persist(true)} className="rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
           ส่งรายงาน
         </button>
       </div>
@@ -1034,7 +1034,7 @@ function DailySheet({
                   <div className="relative">
                     <ReportPhoto key={p.url} url={p.url} alt={p.caption || p.name} className="aspect-[4/3] w-full border border-slate-200 object-cover" />
                     {onReplacePhoto && (
-                      <label className={`absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-white/95 px-2 py-1 text-[10.5px] font-semibold text-[#173a7a] shadow-sm focus-within:ring-2 focus-within:ring-[#2453d4] ${replacingPhotoId ? 'opacity-50' : 'cursor-pointer hover:bg-white'}`}>
+                      <label className={`absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-white/95 px-2 py-1 text-[10.5px] font-semibold text-[#173a7a] shadow-sm focus-within:ring-2 focus-within:ring-brand ${replacingPhotoId ? 'opacity-50' : 'cursor-pointer hover:bg-white'}`}>
                         <RefreshCw className={`h-3 w-3 ${replacingPhotoId === p.id ? 'animate-spin' : ''}`} />
                         {replacingPhotoId === p.id ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรูป'}
                         <input
@@ -1125,7 +1125,7 @@ function ReportView({
                     await reload();
                   })
                 }
-                className="inline-flex items-center gap-1 rounded-lg bg-[#2453d4] px-3 py-1.5 font-semibold text-white disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 font-semibold text-white disabled:opacity-50"
               >
                 <Send className="h-3.5 w-3.5" /> ส่งรายงาน
               </button>

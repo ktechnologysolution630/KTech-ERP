@@ -111,11 +111,11 @@ export function ProjectCoverPicker({
               upload(e.dataTransfer.files[0]);
             }}
             className={`w-full flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-5 transition disabled:opacity-60 ${
-              dragOver ? 'border-[#2453d4] bg-blue-50' : 'border-slate-300 hover:border-[#2453d4] hover:bg-slate-50'
+              dragOver ? 'border-brand bg-blue-50' : 'border-slate-300 hover:border-brand hover:bg-slate-50'
             }`}
           >
-            <ImagePlus className="w-6 h-6 text-[#2453d4]" />
-            <span className="font-semibold text-[#2453d4]">{isPending ? 'กำลังบันทึก...' : 'อัปโหลดรูปจากเครื่อง'}</span>
+            <ImagePlus className="w-6 h-6 text-brand" />
+            <span className="font-semibold text-brand">{isPending ? 'กำลังบันทึก...' : 'อัปโหลดรูปจากเครื่อง'}</span>
             <span className="text-[11px] text-slate-400">คลิกหรือลากไฟล์มาวาง · JPG, PNG, WebP, GIF ไม่เกิน 4 MB</span>
           </button>
           <input
@@ -139,14 +139,14 @@ export function ProjectCoverPicker({
                 disabled={isPending}
                 onClick={() => choosePreset(url)}
                 className={`relative h-20 rounded-lg overflow-hidden border-2 transition disabled:opacity-60 ${
-                  current === url ? 'border-[#2453d4]' : 'border-transparent hover:border-blue-300'
+                  current === url ? 'border-brand' : 'border-transparent hover:border-blue-300'
                 }`}
                 title="ใช้รูปนี้"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={thumbUrl(url)} alt="รูปไซต์งานตัวอย่าง" className="w-full h-full object-cover" />
                 {current === url && (
-                  <span className="absolute top-1 right-1 rounded-full bg-[#2453d4] p-0.5 text-white">
+                  <span className="absolute top-1 right-1 rounded-full bg-brand p-0.5 text-white">
                     <Check className="w-3 h-3" />
                   </span>
                 )}

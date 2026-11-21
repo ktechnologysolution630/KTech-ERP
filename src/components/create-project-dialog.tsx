@@ -38,7 +38,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-lg border px-3 pt-2 pb-1.5 focus-within:border-[#2453d4] focus-within:ring-2 focus-within:ring-blue-100 transition ${fromPdf === 'confirmed' ? 'border-emerald-400 bg-emerald-50/50' : fromPdf === 'check' ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-white'}`}>
+    <div className={`rounded-lg border px-3 pt-2 pb-1.5 focus-within:border-brand focus-within:ring-2 focus-within:ring-blue-100 transition ${fromPdf === 'confirmed' ? 'border-emerald-400 bg-emerald-50/50' : fromPdf === 'check' ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-white'}`}>
       <label htmlFor={htmlFor} className="block text-[11px] font-medium text-slate-600">
         {label}
         {required && <span className="text-red-500"> *</span>}
@@ -260,7 +260,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
               <h2 id="create-project-title" className="text-base font-bold text-slate-900">
                 ข้อมูลโครงการ
               </h2>
-              <span className="text-[11px] text-[#2453d4]">* ข้อมูลที่จำเป็น</span>
+              <span className="text-[11px] text-brand">* ข้อมูลที่จำเป็น</span>
             </div>
 
             <Field label="ชื่อโครงการ" htmlFor="cp-name" required fromPdf={fromPdf.get('name')}>
@@ -369,7 +369,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                 e.preventDefault();
                 pickFile(e.dataTransfer.files[0]);
               }}
-              className="relative h-64 lg:h-[calc(100%-2.25rem)] min-h-56 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-[#2453d4] hover:bg-blue-50/40 transition cursor-pointer flex flex-col items-center justify-center text-center overflow-hidden"
+              className="relative h-64 lg:h-[calc(100%-2.25rem)] min-h-56 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-brand hover:bg-blue-50/40 transition cursor-pointer flex flex-col items-center justify-center text-center overflow-hidden"
             >
               {preview ? (
                 <>
@@ -389,7 +389,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                 </>
               ) : (
                 <>
-                  <span className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-[#2453d4] mb-3">
+                  <span className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-brand mb-3">
                     <ImagePlus className="w-5 h-5" />
                   </span>
                   <span className="text-sm font-semibold text-slate-800">อัปโหลดรูปภาพโครงการ</span>
@@ -426,7 +426,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                 <span role="status" className="text-xs text-slate-600">
                   {pdfProgress}
                 </span>
-                <button type="button" onClick={() => pdfRead.current?.abort()} className="text-xs font-semibold text-[#2453d4] hover:underline">
+                <button type="button" onClick={() => pdfRead.current?.abort()} className="text-xs font-semibold text-brand hover:underline">
                   หยุด
                 </button>
               </>
@@ -472,7 +472,7 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             <button
               type="submit"
               disabled={isPending || name.trim() === ''}
-              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#2453d4] hover:bg-[#1d44b8] text-white text-sm font-semibold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-brand hover:bg-[#1d44b8] text-white text-sm font-semibold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               {isPending ? 'กำลังสร้าง...' : 'สร้างโครงการ'}

@@ -33,7 +33,7 @@ function CoverSettings({ project, current, onChanged }: { project: ProjectDetail
             disabled={locked}
             value={isPreset ? shown : UPLOADED}
             onChange={(e) => choosePreset(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 focus:border-[#2453d4] focus:outline-hidden disabled:bg-slate-50"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 focus:border-brand focus:outline-hidden disabled:bg-slate-50"
           >
             {!isPreset && <option value={UPLOADED} disabled>รูปที่อัปโหลดเอง</option>}
             {PROJECT_COVER_PRESETS.map((url, i) => (
@@ -90,13 +90,13 @@ function CoverSettings({ project, current, onChanged }: { project: ProjectDetail
               aria-pressed={shown === url}
               aria-label={`ใช้ภาพที่ ${i + 1}`}
               onClick={() => choosePreset(url)}
-              className={`relative aspect-[2/1] overflow-hidden rounded-lg border-2 transition disabled:opacity-60 ${shown === url ? 'border-[#2453d4]' : 'border-transparent hover:border-blue-300'}`}
+              className={`relative aspect-[2/1] overflow-hidden rounded-lg border-2 transition disabled:opacity-60 ${shown === url ? 'border-brand' : 'border-transparent hover:border-blue-300'}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={thumbUrl(url)} alt="" loading="lazy" className="h-full w-full object-cover" />
               <span className="absolute bottom-1 left-1 rounded bg-slate-900/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">ภาพที่ {i + 1}</span>
               {shown === url && (
-                <span className="absolute right-1 top-1 rounded-full bg-[#2453d4] p-0.5 text-white">
+                <span className="absolute right-1 top-1 rounded-full bg-brand p-0.5 text-white">
                   <Check className="h-3 w-3" />
                 </span>
               )}

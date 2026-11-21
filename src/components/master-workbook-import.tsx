@@ -31,7 +31,7 @@ function Outcome({ label, result, link }: { label: string; result: DirectoryImpo
     <div className="rounded-lg border border-slate-200 px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold text-slate-900">{label}</span>
-        <Link href={link} className="text-[#2453d4] underline">
+        <Link href={link} className="text-brand underline">
           ดูรายการ
         </Link>
       </div>
@@ -251,7 +251,7 @@ export function MasterWorkbookImport() {
 
             <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-100 px-5 py-3">
               {outcome ? (
-                <button type="button" onClick={close} className="rounded-lg bg-[#2453d4] px-4 py-2 font-semibold text-white hover:bg-[#1c43ab]">
+                <button type="button" onClick={close} className="rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover">
                   ปิด
                 </button>
               ) : (

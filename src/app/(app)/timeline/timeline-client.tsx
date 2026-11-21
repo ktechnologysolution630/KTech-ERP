@@ -17,7 +17,7 @@ const thaiDate = (iso: string) => {
 type StatusFilter = 'OPEN' | 'COMPLETED' | 'ALL';
 
 const control =
-  'rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white text-slate-700 text-xs focus:outline-hidden focus:border-[#2453d4]';
+  'rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white text-slate-700 text-xs focus:outline-hidden focus:border-brand';
 
 export function TimelineClient({ today, rows }: { today: string; rows: TimelineRow[] }) {
   const thisYear = Number(today.slice(0, 4));
@@ -181,7 +181,7 @@ export function TimelineClient({ today, rows }: { today: string; rows: TimelineR
                       </div>
                       {b && (
                         <div
-                          className={`absolute top-1 bottom-1 rounded overflow-hidden ${r.status === 'COMPLETED' ? 'bg-emerald-600' : 'bg-[#2453d4]'}`}
+                          className={`absolute top-1 bottom-1 rounded overflow-hidden ${r.status === 'COMPLETED' ? 'bg-emerald-600' : 'bg-brand'}`}
                           style={{ left: `${b.left}%`, width: `${b.width}%` }}
                           title={`${r.code} · ทำได้ ${r.progress}%`}
                         >

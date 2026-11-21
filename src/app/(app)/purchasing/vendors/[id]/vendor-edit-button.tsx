@@ -21,7 +21,7 @@ export function VendorEditButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1c43ab]"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-hover"
       >
         <Pencil className="h-4 w-4" />
         แก้ไขข้อมูล

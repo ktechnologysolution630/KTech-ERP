@@ -33,7 +33,7 @@ export function PurchasingClient({ stats, documents }: PurchasingClientProps) {
         <div className="flex items-center gap-2.5">
           <Link
             href="/pr/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1c43ab] text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>สร้างใบขอซื้อ PR</span>
@@ -97,7 +97,7 @@ export function PurchasingClient({ stats, documents }: PurchasingClientProps) {
                 onClick={() => setDocFilter('ALL')}
                 className={`px-3 py-1 rounded-md font-medium transition ${
                   docFilter === 'ALL'
-                    ? 'bg-[#2453d4] text-white shadow-xs font-semibold'
+                    ? 'bg-brand text-white shadow-xs font-semibold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -108,7 +108,7 @@ export function PurchasingClient({ stats, documents }: PurchasingClientProps) {
                 onClick={() => setDocFilter('PR')}
                 className={`px-3 py-1 rounded-md font-medium transition ${
                   docFilter === 'PR'
-                    ? 'bg-[#2453d4] text-white shadow-xs font-semibold'
+                    ? 'bg-brand text-white shadow-xs font-semibold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -119,7 +119,7 @@ export function PurchasingClient({ stats, documents }: PurchasingClientProps) {
                 onClick={() => setDocFilter('PO')}
                 className={`px-3 py-1 rounded-md font-medium transition ${
                   docFilter === 'PO'
-                    ? 'bg-[#2453d4] text-white shadow-xs font-semibold'
+                    ? 'bg-brand text-white shadow-xs font-semibold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
