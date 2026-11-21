@@ -23,6 +23,7 @@ import { labelSigners, prFormKind } from '@/domain/form-templates';
 import { CommentBox } from '@/components/comment-box';
 import { DocStatusBadge } from '@/components/doc-status-badge';
 import { canEditPr } from '../edit-rule';
+import { loadOrNotFound } from '@/app/(app)/or-not-found';
 import {
   addPrCommentAction,
   approvePrAction,
@@ -44,7 +45,7 @@ export default async function PrDetailPage({
   const actor = await requireUser();
   const db = await getDb();
   const [pr, activities, attachments, comments] = await Promise.all([
-    getPr(db, actor, id),
+    loadOrNotFound(id, () => getPr(db, actor, id)),
     listActivity(db, 'PR', id),
     listAttachments(db, 'PR', id),
     listComments(db, 'PR', id),

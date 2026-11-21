@@ -27,6 +27,7 @@ import {
 import { DeleteDocButton } from '@/components/bulk-delete';
 import { deletePvsAction } from '@/app/(app)/accounting/delete-actions';
 import { ChequePanel, PvPayForm } from './pv-payment';
+import { loadOrNotFound } from '@/app/(app)/or-not-found';
 
 export default async function PvDetailPage({
   params,
@@ -40,7 +41,7 @@ export default async function PvDetailPage({
   const actor = await requireUser();
   const db = await getDb();
   const [pv, activities, attachments, comments] = await Promise.all([
-    getPv(db, actor, id),
+    loadOrNotFound(id, () => getPv(db, actor, id)),
     listActivity(db, 'PV', id),
     listAttachments(db, 'PV', id),
     listComments(db, 'PV', id),
