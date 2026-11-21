@@ -29,7 +29,7 @@ export default async function ReceivablesPage() {
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs min-w-[1000px]">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left">ลูกค้า</th>
               <th className="px-3 py-2 text-left">เลขที่ใบแจ้งหนี้</th>
@@ -53,7 +53,7 @@ export default async function ReceivablesPage() {
               <tr key={r.id}>
                 <td className="px-3 py-2">{r.customerName}</td>
                 <td className="px-3 py-2">
-                  <Link href={`/ar/invoices/${r.id}`} className="font-mono text-[#2453d4] hover:underline">
+                  <Link href={`/ar/invoices/${r.id}`} className="font-mono text-brand hover:underline">
                     {r.number}
                   </Link>
                 </td>

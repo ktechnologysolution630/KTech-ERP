@@ -169,7 +169,7 @@ export function ProjectBoqPanel({
             <button
               type="button"
               onClick={() => setOpen({ kind: 'MAIN' })}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition"
             >
               {mainBoq ? <FileText className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               {mainBoq ? 'เปิด BOQ หลัก' : 'สร้าง BOQ หลัก'}
@@ -180,7 +180,7 @@ export function ProjectBoqPanel({
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[640px]">
-          <thead className="bg-[#102d72] text-white text-xs">
+          <thead className="bg-slate-50 text-slate-500 text-xs">
             <tr>
               <th className="px-5 py-3 text-left font-semibold">ชุด BOQ</th>
               <th className="px-5 py-3 text-left font-semibold">เลขที่เอกสาร</th>
@@ -199,7 +199,7 @@ export function ProjectBoqPanel({
             {mainBoq && (
               <tr {...rowProps({ kind: 'MAIN' })}>
                 <td className="px-5 py-3 font-semibold text-slate-900">BOQ หลัก</td>
-                <td className="px-5 py-3 font-mono text-[#2453d4]">{mainBoq.number}</td>
+                <td className="px-5 py-3 font-mono text-brand">{mainBoq.number}</td>
                 <td className="px-5 py-3 text-right font-mono">{itemCount}</td>
                 <td className="px-5 py-3 text-right font-mono font-semibold">
                   {mainBoq.grandTotal > 0 ? baht(mainBoq.grandTotal) : '-'}
@@ -214,7 +214,7 @@ export function ProjectBoqPanel({
                     {v.title} · {VO_STATUS_LABELS[v.status]}
                   </span>
                 </td>
-                <td className="px-5 py-3 font-mono text-[#2453d4]">{v.boqNumber}</td>
+                <td className="px-5 py-3 font-mono text-brand">{v.boqNumber}</td>
                 <td className="px-5 py-3 text-right font-mono">{v.lineCount}</td>
                 <td className="px-5 py-3 text-right font-mono font-semibold">{v.addAmount > 0 ? baht(v.addAmount) : '-'}</td>
               </tr>

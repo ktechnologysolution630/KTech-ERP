@@ -86,7 +86,7 @@ function DocChain({ doc, canConvert }: { doc: Awaited<ReturnType<typeof getSales
   const targets = canConvert ? (CONVERT_TO[doc.kind] ?? []) : [];
   if (!doc.source && doc.children.length === 0 && targets.length === 0) return null;
   const link = (d: { id: string; kind: keyof typeof SALES_DOC_META; number: string }) => (
-    <Link href={`/sales/${SALES_DOC_META[d.kind].slug}/${d.id}`} className="font-mono text-[#2453d4] hover:underline">
+    <Link href={`/sales/${SALES_DOC_META[d.kind].slug}/${d.id}`} className="font-mono text-brand hover:underline">
       {d.number}
     </Link>
   );
@@ -113,7 +113,7 @@ function DocChain({ doc, canConvert }: { doc: Awaited<ReturnType<typeof getSales
             <Link
               key={t}
               href={`/sales/${SALES_DOC_META[t].slug}/new?convert=${doc.id}`}
-              className="rounded-lg bg-[#2453d4] px-3 py-1.5 font-semibold text-white hover:bg-[#1c43ab]"
+              className="rounded-lg bg-brand px-3 py-1.5 font-semibold text-white hover:bg-brand-hover"
             >
               เปิด{SALES_DOC_META[t].th}จากใบนี้
             </Link>

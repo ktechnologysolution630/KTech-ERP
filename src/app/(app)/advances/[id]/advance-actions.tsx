@@ -15,7 +15,7 @@ import {
 } from '../actions';
 import { DateInput } from '@/components/date-input';
 
-const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
 function useSubmit() {
   const router = useRouter();
@@ -114,7 +114,7 @@ export function AdvanceActions({
             type="button"
             disabled={isPending}
             onClick={() => confirm('บันทึกว่าจ่ายเงินทดรองแล้ว?') && submit(() => payAdvanceAction(advanceId))}
-            className="px-4 py-2 rounded-lg bg-[#2453d4] text-white font-semibold disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-brand text-white font-semibold disabled:opacity-50"
           >
             บันทึกจ่ายเงิน
           </button>
@@ -190,7 +190,7 @@ export function AdvanceActions({
                 </label>
               )}
             </fieldset>
-            <button type="submit" disabled={isPending} className="px-4 py-2 rounded-lg bg-[#2453d4] text-white font-semibold disabled:opacity-50">
+            <button type="submit" disabled={isPending} className="px-4 py-2 rounded-lg bg-brand text-white font-semibold disabled:opacity-50">
               เพิ่มรายการ
             </button>
           </form>

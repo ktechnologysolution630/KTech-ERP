@@ -100,7 +100,7 @@ export function ContractorsClient({ initialContractors, canDelete }: Contractors
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2453d4] hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มผู้รับเหมา</span>
@@ -133,7 +133,7 @@ export function ContractorsClient({ initialContractors, canDelete }: Contractors
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-[#102d72] text-white">
+              <tr className="bg-slate-50 text-slate-500">
                 {canDelete && (
                   <th className="w-8 py-3 pl-4">
                     <input type="checkbox" checked={allShownSelected} onChange={toggleShown} aria-label="เลือกทั้งหมดที่แสดง" className="align-middle" />
@@ -339,7 +339,7 @@ export function ContractorsClient({ initialContractors, canDelete }: Contractors
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-1.5 rounded-lg bg-[#2453d4] hover:bg-blue-700 text-white font-medium transition disabled:opacity-50"
+                  className="px-4 py-1.5 rounded-lg bg-brand hover:bg-blue-700 text-white font-medium transition disabled:opacity-50"
                 >
                   {loading ? 'กำลังบันทึก...' : 'บันทึกผู้รับเหมา'}
                 </button>

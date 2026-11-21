@@ -19,7 +19,7 @@ export default async function BankRecPage({ searchParams }: { searchParams: Prom
   return (
     <div className="max-w-5xl space-y-5">
       <div>
-        <Link href="/accounting/gl" className="text-xs text-[#2453d4] hover:underline">
+        <Link href="/accounting/gl" className="text-xs text-brand hover:underline">
           ← สมุดรายวันและบัญชีแยกประเภท
         </Link>
         <h1 className="mt-1 text-xl font-bold text-slate-900">กระทบยอดเงินฝากธนาคาร</h1>

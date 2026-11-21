@@ -61,7 +61,7 @@ export function PurchasingDocTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] text-xs">
-        <thead className="bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0">
+        <thead className="bg-slate-50 text-xs text-slate-500 [&_th]:border-r [&_th]:border-slate-200 [&_th:last-child]:border-r-0">
           <tr>
             {columns.map((c) => {
               const Icon = sort.key !== c.key ? ArrowUpDown : sort.dir === 1 ? ArrowUp : ArrowDown;
@@ -87,7 +87,7 @@ export function PurchasingDocTable({
           ) : (
             sorted.map((doc) => (
               <tr key={`${doc.type}-${doc.id}`} className="hover:bg-slate-50 transition">
-                <td className="px-3.5 py-2.5 font-mono font-semibold text-[#2453d4]">
+                <td className="px-3.5 py-2.5 font-mono font-semibold text-brand">
                   <Link href={doc.link} className="hover:underline">
                     {doc.docNumber}
                   </Link>

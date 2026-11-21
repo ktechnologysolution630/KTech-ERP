@@ -56,11 +56,11 @@ function NewsDialog({ item, canManage, onClose }: { item: NewsItem; canManage: b
           <div className="flex items-center justify-between pt-2">
             {item.linkUrl ? (
               external ? (
-                <a href={item.linkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-[#2453d4] hover:underline">
+                <a href={item.linkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline">
                   อ่านเพิ่มเติม <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               ) : (
-                <Link href={item.linkUrl} className="text-sm font-semibold text-[#2453d4] hover:underline">
+                <Link href={item.linkUrl} className="text-sm font-semibold text-brand hover:underline">
                   อ่านเพิ่มเติม →
                 </Link>
               )
@@ -146,7 +146,7 @@ function NewNewsDialog({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="submit" disabled={isPending} className="px-5 py-2 rounded-lg bg-[#2453d4] text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
+          <button type="submit" disabled={isPending} className="px-5 py-2 rounded-lg bg-brand text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
             {isPending ? 'กำลังเผยแพร่…' : 'เผยแพร่'}
           </button>
         </div>
@@ -168,7 +168,7 @@ export function NewsSection({ items, canManage }: { items: NewsItem[]; canManage
         </div>
         <div className="flex items-center gap-3">
           {canManage && (
-            <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-[#2453d4] hover:underline">
+            <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
               <Plus className="w-3.5 h-3.5" /> เพิ่มข่าว
             </button>
           )}

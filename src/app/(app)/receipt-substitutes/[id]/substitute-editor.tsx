@@ -29,7 +29,7 @@ export interface SubstituteEditorData {
   lines: { spentOn: string; description: string; paidTo: string; amount: number }[];
 }
 
-const inputClass = 'w-full px-2 py-1.5 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-2 py-1.5 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function SubstituteEditor({
@@ -188,7 +188,7 @@ export function SubstituteEditor({
             type="button"
             disabled={isPending}
             onClick={() => confirm('ส่งขออนุมัติ? (บันทึกร่างก่อนหากมีการแก้ไข)') && submit(() => submitReceiptSubstituteAction(doc.id))}
-            className="px-4 py-2 rounded-lg bg-[#2453d4] text-white font-semibold disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-brand text-white font-semibold disabled:opacity-50"
           >
             ส่งขออนุมัติ
           </button>

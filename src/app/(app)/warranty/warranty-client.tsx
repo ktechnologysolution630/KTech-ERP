@@ -111,7 +111,7 @@ function DefectsPanel({ warranty, today, canDelete }: { warranty: WarrantyRow; t
           <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="ตำแหน่ง เช่น ห้องน้ำชั้น 2" className={`${field} md:col-span-3`} />
           <input value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} placeholder="ผู้แจ้ง" className={`${field} md:col-span-2`} />
           <DateInput required value={form.reportedDate} min={warranty.startDate} max={today} onChange={(e) => setForm({ ...form, reportedDate: e.target.value })} className={`${field} md:col-span-2`} />
-          <button type="submit" disabled={isPending} className="md:col-span-1 inline-flex items-center justify-center gap-1 rounded-lg bg-[#2453d4] text-white text-sm font-semibold disabled:opacity-50">
+          <button type="submit" disabled={isPending} className="md:col-span-1 inline-flex items-center justify-center gap-1 rounded-lg bg-brand text-white text-sm font-semibold disabled:opacity-50">
             <Plus className="w-4 h-4" /> แจ้ง
           </button>
         </form>
@@ -219,7 +219,7 @@ export function WarrantyClient({
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1">ใบรับประกันผลงาน</h1>
           <p className="text-xs text-slate-500 mt-0.5">ระยะรับประกันเริ่มเมื่อลูกค้าตรวจรับงาน · บันทึกและติดตามการแจ้งซ่อม (Defect)</p>
         </div>
-        <Link href="/handover" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#2453d4] hover:bg-blue-700 text-white text-xs font-medium">
+        <Link href="/handover" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand hover:bg-blue-700 text-white text-xs font-medium">
           <ShieldCheck className="w-4 h-4" /> ออกใบรับประกันจากการส่งมอบ
         </Link>
       </div>
@@ -228,7 +228,7 @@ export function WarrantyClient({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-[#102d72] text-white">
+              <tr className="bg-slate-50 text-slate-500">
                 <th className="py-3 px-4 font-medium">โครงการ</th>
                 <th className="py-3 px-4 font-medium">เลขที่ใบรับประกัน</th>
                 <th className="py-3 px-4 font-medium">ระยะเวลารับประกัน</th>
@@ -242,7 +242,7 @@ export function WarrantyClient({
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-slate-400 text-sm">
                     ยังไม่มีใบรับประกัน — จะออกให้อัตโนมัติเมื่อบันทึกว่าลูกค้าตรวจรับงานในหน้า{' '}
-                    <Link href="/handover" className="text-[#2453d4] underline">
+                    <Link href="/handover" className="text-brand underline">
                       ส่งมอบโครงการ
                     </Link>
                   </td>

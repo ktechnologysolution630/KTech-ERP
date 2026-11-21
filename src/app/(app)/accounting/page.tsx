@@ -34,7 +34,7 @@ export default async function AccountingOverviewPage({ searchParams }: { searchP
               </option>
             ))}
           </select>
-          <button className="rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white">แสดง</button>
+          <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
         </form>
       </div>
 
@@ -114,18 +114,18 @@ export default async function AccountingOverviewPage({ searchParams }: { searchP
                 ['OUT', 'รายจ่าย'],
               ] as const
             ).map(([k, l]) => (
-              <Link key={k} href={q({ tab: k })} className={`rounded-lg px-3 py-1.5 ${tab === k ? 'bg-[#2453d4] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <Link key={k} href={q({ tab: k })} className={`rounded-lg px-3 py-1.5 ${tab === k ? 'bg-brand text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                 เอกสาร{l}
               </Link>
             ))}
           </div>
-          <Link href="/accounting/reports" className="text-xs text-[#2453d4] hover:underline">
+          <Link href="/accounting/reports" className="text-xs text-brand hover:underline">
             ดูทั้งหมด
           </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-xs">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 {['วันที่', 'ประเภท', 'เลขที่', 'คู่ค้า', 'โครงการ', 'จำนวนเงิน'].map((h) => (
                   <th key={h} className={`px-3 py-2.5 font-medium ${h === 'จำนวนเงิน' ? 'text-right' : 'text-left'}`}>
@@ -147,7 +147,7 @@ export default async function AccountingOverviewPage({ searchParams }: { searchP
                     <td className="px-3 py-2.5">{formatThaiDate(r.date)}</td>
                     <td className="px-3 py-2.5">{r.docType}</td>
                     <td className="px-3 py-2.5">
-                      <Link href={r.href} className="font-mono text-[#2453d4] hover:underline">
+                      <Link href={r.href} className="font-mono text-brand hover:underline">
                         {r.number}
                       </Link>
                     </td>

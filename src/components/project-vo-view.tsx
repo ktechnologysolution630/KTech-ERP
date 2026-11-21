@@ -67,7 +67,7 @@ export function ProjectVoView({ data, location = '', canDelete = false }: Props)
     ['มูลค่าสัญญาเดิม', baht(contract.original)],
     ['งานเพิ่มอนุมัติ', baht(contract.approvedAdd), 'text-emerald-700'],
     ['งานลดอนุมัติ', baht(contract.approvedDeduct), 'text-red-600'],
-    ['มูลค่าสัญญาปัจจุบัน', baht(contract.current), 'text-[#2453d4]'],
+    ['มูลค่าสัญญาปัจจุบัน', baht(contract.current), 'text-brand'],
     ['VO รออนุมัติ', `${contract.pendingCount} รายการ`],
     ['วันขยายเวลา', `${contract.extensionDays} วัน`],
   ];
@@ -95,7 +95,7 @@ export function ProjectVoView({ data, location = '', canDelete = false }: Props)
             <button
               type="button"
               onClick={() => setFormFor(null)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-blue-700"
             >
               <Plus className="w-3.5 h-3.5" /> สร้าง VO
             </button>
@@ -132,7 +132,7 @@ export function ProjectVoView({ data, location = '', canDelete = false }: Props)
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs min-w-[1000px]">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 {canDelete && (
                   <th className="w-8 px-3 py-2">
@@ -211,7 +211,7 @@ export function ProjectVoView({ data, location = '', canDelete = false }: Props)
                               onClick={() => {
                                 if (confirm(`ส่ง ${v.number} ขออนุมัติ?`)) submit(() => submitVoAction(project.id, v.id));
                               }}
-                              className="px-2 py-1 rounded-md bg-[#2453d4] text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+                              className="px-2 py-1 rounded-md bg-brand text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
                             >
                               ส่งอนุมัติ
                             </button>

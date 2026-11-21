@@ -11,7 +11,7 @@ import { computeSalesTotals, type CategoryOption } from '@/domain/sales-doc';
 import { readBillLines } from '@/lib/read-bill';
 import { createSalesDocAction } from '../../sales/actions';
 
-const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-[#2453d4] focus:outline-none';
+const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-brand focus:outline-none';
 const label = 'block text-xs font-semibold text-slate-700';
 const MAX_BYTES = 15 * 1024 * 1024;
 
@@ -181,7 +181,7 @@ export function BillScanClient({
 
   return (
     <div className="space-y-4">
-      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-white px-6 py-8 text-center hover:border-[#2453d4]">
+      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-white px-6 py-8 text-center hover:border-brand">
         <FileUp className="h-8 w-8 text-slate-400" />
         <span className="text-sm font-semibold text-slate-800">{file ? `${file.name} — เลือกไฟล์อื่น` : 'เลือกไฟล์'}</span>
         <span className="text-xs text-slate-500">รูปบิล (JPG, PNG) หรือ PDF ไม่เกิน 15 MB · อ่านในเครื่องของคุณ ไม่ส่งรูปไปบริการภายนอก</span>
@@ -319,7 +319,7 @@ export function BillScanClient({
                   <dd>{formatMoneyDisplay(v.toFixed(2))}</dd>
                 </div>
               ))}
-              <div className="flex justify-between bg-[#102d72] px-3 py-1.5 font-bold text-white">
+              <div className="flex justify-between bg-ink px-3 py-1.5 font-bold text-white">
                 <dt>ยอดสุทธิที่ต้องจ่าย</dt>
                 <dd>{formatMoneyDisplay(totals.payable.toFixed(2))}</dd>
               </div>
@@ -337,12 +337,12 @@ export function BillScanClient({
             {savedWithoutFile ? (
               <div role="alert" className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                 <p className="font-medium">บันทึกรายจ่ายแล้ว แต่แนบไฟล์บิลไม่สำเร็จ กรุณาเปิดรายจ่ายแล้วแนบไฟล์อีกครั้งที่ช่องไฟล์แนบ</p>
-                <Link href={`/sales/expense/${savedWithoutFile}`} className="inline-block rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab]">
+                <Link href={`/sales/expense/${savedWithoutFile}`} className="inline-block rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover">
                   เปิดรายจ่ายที่บันทึกแล้ว
                 </Link>
               </div>
             ) : (
-              <button type="button" disabled={pending || !form.vendorName.trim()} onClick={save} className="w-full rounded-lg bg-[#2453d4] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+              <button type="button" disabled={pending || !form.vendorName.trim()} onClick={save} className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
                 {pending ? 'กำลังบันทึก...' : 'บันทึกเป็นรายจ่าย และแนบไฟล์บิล'}
               </button>
             )}

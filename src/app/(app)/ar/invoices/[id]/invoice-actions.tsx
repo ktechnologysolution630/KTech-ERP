@@ -15,7 +15,7 @@ import {
 } from '../../actions';
 import { DateInput } from '@/components/date-input';
 
-const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function useSubmit() {
@@ -121,7 +121,7 @@ export function InvoiceActions({
                 submit(() => issueArInvoiceAction(invoiceId), (n) => `วางบิลแล้ว เลขที่ ${n}`);
               }
             }}
-            className="px-4 py-2 rounded-lg bg-[#2453d4] text-white font-semibold disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-brand text-white font-semibold disabled:opacity-50"
           >
             วางบิล (ออกเลขที่)
           </button>

@@ -157,7 +157,7 @@ export function LiveFleet({ initial }: { initial: { vehicles: LiveVehicle[]; at:
                     </p>
                   )}
                 </button>
-                <Link href={`/vehicles/${v.tripId}`} prefetch={false} className="mt-0.5 inline-block px-1 text-[11px] font-semibold text-[#2453d4] hover:underline">
+                <Link href={`/vehicles/${v.tripId}`} prefetch={false} className="mt-0.5 inline-block px-1 text-[11px] font-semibold text-brand hover:underline">
                   {v.tripNumber} ดูรายละเอียด
                 </Link>
               </li>

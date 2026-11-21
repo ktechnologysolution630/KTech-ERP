@@ -58,7 +58,7 @@ export function CloseYearForm({ year, netProfit }: { year: number; netProfit: nu
         onClick={() => {
           if (window.confirm(`ปิดบัญชีปี ${year}? ระบบจะโอนรายได้และค่าใช้จ่ายเข้ากำไร(ขาดทุน)สะสม และปิดงวดถึง 31/12/${year}`)) run(() => closeYearAction(year));
         }}
-        className={`${btn} bg-[#2453d4] text-white`}
+        className={`${btn} bg-brand text-white`}
       >
         ปิดบัญชีสิ้นปี {year} ({netProfit >= 0 ? 'กำไร' : 'ขาดทุน'} {Math.abs(netProfit).toLocaleString('th-TH', { minimumFractionDigits: 2 })})
       </button>

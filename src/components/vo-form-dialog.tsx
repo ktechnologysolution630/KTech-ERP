@@ -57,7 +57,7 @@ interface DialogProps {
 const amountText = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const inputClass =
-  'w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:outline-hidden focus:border-[#2453d4] disabled:bg-slate-50 disabled:text-slate-500';
+  'w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:outline-hidden focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
 
 function blankForm(contractValue: number): VoForm {
   return {
@@ -187,7 +187,7 @@ function Field({
 }
 
 function ReadoutBox({ label, value, tone }: { label: string; value: string; tone: 'blue' | 'slate' }) {
-  const toneClass = tone === 'blue' ? 'bg-blue-50 text-[#2453d4]' : 'bg-slate-50 text-slate-500';
+  const toneClass = tone === 'blue' ? 'bg-blue-50 text-brand' : 'bg-slate-50 text-slate-500';
   return (
     <div className={`${toneClass} rounded px-3 py-2`}>
       <div className="text-[11px]">{label}</div>
@@ -402,7 +402,7 @@ function VoFormBody({
         <Section title="C. ผลกระทบด้านแผนงาน">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <label className="flex items-center gap-2 self-center">
-              <input type="checkbox" checked={form.scheduleImpact} onChange={(e) => set('scheduleImpact', e.target.checked)} className="w-4 h-4 accent-[#2453d4]" />
+              <input type="checkbox" checked={form.scheduleImpact} onChange={(e) => set('scheduleImpact', e.target.checked)} className="w-4 h-4 accent-brand" />
               กระทบแผนงาน
             </label>
             <Field label="จำนวนวันที่เพิ่ม" htmlFor="vo-days-add">
@@ -425,7 +425,7 @@ function VoFormBody({
               />
             </Field>
             <label className="flex items-center gap-2 pb-2">
-              <input type="checkbox" disabled={!form.scheduleImpact} checked={form.criticalPath} onChange={(e) => set('criticalPath', e.target.checked)} className="w-4 h-4 accent-[#2453d4]" />
+              <input type="checkbox" disabled={!form.scheduleImpact} checked={form.criticalPath} onChange={(e) => set('criticalPath', e.target.checked)} className="w-4 h-4 accent-brand" />
               กระทบ Critical Path
             </label>
             <Field label="กิจกรรมที่ได้รับผลกระทบ" htmlFor="vo-task" className="sm:col-span-3">
@@ -518,7 +518,7 @@ function VoFormBody({
           {editable ? 'ยกเลิก' : 'ปิด'}
         </button>
         {editable && (
-          <button type="submit" disabled={isPending} className="px-5 py-2 bg-[#2453d4] hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60">
+          <button type="submit" disabled={isPending} className="px-5 py-2 bg-brand hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60">
             {isPending ? 'กำลังบันทึก...' : 'บันทึก VO'}
           </button>
         )}

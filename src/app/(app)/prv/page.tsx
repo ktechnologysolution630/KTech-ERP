@@ -94,7 +94,7 @@ export default async function PrvListPage() {
       <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ PRV</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">วันที่</th>

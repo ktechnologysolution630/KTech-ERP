@@ -536,7 +536,7 @@ export function BoqSheetEditor({
       <div className="max-w-[1240px] mx-auto p-4 sm:p-6 lg:p-8">
         <div className="bg-white border-2 border-slate-700 shadow-md rounded-xs overflow-hidden">
           {/* Header Title Banner: Navy Blue */}
-          <div className="bg-[#102d72] text-white text-center py-2.5 px-4 font-bold text-sm tracking-wide border-b-2 border-slate-700">
+          <div className="bg-ink text-white text-center py-2.5 px-4 font-bold text-sm tracking-wide border-b-2 border-slate-700">
             บัญชีรายการวัสดุและค่าแรงงานก่อสร้าง (Bill Of Quantities)
           </div>
 
@@ -696,7 +696,7 @@ export function BoqSheetEditor({
           <button
             type="button"
             onClick={handleAddItem}
-            className="px-4 py-2 bg-white hover:bg-blue-50 border border-blue-200 text-[#2453d4] shadow-sm rounded-lg font-semibold text-xs flex items-center gap-1.5 transition"
+            className="px-4 py-2 bg-white hover:bg-blue-50 border border-blue-200 text-brand shadow-sm rounded-lg font-semibold text-xs flex items-center gap-1.5 transition"
           >
             <Plus className="w-4 h-4 text-blue-600" />
             <span>+ ดำเนินการเพิ่ม</span>

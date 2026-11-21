@@ -114,7 +114,7 @@ export function VendorDeleteResultBanner({ deleted, inUse, onClose }: { deleted:
                   {v.documents.map((doc, i) => (
                     <li key={`${doc.href}-${i}`}>
                       {doc.label}{' '}
-                      <Link href={doc.href} className="font-mono text-[#2453d4] underline">
+                      <Link href={doc.href} className="font-mono text-brand underline">
                         {doc.number}
                       </Link>
                       {doc.cancelled && <span className="text-slate-500"> (ยกเลิกแล้ว)</span>}

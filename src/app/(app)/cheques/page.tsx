@@ -34,7 +34,7 @@ export default async function ChequeSchedulePage({ searchParams }: { searchParam
             <Link
               key={r.days}
               href={`/cheques?days=${r.days}`}
-              className={`rounded-lg border px-3 py-1.5 ${r.days === days ? 'border-[#2453d4] bg-[#2453d4] text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
+              className={`rounded-lg border px-3 py-1.5 ${r.days === days ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
             >
               {r.label}
             </Link>

@@ -95,14 +95,14 @@ export function PurchasingVendorsClient({
               placeholder="ค้นหาชื่อ รหัส หรือสินค้า..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#2453d4] w-48"
+              className="pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-brand w-48"
             />
           </div>
 
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1c43ab] text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มซัพพลายเออร์ใหม่</span>
@@ -118,7 +118,7 @@ export function PurchasingVendorsClient({
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1050px] text-xs">
-            <thead className="bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0">
+            <thead className="bg-slate-50 text-xs text-slate-500 [&_th]:border-r [&_th]:border-slate-200 [&_th:last-child]:border-r-0">
               <tr>
                 {canDelete && (
                   <th className="w-8 px-3.5 py-2.5">
@@ -156,7 +156,7 @@ export function PurchasingVendorsClient({
                       </td>
                     )}
                     <td className="px-3.5 py-2.5">
-                      <Link href={`/purchasing/vendors/${v.id}`} onClick={(e) => e.stopPropagation()} className="font-bold text-slate-900 hover:text-[#2453d4] hover:underline">
+                      <Link href={`/purchasing/vendors/${v.id}`} onClick={(e) => e.stopPropagation()} className="font-bold text-slate-900 hover:text-brand hover:underline">
                         {v.name}
                       </Link>
                       <div className="text-[10px] text-slate-400 font-mono">{v.code}</div>
@@ -174,7 +174,7 @@ export function PurchasingVendorsClient({
                     <td className="px-3.5 py-2.5 text-right font-bold text-slate-900">
                       ฿{v.totalPurchases.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="px-3.5 py-2.5 text-center font-semibold text-[#2453d4]">
+                    <td className="px-3.5 py-2.5 text-center font-semibold text-brand">
                       {v.docCount}
                     </td>
                     <td className="px-3.5 py-2.5 text-center">

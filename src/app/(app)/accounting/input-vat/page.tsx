@@ -18,7 +18,7 @@ export default async function InputVatPage({ searchParams }: { searchParams: Pro
 
   const table = (
     <table className="w-full min-w-[900px] border-collapse text-xs">
-      <thead className="bg-[#102d72] text-white">
+      <thead className="bg-slate-50 text-slate-500">
         <tr>
           {['ลำดับ', 'วันที่', 'เลขที่เอกสาร', 'ผู้ขาย', 'เลขผู้เสียภาษี', 'โครงการ', 'ฐานภาษี', 'VAT', 'ยอดรวม', 'ที่มา'].map((h) => (
             <th key={h} className={`border border-[#102d72] px-2 py-2 font-medium ${['ฐานภาษี', 'VAT', 'ยอดรวม'].includes(h) ? 'text-right' : 'text-left'}`}>
@@ -40,7 +40,7 @@ export default async function InputVatPage({ searchParams }: { searchParams: Pro
               <td className="px-2 py-1.5">{i + 1}</td>
               <td className="px-2 py-1.5">{formatThaiDate(x.date)}</td>
               <td className="px-2 py-1.5 font-mono">
-                <Link href={x.href} className="text-[#2453d4] hover:underline">
+                <Link href={x.href} className="text-brand hover:underline">
                   {x.number}
                 </Link>
               </td>
@@ -79,7 +79,7 @@ export default async function InputVatPage({ searchParams }: { searchParams: Pro
         <div className="flex flex-wrap items-center gap-2">
           <form className="flex items-center gap-2">
             <MonthYearFields year={year} month={month} years={yearsAround(year)} />
-            <button className="rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white">แสดง</button>
+            <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
           </form>
           <a href={`/api/export/purchase-vat?year=${year}&month=${month}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
             Excel

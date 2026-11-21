@@ -13,7 +13,7 @@ import { MAX_ODOMETER_KM } from '@/domain/vehicle';
 import { addTripExpenseAction, cancelTripAction, claimTripExpensesAction, decideTripAction, loadTripRouteAction, removeTripExpenseAction, returnTripAction, startTripAction } from '../actions';
 import { VehicleMap } from '../vehicle-map';
 
-const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#2453d4] focus:outline-none focus:ring-2 focus:ring-blue-100';
+const field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-blue-100';
 const labelCls = 'mb-1 block text-xs font-semibold text-slate-700';
 const MAX_PHOTOS = 6;
 /** Shown when the server did not answer even after trying again */
@@ -229,7 +229,7 @@ export function HandoverForm({ tripId, stage, minOdometer }: { tripId: string; s
 
       <ErrorText error={error} />
       <div className="flex justify-end">
-        <button type="submit" disabled={pending || preparing} className="rounded-lg bg-[#2453d4] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+        <button type="submit" disabled={pending || preparing} className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
           {pending ? 'กำลังบันทึก...' : stage === 'START' ? 'ยืนยันรับรถ' : 'ยืนยันคืนรถ'}
         </button>
       </div>
@@ -338,7 +338,7 @@ export function ExpensesPanel({ tripId, expenses, canAdd, canClaim }: { tripId: 
                   {e.receiptUrl && (
                     <>
                       {' · '}
-                      <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#2453d4] underline">
+                      <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand underline">
                         ใบเสร็จ
                       </a>
                     </>
@@ -370,7 +370,7 @@ export function ExpensesPanel({ tripId, expenses, canAdd, canClaim }: { tripId: 
           <p>
             ค่าใช้จ่ายที่ยังไม่ได้เบิก <strong>{formatMoneyDisplay(unclaimed.toFixed(2))} บาท</strong> กดขอเบิกเพื่อส่งให้อนุมัติและโอนเงินคืน
           </p>
-          <button type="button" onClick={claim} disabled={pending} className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="button" onClick={claim} disabled={pending} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {pending ? 'กำลังส่ง...' : 'ขอเบิกค่าใช้จ่าย'}
           </button>
         </div>

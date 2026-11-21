@@ -61,7 +61,7 @@ export default async function GlPage({ searchParams }: { searchParams: Promise<S
           <Link
             key={t.key}
             href={`/accounting/gl?${qs({ tab: t.key, from: sp.from, to: sp.to })}`}
-            className={`rounded-t-lg px-4 py-2 text-sm ${tab === t.key ? 'border border-b-white border-slate-200 bg-white font-semibold text-[#2453d4]' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`rounded-t-lg px-4 py-2 text-sm ${tab === t.key ? 'border border-b-white border-slate-200 bg-white font-semibold text-brand' : 'text-slate-500 hover:text-slate-800'}`}
           >
             {t.label}
           </Link>
@@ -88,7 +88,7 @@ function RangeFields({ from, to, tab, children }: { from: string; to: string; ta
         <input type="date" name="to" defaultValue={to} className={`${input} ml-1`} />
       </label>
       {children}
-      <button className="rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white">แสดง</button>
+      <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
     </form>
   );
 }
@@ -132,7 +132,7 @@ async function JournalTab({ sp, from, to }: { sp: Sp; from: string; to: string }
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[960px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {['วันที่', 'เลขที่ JV', 'สมุด', 'เอกสารอ้างอิง', 'คู่ค้า / คำอธิบาย', 'รหัสบัญชี', 'ชื่อบัญชี', 'เดบิต', 'เครดิต'].map((h) => (
                 <th key={h} className={`px-3 py-2.5 font-medium ${h === 'เดบิต' || h === 'เครดิต' ? 'text-right' : 'text-left'}`}>
@@ -212,7 +212,7 @@ async function TrialTab({ from, to }: { from: string; to: string }) {
   const balanced = tb.totals.closingDebit === tb.totals.closingCredit;
   const table = (
     <table className="w-full min-w-[900px] text-xs">
-      <thead className="bg-[#102d72] text-white">
+      <thead className="bg-slate-50 text-slate-500">
         <tr>
           <th rowSpan={2} className="px-3 py-2 text-left font-medium">รหัส</th>
           <th rowSpan={2} className="px-3 py-2 text-left font-medium">ชื่อบัญชี</th>
@@ -239,7 +239,7 @@ async function TrialTab({ from, to }: { from: string; to: string }) {
           tb.rows.map((r) => (
             <tr key={r.accountId}>
               <td className="px-3 py-1.5 font-mono">
-                <Link href={`/accounting/gl?${qs({ tab: 'ledger', account: r.accountId, from, to })}`} className="text-[#2453d4] hover:underline">
+                <Link href={`/accounting/gl?${qs({ tab: 'ledger', account: r.accountId, from, to })}`} className="text-brand hover:underline">
                   {r.code}
                 </Link>
               </td>
@@ -322,7 +322,7 @@ async function LedgerTab({ from, to, accountId }: { from: string; to: string; ac
       {l && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[860px] text-xs">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 {['วันที่', 'เลขที่ JV', 'เอกสาร', 'คู่ค้า / คำอธิบาย', 'เดบิต', 'เครดิต', 'คงเหลือ'].map((h) => (
                   <th key={h} className={`px-3 py-2.5 font-medium ${['เดบิต', 'เครดิต', 'คงเหลือ'].includes(h) ? 'text-right' : 'text-left'}`}>

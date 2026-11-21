@@ -58,7 +58,7 @@ const STATUS_BADGE: Record<MilestoneStatus, string> = {
 };
 
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
 export function MilestoneSheetClient({ sheet, contractors }: Props) {
   const router = useRouter();
@@ -124,7 +124,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
             <Link
               key={k}
               href={`/labor-payments/${project.id}?kind=${k}`}
-              className={`px-3 py-1 rounded-md ${k === kind ? 'bg-white shadow-xs font-semibold text-[#2453d4]' : 'text-slate-600'}`}
+              className={`px-3 py-1 rounded-md ${k === kind ? 'bg-white shadow-xs font-semibold text-brand' : 'text-slate-600'}`}
             >
               {MILESTONE_KIND_LABELS[k]}
             </Link>
@@ -169,7 +169,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
             <button
               type="button"
               onClick={() => setDialog({ id: null, form: { ...EMPTY } })}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-blue-700"
             >
               <Plus className="w-3.5 h-3.5" /> เพิ่มงวดงาน
             </button>
@@ -252,7 +252,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
                       {m.invoiceId ? (
                         <Link
                           href={`/ar/invoices/${m.invoiceId}`}
-                          className="px-2 py-1 rounded-md border border-slate-200 text-[11px] text-[#2453d4] hover:bg-blue-50 font-mono"
+                          className="px-2 py-1 rounded-md border border-slate-200 text-[11px] text-brand hover:bg-blue-50 font-mono"
                         >
                           {m.invoiceNumber ?? 'ใบแจ้งหนี้ (ร่าง)'}
                         </Link>
@@ -285,7 +285,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
                               submit(() => advanceMilestoneAction(project.id, m.id));
                             }
                           }}
-                          className="px-2 py-1 rounded-md bg-[#2453d4] text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+                          className="px-2 py-1 rounded-md bg-brand text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
                         >
                           {step.text}
                         </button>
@@ -477,7 +477,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
               <button
                 type="submit"
                 disabled={isPending}
-                className="px-4 py-1.5 bg-[#2453d4] hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
+                className="px-4 py-1.5 bg-brand hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
               >
                 {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
               </button>
@@ -532,7 +532,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
               <button
                 type="submit"
                 disabled={isPending}
-                className="px-4 py-1.5 bg-[#2453d4] hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
+                className="px-4 py-1.5 bg-brand hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
               >
                 {isPending ? 'กำลังสร้าง...' : 'สร้างแผนงวด'}
               </button>

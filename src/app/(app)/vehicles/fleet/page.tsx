@@ -17,7 +17,7 @@ export default async function VehicleFleetPage() {
         <h1 className="text-xl font-bold text-slate-900">ทะเบียนรถ</h1>
         <p className="text-xs text-slate-500">
           รถมาจาก{' '}
-          <Link href="/assets" prefetch={false} className="font-semibold text-[#2453d4] underline">
+          <Link href="/assets" prefetch={false} className="font-semibold text-brand underline">
             ทะเบียนทรัพย์สิน
           </Link>{' '}
           หมวด &quot;ยานพาหนะ&quot; ที่ยังใช้งานอยู่ เพิ่มรถใหม่ได้ที่นั่น

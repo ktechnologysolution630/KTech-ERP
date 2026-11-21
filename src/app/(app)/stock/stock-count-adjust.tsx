@@ -15,8 +15,8 @@ const locKey = (projectId: string | null) => projectId ?? CENTRAL;
 const qtyText = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 3 });
 const baht = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateText = (d: Date | string) => new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
-const tableHead = 'bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0';
-const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-none';
+const tableHead = 'bg-slate-50 text-xs text-slate-500 [&_th]:border-r [&_th]:border-slate-200 [&_th:last-child]:border-r-0';
+const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-none';
 const diffClass = (n: number) => (n < 0 ? 'text-rose-600' : n > 0 ? 'text-emerald-700' : 'text-slate-400');
 const signed = (n: number) => `${n > 0 ? '+' : ''}${qtyText(n)}`;
 
@@ -343,7 +343,7 @@ function StockCountDialog({ data, onClose, onSaved }: { data: StockPageData; onC
                               value={value}
                               onChange={(e) => setCounted((prev) => ({ ...prev, [r.key]: e.target.value }))}
                               aria-label={`นับจริง ${r.name} ที่ ${r.locationName}`}
-                              className="w-full rounded border border-slate-300 px-2 py-1 text-right focus:border-[#2453d4] focus:outline-none"
+                              className="w-full rounded border border-slate-300 px-2 py-1 text-right focus:border-brand focus:outline-none"
                             />
                           </td>
                           <td className={`px-3 py-1.5 text-right font-bold ${diff === null ? 'text-slate-300' : diffClass(diff)}`}>{diff === null ? '-' : signed(diff)}</td>
@@ -427,7 +427,7 @@ export function StockAdjustTab({ data, onCreate, canDelete = false }: { data: St
     });
   };
 
-  const filterClass = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#2453d4] focus:outline-none';
+  const filterClass = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-none';
   const label = (r: (typeof rows)[number]) => `${r.requestNumber} · ${r.itemName}`;
 
   const page = (
@@ -440,7 +440,7 @@ export function StockAdjustTab({ data, onCreate, canDelete = false }: { data: St
         <div className="flex items-center gap-2">
           {canDelete && <BulkDeleteBar />}
           {onCreate && (
-            <button type="button" onClick={onCreate} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#1c43ab]">
+            <button type="button" onClick={onCreate} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-brand-hover">
               <Plus className="h-4 w-4" /> สร้างใบปรับปรุงยอด
             </button>
           )}

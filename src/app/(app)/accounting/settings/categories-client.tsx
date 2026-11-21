@@ -20,7 +20,7 @@ export interface CategoryRow {
 }
 
 const TYPE_LABEL: Record<CatType, string> = { INCOME: 'รายรับ', EXPENSE: 'ค่าใช้จ่าย', ASSET: 'สินทรัพย์', LIABILITY: 'หนี้สิน', EQUITY: 'ทุน', OTHER: 'อื่นๆ' };
-const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-[#2453d4] focus:outline-none';
+const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-brand focus:outline-none';
 
 /** หมวดรายรับ / หมวดค่าใช้จ่าย with a type filter, add and edit; the owner and admin may also delete */
 export function CategoriesClient({ categories, canDelete = false }: { categories: CategoryRow[]; canDelete?: boolean }) {
@@ -41,14 +41,14 @@ export function CategoriesClient({ categories, canDelete = false }: { categories
               </option>
             ))}
           </select>
-          <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1 rounded-lg bg-[#2453d4] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1c43ab]">
+          <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">
             <Plus className="h-3.5 w-3.5" /> เพิ่มหมวด
           </button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2.5">
@@ -195,7 +195,7 @@ function CategoryDialog({ category, onClose }: { category: CategoryRow | null; o
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="button" disabled={pending} onClick={save} className="rounded-md bg-[#2453d4] px-5 py-2 font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="button" disabled={pending} onClick={save} className="rounded-md bg-brand px-5 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {pending ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         </div>

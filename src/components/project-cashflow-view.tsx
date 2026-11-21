@@ -12,7 +12,7 @@ interface ProjectCashflowViewProps {
 }
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-const DONUT_COLORS = ['#2453d4', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+const DONUT_COLORS = ['#0071e3', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
 const monthLabel = (key: string) => TH_MONTHS[Number(key.slice(5, 7)) - 1];
 const thaiDate = (iso: string) => {
@@ -92,7 +92,7 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
           {data.canCreateExpense && (
             <Link
               href={`/prv/new?projectId=${projectId}`}
-              className="px-3.5 py-1.5 rounded-lg bg-[#2453d4] hover:bg-blue-700 text-white font-semibold flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-lg bg-brand hover:bg-blue-700 text-white font-semibold flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" /> ขอเบิกจ่าย (PRV)
             </Link>
@@ -144,7 +144,7 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
             {data.monthly.map((m) => (
               <div key={m.month} className="flex-1 h-full flex flex-col justify-end items-center group relative">
                 <div className="flex items-end gap-0.5 h-full w-full justify-center">
-                  <div className="w-2.5 sm:w-3.5 bg-[#2453d4] rounded-t-sm" style={{ height: `${(m.income / maxBar) * 100}%` }} />
+                  <div className="w-2.5 sm:w-3.5 bg-brand rounded-t-sm" style={{ height: `${(m.income / maxBar) * 100}%` }} />
                   <div className="w-2.5 sm:w-3.5 bg-red-500 rounded-t-sm" style={{ height: `${(m.expense / maxBar) * 100}%` }} />
                 </div>
                 <div className="pointer-events-none opacity-0 group-hover:opacity-100 absolute -top-2 -translate-y-full bg-slate-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 font-mono">
@@ -162,7 +162,7 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
           </div>
           <div className="flex items-center justify-center gap-6 mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-[#2453d4]" /> รายรับ
+              <span className="w-2.5 h-2.5 rounded-xs bg-brand" /> รายรับ
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-xs bg-red-500" /> รายจ่าย
@@ -262,7 +262,7 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="py-3 px-4 font-medium">วันที่</th>
                 <th className="py-3 px-4 font-medium">เลขที่</th>
@@ -306,7 +306,7 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <Link href={e.href} className="text-[#2453d4] hover:underline font-medium">
+                    <Link href={e.href} className="text-brand hover:underline font-medium">
                       เปิด
                     </Link>
                   </td>

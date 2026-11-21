@@ -10,7 +10,7 @@ import { recordStockMovementAction, requestStockAdjustAction, saveStockItemActio
 export type MovementKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'ADJUST';
 
 const KIND_LABEL: Record<MovementKind, string> = { RECEIVE: 'รับเข้า', ISSUE: 'จ่ายออก', TRANSFER: 'โอนย้าย', ADJUST: 'ปรับยอด' };
-const inputClass = 'w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none disabled:bg-slate-50';
+const inputClass = 'w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-brand focus:outline-none disabled:bg-slate-50';
 /** <select> value for the central store, whose projectId is null */
 const CENTRAL = 'CENTRAL';
 const toProjectId = (v: string) => (v === CENTRAL ? null : v);
@@ -28,7 +28,7 @@ function DialogShell({ title, onClose, children }: { title: string; onClose: () 
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Package className="w-4 h-4 text-[#2453d4]" />
+            <Package className="w-4 h-4 text-brand" />
             {title}
           </h3>
           <button type="button" onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200" title="ปิด">
@@ -139,7 +139,7 @@ export function MovementDialog({
               setDone(null);
             }}
             className={`py-2.5 border-b-2 transition ${
-              kind === k ? 'border-[#2453d4] text-[#2453d4] font-bold bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
+              kind === k ? 'border-brand text-brand font-bold bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
             {KIND_LABEL[k]}
@@ -151,7 +151,7 @@ export function MovementDialog({
         <div className="p-6 space-y-4 text-xs">
           <p className="text-emerald-700 font-medium">{done}</p>
           <div className="flex justify-end">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-[#2453d4] text-white font-semibold">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-brand text-white font-semibold">
               ปิด
             </button>
           </div>
@@ -294,7 +294,7 @@ export function MovementDialog({
             <button
               type="submit"
               disabled={isPending || !itemId || qty === ''}
-              className="px-4 py-2 rounded-lg font-semibold text-white bg-[#2453d4] hover:bg-[#1c43ab] disabled:opacity-60"
+              className="px-4 py-2 rounded-lg font-semibold text-white bg-brand hover:bg-brand-hover disabled:opacity-60"
             >
               {isPending ? 'กำลังบันทึก...' : kind === 'ADJUST' ? 'ส่งคำขอปรับยอด' : 'บันทึกรายการ'}
             </button>
@@ -493,7 +493,7 @@ export function ItemDialog({
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100">
             ยกเลิก
           </button>
-          <button type="submit" disabled={isPending || quantityInvalid} className="inline-flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-white bg-[#2453d4] hover:bg-[#1c43ab] disabled:opacity-60">
+          <button type="submit" disabled={isPending || quantityInvalid} className="inline-flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-white bg-brand hover:bg-brand-hover disabled:opacity-60">
             {!item && <Plus className="w-3.5 h-3.5" />}
             {isPending ? 'กำลังบันทึก...' : 'บันทึกวัสดุ'}
           </button>

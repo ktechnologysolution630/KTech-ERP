@@ -42,7 +42,7 @@ export function VehicleMap({ markers, route, selectedId, onSelect, className = '
     layers.current.pins.clearLayers();
     layers.current.path.clearLayers();
     if (r && r.length > 1) {
-      L.polyline(r, { color: '#2453d4', weight: 4, opacity: 0.8 }).addTo(layers.current.path);
+      L.polyline(r, { color: '#0071e3', weight: 4, opacity: 0.8 }).addTo(layers.current.path);
       L.circleMarker(r[0]!, { radius: 6, color: '#fff', weight: 2, fillColor: '#64748b', fillOpacity: 1 }).bindTooltip('จุดเริ่ม').addTo(layers.current.path);
     }
     for (const m of ms) {
@@ -55,7 +55,7 @@ export function VehicleMap({ markers, route, selectedId, onSelect, className = '
           <div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;margin-top:2px;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div></div>`,
       });
       const pin = L.marker([m.lat, m.lng], { icon, title: m.label });
-      const link = m.href ? `<br/><a href="${escape(m.href)}" style="color:#2453d4;font-weight:600">เปิดรายการ</a>` : '';
+      const link = m.href ? `<br/><a href="${escape(m.href)}" style="color:#0071e3;font-weight:600">เปิดรายการ</a>` : '';
       pin.bindPopup(`<div style="font:12px/1.5 sans-serif"><strong>${escape(m.label)}</strong><br/>${m.details.map(escape).join('<br/>')}${link}</div>`);
       if (pick) pin.on('click', () => pick(m.id));
       pin.addTo(layers.current.pins);

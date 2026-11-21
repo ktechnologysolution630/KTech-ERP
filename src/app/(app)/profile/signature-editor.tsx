@@ -167,7 +167,7 @@ export function SignatureEditor({ current, updatedAt }: { current: string | null
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-          <PenLine className="h-4 w-4 text-[#2453d4]" /> {current ? 'เปลี่ยนลายเซ็น' : 'สร้างลายเซ็น'}
+          <PenLine className="h-4 w-4 text-brand" /> {current ? 'เปลี่ยนลายเซ็น' : 'สร้างลายเซ็น'}
         </h2>
         <canvas
           ref={canvas}
@@ -209,7 +209,7 @@ export function SignatureEditor({ current, updatedAt }: { current: string | null
               }}
             />
           </label>
-          <button type="button" disabled={pending} onClick={save} className="ml-auto rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="button" disabled={pending} onClick={save} className="ml-auto rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {pending ? 'กำลังบันทึก...' : 'บันทึกลายเซ็น'}
           </button>
         </div>

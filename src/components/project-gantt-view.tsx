@@ -97,7 +97,7 @@ export function ProjectGanttView({ tasks, today }: ProjectGanttViewProps) {
                             width: `${Math.max(0.8, ((dayNumber(t.dueDate) - dayNumber(t.startDate) + 1) / span) * 100)}%`,
                           }}
                         >
-                          <div className="h-full bg-[#2453d4]" style={{ width: `${t.progress}%` }} />
+                          <div className="h-full bg-brand" style={{ width: `${t.progress}%` }} />
                         </div>
                       )}
                       {todayInRange && (
@@ -146,7 +146,7 @@ export function ProjectGanttView({ tasks, today }: ProjectGanttViewProps) {
               </text>
             </g>
           ))}
-          <path d={plannedPath} fill="none" stroke="#2453d4" strokeWidth={2} strokeDasharray="5 4" />
+          <path d={plannedPath} fill="none" stroke="#0071e3" strokeWidth={2} strokeDasharray="5 4" />
           {todayInRange && (
             <>
               <line x1={x(today)} x2={x(today)} y1={0} y2={H} stroke="#ef4444" strokeWidth={1} />
@@ -166,7 +166,7 @@ export function ProjectGanttView({ tasks, today }: ProjectGanttViewProps) {
         </svg>
         <div className="flex gap-4 text-[11px] text-slate-500">
           <span className="flex items-center gap-1.5">
-            <span className="w-4 border-t-2 border-dashed border-[#2453d4]" /> แผนงาน (Planned)
+            <span className="w-4 border-t-2 border-dashed border-brand" /> แผนงาน (Planned)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-4 border-t-2 border-emerald-500" /> ความคืบหน้าจริง ณ วันนี้

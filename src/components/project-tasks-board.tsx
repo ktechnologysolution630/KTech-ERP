@@ -63,7 +63,7 @@ const PRIORITY_BADGE: Record<TaskPriority, string> = {
 };
 
 const inputClass =
-  'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#2453d4]';
+  'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
 export function ProjectTasksBoard({
   projectId,
@@ -139,7 +139,7 @@ export function ProjectTasksBoard({
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2453d4] text-white text-xs font-medium hover:bg-blue-700 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-blue-700 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             เพิ่มงาน
@@ -225,7 +225,7 @@ export function ProjectTasksBoard({
 
                       <div className="space-y-1">
                         <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div className="h-full bg-[#2453d4]" style={{ width: `${t.progress}%` }} />
+                          <div className="h-full bg-brand" style={{ width: `${t.progress}%` }} />
                         </div>
                         {canUpdateProgress ? (
                           <div className="flex items-center gap-1.5">
@@ -450,7 +450,7 @@ export function ProjectTasksBoard({
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="px-4 py-1.5 bg-[#2453d4] hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
+                  className="px-4 py-1.5 bg-brand hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
                 >
                   {isPending ? 'กำลังบันทึก...' : 'บันทึกงาน'}
                 </button>

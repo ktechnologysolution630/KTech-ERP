@@ -11,7 +11,7 @@ export function NewCreditNotePicker({ invoices }: { invoices: { id: string; labe
   const [pick, setPick] = useState('');
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1c43ab]">
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand-hover">
         <Plus className="h-4 w-4" /> สร้างเอกสาร
       </button>
     );
@@ -26,7 +26,7 @@ export function NewCreditNotePicker({ invoices }: { invoices: { id: string; labe
           </option>
         ))}
       </select>
-      <button type="button" disabled={!pick} onClick={() => router.push(`/ar/invoices/${pick}`)} className="rounded bg-[#2453d4] px-3 py-1.5 font-semibold text-white disabled:opacity-40">
+      <button type="button" disabled={!pick} onClick={() => router.push(`/ar/invoices/${pick}`)} className="rounded bg-brand px-3 py-1.5 font-semibold text-white disabled:opacity-40">
         ไปออกใบลดหนี้
       </button>
       <button type="button" onClick={() => setOpen(false)} className="rounded border border-slate-300 px-3 py-1.5 text-slate-600">

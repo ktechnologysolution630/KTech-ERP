@@ -77,7 +77,7 @@ export function VehicleProfileRow({ vehicle: v, due, editable }: { vehicle: Vehi
             <button type="button" onClick={() => setEditing(false)} className="rounded border border-slate-300 px-2 py-1">
               ยกเลิก
             </button>
-            <button type="button" disabled={pending} onClick={save} className="rounded bg-[#2453d4] px-2 py-1 font-semibold text-white disabled:opacity-50">
+            <button type="button" disabled={pending} onClick={save} className="rounded bg-brand px-2 py-1 font-semibold text-white disabled:opacity-50">
               {pending ? 'กำลังบันทึก' : 'บันทึก'}
             </button>
           </td>

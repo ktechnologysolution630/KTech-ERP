@@ -120,7 +120,7 @@ export function PrListClient({
 
           <Link
             href="/pr/new"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1c43ab] text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>สร้างใบขอซื้อ PR</span>
@@ -153,7 +153,7 @@ export function PrListClient({
           /* Grouped by Project (Image 1) */
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px] text-xs">
-              <thead className="bg-[#102d72] text-xs text-white">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">โครงการ</th>
                   <th className="px-4 py-3 text-center font-medium w-24">PR</th>
@@ -180,11 +180,11 @@ export function PrListClient({
                         >
                           <td className="px-4 py-3 font-semibold text-slate-900 flex items-center gap-2.5">
                             {isExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-[#2453d4]" />
+                              <ChevronDown className="w-4 h-4 text-brand" />
                             ) : (
                               <ChevronRight className="w-4 h-4 text-slate-400" />
                             )}
-                            <Folder className="w-4 h-4 text-[#2453d4]" />
+                            <Folder className="w-4 h-4 text-brand" />
                             <div>
                               <span>{p.projectName}</span>
                               <span className="ml-2 font-mono text-[10px] text-slate-400 font-normal">
@@ -192,7 +192,7 @@ export function PrListClient({
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center font-bold text-[#2453d4]">{p.prCount}</td>
+                          <td className="px-4 py-3 text-center font-bold text-brand">{p.prCount}</td>
                           <td className="px-4 py-3 text-center font-semibold text-slate-700">{p.poCount}</td>
                           <td className="px-4 py-3 text-center font-bold text-slate-900">{p.totalDocs}</td>
                           <td className="px-4 py-3 text-right font-bold text-slate-900">
@@ -222,11 +222,11 @@ export function PrListClient({
                                     {tick(pr.id, pr.number)}
                                     <Link
                                       href={`/pr/${pr.id}`}
-                                      className={`flex flex-1 items-center justify-between p-2.5 rounded-lg border hover:border-[#2453d4] hover:shadow-xs transition ${selected.has(pr.id) ? 'border-red-200 bg-red-50/50' : 'bg-white border-slate-200'}`}
+                                      className={`flex flex-1 items-center justify-between p-2.5 rounded-lg border hover:border-brand hover:shadow-xs transition ${selected.has(pr.id) ? 'border-red-200 bg-red-50/50' : 'bg-white border-slate-200'}`}
                                     >
                                       <div className="flex items-center gap-3">
                                         <FileText className="w-4 h-4 text-slate-400" />
-                                        <span className="font-mono font-bold text-[#2453d4]">{pr.number}</span>
+                                        <span className="font-mono font-bold text-brand">{pr.number}</span>
                                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{PR_TYPE_META[pr.prType].short}</span>
                                         <span className="text-slate-600 truncate max-w-sm">
                                           {pr.note || 'ไม่มีหมายเหตุ'}
@@ -257,7 +257,7 @@ export function PrListClient({
           /* Flat All PRs Table */
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px] text-xs">
-              <thead className="bg-[#102d72] text-xs text-white">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   {canDelete && (
                     <th className="w-10 px-4 py-3">
@@ -283,7 +283,7 @@ export function PrListClient({
                   allPrs.map((pr) => (
                     <tr key={pr.id} className={`hover:bg-slate-50 transition ${selected.has(pr.id) ? 'bg-red-50/50' : ''}`}>
                       {canDelete && <td className="px-4 py-3">{tick(pr.id, pr.number)}</td>}
-                      <td className="px-4 py-3 font-mono font-bold text-[#2453d4]">
+                      <td className="px-4 py-3 font-mono font-bold text-brand">
                         <Link href={`/pr/${pr.id}`} className="hover:underline">
                           {pr.number}
                         </Link>

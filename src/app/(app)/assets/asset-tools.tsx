@@ -64,7 +64,7 @@ export function LabelsDialog({ assets, onClose }: { assets: AssetRow[]; onClose:
           <p className="text-slate-500">สแกนด้วยกล้องมือถือเพื่อเปิดหน้าตรวจเช็คของทรัพย์สินชิ้นนั้น ผู้สแกนต้องมีบัญชีในระบบ</p>
           <LabelGrid assets={assets} images={images} />
           <div className="flex justify-end">
-            <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 font-semibold text-white hover:bg-blue-700">
+            <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-blue-700">
               <Printer className="h-4 w-4" /> พิมพ์
             </button>
           </div>

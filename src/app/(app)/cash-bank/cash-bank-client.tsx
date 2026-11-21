@@ -15,7 +15,7 @@ import { deleteCompanyAccountsAction } from '@/app/(app)/accounting/delete-actio
 import { saveCompanyAccountAction } from '../sales/actions';
 
 const TYPE_LABEL: Record<string, string> = { SAVINGS: 'ออมทรัพย์', CURRENT: 'กระแสรายวัน', FIXED: 'ฝากประจำ', CASH: 'เงินสด', OTHER: 'อื่น ๆ' };
-const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-[#2453d4] focus:outline-none';
+const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-brand focus:outline-none';
 
 /**
  * Company bank and cash accounts with balance from opening, receipts and payment vouchers. `canDelete`: owner and
@@ -37,7 +37,7 @@ export function CashBankClient({ accounts, canDelete = false }: { accounts: Acco
               ยอดรวมทุกบัญชีที่ใช้งาน <b className="text-base text-slate-900">฿{formatMoneyDisplay(total.toFixed(2))}</b>
             </span>
           )}
-          <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1c43ab]">
+          <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand-hover">
             <Plus className="h-4 w-4" /> เพิ่มบัญชีธนาคาร
           </button>
         </div>
@@ -55,7 +55,7 @@ export function CashBankClient({ accounts, canDelete = false }: { accounts: Acco
             <section key={a.id} className={`rounded-xl border bg-white p-4 shadow-xs ${a.active ? 'border-slate-200' : 'border-slate-200 opacity-60'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-blue-50 p-2 text-[#2453d4]">{a.type === 'CASH' ? <Wallet className="h-5 w-5" /> : <Landmark className="h-5 w-5" />}</div>
+                  <div className="rounded-lg bg-blue-50 p-2 text-brand">{a.type === 'CASH' ? <Wallet className="h-5 w-5" /> : <Landmark className="h-5 w-5" />}</div>
                   <div>
                     <p className="font-semibold text-slate-900">{a.bank}</p>
                     <p className="text-xs text-slate-600">
@@ -113,7 +113,7 @@ export function CashBankClient({ accounts, canDelete = false }: { accounts: Acco
                   <ul className="divide-y divide-slate-100 text-xs">
                     {a.recent.map((r) => (
                       <li key={r.id} className="flex items-center justify-between gap-2 py-1.5">
-                        <Link href={`/sales/${SALES_DOC_META[r.kind as SalesDocKind].slug}/${r.id}`} className="font-mono text-[#2453d4] hover:underline">
+                        <Link href={`/sales/${SALES_DOC_META[r.kind as SalesDocKind].slug}/${r.id}`} className="font-mono text-brand hover:underline">
                           {r.number}
                         </Link>
                         <span className="flex-1 truncate text-slate-600">
@@ -258,7 +258,7 @@ function AccountDialog({ account, onClose }: { account: AccountSummary | null; o
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="button" disabled={pending} onClick={save} className="rounded-md bg-[#2453d4] px-5 py-2 font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="button" disabled={pending} onClick={save} className="rounded-md bg-brand px-5 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {pending ? 'กำลังบันทึก...' : 'บันทึกบัญชี'}
           </button>
         </div>

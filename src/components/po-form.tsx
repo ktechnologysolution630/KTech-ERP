@@ -407,7 +407,7 @@ export function PoForm({
           type="button"
           disabled={pending}
           onClick={() => handleSave(false)}
-          className="rounded-lg border border-[#2453d4] bg-white px-4 py-2 text-sm font-medium text-[#2453d4] hover:bg-blue-50 disabled:opacity-50"
+          className="rounded-lg border border-brand bg-white px-4 py-2 text-sm font-medium text-brand hover:bg-blue-50 disabled:opacity-50"
         >
           บันทึกร่าง
         </button>
@@ -415,7 +415,7 @@ export function PoForm({
           type="button"
           disabled={pending}
           onClick={() => handleSave(true)}
-          className="rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
         >
           {pending ? 'กำลังบันทึก...' : 'สร้างเอกสารและส่งขออนุมัติ'}
         </button>

@@ -29,7 +29,7 @@ export default async function CreditNotesPage() {
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[900px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2.5">
@@ -63,7 +63,7 @@ export default async function CreditNotesPage() {
                   <td className="px-3 py-2.5">{c.customerName}</td>
                   <td className="px-3 py-2.5 text-slate-600">{c.projectLabel || '-'}</td>
                   <td className="px-3 py-2.5">
-                    <Link href={`/ar/invoices/${c.invoiceId}`} className="font-mono text-[#2453d4] hover:underline">
+                    <Link href={`/ar/invoices/${c.invoiceId}`} className="font-mono text-brand hover:underline">
                       {c.invoiceNumber}
                     </Link>
                   </td>

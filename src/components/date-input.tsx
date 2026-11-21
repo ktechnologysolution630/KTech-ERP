@@ -69,7 +69,7 @@ export function DateInput({ id, name, required, disabled, className = '', onChan
   };
 
   return (
-    <span className={`relative inline-block focus-within:border-[#2453d4] ${disabled ? 'cursor-not-allowed bg-slate-50 opacity-70' : ''} ${className}`}>
+    <span className={`relative inline-block focus-within:border-brand ${disabled ? 'cursor-not-allowed bg-slate-50 opacity-70' : ''} ${className}`}>
       <span className="flex items-center gap-1">
         <input
           ref={textRef}
@@ -98,7 +98,7 @@ export function DateInput({ id, name, required, disabled, className = '', onChan
           }}
           className={`w-full min-w-[5.5rem] flex-1 bg-transparent outline-none disabled:cursor-not-allowed ${problem ? 'text-red-600' : ''}`}
         />
-        <button type="button" onClick={openCalendar} disabled={disabled} tabIndex={-1} aria-label="เปิดปฏิทิน" className="shrink-0 text-slate-400 hover:text-[#2453d4] disabled:cursor-not-allowed">
+        <button type="button" onClick={openCalendar} disabled={disabled} tabIndex={-1} aria-label="เปิดปฏิทิน" className="shrink-0 text-slate-400 hover:text-brand disabled:cursor-not-allowed">
           <Calendar className="h-3.5 w-3.5" />
         </button>
       </span>

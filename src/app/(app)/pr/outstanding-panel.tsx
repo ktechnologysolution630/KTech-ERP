@@ -73,7 +73,7 @@ export function OutstandingPanel({ outstanding }: { outstanding: OutstandingPrLi
                 return (
                   <tr key={o.prLineId} className="hover:bg-slate-50">
                     <td className="px-4 py-2 font-mono">
-                      <Link href={`/pr/${o.prId}`} className="font-semibold text-[#2453d4] hover:underline">
+                      <Link href={`/pr/${o.prId}`} className="font-semibold text-brand hover:underline">
                         {o.prNumber}
                       </Link>
                     </td>

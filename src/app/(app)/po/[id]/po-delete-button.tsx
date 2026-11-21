@@ -65,7 +65,7 @@ export function PoDeleteButton({ id, number, vendorName, approved, preview }: { 
                   {preview.holders.map((doc, i) => (
                     <li key={`${doc.href}-${i}`} className="flex items-center gap-2 px-3 py-2">
                       <span className="w-28 shrink-0 text-slate-500">{doc.label}</span>
-                      <Link href={doc.href} className="min-w-0 truncate font-mono text-[#2453d4] hover:underline">
+                      <Link href={doc.href} className="min-w-0 truncate font-mono text-brand hover:underline">
                         {doc.number}
                       </Link>
                       {doc.cancelled && <span className="shrink-0 text-slate-500">(ยกเลิกแล้ว)</span>}

@@ -45,11 +45,11 @@ export default async function NewPrPage({ searchParams }: { searchParams: Promis
               key={t}
               href={`/pr/new?type=${t}`}
               aria-current={on ? 'page' : undefined}
-              className={`flex items-start gap-3 rounded-xl border p-3 transition ${on ? 'border-[#2453d4] bg-blue-50 ring-1 ring-[#2453d4]' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+              className={`flex items-start gap-3 rounded-xl border p-3 transition ${on ? 'border-brand bg-blue-50 ring-1 ring-brand' : 'border-slate-200 bg-white hover:border-slate-300'}`}
             >
-              <span className={`rounded-lg p-2 ${on ? 'bg-[#2453d4] text-white' : 'bg-slate-100 text-slate-500'}`}>{ICON[t]}</span>
+              <span className={`rounded-lg p-2 ${on ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}>{ICON[t]}</span>
               <span>
-                <span className={`block text-sm font-bold ${on ? 'text-[#2453d4]' : 'text-slate-900'}`}>{PR_TYPE_META[t].label}</span>
+                <span className={`block text-sm font-bold ${on ? 'text-brand' : 'text-slate-900'}`}>{PR_TYPE_META[t].label}</span>
                 <span className="block text-xs text-slate-500">{PR_TYPE_META[t].hint}</span>
               </span>
             </Link>

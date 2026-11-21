@@ -89,14 +89,14 @@ export function ProjectsClient({
               placeholder="ค้นหาโครงการ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:border-[#2453d4]"
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:border-brand"
             />
           </div>
 
           {/* Status filter */}
           <label
             className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition ${
-              statusFilter === 'ALL' ? 'border-slate-200 bg-white text-slate-700' : 'border-[#2453d4] bg-blue-50 text-[#2453d4]'
+              statusFilter === 'ALL' ? 'border-slate-200 bg-white text-slate-700' : 'border-brand bg-blue-50 text-brand'
             }`}
           >
             <Filter className="w-3.5 h-3.5" />
@@ -122,7 +122,7 @@ export function ProjectsClient({
             onClick={() => setShowCompleted(!showCompleted)}
             className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition ${
               showCompleted
-                ? 'border-[#2453d4] bg-blue-50 text-[#2453d4]'
+                ? 'border-brand bg-blue-50 text-brand'
                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -146,7 +146,7 @@ export function ProjectsClient({
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>สร้างโครงการ</span>
@@ -168,7 +168,7 @@ export function ProjectsClient({
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-[#1d44b8] text-white text-xs font-semibold shadow-sm transition"
             >
               <Plus className="w-4 h-4" />
               <span>สร้างโครงการ</span>
@@ -179,7 +179,7 @@ export function ProjectsClient({
         /* Table View */
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
           <table className="w-full text-xs">
-            <thead className="bg-[#102d72] text-white">
+            <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">รหัสโครงการ</th>
                 <th className="px-4 py-3 text-left font-medium">ชื่อโครงการ</th>
@@ -198,10 +198,10 @@ export function ProjectsClient({
                   onClick={() => router.push(`/projects/${p.id}`)}
                   className="group hover:bg-blue-50/50 cursor-pointer transition select-none"
                 >
-                  <td className="px-4 py-3 font-mono font-semibold text-[#2453d4]">
+                  <td className="px-4 py-3 font-mono font-semibold text-brand">
                     <div className="flex items-center gap-1.5">
                       <span>{p.code}</span>
-                      <ArrowRight className="w-3 h-3 text-[#2453d4] opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ArrowRight className="w-3 h-3 text-brand opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </td>
                   <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
@@ -212,7 +212,7 @@ export function ProjectsClient({
                   <td className="px-4 py-3 min-w-[140px]">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-full rounded-full bg-[#2453d4]" style={{ width: `${p.progress}%` }} />
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${p.progress}%` }} />
                       </div>
                       <span className="w-12 text-right font-mono text-slate-700">{p.progress}%</span>
                     </div>
@@ -248,7 +248,7 @@ export function ProjectsClient({
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="text-[11px] font-mono font-bold text-[#2453d4]">{p.code}</span>
+                  <span className="text-[11px] font-mono font-bold text-brand">{p.code}</span>
                   <h4 className="text-sm font-bold text-slate-900 mt-0.5">{p.name}</h4>
                 </div>
                 <span
@@ -286,7 +286,7 @@ export function ProjectsClient({
                 </div>
                 <div className="flex items-center gap-2">
                   {p.canDelete && deleteLink(p)}
-                  <span className="text-[#2453d4] font-medium flex items-center gap-1">
+                  <span className="text-brand font-medium flex items-center gap-1">
                     เข้าสู่โครงการ <ArrowRight className="w-3 h-3" />
                   </span>
                 </div>

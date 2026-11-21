@@ -14,7 +14,7 @@ export default function ViewOnlyPage() {
         <p className="text-sm font-medium text-slate-800">รายการที่ทำเมื่อครู่ยังไม่ถูกบันทึก กรุณาทำรายการบนคอมพิวเตอร์</p>
         <div className="flex flex-wrap justify-center gap-2 pt-1">
           <BackButton />
-          <Link href="/inbox" prefetch={false} className="inline-block rounded-lg bg-[#2453d4] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+          <Link href="/inbox" prefetch={false} className="inline-block rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             กลับไปพอร์ทัลของฉัน
           </Link>
         </div>

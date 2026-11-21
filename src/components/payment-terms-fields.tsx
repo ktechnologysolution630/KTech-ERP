@@ -14,7 +14,7 @@ import {
   type Schedule,
 } from '@/domain/payment-terms';
 
-const DEFAULT_INPUT = 'w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-[#2453d4] focus:outline-none';
+const DEFAULT_INPUT = 'w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-brand focus:outline-none';
 
 /**
  * Picks a day schedule: any day, days of the month ("5, 20") or weekdays.
@@ -88,7 +88,7 @@ export function ScheduleField({
                   type="button"
                   aria-pressed={on}
                   onClick={() => update(kind, monthText, on ? weekdays.filter((x) => x !== i) : [...weekdays, i])}
-                  className={`rounded-md border px-2 py-1 text-[11px] ${on ? 'border-[#2453d4] bg-[#2453d4] text-white' : 'border-slate-300 bg-white text-slate-600'}`}
+                  className={`rounded-md border px-2 py-1 text-[11px] ${on ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white text-slate-600'}`}
                 >
                   {d}
                 </button>

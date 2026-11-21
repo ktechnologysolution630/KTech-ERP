@@ -56,7 +56,7 @@ export default async function StockCardPage({ searchParams }: { searchParams: Pr
           <label className="text-[11px] text-slate-500">
             ถึง <input type="date" name="to" defaultValue={to} className={field} />
           </label>
-          <button className="rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white">แสดง</button>
+          <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
         </form>
         {card && (
           <a href={`/api/csv/stock-card?${qs({ item: card.item.id, store, from, to })}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
@@ -83,7 +83,7 @@ export default async function StockCardPage({ searchParams }: { searchParams: Pr
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <table className="w-full min-w-[1000px] text-xs">
-              <thead className="bg-[#102d72] text-white">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th rowSpan={2} className="px-3 py-2 text-left font-medium">วันที่</th>
                   <th rowSpan={2} className="px-3 py-2 text-left font-medium">เลขที่ / อ้างอิง</th>

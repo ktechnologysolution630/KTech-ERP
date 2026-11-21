@@ -31,7 +31,7 @@ export default async function WhtPage({ searchParams }: { searchParams: Promise<
             <option value="VOID">ยกเลิก</option>
             <option value="ALL">ทั้งหมด</option>
           </select>
-          <button className="rounded-lg bg-[#2453d4] px-3 py-2 text-xs font-semibold text-white">ตัวกรอง</button>
+          <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">ตัวกรอง</button>
           <Link href="/accounting/wht-report" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700">
             รายงานภาษีหัก ณ ที่จ่าย
           </Link>
@@ -39,7 +39,7 @@ export default async function WhtPage({ searchParams }: { searchParams: Promise<
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[900px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {['เลขที่', 'วันที่', 'ผู้ถูกหักภาษี', 'แบบ', 'อ้างอิง PV', 'ยอดรวม (ฐานภาษี)', 'ภาษีที่หัก', 'สถานะ', ''].map((h) => (
                 <th key={h} className={`px-3 py-2.5 font-medium ${h.startsWith('ยอด') || h === 'ภาษีที่หัก' ? 'text-right' : 'text-left'}`}>
@@ -63,7 +63,7 @@ export default async function WhtPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2.5">{r.payee}</td>
                   <td className="px-3 py-2.5">{r.formType === 'PND3' ? 'ภ.ง.ด.3' : 'ภ.ง.ด.53'}</td>
                   <td className="px-3 py-2.5">
-                    <Link href={`/pv/${r.pvId}`} className="font-mono text-[#2453d4] hover:underline">
+                    <Link href={`/pv/${r.pvId}`} className="font-mono text-brand hover:underline">
                       {r.pvNumber}
                     </Link>
                   </td>
@@ -77,7 +77,7 @@ export default async function WhtPage({ searchParams }: { searchParams: Promise<
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-start gap-3">
-                      <a href={`/api/pdf/wht/${r.id}`} target="_blank" rel="noreferrer" className="text-[#2453d4] hover:underline">
+                      <a href={`/api/pdf/wht/${r.id}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">
                         พิมพ์
                       </a>
                       {canManage && <WhtCertActions id={r.id} number={r.number} status={r.status} pvPaid={r.pvPaid} />}

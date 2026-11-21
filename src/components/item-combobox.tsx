@@ -99,7 +99,7 @@ export function ItemCombobox({
             setOpen(false);
           }
         }}
-        className="w-full rounded border border-slate-300 bg-white py-1.5 pl-2 pr-12 text-xs focus:border-[#2453d4] focus:outline-none"
+        className="w-full rounded border border-slate-300 bg-white py-1.5 pl-2 pr-12 text-xs focus:border-brand focus:outline-none"
       />
       <div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
         {value && (
@@ -148,7 +148,7 @@ export function ItemCombobox({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(it)}
                 onMouseEnter={() => setActive(i)}
-                className={`cursor-pointer px-3 py-1.5 ${i === active ? 'bg-blue-50' : ''} ${it.id === selectedId ? 'font-semibold text-[#2453d4]' : 'text-slate-700'}`}
+                className={`cursor-pointer px-3 py-1.5 ${i === active ? 'bg-blue-50' : ''} ${it.id === selectedId ? 'font-semibold text-brand' : 'text-slate-700'}`}
               >
                 <span className="font-mono text-[11px] text-slate-500">{it.code}</span> {it.name}
               </li>

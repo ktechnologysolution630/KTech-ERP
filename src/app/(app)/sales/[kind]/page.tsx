@@ -42,18 +42,18 @@ export default async function SalesDocListPage({ params, searchParams }: { param
           </a>
           <Link
             href={showCancelled ? `/sales/${slug}` : `/sales/${slug}?cancelled=1`}
-            className={`rounded-lg border px-3 py-2 text-xs font-medium ${showCancelled ? 'border-[#2453d4] bg-blue-50 text-[#2453d4]' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
+            className={`rounded-lg border px-3 py-2 text-xs font-medium ${showCancelled ? 'border-brand bg-blue-50 text-brand' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
           >
             เอกสารที่ยกเลิก
           </Link>
-          <Link href={`/sales/${slug}/new`} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2453d4] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1c43ab]">
+          <Link href={`/sales/${slug}/new`} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand-hover">
             <Plus className="h-4 w-4" /> สร้างเอกสาร
           </Link>
         </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[900px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2.5">
@@ -83,7 +83,7 @@ export default async function SalesDocListPage({ params, searchParams }: { param
                     </td>
                   )}
                   <td className="px-3 py-2.5">
-                    <Link href={`/sales/${slug}/${d.id}`} className="font-mono font-semibold text-[#2453d4] hover:underline">
+                    <Link href={`/sales/${slug}/${d.id}`} className="font-mono font-semibold text-brand hover:underline">
                       {d.number}
                     </Link>
                   </td>

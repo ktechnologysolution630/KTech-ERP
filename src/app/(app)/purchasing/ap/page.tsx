@@ -60,7 +60,7 @@ export default async function PurchasingApPage() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[750px] text-xs">
-            <thead className="bg-[#102d72] text-xs text-white">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">โครงการ</th>
                 <th className="px-4 py-3 text-center font-medium w-24">รออนุมัติ</th>
@@ -131,7 +131,7 @@ export default async function PurchasingApPage() {
                     </td>
                     <td className="px-4 py-2">{r.projectName}</td>
                     <td className="px-4 py-2">
-                      <Link href={`/po/${r.poId}`} className="text-[#2453d4] hover:underline font-mono">
+                      <Link href={`/po/${r.poId}`} className="text-brand hover:underline font-mono">
                         {r.poNumber}
                       </Link>
                     </td>

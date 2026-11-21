@@ -73,7 +73,7 @@ export function StockDocHistoryView({
             onChange={(e) => filter(() => setSearch(e.target.value))}
             placeholder="ค้นหาเลขที่เอกสาร สินค้า SKU ผู้บันทึก หรือเหตุผล"
             aria-label="ค้นหาเอกสาร"
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs focus:border-[#2453d4] focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs focus:border-brand focus:outline-none"
           />
         </div>
         <select value={type} onChange={(e) => filter(() => setType(e.target.value as typeof type))} aria-label="ประเภทเอกสาร" className="rounded-lg border border-slate-200 px-3 py-2 text-xs sm:w-48">
@@ -96,7 +96,7 @@ export function StockDocHistoryView({
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full min-w-[1000px] text-xs">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               {canDelete && (
                 <th className="w-8 px-3 py-2.5">
@@ -128,7 +128,7 @@ export function StockDocHistoryView({
                   )}
                   <td className="whitespace-nowrap px-3 py-2.5 text-slate-700">{dateText(d.docDate)}</td>
                   <td className="px-3 py-2.5">
-                    <div className="font-mono font-semibold text-[#2453d4]">{d.number}</div>
+                    <div className="font-mono font-semibold text-brand">{d.number}</div>
                     {d.reference && <div className="text-[10px] text-slate-400">{d.reference}</div>}
                   </td>
                   <td className="px-3 py-2.5">

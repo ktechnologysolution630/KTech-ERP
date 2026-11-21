@@ -52,7 +52,7 @@ export function ReorderPointDialog({ items, onClose }: { items: StockItemDto[]; 
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative min-w-60 flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาวัสดุ, SKU, หมวด..." aria-label="ค้นหาวัสดุ" className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 focus:border-[#2453d4] focus:outline-none" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาวัสดุ, SKU, หมวด..." aria-label="ค้นหาวัสดุ" className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 focus:border-brand focus:outline-none" />
             </div>
             <label className="inline-flex items-center gap-1.5 text-slate-700">
               <input type="checkbox" checked={onlySet} onChange={(e) => setOnlySet(e.target.checked)} /> เฉพาะที่ตั้งไว้แล้ว
@@ -60,7 +60,7 @@ export function ReorderPointDialog({ items, onClose }: { items: StockItemDto[]; 
           </div>
           <div className="max-h-[55vh] overflow-auto rounded-md border border-slate-200">
             <table className="w-full">
-              <thead className="sticky top-0 bg-[#102d72] text-white">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-3 py-2.5 text-left font-medium">วัสดุ</th>
                   <th className="px-3 py-2.5 text-left font-medium">หมวด</th>
@@ -119,7 +119,7 @@ export function ReorderPointDialog({ items, onClose }: { items: StockItemDto[]; 
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">
             ยกเลิก
           </button>
-          <button type="button" onClick={save} disabled={isPending || changed.length === 0} className="rounded-md bg-[#2453d4] px-5 py-2 font-semibold text-white hover:bg-[#1c43ab] disabled:opacity-50">
+          <button type="button" onClick={save} disabled={isPending || changed.length === 0} className="rounded-md bg-brand px-5 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50">
             {isPending ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
         </div>

@@ -62,7 +62,7 @@ export function ApproveClient({
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-xs">
-            <thead className="bg-[#102d72] text-xs text-white">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
                 <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ / วันที่</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">โครงการ / PO</th>
@@ -88,7 +88,7 @@ export function ApproveClient({
                     </td>
                     <td className="px-3.5 py-2.5">
                       <div>{r.projectName}</div>
-                      <Link href={`/po/${r.poId}`} className="font-mono text-[#2453d4] hover:underline">
+                      <Link href={`/po/${r.poId}`} className="font-mono text-brand hover:underline">
                         {r.poNumber}
                       </Link>
                     </td>

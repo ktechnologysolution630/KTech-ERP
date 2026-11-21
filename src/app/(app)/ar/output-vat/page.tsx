@@ -34,7 +34,7 @@ export default async function OutputVatPage({ searchParams }: { searchParams: Pr
               </option>
             ))}
           </select>
-          <button type="submit" className="px-3 py-1.5 rounded-lg bg-[#2453d4] text-white">แสดง</button>
+          <button type="submit" className="px-3 py-1.5 rounded-lg bg-brand text-white">แสดง</button>
         </form>
       </div>
 
@@ -49,13 +49,13 @@ export default async function OutputVatPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="text-slate-500">รวมภาษีขาย</div>
-          <div className="font-mono font-bold text-base text-[#2453d4]">{baht(report.totalVat)}</div>
+          <div className="font-mono font-bold text-base text-brand">{baht(report.totalVat)}</div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs min-w-[860px]">
-          <thead className="bg-[#102d72] text-white">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left">วันที่</th>
               <th className="px-3 py-2 text-left">เลขที่เอกสาร</th>

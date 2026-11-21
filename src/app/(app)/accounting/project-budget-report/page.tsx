@@ -27,13 +27,13 @@ export default async function ProjectBudgetReportPage({ searchParams }: { search
           {projects.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-center gap-3">
-                <Folder className="h-5 w-5 text-[#2453d4]" />
+                <Folder className="h-5 w-5 text-brand" />
                 <div>
                   <p className="font-semibold text-slate-900">{p.name}</p>
                   <p className="font-mono text-[11px] text-slate-500">{p.code}</p>
                 </div>
               </div>
-              <Link href={`?projectId=${p.id}`} className="rounded-lg bg-[#2453d4] px-3 py-1.5 text-xs font-semibold text-white">
+              <Link href={`?projectId=${p.id}`} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white">
                 เลือก
               </Link>
             </div>
@@ -59,7 +59,7 @@ export default async function ProjectBudgetReportPage({ searchParams }: { search
         </p>
       </div>
       <table className="w-full min-w-[760px] border-collapse">
-        <thead className="bg-[#102d72] text-white">
+        <thead className="bg-slate-50 text-slate-500">
           <tr>
             {['หมวดงาน', 'งบตั้งต้น', 'ใช้ไปแล้ว', 'คงเหลือ', '% ที่ใช้'].map((h) => (
               <th key={h} className={`border border-[#102d72] px-2 py-2 font-medium ${h === 'หมวดงาน' ? 'text-left' : 'text-right'}`}>

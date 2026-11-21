@@ -65,7 +65,7 @@ function deltaAt(m: StockMovementDto, key: string | undefined): number {
 }
 
 const card = 'overflow-hidden rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.3)]';
-const tableHead = 'bg-[#102d72] text-xs text-white [&_th]:border-r [&_th]:border-white/40 [&_th:last-child]:border-r-0';
+const tableHead = 'bg-slate-50 text-xs text-slate-500 [&_th]:border-r [&_th]:border-slate-200 [&_th:last-child]:border-r-0';
 
 /** `canDelete`: owner and admin may remove movements, stock documents, unused items, counts and adjustment requests */
 export function StockClient({ data, docOptions, canDelete = false }: { data: StockPageData; docOptions: StockDocOptions; canDelete?: boolean }) {
@@ -111,7 +111,7 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
                 setSearch(e.target.value);
                 if (currentTab === 'overview' && e.target.value) setTab('movements');
               }}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#2453d4]"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-brand"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -141,7 +141,7 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
               <button
                 type="button"
                 onClick={() => setMovementDialog({ kind: 'RECEIVE' })}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1c43ab] text-white text-xs font-semibold shadow-sm"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 สร้างรายการ
@@ -307,7 +307,7 @@ function OverviewTab({
                 <div>
                   <div className="text-[11px] text-slate-400">รวมทั้งสิ้น</div>
                   <div className="text-base font-bold text-slate-950">{data.items.length.toLocaleString('th-TH')} รายการ</div>
-                  <div className="text-xs font-semibold text-[#2453d4]">฿{baht(totalValue)}</div>
+                  <div className="text-xs font-semibold text-brand">฿{baht(totalValue)}</div>
                 </div>
               </div>
             </div>
@@ -339,7 +339,7 @@ function OverviewTab({
               <h3 className="text-base font-bold text-slate-900">สต็อกตามคลัง / โครงการ</h3>
               <p className="text-xs text-slate-500">จำนวนรายการที่มีของและมูลค่าตามราคาทุน</p>
             </div>
-            <button type="button" onClick={onSeeAll} className="text-xs font-medium text-[#2453d4] hover:underline">
+            <button type="button" onClick={onSeeAll} className="text-xs font-medium text-brand hover:underline">
               ดูทั้งหมด
             </button>
           </div>
@@ -357,7 +357,7 @@ function OverviewTab({
                     </div>
                   </div>
                   <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-[#2453d4]" style={{ width: `${Math.max(4, (l.value / maxLoc) * 100)}%` }} />
+                    <div className="h-full rounded-full bg-brand" style={{ width: `${Math.max(4, (l.value / maxLoc) * 100)}%` }} />
                   </div>
                 </div>
               ))
@@ -540,7 +540,7 @@ function LowStockTab({
                         </button>
                       )}
                       {canMove && it.isLowStock && (
-                        <button type="button" onClick={() => onReorder(it)} className="px-2.5 py-1 rounded bg-[#2453d4] text-white text-[11px] font-medium">
+                        <button type="button" onClick={() => onReorder(it)} className="px-2.5 py-1 rounded bg-brand text-white text-[11px] font-medium">
                           รับเข้า
                         </button>
                       )}
@@ -636,7 +636,7 @@ function LedgerTab({ data }: { data: StockPageData }) {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ค้นหาสินค้า, SKU, เอกสาร, ต้นทาง, ปลายทาง..."
               aria-label="ค้นหาในรายงานความเคลื่อนไหวสินค้า"
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#2453d4]"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-brand"
             />
           </div>
           {q && (
@@ -680,7 +680,7 @@ function LedgerTab({ data }: { data: StockPageData }) {
                     <tr key={r.m.id} className="hover:bg-slate-50">
                       <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap">{dateText(r.m.date)}</td>
                       <td className="px-3.5 py-2.5">
-                        <div className="font-mono text-[#2453d4]">{r.m.movementNumber}</div>
+                        <div className="font-mono text-brand">{r.m.movementNumber}</div>
                         {r.m.referenceNumber && <div className="text-[10px] text-slate-400">{r.m.referenceNumber}</div>}
                       </td>
                       <td className="px-3.5 py-2.5">
@@ -752,7 +752,7 @@ function UsageTab({ data, canRecord, onRecord }: { data: StockPageData; canRecor
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">บันทึกการใช้วัสดุ</h1>
         {canRecord && (
-          <button type="button" onClick={onRecord} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2453d4] hover:bg-[#1c43ab] text-white text-xs font-semibold shadow-sm">
+          <button type="button" onClick={onRecord} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm">
             <Plus className="w-4 h-4" />
             บันทึกการใช้วัสดุ
           </button>
@@ -771,7 +771,7 @@ function UsageTab({ data, canRecord, onRecord }: { data: StockPageData; canRecor
                   key={m}
                   type="button"
                   onClick={() => setMode(m)}
-                  className={`px-3 py-1 rounded-md ${mode === m ? 'font-semibold bg-white text-[#2453d4] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-3 py-1 rounded-md ${mode === m ? 'font-semibold bg-white text-brand shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   {m === 'monthly' ? 'รายเดือน' : 'สะสม'}
                 </button>
@@ -956,7 +956,7 @@ function AllStockTab({
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[750px] text-xs">
-                <thead className="bg-[#102d72] text-white">
+                <thead className="bg-slate-50 text-slate-500">
                   <tr>
                     <th className="px-4 py-2.5 text-left font-medium">คลัง</th>
                     <th className="px-4 py-2.5 text-right font-medium">จำนวนรายการ</th>
