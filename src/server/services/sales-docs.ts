@@ -208,6 +208,63 @@ async function assertWithinInvoice(tx: Tx, sourceId: string, total: Decimal, rep
   }
 }
 
+/** Tells sales-order lines apart: by stock item when there is one, else by the line's name */
+const soLineKey = (l: { stockItemId?: string | null; name?: string | null }) => (l.stockItemId ? `item:${l.stockItemId}` : `name:${(l.name ?? '').trim().toLowerCase()}`);
+
+/**
+ * Tax invoices opened from one sales order (SO → TI) may not bill more of a line than the order holds,
+ * counting the invoices already issued from it, so a customer is never billed twice for the same goods.
+ */
+async function assertWithinSalesOrder(
+  tx: Tx,
+  sourceId: string,
+  newLines: readonly { isSection?: boolean; qty: number; name?: string; stockItemId?: string | null }[],
+  replacingId?: string,
+) {
+  const [src] = await tx.select().from(salesDocs).where(eq(salesDocs.id, sourceId)).limit(1);
+  if (!src || src.kind !== 'SO') return;
+  const ordered = new Map<string, { name: string; qty: Decimal; unit: string }>();
+  for (const l of await tx.select().from(salesDocLines).where(eq(salesDocLines.docId, src.id))) {
+    if (l.isSection) continue;
+    const k = soLineKey(l);
+    const o = ordered.get(k) ?? { name: l.name, qty: D(0), unit: l.unit };
+    o.qty = o.qty.plus(D(l.qty));
+    ordered.set(k, o);
+  }
+  const billed = new Map<string, Decimal>();
+  const issued = await tx
+    .select({ id: salesDocs.id })
+    .from(salesDocs)
+    .where(and(eq(salesDocs.sourceId, src.id), inArray(salesDocs.kind, ['TI', 'STI']), eq(salesDocs.status, 'ISSUED')));
+  const issuedIds = issued.map((r) => r.id).filter((id) => id !== replacingId);
+  if (issuedIds.length) {
+    for (const l of await tx.select().from(salesDocLines).where(inArray(salesDocLines.docId, issuedIds))) {
+      if (l.isSection) continue;
+      const k = soLineKey(l);
+      billed.set(k, (billed.get(k) ?? D(0)).plus(D(l.qty)));
+    }
+  }
+  const asking = new Map<string, Decimal>();
+  for (const l of newLines) {
+    if (l.isSection) continue;
+    const k = soLineKey(l);
+    asking.set(k, (asking.get(k) ?? D(0)).plus(D(l.qty)));
+  }
+  for (const [k, qty] of asking) {
+    const o = ordered.get(k);
+    if (!o) continue;
+    const left = o.qty.minus(billed.get(k) ?? D(0));
+    if (qty.gt(left)) {
+      const fmt = (x: Decimal) => x.toDecimalPlaces(3).toString();
+      throw new DomainError(
+        'OVER_SALES_ORDER',
+        `${o.name} เกินยอดใบสั่งขาย ${src.number}: สั่ง ${fmt(o.qty)} ${o.unit} ออกใบกำกับภาษีไปแล้ว ${fmt(o.qty.minus(left))} เหลือออกได้ ${fmt(left.gt(0) ? left : D(0))}`.trim(),
+        409,
+      );
+    }
+  }
+}
+
 /**
  * ตัดสต็อก: a tax invoice or abbreviated tax invoice takes the stock items on its lines out of the
  * project's store (the central store when no project), at the moving average cost. Short stock refuses
@@ -299,6 +356,7 @@ export async function createSalesDoc(
 
     const { values, lines } = await docValues(tx, d);
     if (sourceId && d.kind === 'RC') await assertWithinInvoice(tx, sourceId, D(values.total), replaced?.id);
+    if (sourceId && STOCK_CUT_KINDS.includes(d.kind)) await assertWithinSalesOrder(tx, sourceId, d.lines, replaced?.id);
     const number = await nextDocNumber(tx, SALES_DOC_META[d.kind].prefix, new Date(`${d.docDate}T12:00:00+07:00`));
     const [doc] = await tx
       .insert(salesDocs)
