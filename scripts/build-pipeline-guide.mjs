@@ -17,8 +17,12 @@ if (styleStart < 7 || styleEnd < 0) throw new Error('Could not find the manual s
 const baseCss = manual.slice(styleStart, styleEnd);
 
 // Every heading the template asks for, then the whole <div class="card"> that holds it
-const wanted = [...template.matchAll(/'([^']+)', '(?:[a-z]+ ?)+'\]/g)].map((m) => m[1]);
+const wanted = [...template.matchAll(/'([^']+)', '(?:[a-z]+ ?)*'\]/g)].map((m) => m[1]);
 const cards = {};
+// Who each step is for, taken from the card's role chips in the manual (SITE and ALL expand to the real positions)
+const ALL_ROLES = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK', 'PM', 'PURCHASING', 'PURCHASING_HEAD', 'FINANCE', 'GENERAL_MANAGER', 'OWNER', 'ADMIN'];
+const SITE = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK'];
+const roles = {};
 for (const title of wanted) {
   const at = manual.indexOf(`<h3>${title.replace(/&/g, '&amp;')}</h3>`);
   if (at < 0) throw new Error(`No card in the manual with the heading: ${title}`);
@@ -32,12 +36,17 @@ for (const title of wanted) {
     depth += m[0][1] === '/' ? -1 : 1;
     if (depth === 0) { i = m.index + m[0].length; break; }
   }
-  cards[title] = manual.slice(start, i).replace(/ data-roles="[^"]*"/, '').replace(/ style="[^"]*"/, '');
+  const card = manual.slice(start, i);
+  const keys = (card.match(/ data-roles="([^"]*)"/)?.[1] ?? '').split(/[\s,]+/).filter(Boolean);
+  if (!keys.length) throw new Error(`The card "${title}" has no data-roles in the manual`);
+  roles[title] = [...new Set(keys.flatMap((k) => (k === 'ALL' ? ALL_ROLES : k === 'SITE' ? SITE : [k])))];
+  cards[title] = card.replace(/ data-roles="[^"]*"/, '').replace(/ style="[^"]*"/, '');
 }
 
 const html = template
   .replace('/*BASE*/', () => baseCss)
-  .replace('/*CARDS*/', () => JSON.stringify(cards).replace(/<\//g, '<\\/'));
+  .replace('/*CARDS*/', () => JSON.stringify(cards).replace(/<\//g, '<\\/'))
+  .replace('/*ROLES*/', () => JSON.stringify(roles));
 
 const out = join(root, 'public/guide');
 mkdirSync(out, { recursive: true });

@@ -49,6 +49,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .intro h2 .nw { white-space: nowrap; }
 .intro p { font-size: clamp(18px, 2vw, 21px); color: var(--muted); max-width: 36em; margin: 18px auto 0; line-height: 1.55; }
 .roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 30px; }
+.roles { max-width: 860px; margin-left: auto; margin-right: auto; }
 .roles button { font: inherit; font-size: 14px; cursor: pointer; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: #d2d2d7; transition: background .25s, color .25s, border-color .25s; }
 .roles button:hover { border-color: #86868b; }
 .roles button[aria-pressed="true"] { background: var(--c); border-color: var(--c); color: #000; font-weight: 600; }
@@ -153,7 +154,7 @@ footer.end { padding-block: 0 80px; text-align: center; color: var(--faint); fon
       <h2 id="l-title"></h2>
       <p id="l-text"></p>
       <div class="roles" id="roles" role="group" aria-label="ดูในมุมของตำแหน่ง">
-        <button type="button" data-r="site" style="--c:var(--r-site)">หน้างาน</button><button type="button" data-r="pm" style="--c:var(--r-pm)">PM</button><button type="button" data-r="pur" style="--c:var(--r-pur)">จัดซื้อ</button><button type="button" data-r="head" style="--c:var(--r-pur)">หัวหน้าจัดซื้อ</button><button type="button" data-r="fin" style="--c:var(--r-fin)">การเงิน</button><button type="button" data-r="owner" style="--c:var(--r-exec)">ผู้บริหาร</button>
+        <button type="button" data-r="FOREMAN" style="--c:var(--r-site)">โฟร์แมน</button><button type="button" data-r="ENGINEER" style="--c:var(--r-site)">วิศวกร</button><button type="button" data-r="ARCHITECT" style="--c:var(--r-site)">สถาปนิกโครงการ</button><button type="button" data-r="PROJECT_CLERK" style="--c:var(--r-site)">ธุรการโครงการ</button><button type="button" data-r="PM" style="--c:var(--r-pm)">ผู้จัดการโครงการ (PM)</button><button type="button" data-r="PURCHASING" style="--c:var(--r-pur)">จัดซื้อ</button><button type="button" data-r="PURCHASING_HEAD" style="--c:var(--r-pur)">หัวหน้าจัดซื้อ</button><button type="button" data-r="FINANCE" style="--c:var(--r-fin)">การเงิน/บัญชี</button><button type="button" data-r="GENERAL_MANAGER" style="--c:var(--r-exec)">ผู้จัดการทั่วไป</button><button type="button" data-r="OWNER" style="--c:var(--r-exec)">เจ้าของ</button><button type="button" data-r="ADMIN" style="--c:var(--r-admin)">ผู้ดูแลระบบ</button>
       </div>
       <div class="rolenote" id="rolenote"></div>
     </div>
@@ -188,6 +189,7 @@ footer.end { padding-block: 0 80px; text-align: center; color: var(--faint); fon
 <script>
 // How-to cards copied from docs/ktec-usage-guide.html by scripts/build-pipeline-guide.mjs, keyed by each card's heading
 var CARDS = /*CARDS*/;
+var ROLES = /*ROLES*/;
 (function () {
   var I = {
     clip: '<rect x="11" y="9" width="26" height="33" rx="3"/><path d="M18 9V6h12v3M17 20h14M17 27h14M17 34h8"/>',
@@ -220,7 +222,11 @@ var CARDS = /*CARDS*/;
     count: '<path d="M24 6v36M10 12h28"/><path d="m10 12-6 13a6 6 0 0 0 12 0ZM38 12l-6 13a6 6 0 0 0 12 0Z"/><path d="M16 42h16"/>',
     alert: '<path d="M24 6 44 40H4Z"/><path d="M24 19v10M24 34v1"/>',
     card: '<rect x="5" y="8" width="38" height="32" rx="3"/><path d="M11 16h26M11 23h26M11 30h16"/><path d="M33 30v6M30 33h6"/>',
-    send: '<path d="M43 5 5 21l15 6 6 15Z"/><path d="m20 27 23-22"/>'
+    send: '<path d="M43 5 5 21l15 6 6 15Z"/><path d="m20 27 23-22"/>',
+    pen: '<path d="M33 6l9 9-24 24H9v-9Z"/><path d="m28 11 9 9M6 43h36"/>',
+    bell: '<path d="M12 34V22a12 12 0 0 1 24 0v12l4 4H8Z"/><path d="M20 42a4 4 0 0 0 8 0"/>',
+    map: '<path d="M24 43s14-12 14-23a14 14 0 0 0-28 0c0 11 14 23 14 23Z"/><circle cx="24" cy="20" r="5"/>',
+    users: '<circle cx="18" cy="16" r="7"/><path d="M4 41c1-9 6-13 14-13s13 4 14 13"/><path d="M31 9a7 7 0 0 1 0 14M36 29c5 2 8 6 8 12"/>'
   };
   var GLOW = ['#3aa0ff', '#38d98a', '#a66bff', '#2ee6d6', '#ff9f43', '#ffd23f', '#4dd4ff', '#ff5e9c', '#8be36b', '#7c8cff'];
   var T = {
@@ -239,10 +245,27 @@ var CARDS = /*CARDS*/;
     lock: '<rect x="5" y="11" width="16" height="11" rx="2"/><path d="M8 11V8a5 5 0 0 1 10 0v3"/>',
     box: '<path d="m13 3 9 4.5v11L13 23l-9-4.5v-11Z"/><path d="m4 7.5 9 4.5 9-4.5M13 12v11"/>',
     alert: '<path d="M13 3 24 22H2Z"/><path d="M13 10v5M13 18v.5"/>',
-    key: '<circle cx="8" cy="17" r="4.5"/><path d="m11 14 10-10M18 7l3 3"/>'
+    key: '<circle cx="8" cy="17" r="4.5"/><path d="m11 14 10-10M18 7l3 3"/>',
+    pen: '<path d="M17 3l6 6L9 23H3v-6Z"/>',
+    bell: '<path d="M6 18v-7a7 7 0 0 1 14 0v7l2 2H4Z"/><path d="M11 23h4"/>',
+    map: '<path d="M13 23s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13Z"/><circle cx="13" cy="10" r="3"/>',
+    users: '<circle cx="10" cy="9" r="4"/><path d="M3 22c0-5 3-8 7-8s7 3 7 8M17 5a4 4 0 0 1 0 8M20 15c2 1 4 3 4 7"/>',
+    hash: '<path d="M9 3 7 23M19 3l-2 20M4 9h18M3 17h18"/>'
   };
   // Each step: [title, who, icon, check 1, check 2, guide heading, positions]
   var LINES = [
+    { id: 'start', tab: 'เริ่มต้นใช้งาน', code: 'START', title: 'เริ่มต้นใช้งาน',
+      master: ['K Tec Approve', 'รวมเอกสารทุกประเภทที่รอการตัดสินใจของคุณไว้ในที่เดียว จัดกลุ่มตามโครงการ ตัวเลขบนเมนูคือจำนวนที่รอ', [3]],
+      docs: ['ลายเซ็นของคุณลงในเอกสารให้เอง', 'ไฟล์แนบ · ความคิดเห็น · ประวัติการดำเนินการ', 'พิมพ์ PDF: PR · PO · PV · 50 ทวิ'],
+      loop: ['ไม่เห็นเมนูที่ต้องใช้', 'ผู้ดูแลระบบเปิดหรือปิดเมนูให้ได้รายคน ที่เมนู ตั้งค่า › ผู้ใช้งาน'],
+      tools: [['grid', 'พอร์ทัลของฉัน', 'กล่องงานของฉัน'], ['bell', 'กระดิ่ง', 'แจ้งเตือน'], ['shield', 'K Tec Approve', 'รออนุมัติ'], ['pen', 'โปรไฟล์ / ลายเซ็น', 'ตั้งลายเซ็น'], ['book', 'คู่มือการใช้งาน', 'ตั้งค่า'], ['user', 'ออกจากระบบ', 'มุมขวาบน']],
+      steps: [
+        ['เข้าสู่ระบบ', 'ทุกคน', 'user', 'กรอกอีเมลและรหัสผ่าน', 'เข้าหน้าแรกของตำแหน่งคุณ', 'เข้าสู่ระบบ', ''],
+        ['ตั้งลายเซ็น', 'ทุกคน', 'pen', 'วาด หรืออัปโหลดรูป', 'ลงในเอกสารให้เอง', 'ตั้งลายเซ็นของตัวเอง', ''],
+        ['ดูงานที่รอคุณ', 'ทุกคน', 'bell', 'กระดิ่งมุมขวาบน', 'กล่องงานของฉัน', 'ดูว่ามีงานอะไรรอคุณ', ''],
+        ['อนุมัติเอกสาร', 'ผู้อนุมัติ', 'shield', 'กด อนุมัติ หรือ ตีกลับ', 'ตีกลับต้องใส่เหตุผล', 'อนุมัติเอกสารที่ K Tec Approve', ''],
+        ['เครื่องมือในเอกสาร', 'ทุกคน', 'clip', 'แนบไฟล์ / ความคิดเห็น', 'พิมพ์ PDF พร้อมลายเซ็น', 'ทุกหน้าเอกสารมีเครื่องมือเดียวกัน', '']
+      ] },
     { id: 'procure', tab: 'จัดซื้อ → จ่ายเงิน', code: 'PR→PV', title: 'จัดซื้อ → รับของ → จ่ายเงิน',
       master: ['K Tec Approve', 'ศูนย์อนุมัติเอกสาร ทุกใบที่รออนุมัติมาอยู่ที่นี่ กดอนุมัติหรือตีกลับได้ในที่เดียว', [1, 3, 7]],
       docs: ['ใบขอซื้อ PR · ใบสั่งซื้อ PO', 'ใบรับของ · ใบแจ้งหนี้ผู้ขาย (AP)', 'ใบสำคัญจ่าย PV · หนังสือรับรอง 50 ทวิ'],
@@ -300,6 +323,17 @@ var CARDS = /*CARDS*/;
         ['เจ้าของอนุมัติจ่าย', 'เจ้าของ', 'owner', 'กด อนุมัติจ่าย', 'เข้าคิวตั้งจ่าย', 'เจ้าของอนุมัติจ่าย', 'owner'],
         ['ออกใบสำคัญจ่าย', 'การเงิน', 'pv', 'ออก PV จากใบขอเบิก', 'จ่ายเงิน + 50 ทวิ', 'การเงินออกใบสำคัญจ่าย', 'fin']
       ] },
+    { id: 'money', tab: 'เงินทดรอง · รายรับ', code: 'ADV', title: 'เงินทดรอง · ใบรับรองแทนใบเสร็จ · รายรับ',
+      master: ['K Tec Approve', 'ใบขอเงินทดรองจ่ายและใบรับรองแทนใบเสร็จส่งขออนุมัติ แล้วกดอนุมัติได้จากที่นี่', [0, 1]],
+      docs: ['ใบขอเงินทดรองจ่าย · ใบเคลียร์', 'ใบรับรองแทนใบเสร็จ', 'ใบแจ้งหนี้/วางบิล · ใบเสร็จรับเงิน'],
+      loop: ['เคลียร์เงินทดรอง', 'ใส่ค่าใช้จ่ายพร้อมหลักฐาน ถ้ามีเงินเหลือ การเงินกด บันทึกเงินคืน แล้วใบนั้นจะเป็น เคลียร์แล้ว'],
+      tools: [['cash', 'เงินทดรองจ่าย', 'ขอ · เคลียร์'], ['doc', 'ใบรับรองแทนใบเสร็จ', 'ไม่มีใบเสร็จ'], ['doc', 'ใบแจ้งหนี้/วางบิล', 'ลูกค้า'], ['chart', 'รายรับ / รายจ่าย', 'การเงิน'], ['doc', 'สแกนบิล', 'อ่านบิลให้'], ['bank', 'เงินสด / ธนาคาร', 'ยอดคงเหลือ']],
+      steps: [
+        ['ขอเงินทดรองจ่าย', 'ทุกคน', 'pay', 'ส่งขออนุมัติ', 'การเงินบันทึกจ่าย', 'เงินทดรองจ่าย', ''],
+        ['ใบรับรองแทนใบเสร็จ', 'ทุกคน', 'invoice', 'ใช้เมื่อไม่มีใบเสร็จ', 'อนุมัติแล้วใช้เคลียร์ได้', 'ใบรับรองแทนใบเสร็จ', ''],
+        ['รายรับจากลูกค้า', 'การเงิน', 'pv', 'วางบิลลูกค้า', 'บันทึกรับเงิน ได้ใบเสร็จ', 'รายรับจากลูกค้า', ''],
+        ['งานบัญชีประจำวัน', 'การเงิน', 'journal', 'สแกนบิลเป็นรายจ่าย', 'ดูเงินสด / ธนาคาร', 'งานบัญชี', '']
+      ] },
     { id: 'ledger', tab: 'บัญชี · ปิดงวด', code: 'GL', title: 'สมุดบัญชี · ยอดยกมา · ปิดงวด',
       master: ['สมุดรายวัน / ผังบัญชี', 'เอกสารที่อนุมัติหรือจ่ายแล้วลงสมุดรายวันให้เอง ดูงบทดลองและบัญชีแยกประเภทได้ทันที', [2]],
       docs: ['ผังบัญชี · ยอดยกมา', 'สมุดรายวัน JV · งบทดลอง', 'Statement ธนาคาร · งวดที่ปิดแล้ว'],
@@ -312,7 +346,7 @@ var CARDS = /*CARDS*/;
         ['กระทบยอดธนาคาร', 'การเงิน', 'bank', 'ใส่ยอดตาม Statement', 'ติ๊กรายการที่ตรงกัน', 'กระทบยอดเงินฝากธนาคาร', 'fin owner'],
         ['ปิดงวด / ปิดปี', 'การเงิน', 'lock', 'ปิดหลังยื่นภาษี', 'ปิดแล้วแก้ไม่ได้', 'ปิดงวดรายเดือน และปิดบัญชีสิ้นปี', 'fin owner']
       ] },
-    { id: 'stock', tab: 'สต็อก', code: 'Stock Card', title: 'สต็อก: เคลื่อนไหว · นับ · ปรับยอด',
+    { id: 'stock', tab: 'สต็อก', code: 'Stock Card', title: 'สต็อก · ทรัพย์สิน',
       master: ['K Tec Approve', 'ใบปรับปรุงยอดสต็อก (AJ) ต้องให้หัวหน้าจัดซื้อหรือผู้บริหารอนุมัติก่อน ยอดจึงเปลี่ยน', [1]],
       docs: ['ใบรับเข้า / จ่ายออก / โอนย้าย', 'ผลนับสต็อก · ใบปรับปรุงยอด AJ', 'สมุดคุมสต็อก (Stock Card)'],
       loop: ['นับไม่ตรง → ขอปรับยอด', 'ถ้านับแล้วไม่ตรงกับในระบบ ส่งคำขอปรับยอดพร้อมเหตุผล อนุมัติแล้วยอดและบัญชีปรับให้เอง'],
@@ -321,7 +355,30 @@ var CARDS = /*CARDS*/;
         ['เคลื่อนไหวของ', 'หน้างาน · จัดซื้อ', 'box', 'รับเข้า / จ่ายออก / โอนย้าย', 'บันทึกการใช้วัสดุ', 'เคลื่อนไหวของ', 'site pm pur head owner'],
         ['นับและปรับยอด (AJ)', 'หน้างาน → ผู้อนุมัติ', 'count', 'บันทึกผลนับ', 'ส่งคำขอปรับยอด', 'นับและปรับยอด', 'site pm pur head owner'],
         ['วัสดุใกล้หมด', 'จัดซื้อ', 'alert', 'ต่ำกว่าจุดสั่งซื้อเป็นสีแดง', 'กดรับเข้าได้ทันที', 'วัสดุใกล้หมด', 'pur head owner site pm'],
-        ['สมุดคุมสต็อก', 'การเงิน · ทุกคน', 'card', 'ดูรับเข้า-จ่ายออกรายตัว', 'Export CSV', 'สมุดคุมสต็อก (Stock Card)', 'fin pur head site pm owner']
+        ['สมุดคุมสต็อก', 'การเงิน · ทุกคน', 'card', 'ดูรับเข้า-จ่ายออกรายตัว', 'Export CSV', 'สมุดคุมสต็อก (Stock Card)', 'fin pur head site pm owner'],
+        ['ตรวจเช็คทรัพย์สิน', 'การเงิน · หน้างาน', 'box', 'สแกน QR + ถ่ายรูป', 'ยืนยันสถานะ หรือ พบปัญหา', 'ตรวจเช็คทรัพย์สิน', '']
+      ] },
+    { id: 'vehicles', tab: 'การใช้รถ', code: 'VEH', title: 'การใช้รถ: จอง → อนุมัติ → รับรถ → คืนรถ',
+      master: ['อนุมัติการใช้รถ', 'ผจก.ทั่วไป หัวหน้าจัดซื้อ เจ้าของ หรือแอดมิน กด อนุมัติ หรือ ไม่อนุมัติ คำขอใช้รถ', [1]],
+      docs: ['ทะเบียนรถ', 'คำขอใช้รถ · บันทึกรับรถ / คืนรถ', 'รายงานการใช้รถ'],
+      loop: ['จองซ้อนเวลาไม่ได้', 'ถ้ารถคันนั้นถูกจองช่วงเวลานั้นแล้ว ดูคิวจองแล้วเลือกเวลาอื่นหรือรถคันอื่น'],
+      tools: [['truck', '1. ทะเบียนรถ', 'เลขไมล์ · รอบเข้าศูนย์'], ['key', '2. ขอใช้รถ', 'รับรถ · คืนรถ'], ['map', '3. ติดตามรถ Realtime', 'แผนที่'], ['chart', '4. รายงานการใช้รถ', 'สรุปการใช้'], ['box', 'ตรวจเช็คทรัพย์สิน', 'หมวดยานพาหนะ'], ['bell', 'กระดิ่ง', 'ผลการอนุมัติ']],
+      steps: [
+        ['ทะเบียนรถ', 'ผู้บริหาร · หัวหน้าจัดซื้อ', 'truck', 'ตั้งทะเบียน + เลขไมล์', 'เปิด / ปิดให้จอง', 'ทะเบียนรถ', ''],
+        ['ขอใช้รถ → คืนรถ', 'ทุกคน', 'key', 'เลือกรถ ดูคิวจอง', 'รับ-คืนรถใส่เลขไมล์', 'ขอใช้รถ → อนุมัติ → รับรถ → คืนรถ', ''],
+        ['ติดตามรถ Realtime', 'ผู้บริหาร · การเงิน', 'map', 'อัปเดตทุก 10 วินาที', 'เห็นรถที่สัญญาณขาด', 'ติดตามรถ Realtime', ''],
+        ['รายงานการใช้รถ', 'ผู้บริหาร · การเงิน', 'chart', 'สรุปตามรถ / คนขับ / โครงการ', 'รถถึงรอบเข้าศูนย์', 'รายงานการใช้รถ', '']
+      ] },
+    { id: 'admin', tab: 'ผู้ดูแลระบบ', code: 'ADMIN', title: 'ผู้ดูแลระบบ',
+      master: ['เมนู ตั้งค่า', 'งานของผู้ดูแลระบบและเจ้าของอยู่ในเมนู ตั้งค่า ด้านล่างของแถบเมนูทั้งหมด', []],
+      docs: ['ผู้ใช้งาน · ตำแหน่ง · เมนูที่เห็น', 'ข้อมูลบริษัท · วงเงินอนุมัติ PO', 'เลขที่เอกสาร · ประวัติการเปลี่ยนเลข'],
+      loop: ['ล้างข้อมูลแล้วกู้คืนไม่ได้', 'ใช้เฉพาะล้างข้อมูลทดสอบก่อนเริ่มใช้งานจริง BOQ ซัพพลายเออร์ ทะเบียนสินค้า และผู้ใช้งานยังอยู่'],
+      tools: [['grid', 'ตั้งค่าบริษัท', 'ข้อมูล · วงเงิน'], ['users', 'ผู้ใช้งาน', 'ตำแหน่ง · เมนู'], ['hash', 'เลขที่เอกสาร', 'เลขถัดไป'], ['doc', 'แบบฟอร์มเอกสาร', 'ข้อความในฟอร์ม'], ['pen', 'โปรไฟล์ / ลายเซ็น', 'ของตัวเอง'], ['book', 'คู่มือการใช้งาน', 'หน้านี้']],
+      steps: [
+        ['ผู้ใช้งาน', 'ผู้ดูแลระบบ', 'users', 'สร้างผู้ใช้ + ตำแหน่ง', 'เปิด / ปิดเมนูรายคน', 'ผู้ใช้งาน', ''],
+        ['ตั้งค่าบริษัท', 'ผู้ดูแลระบบ · เจ้าของ', 'building', 'ชื่อ ที่อยู่ เลขภาษี', 'วงเงินอนุมัติ PO', 'ตั้งค่าบริษัท', ''],
+        ['เลขที่เอกสาร', 'ผู้ดูแลระบบ · เจ้าของ', 'table', 'ตั้งเลขถัดไป', 'เปลี่ยนเลขพร้อมเหตุผล', 'เลขที่เอกสาร', ''],
+        ['ล้างข้อมูลทั้งระบบ', 'ผู้ดูแลระบบ · เจ้าของ', 'alert', 'ล้างข้อมูลทดสอบ', 'ทำก่อนใช้งานจริง', 'ล้างข้อมูลทั้งระบบ', '']
       ] }
   ];
   var ROLE_NAME = { site: 'หน้างาน', pm: 'PM', pur: 'จัดซื้อ', head: 'หัวหน้าจัดซื้อ', fin: 'การเงิน', owner: 'ผู้บริหาร' };
@@ -415,8 +472,9 @@ var CARDS = /*CARDS*/;
     ScrollTrigger.refresh();
   }
 
-  var ROLE_LABEL = { site: 'หน้างาน', pm: 'PM', pur: 'จัดซื้อ', head: 'หัวหน้าจัดซื้อ', fin: 'การเงิน', owner: 'ผู้บริหาร' };
-  function mine(i) { return !!role && line.steps[i][6].split(' ').indexOf(role) >= 0; }
+  var ROLE_LABEL = { FOREMAN: 'โฟร์แมน', ENGINEER: 'วิศวกร', ARCHITECT: 'สถาปนิกโครงการ', PROJECT_CLERK: 'ธุรการโครงการ', PM: 'PM', PURCHASING: 'จัดซื้อ', PURCHASING_HEAD: 'หัวหน้าจัดซื้อ', FINANCE: 'การเงิน/บัญชี', GENERAL_MANAGER: 'ผู้จัดการทั่วไป', OWNER: 'เจ้าของ', ADMIN: 'ผู้ดูแลระบบ' };
+  // Who does each step comes from the manual card's own position list (copied by the build script)
+  function mine(i) { var r = ROLES[line.steps[i][5]] || []; return !!role && r.indexOf(role) >= 0; }
   function applyRole() {
     document.querySelectorAll('[data-r]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-r') === role)); });
     var list = [];
