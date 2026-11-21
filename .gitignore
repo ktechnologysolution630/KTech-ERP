@@ -47,3 +47,4 @@ next-env.d.ts
 
 # Copied from node_modules by scripts/copy-ocr-assets.js
 /public/ocr/
+/public/guide/*.js

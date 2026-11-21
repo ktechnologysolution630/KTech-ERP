@@ -263,104 +263,13 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
 :root[data-mode="image"] main a { color: inherit; text-decoration: none; font-weight: 600; }
 .rmenus { display: grid; gap: 3px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12.5px; line-height: 1.55; color: var(--muted); }
 .rmenus b { color: var(--ink); font-weight: 600; }
-
-/* ---------- 3D pipeline ---------- */
-.route { display: none; }
-:root[data-mode="image"] .route { display: grid; }
-:root[data-mode="image"] .pipe3d { display: none !important; }
-.pipe3d { display: grid; gap: 12px; }
-.p3-lines { display: flex; flex-wrap: wrap; gap: 6px; }
-.p3-lines button {
-  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; color: var(--band-ink);
-  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 8px; padding: 6px 12px; line-height: 1.4;
-}
-.p3-lines button small { font-family: var(--font-mono); font-weight: 500; font-size: 11px; color: var(--band-muted); margin-left: 6px; }
-.p3-lines button:hover { background: rgba(255, 255, 255, 0.12); }
-.p3-lines button[aria-pressed="true"] { background: #ffffff; color: #0e1a38; border-color: #ffffff; }
-.p3-lines button[aria-pressed="true"] small { color: #54617f; }
-.p3-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 410px); gap: 14px; align-items: start; }
-.p3-scene { min-width: 0; display: grid; gap: 8px; }
-.p3-stage {
-  position: relative; height: 380px; overflow: hidden; perspective: 1500px; perspective-origin: 50% 30%;
-  border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 14px;
-  background: radial-gradient(120% 90% at 50% 20%, rgba(119, 149, 243, 0.22), rgba(8, 20, 56, 0.55));
-}
-.p3-hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--band-muted); pointer-events: none; }
-.p3-floor {
-  position: absolute; left: 50%; top: 52%; transform-style: preserve-3d;
-  transform: translate(-50%, -50%) scale(var(--s, 1)) rotateX(57deg) rotateZ(38deg);
-  background-image: linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
-  background-size: 30px 30px; background-color: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px;
-}
-.p3-floor svg { position: absolute; inset: 0; overflow: visible; }
-.p3-floor .tube { fill: none; stroke: #5d76b8; stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; }
-.p3-floor .tube-core { fill: none; stroke: #263f86; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
-.p3-floor .seg-done { fill: none; stroke: #8fe3c4; stroke-width: 8; stroke-linecap: round; }
-.p3-floor .flow { fill: none; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 22; animation: p3flow 1.1s linear infinite; opacity: .85; }
-@keyframes p3flow { to { stroke-dashoffset: -24; } }
-.p3-st { position: absolute; width: 72px; height: 72px; transform-style: preserve-3d; cursor: pointer; transition: transform .35s cubic-bezier(.2,.8,.2,1); --h: 30px; --c: var(--r-admin); }
-.p3-st .ring { position: absolute; inset: -14px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0); transition: border-color .3s; }
-.p3-st .f { position: absolute; transition: background-color .3s, opacity .3s; }
-.p3-st .top { inset: 0; transform: translateZ(var(--h)); background: var(--c); border: 1px solid rgba(255, 255, 255, 0.35); display: grid; place-items: center;
-  font-family: var(--font-display); font-weight: 700; font-size: 26px; color: #ffffff; }
-.p3-st .top span { transform: rotateZ(-38deg); }
-.p3-st .s { left: 0; top: 100%; width: 100%; height: var(--h); transform-origin: top; transform: rotateX(90deg); background: color-mix(in srgb, var(--c) 62%, #000); }
-.p3-st .e { left: 100%; top: 0; width: var(--h); height: 100%; transform-origin: left; transform: rotateY(-90deg); background: color-mix(in srgb, var(--c) 45%, #000); }
-.p3-st .lbl {
-  position: absolute; left: 50%; top: 50%; width: max-content; max-width: 150px; pointer-events: none;
-  transform: translateZ(calc(var(--h) + 4px)) rotateZ(-38deg) rotateX(-57deg) translate(-50%, calc(-100% - 30px)) scale(calc(1 / var(--s, 1)));
-  transform-origin: 0 0; text-align: center; font-size: 12.5px; line-height: 1.35; font-weight: 600; color: #ffffff;
-  background: rgba(10, 22, 58, 0.82); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 7px; padding: 3px 8px;
-}
-.p3-st .lbl small { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 10.5px; color: var(--band-muted); }
-.p3-st:hover { transform: translateZ(8px); }
-.p3-st.on { transform: translateZ(22px); }
-.p3-st.on .ring { border-color: rgba(255, 255, 255, 0.85); animation: p3spin 8s linear infinite; }
-.p3-st.on .top { box-shadow: 0 0 0 3px #ffffff; }
-.p3-st.on .lbl { background: #ffffff; color: #0e1a38; }
-.p3-st.on .lbl small { color: #54617f; }
-.p3-st.dim .f { opacity: .35; }
-.p3-st.dim .lbl { opacity: .55; }
-.p3-stage.narrow .p3-st:not(.on) .lbl { display: none; }
-.p3-st.mine .top { box-shadow: 0 0 0 3px #ffd166; }
-@keyframes p3spin { to { transform: rotate(360deg); } }
-.p3-steps { list-style: none; margin: 0; padding: 0 0 4px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
-.p3-steps button {
-  font: inherit; font-size: 12.5px; white-space: nowrap; cursor: pointer; color: var(--band-ink); line-height: 1.4;
-  background: transparent; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 999px; padding: 4px 11px 4px 4px; display: inline-flex; align-items: center; gap: 6px;
-}
-.p3-steps button i { font-style: normal; font-family: var(--font-mono); font-size: 11px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--c, #4a5468); color: #fff; }
-.p3-steps button[aria-current="step"] { background: #ffffff; color: #0e1a38; border-color: #ffffff; }
-.p3-steps button.dim { opacity: .5; }
-.p3-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--band-muted); }
-.p3-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
-.p3-panel { background: var(--surface); color: var(--ink); border-radius: 14px; padding: 14px 16px 16px; display: grid; gap: 10px; min-width: 0; max-height: 470px; overflow: auto; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); }
-.p3-panel .p3-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); }
-.p3-panel .p3-top b { color: var(--ink); font-family: var(--font-display); }
-.p3-nav { display: flex; gap: 6px; }
-.p3-nav button { font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 2px 10px; }
-.p3-nav button:disabled { opacity: .4; cursor: default; }
-.p3-panel .card { border: 0; padding: 0; background: transparent; box-shadow: none !important; opacity: 1 !important; }
-.p3-panel .card h3 { font-size: 19px; }
-.p3-more { font-size: 13.5px; font-weight: 600; }
-.p3-who { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); }
-@media (max-width: 860px) {
-  .p3-body { grid-template-columns: minmax(0, 1fr); }
-  .p3-panel { max-height: none; }
-  .p3-stage { height: 300px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .p3-floor .flow, .p3-st.on .ring { animation: none; }
-  .p3-st { transition: none; }
-}
 </style>
 
 <header class="hero">
   <div class="wrap">
     <div class="eyebrow-band">K TECHNOLOGY SOLUTION · ระบบบริหารงานก่อสร้าง</div>
     <h1>คู่มือใช้งาน K Tec ERP</h1>
-    <p class="lede">ทุกเมนู ทุกขั้นตอน และใครเป็นคนกดอะไร ตั้งแต่ขอซื้อของหน้างาน สั่งซื้อ รับของ จ่ายเงิน ขายและออกใบกำกับภาษี ลงบัญชี ปิดงวด ไปจนถึงส่งมอบงานให้ลูกค้า<span class="only-web"> เลือกสายงานแล้วกดสถานีในท่อด้านล่างเพื่อดูว่าขั้นนั้นกดตรงไหน ทำอะไร และเลือกตำแหน่งของคุณในแถบสีเทาเพื่อไฮไลต์เฉพาะงานของคุณ</span><span class="only-image"> ป้ายสีในแต่ละขั้นบอกว่าตำแหน่งไหนเป็นคนทำ</span></p>
+    <p class="lede">ทุกเมนู ทุกขั้นตอน และใครเป็นคนกดอะไร ตั้งแต่ขอซื้อของหน้างาน สั่งซื้อ รับของ จ่ายเงิน ขายและออกใบกำกับภาษี ลงบัญชี ปิดงวด ไปจนถึงส่งมอบงานให้ลูกค้า<span class="only-web"> เลือกตำแหน่งของคุณในแถบด้านล่าง ระบบจะไฮไลต์เฉพาะงานของคุณ</span><span class="only-image"> ป้ายสีในแต่ละขั้นบอกว่าตำแหน่งไหนเป็นคนทำ</span></p>
     <div class="stamp"><span>อัปเดตตามระบบล่าสุด <b>21 พ.ย. 2569</b></span><span><b>11</b> ตำแหน่ง</span><span><b>9</b> กลุ่มเมนู</span><span><b>6</b> กลุ่มย่อยในบัญชี / การเงิน</span><span><b>12</b> ประเภทเอกสารที่รออนุมัติใน K Tec Approve</span></div>
     <ol class="route" aria-label="เส้นทางเอกสารหลัก จากขอซื้อถึงจ่ายเงิน">
       <li class="key"><span class="dot"></span><span class="rt-name">ขอซื้อ <span class="rt-code">PR</span></span><span class="rt-who">หน้างาน / PM</span></li>
@@ -372,18 +281,6 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
       <li class="key"><span class="dot"></span><span class="rt-name">ใบสำคัญจ่าย <span class="rt-code">PV</span></span><span class="rt-who">การเงิน → เจ้าของอนุมัติ</span></li>
       <li><span class="dot"></span><span class="rt-name">จ่ายเงิน + 50 ทวิ</span><span class="rt-who">การเงิน</span></li>
     </ol>
-
-    <div class="pipe3d only-web" role="region" aria-label="ท่อขั้นตอนงาน 3 มิติ">
-      <div class="p3-lines" role="group" aria-label="เลือกสายงาน"></div>
-      <div class="p3-body">
-        <div class="p3-scene">
-          <div class="p3-stage"><div class="p3-floor" aria-hidden="true"></div><span class="p3-hint">กดสถานีเพื่อดูวิธีทำ · สีบอกว่าตำแหน่งไหนทำ</span></div>
-          <ol class="p3-steps" aria-label="ขั้นตอนในสายงานนี้"></ol>
-          <div class="p3-legend"><span style="--c:var(--r-site)">หน้างาน</span><span style="--c:var(--r-pm)">PM</span><span style="--c:var(--r-pur)">จัดซื้อ</span><span style="--c:var(--r-fin)">การเงิน/บัญชี</span><span style="--c:var(--r-exec)">ผู้บริหาร/เจ้าของ</span></div>
-        </div>
-        <aside class="p3-panel" aria-live="polite"></aside>
-      </div>
-    </div>
     <nav class="toc" aria-label="สารบัญ">
       <a href="#whatsnew">มีอะไรใหม่</a><a href="#start">เริ่มต้นใช้งาน</a><a href="#modules">แผนที่เมนู</a><a href="#roles">ตำแหน่งและสิทธิ์</a><a href="#procure">จัดซื้อ → จ่ายเงิน</a><a href="#approvals">ใครอนุมัติอะไร</a><a href="#projects">โครงการ</a><a href="#labor">ค่าแรง / งวดงาน</a><a href="#money">เงินทดรอง · รายรับ · บัญชี</a><a href="#sales">ขาย QT → SO → ใบกำกับภาษี</a><a href="#ledger">สมุดบัญชี · ปิดงวด</a><a href="#stock">สต็อก · ทรัพย์สิน</a><a href="#vehicles">การใช้รถ</a><a href="#after">ส่งมอบ · ประกัน</a><a href="#admin">ผู้ดูแลระบบ</a><a href="#tips">ข้อควรรู้</a>
     </nav>
@@ -421,7 +318,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
       <p>สรุปความสามารถที่เพิ่มเข้ามารอบนี้ กดลิงก์ในแต่ละข้อเพื่อไปดูขั้นตอน</p>
     </div>
     <ul class="tips">
-      <li data-roles="ALL"><b>คู่มือแบบท่อขั้นตอน 3 มิติ</b>ด้านบนสุดของคู่มือ เลือกสายงาน (จัดซื้อ ขาย โครงการ งวดงาน บัญชี สต็อก) แล้วกดสถานีในท่อ กล่องด้านขวาจะบอกว่าขั้นนั้นใครทำ อยู่เมนูไหน กดปุ่มอะไร ใช้ปุ่ม ก่อนหน้า / ถัดไป เดินตามท่อได้ทีละขั้น</li>
+      <li data-roles="ALL"><b>คู่มือการใช้งานแบบ Pipeline ในระบบ</b>กดเมนู ตั้งค่า › คู่มือการใช้งาน เลือกสายงาน (จัดซื้อ ขาย โครงการ งวดงาน บัญชี สต็อก) แล้วเลื่อนหน้าจอเพื่อดูทีละขั้น แตะการ์ดเพื่อดูวิธีทำของขั้นนั้น เลือกตำแหน่งของคุณเพื่อให้ขั้นที่เป็นงานของคุณมีป้าย งานของคุณ กด เปิดเต็มจอ เพื่อดูแบบเต็มหน้าจอ</li>
       <li data-roles="ALL"><b>เมนูบัญชี / การเงิน แบ่งเป็น 6 กลุ่ม</b>ขาย / ลูกหนี้ · ซื้อ / เจ้าหนี้ · การเงิน · บัญชี / ภาษี · รายงาน · ทรัพย์สิน / การใช้รถ กดชื่อกลุ่มเพื่อกางหรือพับ ดู <a href="#finance-groups">แผนที่เมนู</a></li>
       <li data-roles="FINANCE OWNER ADMIN"><b>ขายสินค้า: ใบเสนอราคา → ใบสั่งขาย → ใบกำกับภาษี</b>เปิดเอกสารถัดไปจากใบเดิมได้ในคลิกเดียว มีส่วนลดรายบรรทัด ตัดสต็อกและลงต้นทุนขายให้เอง ดู <a href="#sales">ขาย</a></li>
       <li data-roles="FINANCE GENERAL_MANAGER OWNER ADMIN"><b>ผังบัญชีและลงบัญชีอัตโนมัติ (Auto-GL)</b>เอกสารที่อนุมัติหรือจ่ายแล้วลงสมุดรายวันให้เอง ดูงบทดลองและบัญชีแยกประเภทได้ทันที ดู <a href="#ledger">สมุดบัญชี</a></li>
@@ -1373,191 +1270,3 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
   setRole(saved, false);
 })();
 </script>
-
-<script>
-(function () {
-  var LINES = [
-    { id: 'procure', name: 'จัดซื้อ → จ่ายเงิน', code: 'PR→PV', st: [
-      ['ขอซื้อ', 'PR', 'site', 'เปิดใบขอซื้อ'], ['อนุมัติ PR', 'PM', 'pm', 'PM อนุมัติใบขอซื้อ'],
-      ['สั่งซื้อ', 'PO', 'pur', 'เปิดใบสั่งซื้อ'], ['ตรวจ + อนุมัติ PO', 'หัวหน้า → ผู้อนุมัติ', 'exec', 'หัวหน้าจัดซื้อตรวจ แล้วผู้มีอำนาจอนุมัติ'],
-      ['รับของ', 'หน้างาน', 'site', 'รับของหน้างาน'], ['ตั้งหนี้', 'AP', 'fin', 'ตั้งหนี้ (บันทึกยอดที่ต้องจ่าย)'],
-      ['ใบสำคัญจ่าย', 'PV', 'fin', 'ทำใบสำคัญจ่าย'], ['อนุมัติ PV', 'เจ้าของ', 'exec', 'เจ้าของอนุมัติใบสำคัญจ่าย'],
-      ['จ่ายเงิน', '50 ทวิ', 'fin', 'จ่ายเงิน และออกหนังสือรับรองหัก ณ ที่จ่าย'], ['ส่งสำนักงานบัญชี', 'ทุกเดือน', 'fin', 'ส่งไฟล์ให้สำนักงานบัญชีทุกเดือน'] ] },
-    { id: 'sales', name: 'ขาย', code: 'QT→SO→TI', st: [
-      ['ตั้งลูกค้า', 'วงเงินเครดิต', 'fin', 'ตั้งข้อมูลลูกค้า วงเงินเครดิต และพนักงานขาย'], ['ใบเสนอราคา', 'QT', 'fin', 'ใบเสนอราคา'],
-      ['ใบสั่งขาย', 'SO', 'fin', 'ใบสั่งขาย'], ['ใบกำกับภาษี', 'TI · ตัดสต็อก', 'fin', 'ใบกำกับภาษี (ขายเชื่อ) ตัดสต็อกและลงต้นทุนขาย'],
-      ['รับเงิน', 'REC', 'fin', 'รับเงินและติดตามหนี้'] ] },
-    { id: 'projects', name: 'โครงการ', code: 'BOQ→ส่งมอบ', st: [
-      ['สร้างโครงการ', 'เริ่มต้น', 'exec', 'สร้างโครงการ'], ['ทำ BOQ', 'BOQ', 'pm', 'ทำ BOQ'],
-      ['วางแผนงาน', 'แกนต์', 'pm', 'วางแผนงานและอัปเดตความคืบหน้า'], ['รายงานประจำวัน', 'หน้างาน', 'site', 'รายงานประจำวัน'],
-      ['งานเพิ่ม/ลด', 'VO', 'pm', 'งานเพิ่ม/ลด'], ['ติดตามเงิน', 'S-Curve', 'pm', 'ติดตามเงินและผลงาน'],
-      ['ส่งมอบ', 'ลูกค้าตรวจรับ', 'pm', 'ส่งมอบโครงการ'], ['รับประกัน', 'แจ้งซ่อม', 'site', 'ใบรับประกันผลงานและแจ้งซ่อม'] ] },
-    { id: 'labor', name: 'งวดงาน / เบิกเงิน', code: 'PRV', st: [
-      ['แผนงวดงาน', 'ผู้รับเหมา', 'pm', 'แผนงวดงานจ่าย (ผู้รับเหมา)'], ['เปิดใบขอเบิก', 'PRV', 'site', 'เปิดใบขอเบิก'],
-      ['ส่งขอเบิก', 'รอ PM', 'site', 'ส่งขอเบิก'], ['PM รับรองผลงาน', 'PM', 'pm', 'PM รับรองผลงาน'],
-      ['อนุมัติจ่าย', 'เจ้าของ', 'exec', 'เจ้าของอนุมัติจ่าย'], ['ออกใบสำคัญจ่าย', 'PV', 'fin', 'การเงินออกใบสำคัญจ่าย'] ] },
-    { id: 'ledger', name: 'บัญชี · ปิดงวด', code: 'GL', st: [
-      ['ผังบัญชี', 'ตรวจก่อนใช้', 'fin', 'ตรวจผังบัญชี'], ['ยอดยกมา', 'ครั้งแรก', 'fin', 'ตั้งยอดยกมา (ครั้งแรกที่เริ่มใช้)'],
-      ['ลงบัญชีอัตโนมัติ', 'JV', 'fin', 'ลงบัญชีอัตโนมัติ และดูสมุด'], ['กระทบยอดธนาคาร', 'Statement', 'fin', 'กระทบยอดเงินฝากธนาคาร'],
-      ['ปิดงวด', 'รายเดือน / สิ้นปี', 'exec', 'ปิดงวดรายเดือน และปิดบัญชีสิ้นปี'] ] },
-    { id: 'stock', name: 'สต็อก', code: 'Stock Card', st: [
-      ['เคลื่อนไหวของ', 'รับ/จ่าย/โอน', 'site', 'เคลื่อนไหวของ'], ['นับและปรับยอด', 'AJ', 'pur', 'นับและปรับยอด'],
-      ['วัสดุใกล้หมด', 'จุดสั่งซื้อ', 'pur', 'วัสดุใกล้หมด'], ['สมุดคุมสต็อก', 'Stock Card', 'fin', 'สมุดคุมสต็อก (Stock Card)'] ] }
-  ];
-  var FAMC = { site: 'var(--r-site)', pm: 'var(--r-pm)', pur: 'var(--r-pur)', fin: 'var(--r-fin)', exec: 'var(--r-exec)', admin: 'var(--r-admin)' };
-  var root = document.querySelector('.pipe3d');
-  if (!root || document.documentElement.getAttribute('data-mode') === 'image') return;
-  var linesEl = root.querySelector('.p3-lines'), stage = root.querySelector('.p3-stage'), floor = root.querySelector('.p3-floor');
-  var stepsEl = root.querySelector('.p3-steps'), panel = root.querySelector('.p3-panel');
-  var CELL_X = 150, CELL_Y = 175, PER_ROW = 5, perRow = function () { return stage.clientWidth < 560 ? 3 : 5; }, SVGNS = 'http://www.w3.org/2000/svg';
-
-  // Find each station's card in the guide below by its heading text
-  var heads = {};
-  document.querySelectorAll('main h3').forEach(function (h3) { heads[h3.textContent.trim()] = h3; });
-  function cardFor(title) {
-    var h3 = heads[title];
-    if (!h3) return null;
-    return h3.closest('.card') || h3.parentElement;
-  }
-  var nId = 0;
-  function anchorFor(card) {
-    if (!card.id) card.id = 'step-' + (++nId);
-    return card.id;
-  }
-
-  var line = LINES[0], idx = 0, nodes = [], segs = [];
-  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
-
-  LINES.forEach(function (L) {
-    var b = el('button', null, L.name);
-    b.type = 'button';
-    b.appendChild(el('small', null, L.code));
-    b.addEventListener('click', function () { setLine(L, 0); });
-    L.btn = b;
-    linesEl.appendChild(b);
-  });
-
-  function pos(i, n) {
-    var cols = Math.min(n, PER_ROW), r = Math.floor(i / PER_ROW), c = i % PER_ROW;
-    if (r % 2 === 1) c = cols - 1 - c;
-    return { x: c * CELL_X + CELL_X / 2, y: r * CELL_Y + CELL_Y / 2 };
-  }
-
-  function build() {
-    PER_ROW = perRow();
-    stage.classList.toggle('narrow', PER_ROW === 3);
-    floor.textContent = '';
-    nodes = []; segs = [];
-    var n = line.st.length, cols = Math.min(n, PER_ROW), rows = Math.ceil(n / PER_ROW);
-    floor.style.width = cols * CELL_X + 'px';
-    floor.style.height = rows * CELL_Y + 'px';
-    var svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('width', cols * CELL_X); svg.setAttribute('height', rows * CELL_Y);
-    var pts = line.st.map(function (_, i) { return pos(i, n); });
-    var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p.x + ' ' + p.y; }).join(' ');
-    ['tube', 'tube-core'].forEach(function (cls) { var pa = document.createElementNS(SVGNS, 'path'); pa.setAttribute('d', d); pa.setAttribute('class', cls); svg.appendChild(pa); });
-    for (var i = 1; i < n; i++) {
-      var s = document.createElementNS(SVGNS, 'path');
-      s.setAttribute('d', 'M' + pts[i - 1].x + ' ' + pts[i - 1].y + ' L' + pts[i].x + ' ' + pts[i].y);
-      s.setAttribute('class', 'seg-done'); svg.appendChild(s); segs.push(s);
-    }
-    var fl = document.createElementNS(SVGNS, 'path'); fl.setAttribute('d', d); fl.setAttribute('class', 'flow'); svg.appendChild(fl);
-    floor.appendChild(svg);
-
-    stepsEl.textContent = '';
-    line.st.forEach(function (st, i) {
-      var p = pts[i];
-      var node = el('div', 'p3-st');
-      node.style.left = (p.x - 36) + 'px'; node.style.top = (p.y - 36) + 'px';
-      node.style.setProperty('--c', FAMC[st[2]]);
-      node.appendChild(el('span', 'ring'));
-      ['s', 'e'].forEach(function (f) { node.appendChild(el('span', 'f ' + f)); });
-      var top = el('span', 'f top'); top.appendChild(el('span', null, String(i + 1))); node.appendChild(top);
-      var lbl = el('span', 'lbl', st[0]); lbl.appendChild(el('small', null, st[1])); node.appendChild(lbl);
-      node.addEventListener('click', function () { select(i); });
-      floor.appendChild(node);
-      nodes.push(node);
-
-      var li = el('li'), b = el('button');
-      b.type = 'button';
-      var num = el('i', null, String(i + 1)); num.style.setProperty('--c', FAMC[st[2]]);
-      b.appendChild(num); b.appendChild(document.createTextNode(st[0]));
-      b.addEventListener('click', function () { select(i); });
-      li.appendChild(b); stepsEl.appendChild(li);
-      st.card = cardFor(st[3]);
-    });
-    fit();
-    syncRole();
-  }
-
-  function fit() {
-    floor.style.setProperty('--s', 1);
-    var r = floor.getBoundingClientRect(), w = stage.clientWidth;
-    if (!r.width) return;
-    var s = Math.min(1.05, (w - 30) / r.width);
-    floor.style.setProperty('--s', s.toFixed(3));
-    stage.style.height = Math.round(r.height * s + 120) + 'px';
-  }
-
-  function select(i) {
-    idx = i;
-    nodes.forEach(function (n, k) { n.classList.toggle('on', k === i); });
-    segs.forEach(function (s, k) { s.style.display = k < i ? '' : 'none'; });
-    stepsEl.querySelectorAll('button').forEach(function (b, k) {
-      if (k === i) { b.setAttribute('aria-current', 'step'); b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } else b.removeAttribute('aria-current');
-    });
-    var st = line.st[i];
-    panel.textContent = '';
-    var top = el('div', 'p3-top');
-    var where = el('span'); where.appendChild(el('b', null, line.name)); where.appendChild(document.createTextNode(' · ขั้นที่ ' + (i + 1) + ' จาก ' + line.st.length));
-    top.appendChild(where);
-    var nav = el('div', 'p3-nav');
-    var prev = el('button', null, '‹ ก่อนหน้า'), next = el('button', null, 'ถัดไป ›');
-    prev.type = next.type = 'button';
-    prev.disabled = i === 0; next.disabled = i === line.st.length - 1;
-    prev.addEventListener('click', function () { select(i - 1); });
-    next.addEventListener('click', function () { select(i + 1); });
-    nav.appendChild(prev); nav.appendChild(next); top.appendChild(nav);
-    panel.appendChild(top);
-    if (st.card) {
-      var copy = st.card.cloneNode(true);
-      copy.removeAttribute('id'); copy.classList.remove('is-mine', 'is-dim'); copy.removeAttribute('style');
-      copy.querySelectorAll('[id]').forEach(function (x) { x.removeAttribute('id'); });
-      panel.appendChild(copy);
-      var more = el('a', 'p3-more', 'อ่านขั้นนี้ในคู่มือเต็ม ↓');
-      more.href = '#' + anchorFor(st.card);
-      panel.appendChild(more);
-    } else {
-      panel.appendChild(el('h3', null, st[0]));
-    }
-    panel.scrollTop = 0;
-  }
-
-  function setLine(L, i) {
-    line = L;
-    LINES.forEach(function (x) { x.btn.setAttribute('aria-pressed', String(x === L)); });
-    build();
-    select(i);
-    try { localStorage.setItem('ktec-guide-line', L.id); } catch (e) {}
-  }
-
-  // Follow the role chips: stations for the chosen position light up, others fade
-  function syncRole() {
-    line.st.forEach(function (st, i) {
-      var c = st.card, mine = c && c.classList.contains('is-mine'), dim = c && c.classList.contains('is-dim');
-      if (nodes[i]) { nodes[i].classList.toggle('mine', !!mine); nodes[i].classList.toggle('dim', !!dim); }
-      var b = stepsEl.querySelectorAll('button')[i];
-      if (b) b.classList.toggle('dim', !!dim);
-    });
-  }
-  document.querySelectorAll('.chips button, [data-role-card]').forEach(function (b) { b.addEventListener('click', function () { setTimeout(syncRole, 0); }); });
-
-  var rt;
-  window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (perRow() !== PER_ROW) { build(); select(idx); } else fit(); }, 120); });
-
-  var saved = null;
-  try { saved = localStorage.getItem('ktec-guide-line'); } catch (e) {}
-  setLine(LINES.filter(function (L) { return L.id === saved; })[0] || LINES[0], 0);
-})();
-</script>
-
