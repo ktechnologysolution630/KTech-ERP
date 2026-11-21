@@ -1,0 +1,554 @@
+<meta charset="utf-8">
+<title>คู่มือ K Tec ERP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap">
+<style>
+
+/* Layout: one long field guide. A navy blueprint band states the main document route, a sticky role bar
+   filters every step to "what I do", then each sidebar menu group gets its own section of numbered stations. */
+:root {
+  --bg: #f2f5fb;
+  --surface: #ffffff;
+  --surface-2: #e9eef8;
+  --ink: #0e1a38;
+  --muted: #54617f;
+  --line: #d4dcec;
+  --line-strong: #a9b6d1;
+  --brand: #2453d4;
+  --brand-ink: #ffffff;
+  --band: #102d72;
+  --band-ink: #ffffff;
+  --band-muted: #b9c8ee;
+  --band-grid: rgba(255, 255, 255, 0.07);
+  --ok: #12805a;
+  --wait: #a35f00;
+  --bad: #c0362f;
+  --r-site: #0b7f6a;
+  --r-pm: #7442c2;
+  --r-pur: #2453d4;
+  --r-fin: #a85a00;
+  --r-exec: #b02a66;
+  --r-admin: #4a5468;
+  --font-display: "Bai Jamjuree", "IBM Plex Sans Thai", "Leelawadee UI", "Tahoma", sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Consolas", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a1121; --surface: #111a2f; --surface-2: #18233d; --ink: #e5ebf8; --muted: #9ba9c8;
+    --line: #25324e; --line-strong: #3d4d72; --brand: #7795f3; --brand-ink: #0a1121;
+    --band: #0f2257; --band-ink: #ffffff; --band-muted: #a9bbea; --band-grid: rgba(255, 255, 255, 0.06);
+    --ok: #3dc18f; --wait: #e5a54a; --bad: #f07a72;
+    --r-site: #39c3a4; --r-pm: #ae8af0; --r-pur: #7c9cf6; --r-fin: #e3a157; --r-exec: #ee77aa; --r-admin: #a3adc2;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a1121; --surface: #111a2f; --surface-2: #18233d; --ink: #e5ebf8; --muted: #9ba9c8;
+  --line: #25324e; --line-strong: #3d4d72; --brand: #7795f3; --brand-ink: #0a1121;
+  --band: #0f2257; --band-ink: #ffffff; --band-muted: #a9bbea; --band-grid: rgba(255, 255, 255, 0.06);
+  --ok: #3dc18f; --wait: #e5a54a; --bad: #f07a72;
+  --r-site: #39c3a4; --r-pm: #ae8af0; --r-pur: #7c9cf6; --r-fin: #e3a157; --r-exec: #ee77aa; --r-admin: #a3adc2;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.7; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.3; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+a { color: var(--brand); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+
+/* Apple-style product page: black stage, huge type, generous space. A sticky segmented control picks the work line;
+   the line's steps run as a horizontal track pinned while you scroll (GSAP ScrollTrigger), a bento grid explains the hubs,
+   and tapping a step opens a sheet with the full how-to. Dark on purpose, like Apple's pro pages. */
+:root, :root[data-theme="light"], :root[data-theme="dark"] {
+  --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --ink: #f5f5f7; --muted: #a1a1a6; --faint: #6e6e73;
+  --line: #38383a; --line-strong: #48484a; --brand: #2997ff; --brand-ink: #000; --ok: #30d158; --wait: #ff9f0a; --bad: #ff453a;
+  --r-site: #64d2ff; --r-pm: #bf5af2; --r-pur: #0a84ff; --r-fin: #ff9f0a; --r-exec: #ff375f; --r-admin: #98989d;
+  --font-display: -apple-system, "SF Pro Display", "IBM Plex Sans Thai", "Leelawadee UI", "Tahoma", sans-serif;
+  --font-body: -apple-system, "SF Pro Text", "IBM Plex Sans Thai", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #000000; --surface: #1c1c1e; --ink: #f5f5f7; --muted: #a1a1a6; color-scheme: dark; } }
+html { scroll-behavior: auto; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+.gut { padding-left: max(22px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
+.inner { max-width: 1080px; margin: 0 auto; }
+
+/* hero */
+.hero { min-height: 82vh; display: grid; align-content: center; padding-block: 90px 60px; text-align: center; overflow: hidden; position: relative; }
+.hero::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 45% at 50% 62%, rgba(41, 151, 255, .22), transparent 70%); pointer-events: none; }
+.eyebrow { font-size: 17px; font-weight: 600; color: var(--muted); letter-spacing: .01em; }
+.hero h1 { font-family: var(--font-display); font-size: clamp(44px, 9vw, 96px); font-weight: 700; letter-spacing: -.02em; line-height: 1.08; margin: 12px 0 0;
+  background: linear-gradient(180deg, #fff 30%, #a1a1a6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p { font-size: clamp(19px, 2.4vw, 24px); color: var(--muted); max-width: 34em; margin: 22px auto 0; line-height: 1.5; font-weight: 400; }
+.hero .chev { margin-top: 44px; font-size: 14px; color: var(--faint); }
+.hero .chev span { display: block; font-size: 22px; margin-top: 4px; }
+
+/* segmented control */
+.segbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; padding-block: 12px; background: rgba(0, 0, 0, .72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid rgba(255, 255, 255, .08); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 31; background: #000; }
+.seg { display: flex; gap: 4px; margin: 0 auto; width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding: 4px; border-radius: 999px; background: #1c1c1e; position: relative; }
+.seg::-webkit-scrollbar { display: none; }
+.seg .pill { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 999px; background: #f5f5f7; z-index: 0; }
+.seg button { position: relative; z-index: 1; font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; border: 0; background: transparent; color: #d2d2d7; padding: 8px 16px; border-radius: 999px; transition: color .3s; }
+.seg button[aria-pressed="true"] { color: #000; }
+
+/* line intro */
+.intro { padding-block: 110px 40px; text-align: center; }
+.intro .eyebrow { color: var(--accent, #2997ff); }
+.intro h2 { font-family: var(--font-display); font-size: clamp(36px, 6.4vw, 72px); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; margin: 10px 0 0; }
+.intro h2 .nw { white-space: nowrap; }
+.intro p { font-size: clamp(18px, 2vw, 21px); color: var(--muted); max-width: 36em; margin: 18px auto 0; line-height: 1.55; }
+.roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 30px; }
+.roles button { font: inherit; font-size: 14px; cursor: pointer; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: #d2d2d7; transition: background .25s, color .25s, border-color .25s; }
+.roles button:hover { border-color: #86868b; }
+.roles button[aria-pressed="true"] { background: var(--c); border-color: var(--c); color: #000; font-weight: 600; }
+.rolenote { margin-top: 12px; font-size: 14px; color: var(--faint); min-height: 1.5em; }
+
+/* pinned horizontal track */
+.trackwrap { position: relative; overflow: hidden; padding-block: 30px 70px; }
+.progress { position: relative; height: 3px; border-radius: 3px; background: #1c1c1e; margin: 0 auto 34px; max-width: 1080px; overflow: hidden; }
+.progress i { position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(0); background: linear-gradient(90deg, #2997ff, #bf5af2, #ff375f); }
+.track { display: flex; gap: 22px; width: max-content; padding-left: max(22px, calc((100vw - 1080px) / 2)); padding-right: 22vw; will-change: transform; }
+.step { --g: #2997ff; position: relative; flex: none; width: 320px; min-height: 430px; border-radius: 28px; padding: 30px 28px 28px; background: #1c1c1e; display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 14px;
+  cursor: pointer; text-align: left; font: inherit; color: inherit; border: 0; transition: opacity .35s, filter .35s; overflow: hidden; }
+.step::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.step .glow { position: absolute; inset: auto -30% -40% -30%; height: 70%; background: radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--g) 38%, transparent), transparent 70%); opacity: .55; pointer-events: none; }
+.step .no { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--g); letter-spacing: .02em; }
+.step .ic { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--g) 16%, #2c2c2e); }
+.step .ic svg { width: 36px; height: 36px; }
+.step h3 { font-family: var(--font-display); font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+.step .who { font-size: 14px; color: var(--muted); margin-top: -6px; }
+.step ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-self: end; position: relative; }
+.step li { font-size: 15px; line-height: 1.45; color: #d2d2d7; display: flex; gap: 10px; }
+.step li::before { content: ""; flex: none; width: 6px; height: 6px; margin-top: .6em; border-radius: 50%; background: var(--g); }
+.step .more { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: var(--muted); position: relative; padding-top: 6px; }
+.step .more b { width: 34px; height: 34px; border-radius: 50%; background: #3a3a3c; color: #fff; display: grid; place-items: center; font-size: 22px; font-weight: 400; transition: transform .3s, background .3s; }
+.step:hover .more b { background: #f5f5f7; color: #000; transform: rotate(90deg); }
+.step:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
+.step.dim { opacity: .28; filter: grayscale(.6); }
+.step .mine { position: absolute; top: 26px; right: 24px; font-size: 12px; font-weight: 600; color: #000; background: var(--g); padding: 2px 10px; border-radius: 999px; }
+.step .tagap { position: absolute; top: 26px; right: 24px; font-size: 12px; color: var(--muted); border: 1px solid var(--line-strong); padding: 1px 9px; border-radius: 999px; }
+.step .mine ~ .tagap { display: none; }
+
+/* bento */
+.bento { padding-block: 30px 120px; }
+.bento h2 { font-family: var(--font-display); font-size: clamp(30px, 4.6vw, 48px); font-weight: 700; letter-spacing: -.015em; text-align: center; margin-bottom: 36px; }
+.bgrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px; }
+.tile { border-radius: 28px; background: #1c1c1e; padding: 30px; display: grid; gap: 12px; align-content: start; min-width: 0; position: relative; overflow: hidden; }
+.tile .k { font-size: 14px; font-weight: 600; color: var(--muted); }
+.tile h3 { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.2; letter-spacing: -.01em; }
+.tile p { font-size: 16px; color: var(--muted); line-height: 1.55; }
+.t-master { grid-column: span 4; background: linear-gradient(135deg, #0b2a52, #1c1c1e 60%); }
+.t-master .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.t-master .links button { font: inherit; font-size: 14px; cursor: pointer; border: 0; border-radius: 999px; padding: 6px 14px; background: rgba(255, 255, 255, .1); color: #fff; }
+.t-master .links button:hover { background: rgba(255, 255, 255, .2); }
+.t-docs { grid-column: span 2; }
+.t-docs ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.t-docs li { font-size: 15px; line-height: 1.45; padding-bottom: 10px; border-bottom: 1px solid #2c2c2e; }
+.t-docs li:last-child { border-bottom: 0; padding-bottom: 0; }
+.t-loop { grid-column: span 2; background: linear-gradient(160deg, #2a1347, #1c1c1e 65%); }
+.t-loop svg { width: 44px; height: 44px; }
+.t-tools { grid-column: span 4; }
+.t-tools .tg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.t-tools .tg div { border-radius: 16px; background: #2c2c2e; padding: 14px; display: grid; gap: 4px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.t-tools .tg small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.t-tools svg { width: 22px; height: 22px; margin-bottom: 4px; }
+
+/* sheet */
+.sheet { position: fixed; inset: 0; z-index: 50; display: grid; align-items: end; justify-items: center; }
+.sheet .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.sheet .panel { position: relative; width: min(760px, 100%); max-height: min(86vh, 900px); overflow: auto; background: #1c1c1e; border-radius: 28px 28px 0 0;
+  padding: 18px max(22px, env(safe-area-inset-left, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(22px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: #48484a; margin: 0 auto; }
+.sheet .stop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sheet .stop span { font-size: 14px; color: var(--muted); }
+.sheet .stop .acts { display: flex; gap: 8px; }
+.sheet .stop button { font: inherit; font-size: 14px; cursor: pointer; border: 0; border-radius: 999px; padding: 7px 14px; background: #2c2c2e; color: #f5f5f7; }
+.sheet .stop button:disabled { opacity: .35; cursor: default; }
+.sheet .stop button.x { width: 34px; height: 34px; padding: 0; font-size: 18px; }
+.sheet .card { border: 0; padding: 0; background: transparent; gap: 12px; }
+.sheet .card h3 { font-size: 28px; font-weight: 700; color: #fff; }
+.sheet .card .do { font-size: 16px; }
+
+footer.end { padding-block: 0 80px; text-align: center; color: var(--faint); font-size: 13px; }
+
+@media (max-width: 899px) {
+  .track { flex-direction: column; width: auto; padding: 0 max(22px, env(safe-area-inset-left, 0px)) 0 max(22px, env(safe-area-inset-right, 0px)); }
+  .step { width: 100%; min-height: 0; }
+  .progress { display: none; }
+  .bgrid { grid-template-columns: minmax(0, 1fr); }
+  .tile { grid-column: auto !important; padding: 24px; }
+  .t-tools .tg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .intro { padding-block: 70px 30px; }
+  .hero { min-height: 70vh; }
+}
+@media (prefers-reduced-motion: reduce) { .step, .seg button, .roles button { transition: none; } }
+</style>
+
+<header class="hero gut">
+  <div class="inner">
+    <div class="eyebrow hx">K Tec ERP · คู่มือการใช้งาน</div>
+    <h1 class="hx">ทุกขั้นตอน<br>เห็นในภาพเดียว</h1>
+    <p class="hx">เลือกสายงาน เลื่อนดูทีละขั้น แล้วแตะการ์ดเพื่อดูว่าต้องกดตรงไหน ทำอะไร และใครเป็นคนทำ</p>
+    <div class="chev hx">เลื่อนลงเพื่อเริ่ม<span>⌄</span></div>
+  </div>
+</header>
+
+<div class="segbar gut"><div class="seg" id="seg" role="group" aria-label="เลือกสายงาน"><span class="pill" id="pill"></span></div></div>
+
+<main>
+  <section class="intro gut">
+    <div class="inner">
+      <div class="eyebrow" id="l-code"></div>
+      <h2 id="l-title"></h2>
+      <p id="l-text"></p>
+      <div class="roles" id="roles" role="group" aria-label="ดูในมุมของตำแหน่ง">
+        <button type="button" data-r="site" style="--c:var(--r-site)">หน้างาน</button><button type="button" data-r="pm" style="--c:var(--r-pm)">PM</button><button type="button" data-r="pur" style="--c:var(--r-pur)">จัดซื้อ</button><button type="button" data-r="head" style="--c:var(--r-pur)">หัวหน้าจัดซื้อ</button><button type="button" data-r="fin" style="--c:var(--r-fin)">การเงิน</button><button type="button" data-r="owner" style="--c:var(--r-exec)">ผู้บริหาร</button>
+      </div>
+      <div class="rolenote" id="rolenote"></div>
+    </div>
+  </section>
+
+  <section class="trackwrap" id="trackwrap">
+    <div class="gut"><div class="progress" aria-hidden="true"><i id="bar"></i></div></div>
+    <div class="track" id="track"></div>
+  </section>
+
+  <section class="bento gut">
+    <div class="inner">
+      <h2 class="bx">รอบ ๆ สายงานนี้</h2>
+      <div class="bgrid">
+        <div class="tile t-master bx"><span class="k">ศูนย์กลาง</span><h3 id="m-title"></h3><p id="m-text"></p><div class="links" id="m-links"></div></div>
+        <div class="tile t-docs bx"><span class="k">เอกสารในสายนี้</span><ul id="docs"></ul></div>
+        <div class="tile t-loop bx"><svg viewBox="0 0 48 48" fill="none" stroke="#bf5af2" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M38 18a15 15 0 0 0-27-4M10 30a15 15 0 0 0 27 4"/><path d="M11 6v8h8M37 42v-8h-8"/></svg><h3 id="loop-title"></h3><p id="loop-text"></p></div>
+        <div class="tile t-tools bx"><span class="k">เมนูที่ใช้ในสายนี้</span><div class="tg" id="tools"></div></div>
+      </div>
+    </div>
+  </section>
+  <footer class="end gut">คู่มือ K Tec ERP · เขียนจากมุมผู้ใช้ กดตรงไหน ทำอะไรได้</footer>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="scrim" id="scrim"></div>
+  <div class="panel" id="panel" role="dialog" aria-modal="true" aria-label="วิธีทำ"></div>
+</div>
+
+<script src="gsap.min.js"></script>
+<script src="ScrollTrigger.min.js"></script>
+<script>
+// How-to cards copied from docs/ktec-usage-guide.html by scripts/build-pipeline-guide.mjs, keyed by each card's heading
+var CARDS = {"เปิดใบขอซื้อ":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">PR<\/span><h3>เปิดใบขอซื้อ<\/h3><span class=\"num-ex\">เลขที่ เช่น PR-K68-007-11001<\/span><\/div>\n        <div class=\"meta\"><span class=\"who site\">หน้างาน<\/span><span class=\"who pm\">PM<\/span><span class=\"where\">จัดซื้อ / สั่งซื้อ › ใบขอซื้อ PR<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">สร้างใบขอซื้อ PR<\/b> แล้วเลือกแบบฟอร์ม: <b>ขอซื้อสินค้า (ไม่มีราคา)<\/b> ให้จัดซื้อใส่ราคาเอง, <b>ขอจ้างช่าง (มีราคา)<\/b> ต้องใส่ราคาทุกบรรทัด, หรือ <b>ขอซื้อและจ้างทำงาน<\/b> ต้องมีทั้งของและค่าแรงอย่างละหนึ่งบรรทัด<\/li>\n          <li>ถ้าโครงการมี BOQ ทุกบรรทัดต้องเลือกรายการ BOQ หรือเลือก <b>นอก BOQ<\/b> แล้วจึงเลือกสินค้า ใส่จำนวน หน่วย และวันที่ต้องการ<\/li>\n          <li>กด <b class=\"btn\">สร้างเอกสารและส่งขออนุมัติ<\/b> หรือ <b class=\"btn\">บันทึกร่าง<\/b> ไว้ก่อน ถ้าของชิ้นเดียวกันยังค้างรับจาก PR ก่อนหน้า ระบบจะเตือน<\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"lab\">สถานะ<\/span><span class=\"st\">ร่าง<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">รออนุมัติ<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">รอเจ้าของอนุมัติ<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">อนุมัติแล้ว<\/span><span class=\"arr\">›<\/span><span class=\"st\">ปิดใบขอซื้อ<\/span><\/div>\n      <\/div>","PM อนุมัติใบขอซื้อ":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">PR<\/span><h3>PM อนุมัติใบขอซื้อ<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who pm\">PM ของโครงการ<\/span><span class=\"who exec\">ผจก.ทั่วไป<\/span><span class=\"where\">K Tec Approve หรือหน้าใบขอซื้อ<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">อนุมัติ<\/b> หรือ <b class=\"btn\">ตีกลับ<\/b> พร้อมเหตุผล เมื่ออนุมัติ ผู้ขอและฝ่ายจัดซื้อจะได้รับแจ้ง<\/li>\n          <li>โครงการที่ยังไม่มี PM เจ้าของจะเป็นผู้อนุมัติแทน<\/li>\n        <\/ul>\n        <div class=\"branch\"><span class=\"tag\">ทางแยก: ขอเกิน BOQ หรือมีบรรทัดนอก BOQ<\/span><p>หลัง PM อนุมัติ ใบขอซื้อจะไปที่ <span class=\"st wait\">รอเจ้าของอนุมัติ<\/span> และ<b>เจ้าของ<\/b>ต้องอนุมัติอีกชั้นหนึ่ง<\/p><\/div>\n      <\/div>","เปิดใบสั่งซื้อ":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">PO<\/span><h3>เปิดใบสั่งซื้อ<\/h3><span class=\"num-ex\">เลขที่ เช่น PO-6911-0001<\/span><\/div>\n        <div class=\"meta\"><span class=\"who pur\">จัดซื้อ<\/span><span class=\"who pur\">หัวหน้าจัดซื้อ<\/span><span class=\"where\">จัดซื้อ / สั่งซื้อ › ใบสั่งซื้อ PO<\/span><\/div>\n        <ul class=\"do\">\n          <li>จากใบขอซื้อที่อนุมัติแล้ว กด <b class=\"btn\">+ เปิด PO จากใบขอซื้อนี้<\/b> หรือกด <b class=\"btn\">สร้างใบสั่งซื้อ PO<\/b> แล้วใช้ <b class=\"btn\">ดึงรายการจากใบขอซื้อ (PR)…<\/b><\/li>\n          <li>กด <b class=\"btn\">ตัดงบ BOQ<\/b> เพื่อผูกแต่ละบรรทัดกับงบ BOQ และ <b class=\"btn\">แนบรูป<\/b> ใบเสนอราคาได้<\/li>\n          <li>เลือกการชำระ: <b>เครดิต<\/b> (รับของก่อนจ่าย), <b>เงินสด / จ่ายก่อนรับของ<\/b>, หรือ <b>แบ่งจ่ายหลายงวด<\/b> (รวมทุกงวดต้องได้ 100%) รอบวางบิล วันเครดิต และวันรับเช็คดึงจากข้อมูลผู้ขายและแก้ในใบนี้ได้<\/li>\n          <li>ของใช้สำนักงานที่ไม่มีใบขอซื้อ เลือก <b>สำนักงาน / ส่วนกลาง (ไม่มี PR)<\/b> ถ้าราคาแพงกว่าครั้งก่อน ระบบจะขึ้น <span class=\"st wait\">ราคาสูงกว่ารอบที่แล้ว<\/span><\/li>\n          <li>กด <b class=\"btn\">ส่งขออนุมัติ PO<\/b><\/li>\n        <\/ul>\n      <\/div>","หัวหน้าจัดซื้อตรวจ แล้วผู้มีอำนาจอนุมัติ":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">PO<\/span><h3>หัวหน้าจัดซื้อตรวจ แล้วผู้มีอำนาจอนุมัติ<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who pur\">หัวหน้าจัดซื้อ<\/span><span class=\"who exec\">ผจก.ทั่วไป<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"where\">K Tec Approve หรือ จัดซื้อ / สั่งซื้อ › อนุมัติจัดซื้อ<\/span><\/div>\n        <ul class=\"do\">\n          <li><b>ขั้นตรวจ:<\/b> PO ทุกใบไปที่ <span class=\"st wait\">รอหัวหน้าจัดซื้อตรวจ<\/span> ก่อน หัวหน้าจัดซื้อกด <b class=\"btn\">อนุมัติ<\/b> เพื่อส่งต่อ (ตรวจใบที่ตัวเองเปิดไม่ได้ ถ้าหัวหน้าจัดซื้อเป็นคนส่งเอง ระบบข้ามขั้นนี้)<\/li>\n          <li><b>ขั้นอนุมัติ:<\/b> ยอดรวม VAT <b>ต่ำกว่าวงเงิน<\/b> (ค่าเริ่มต้น 50,000 บาท) หัวหน้าจัดซื้อ ผจก.ทั่วไป หรือเจ้าของอนุมัติได้ ยกเว้นคนที่เปิดใบนั้น ยอด<b>ตั้งแต่วงเงินขึ้นไป<\/b> เจ้าของเท่านั้น<\/li>\n          <li>อนุมัติแล้ว จัดซื้อสั่งของกับร้าน แล้วกด <b class=\"btn\">บันทึกว่าสั่งของกับร้านแล้ว<\/b><\/li>\n        <\/ul>\n        <div class=\"branch\"><span class=\"tag\">ทางแยก: ยอดเงินเกินงบวัสดุใน BOQ (รายบรรทัด หรือทั้งหมวดงาน)<\/span><p>ระบบตรวจสองแบบ: บรรทัด BOQ ที่ตัดงบ และ<b>ยอดรวมของหมวดงาน<\/b> เช่น งานโครงสร้าง งานสุขาภิบาล โดยนับทุก PO ในหมวดนั้นที่ยังไม่ยกเลิก ถ้าเกินแบบใดแบบหนึ่ง อนุมัติ PO ไม่ได้จนกว่าเจ้าของจะอนุมัติ <b>ใบ AP<\/b> ให้ก่อน จัดซื้อกด <b class=\"btn\">ขออนุมัติซื้อเกิน BOQ (ใบ AP)<\/b> พร้อมเหตุผล ใบนี้อยู่ที่เมนู จัดซื้อ / สั่งซื้อ › ใบ AP ในรายการจะบอกว่าเกินงบหมวดไหน และแสดงยอดที่เกินมากกว่าระหว่างรายบรรทัดกับทั้งหมวด<\/p><\/div>\n        <div class=\"statusline\"><span class=\"lab\">สถานะ PO<\/span><span class=\"st\">ร่าง<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">รอหัวหน้าจัดซื้อตรวจ<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">รออนุมัติ<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">อนุมัติแล้ว<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">สั่งของแล้ว<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">เสร็จสมบูรณ์<\/span><\/div>\n      <\/div>","รับของหน้างาน":"<div class=\"card\">\n        <div class=\"card-title\"><h3>รับของหน้างาน<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who site\">หน้างาน<\/span><span class=\"who pm\">PM<\/span><span class=\"where\">จัดซื้อ / สั่งซื้อ › รอรับสินค้า<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">บันทึกรับของ<\/b> หรือ <b class=\"btn\">รับของตาม PO นี้<\/b> จำนวนจะตั้งไว้เท่ากับที่ยังค้างรับ กด <b class=\"btn\">รับครบทุกรายการ<\/b> หรือปรับด้วยปุ่ม + / −<\/li>\n          <li>ใส่เลขใบส่งของ และ <b>ถ่ายรูปของที่มาส่ง / ใบส่งของ<\/b> แล้วกด <b class=\"btn\">ยืนยันรับของ<\/b> (ทำบนคอมพิวเตอร์หรือโน้ตบุ๊ก)<\/li>\n          <li>รับบางส่วนได้ รับเกินจำนวนสั่งไม่ได้ สต็อกเพิ่มให้อัตโนมัติ ผู้เปิด PO และการเงินจะได้รับแจ้ง PO ส่วนกลางให้ฝ่ายจัดซื้อเป็นคนรับ<\/li>\n        <\/ul>\n        <div class=\"grid2\">\n          <div class=\"branch\"><span class=\"tag\">ทางแยก: ของมาไม่ครบและไม่ส่งแล้ว<\/span><p>จัดซื้อกรอก ขอปิดยอดค้างรับ แล้วกด <b class=\"btn\">ส่งคำขอปิดยอดค้างรับ<\/b> เจ้าของอนุมัติ ระบบตัดยอด PO ให้เท่าที่รับจริง<\/p><\/div>\n          <div class=\"branch\"><span class=\"tag\">ทางแยก: ต้องแก้ PO ที่อนุมัติแล้ว<\/span><p>กด <b class=\"btn\">แก้ไข PO<\/b> ใส่เหตุผล แล้วส่งขออนุมัติใหม่ ระบบขึ้นว่ามีฉบับแก้ไขครั้งที่ N ลดจำนวนให้ต่ำกว่าที่รับแล้วไม่ได้<\/p><\/div>\n        <\/div>\n      <\/div>","ตั้งหนี้ (บันทึกยอดที่ต้องจ่าย)":"<div class=\"card\">\n        <div class=\"card-title\"><h3>ตั้งหนี้ (บันทึกยอดที่ต้องจ่าย)<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who pur\">จัดซื้อ<\/span><span class=\"where\">หน้า PO แต่ละใบ<\/span><\/div>\n        <ul class=\"do\">\n          <li><b>เครดิต:<\/b> การเงินกด <b class=\"btn\">+ บันทึกใบแจ้งหนี้ / ใบกำกับภาษี<\/b> แล้ว <b class=\"btn\">บันทึกเอกสาร<\/b> ทำได้หลังรับของแล้ว และยอดต้องไม่เกินมูลค่าของที่รับ ระบบคำนวณวันครบกำหนดจากรอบวางบิล วันเครดิต และวันจ่ายเช็คให้ และเลื่อนพ้นวันเสาร์-อาทิตย์<\/li>\n          <li><b>จ่ายก่อนรับของ:<\/b> จัดซื้อกด <b class=\"btn\">ขอเบิกเงินล่วงหน้า (Prepaid)<\/b> &nbsp;<b>แบ่งงวด:<\/b> กด <b class=\"btn\">ขอเบิกงวดนี้<\/b> ทีละงวด<\/li>\n          <li>ใบกำกับภาษีที่มาทีหลัง ให้ใช้ <b class=\"btn\">บันทึกการจับคู่ใบกำกับภาษี<\/b> ยอดหนี้จะไม่ถูกนับซ้ำ<\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"lab\">รายการตั้งหนี้<\/span><span class=\"st wait\">รอทำจ่าย<\/span><span class=\"arr\">›<\/span><span class=\"st\">อยู่ในใบสำคัญจ่าย<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">จ่ายแล้ว<\/span><\/div>\n        <div class=\"branch\"><span class=\"tag\">ทางแยก: คืนของ หรือผู้ขายลดราคาให้ (ใบลดหนี้ผู้ขาย)<\/span><p>เปิดใบแจ้งหนี้ผู้ขาย (AP) ใบนั้น ที่กล่อง <b>ใบลดหนี้ / ส่งคืนสินค้า<\/b> ใส่วันที่ใบลดหนี้ เลขที่ใบลดหนี้ของผู้ขาย และยอดลดหนี้รวม VAT (ไม่เกินยอดที่ระบบบอกว่าลดได้) แล้วกด <b class=\"btn\">ออกใบลดหนี้<\/b> ระบบลงบัญชีกลับรายการต้นทุนและภาษีซื้อทันที ยอดติดลบเข้าคิวตั้งจ่ายเป็น <span class=\"st\">ใบลดหนี้ผู้ขาย (หักยอด)<\/span> ให้ PV ใบถัดไปของผู้ขายรายนั้นหักออก และขึ้นเป็นยอดติดลบในรายงานภาษีซื้อ ยกเลิกใบลดหนี้ได้ระหว่างที่ยังอยู่ในคิว ส่วนใบแจ้งหนี้ที่มีใบลดหนี้อยู่ยกเลิกไม่ได้<\/p><\/div>\n      <\/div>","ทำใบสำคัญจ่าย":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">PV<\/span><h3>ทำใบสำคัญจ่าย<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"where\">ค่าแรง / งวดงาน › คิวตั้งจ่าย หรือ บัญชี / การเงิน › ใบสำคัญจ่าย (PV)<\/span><\/div>\n        <ul class=\"do\">\n          <li>คิวตั้งจ่ายเรียงตามวันครบกำหนด กด <b class=\"btn\">+ สร้างใบสำคัญจ่าย (PV)<\/b> เลือกผู้ขาย แล้วกด <b class=\"btn\">แสดงรายการค้างจ่าย<\/b> ติ๊กรายการที่จะจ่าย (หนึ่ง PV ต่อหนึ่งผู้ขาย)<\/li>\n          <li>เลือกหัก ณ ที่จ่าย 0 / 1 / 2 / 3 / 5% คิดจากยอดก่อน VAT ค่าเริ่มต้นมาจากข้อมูลผู้ขาย<\/li>\n          <li>ถ้ามีใบลดหนี้ผู้ขายค้างอยู่ ติ๊กรวมในใบเดียวกันได้ ยอดสุทธิของ PV ต้องเป็นบวก<\/li>\n          <li>กด <b class=\"btn\">ส่งขออนุมัติใบสำคัญจ่าย<\/b> เจ้าของได้รับแจ้ง<\/li>\n        <\/ul>\n      <\/div>","เจ้าของอนุมัติใบสำคัญจ่าย":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">PV<\/span><h3>เจ้าของอนุมัติใบสำคัญจ่าย<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who exec\">เจ้าของ<\/span><span class=\"where\">K Tec Approve<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">อนุมัติ<\/b> หรือ <b class=\"btn\">ตีกลับ<\/b> ถ้าจ่ายก่อนวันครบกำหนดหรือยอด PV เกินยอด PO ต้องใส่เหตุผล และกด <b class=\"btn\">อนุมัติพร้อมเหตุผลเกินวงเงิน<\/b><\/li>\n          <li>อนุมัติแล้ว การเงินได้รับแจ้งว่าพร้อมโอนจ่าย<\/li>\n        <\/ul>\n      <\/div>","จ่ายเงิน และออกหนังสือรับรองหัก ณ ที่จ่าย":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">50 ทวิ<\/span><h3>จ่ายเงิน และออกหนังสือรับรองหัก ณ ที่จ่าย<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"where\">หน้าใบสำคัญจ่าย<\/span><\/div>\n        <ul class=\"do\">\n          <li>เลือกวิธีจ่าย โอนเงิน / เช็ค / เงินสด แล้วกด <b class=\"btn\">ยืนยันบันทึกจ่ายเงิน ฿…<\/b> ถ้าเป็นเช็คต้องใส่เลขเช็ค ธนาคาร และวันที่<\/li>\n          <li>ถ้ามีหัก ณ ที่จ่าย ระบบออก 50 ทวิให้เอง: บุคคลธรรมดาเป็น ภ.ง.ด.3 นิติบุคคลเป็น ภ.ง.ด.53 กด <b class=\"btn\">พิมพ์ใบสำคัญจ่าย (PDF)<\/b> และ <b class=\"btn\">พิมพ์หนังสือรับรอง 50 ทวิ (PDF)<\/b><\/li>\n          <li>เช็ค: เมื่อผู้ขายมารับ กด <b class=\"btn\">ผู้ขายมารับเช็คแล้ว<\/b> เมื่อเช็คผ่าน กด <b class=\"btn\">บันทึกเช็คผ่าน<\/b> ดูเช็คที่ต้องเตรียมได้ที่ ตารางจ่ายเช็ค<\/li>\n          <li>PO จะเปลี่ยนเป็น <span class=\"st ok\">เสร็จสมบูรณ์<\/span> เองเมื่อรับของครบ จ่ายครบ และไม่มีเงินต้องคืน<\/li>\n          <li>ใบแจ้งหนี้ผู้ขายลงสมุดซื้อเมื่อบันทึก ส่วน PV ลงสมุดจ่ายเมื่อบันทึกจ่ายเงินแล้ว (ไม่ใช่ตอนอนุมัติ) ดู <a href=\"#ledger\">สมุดบัญชี<\/a><\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"lab\">สถานะ PV<\/span><span class=\"st\">ร่าง<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">รออนุมัติ<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">อนุมัติแล้ว<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">จ่ายแล้ว<\/span><\/div>\n      <\/div>","ส่งไฟล์ให้สำนักงานบัญชีทุกเดือน":"<div class=\"card\">\n        <div class=\"card-title\"><h3>ส่งไฟล์ให้สำนักงานบัญชีทุกเดือน<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">ผู้บริหาร<\/span><span class=\"where\">บัญชี / การเงิน › รายงาน/50 ทวิ<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">เลือกงวดเดือน<\/b> แล้วดาวน์โหลด Excel 3 ไฟล์: <b>PV จ่ายแล้ว<\/b>, <b>ภาษีซื้อ<\/b>, <b>ภ.ง.ด.3/53<\/b> หน้านี้รวม 50 ทวิทุกใบไว้ด้วย<\/li>\n        <\/ul>\n      <\/div>","ตั้งข้อมูลลูกค้า วงเงินเครดิต และพนักงานขาย":"<div class=\"card\">\n        <h3>ตั้งข้อมูลลูกค้า วงเงินเครดิต และพนักงานขาย<\/h3>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">ขาย / ลูกหนี้ › ลูกค้า<\/span><\/div>\n        <ul class=\"do\">\n          <li>เพิ่มหรือแก้ลูกค้า ใส่ <b>รหัสลูกค้า<\/b> <b>ชื่อลูกค้า<\/b> ที่อยู่ (ใช้ในใบกำกับภาษี) เลขประจำตัวผู้เสียภาษี สาขา (00000 = สำนักงานใหญ่) และเครดิต (วัน)<\/li>\n          <li>ใส่ <b>วงเงินเครดิต (บาท, 0 = ไม่จำกัด)<\/b> และเลือก <b>พนักงานขาย<\/b> รายการลูกค้าแสดงคอลัมน์ <b>วงเงิน / ค้างชำระ<\/b> ให้เห็นว่าใครใกล้เต็มวงเงิน<\/li>\n          <li>หน้าลูกค้าแต่ละราย มีตาราง <b>ยอดขายตามพนักงานขาย (ปีนี้ ก่อน VAT)<\/b><\/li>\n        <\/ul>\n      <\/div>","ใบเสนอราคา":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">QT<\/span><h3>ใบเสนอราคา<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">ขาย / ลูกหนี้ › ใบเสนอราคา<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">สร้างเอกสาร<\/b> เลือกลูกค้า และโครงการ (ถ้ามี)<\/li>\n          <li>แต่ละบรรทัดเลือกสินค้าในคลัง หรือ <b>ไม่ผูกสินค้าในคลัง (งานบริการ)<\/b> ใส่จำนวน ราคาต่อหน่วย และ <b>ส่วนลด (บาท)<\/b> ของบรรทัดนั้น<\/li>\n          <li>ส่วนลดท้ายบิลเลือกเป็น % หรือบาท แล้วเลือก <b>ประเภท VAT<\/b>: VAT 7% (แยก VAT) · ราคารวม VAT 7% · ราคารวม VAT 7% (ไม่แสดงยอด VAT) · ไม่มี VAT · ยกเว้น VAT<\/li>\n          <li>ระบบคำนวณ รวมเป็นเงิน › ส่วนลด › ราคาหลังหักส่วนลด › VAT › จำนวนเงินรวมทั้งสิ้น ให้เอง<\/li>\n        <\/ul>\n      <\/div>","ใบสั่งขาย":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">SO<\/span><h3>ใบสั่งขาย<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">ขาย / ลูกหนี้ › ใบสั่งขาย (SO)<\/span><\/div>\n        <ul class=\"do\">\n          <li>เปิดใบเสนอราคาที่ลูกค้าตกลง แล้วกด <b class=\"btn\">เปิดใบสั่งขายจากใบนี้<\/b> (หรือสร้างใบสั่งขายใหม่เองก็ได้) ตรวจรายการแล้วบันทึก<\/li>\n          <li>ใบสั่งขายคือการยืนยันคำสั่งซื้อของลูกค้า <b>ยังไม่ลงบัญชีและยังไม่ตัดสต็อก<\/b><\/li>\n          <li>แถบบนเอกสารบอก <b>อ้างอิงจาก<\/b> ใบก่อนหน้า และ <b>เปิดเป็นเอกสารแล้ว<\/b> ใบที่ทำต่อไป กดเลขที่เพื่อเปิดดูได้<\/li>\n        <\/ul>\n      <\/div>","ใบกำกับภาษี (ขายเชื่อ) ตัดสต็อกและลงต้นทุนขาย":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">TI<\/span><h3>ใบกำกับภาษี (ขายเชื่อ) ตัดสต็อกและลงต้นทุนขาย<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">ขาย / ลูกหนี้ › ใบกำกับภาษี<\/span><\/div>\n        <ul class=\"do\">\n          <li>จากใบสั่งขาย (หรือใบเสนอราคา) กด <b class=\"btn\">เปิดใบกำกับภาษีจากใบนี้<\/b> แล้วบันทึก<\/li>\n          <li>บรรทัดที่ผูกสินค้าจะ<b>ตัดสต็อก<\/b>จากคลังโครงการ (ถ้าเลือกโครงการ) หรือคลังกลาง และลง<b>ต้นทุนขาย<\/b>ตามต้นทุนเฉลี่ยให้อัตโนมัติ ถ้าสต็อกไม่พอ ระบบไม่ให้บันทึก<\/li>\n          <li>ระบบลงบัญชีขาย ภาษีขาย และลูกหนี้ให้ทันที ใบกำกับภาษีอย่างย่อ (ขายปลีก) ก็ตัดสต็อกแบบเดียวกัน<\/li>\n          <li><b class=\"btn\">พิมพ์ / บันทึก PDF<\/b> ได้สองชุดในครั้งเดียว: <b>ต้นฉบับ (ลูกค้า)<\/b> และ <b>สำเนา (บริษัท)<\/b> ใบเสร็จรับเงินและใบเพิ่มหนี้พิมพ์แบบเดียวกัน<\/li>\n        <\/ul>\n        <div class=\"branch\"><span class=\"tag\">ทางแยก: ต้องแก้ใบกำกับภาษีที่ออกแล้ว<\/span><p>เอกสารภาษีที่ออกแล้วแก้ทับไม่ได้ เมื่อแก้แล้วบันทึก ใบเดิมจะถูกยกเลิกและออกใบใหม่เลขใหม่แทน การยกเลิกใบกำกับภาษีคืนสต็อกและยกเลิกรายการบัญชีให้<\/p><\/div>\n      <\/div>","รับเงินและติดตามหนี้":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">REC<\/span><h3>รับเงินและติดตามหนี้<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">ขาย / ลูกหนี้ › ใบเสร็จรับเงิน · ลูกหนี้<\/span><\/div>\n        <ul class=\"do\">\n          <li>เมื่อลูกค้าจ่าย ออก <b>ใบเสร็จรับเงิน<\/b> ระบบลงสมุดรับเงินให้<\/li>\n          <li>ดูยอดค้างตามอายุหนี้ที่ <b>ลูกหนี้<\/b> หน้ารายการเอกสารขายทุกประเภทมีปุ่ม <b class=\"btn\">Export CSV<\/b><\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"lab\">สายเอกสาร<\/span><span class=\"st\">QT<\/span><span class=\"arr\">›<\/span><span class=\"st\">SO<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">TI ตัดสต็อก + ตั้งลูกหนี้<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">REC รับเงิน<\/span><\/div>\n      <\/div>","สร้างโครงการ":"<div class=\"card\">\n        <h3>สร้างโครงการ<\/h3>\n        <div class=\"meta\"><span class=\"who pur\">จัดซื้อ<\/span><span class=\"who exec\">ผู้บริหาร<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">โครงการ<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">สร้างโครงการ<\/b> ใส่ชื่อโครงการ (ช่องเดียวที่บังคับ) ถ้าไม่ใส่รหัส ระบบออกรหัส PJ ให้ ใส่ลูกค้า สถานที่ วันเริ่ม-สิ้นสุด งบประมาณ และรูปปก<\/li>\n          <li>มีสัญญาเป็น PDF กด <b class=\"btn\">นำเข้าข้อมูล PDF<\/b> ระบบอ่านและเติมเฉพาะช่องที่ยังว่าง สีเขียวคืออ่านตรงกัน สีเหลืองคือควรตรวจซ้ำ<\/li>\n          <li>ตั้ง PM ที่แท็บ ภาพรวม › ข้อมูลโครงการ › <b class=\"btn\">แก้ไข<\/b> แล้วเพิ่มคนที่แท็บ ทีมงาน ด้วย <b class=\"btn\">เพิ่มคนเข้าทีม<\/b><\/li>\n        <\/ul>\n      <\/div>","ทำ BOQ":"<div class=\"card\">\n        <h3>ทำ BOQ<\/h3>\n        <div class=\"meta\"><span class=\"who pm\">PM<\/span><span class=\"who site\">วิศวกร<\/span><span class=\"who site\">สถาปนิก<\/span><span class=\"who exec\">ผู้บริหาร<\/span><span class=\"where\">โครงการ › แท็บ BOQ<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">สร้าง BOQ หลัก<\/b> แล้วพิมพ์ในตาราง หรือ Import ไฟล์ Excel (.xls / .xlsx / .csv) ระบบให้ตรวจก่อนนำเข้า เตือนชื่อโครงการไม่ตรง แถวไม่มีราคา และยอดไม่ตรง<\/li>\n          <li>ไฟล์ที่มีราคาสองชุด ให้เลือก ค่างานต้นทุน หรือ ราคาต่อหน่วยตามคำเสนอ แล้วกด <b class=\"btn\">บันทึก<\/b> (ยังไม่บันทึกจนกว่าจะกด)<\/li>\n          <li>ใต้ตาราง BOQ มีตาราง <b>สรุปราคาแยกตามหมวดงาน<\/b>: ค่าวัสดุ ค่าแรง รวม และสัดส่วน % ของแต่ละหมวด รายการนับเข้าหมวดที่อยู่เหนือมันใกล้ที่สุด ตารางนี้ออกในหน้าพิมพ์และไฟล์ CSV ด้วย<\/li>\n          <li>BOQ คือฐานของการคุมงบ: PR ถูกตรวจจำนวน PO ถูกตรวจเงินทั้งรายบรรทัดและทั้งหมวด ระบบเตือนเมื่อใช้ถึง 50% 80% 100% และเมื่อเกิน บรรทัดที่ถูกใช้ใน PR หรือ PO แล้วลบไม่ได้<\/li>\n        <\/ul>\n      <\/div>","วางแผนงานและอัปเดตความคืบหน้า":"<div class=\"card\">\n        <h3>วางแผนงานและอัปเดตความคืบหน้า<\/h3>\n        <div class=\"meta\"><span class=\"who pm\">PM<\/span><span class=\"who site\">หน้างาน<\/span><span class=\"where\">โครงการ › แท็บ งาน / แกนต์ / ปฏิทิน<\/span><\/div>\n        <ul class=\"do\">\n          <li><b class=\"btn\">เพิ่มงาน<\/b>: ชื่องาน วันที่ ความสำคัญ มูลค่างาน และผู้รับผิดชอบ งานย่อยลึกได้หนึ่งชั้น แกนต์และ S-Curve สร้างจากงานที่มีวันเริ่มและวันสิ้นสุด<\/li>\n          <li>คนหน้างานเปลี่ยนได้แค่สถานะกับ % ของงาน ตั้งเป็นเสร็จสิ้นแล้ว % จะเป็น 100<\/li>\n          <li>ปฏิทิน: ดับเบิลคลิกวันที่เพื่อ <b class=\"btn\">เพิ่มนัดหมาย<\/b><\/li>\n        <\/ul>\n      <\/div>","รายงานประจำวัน":"<div class=\"card\">\n        <h3>รายงานประจำวัน<\/h3>\n        <div class=\"meta\"><span class=\"who site\">หน้างาน<\/span><span class=\"who pm\">PM<\/span><span class=\"where\">โครงการ › แท็บ รายงาน<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">สร้างรายงาน<\/b> กรอกสภาพอากาศเช้า-บ่าย งานที่ทำ แรงงาน เครื่องจักร ความปลอดภัย ผู้เยี่ยมชม และรูป<\/li>\n          <li>ในแถวความคืบหน้า เลือกงานจากแกนต์แล้วใส่ ผลงานวันนี้ (%) ตัวเลขนี้จะ<b>บวกเพิ่ม<\/b>เข้าความคืบหน้าของงาน (ไม่เกิน 100%)<\/li>\n          <li><b class=\"btn\">บันทึก Draft<\/b> ไว้ก่อน แล้ว <b class=\"btn\">ส่งรายงาน<\/b> ส่งแล้วแก้ไม่ได้ รายงานรายสัปดาห์และรายเดือนสร้างจากรายงานประจำวันที่ส่งแล้วเท่านั้น<\/li>\n        <\/ul>\n      <\/div>","งานเพิ่ม/ลด":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">VO<\/span><h3>งานเพิ่ม/ลด<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who pm\">PM<\/span><span class=\"who exec\">ผจก.ทั่วไป<\/span><span class=\"who exec\">เจ้าของอนุมัติ<\/span><span class=\"where\">โครงการ › แท็บ งานเพิ่ม/ลด (VO)<\/span><\/div>\n        <ul class=\"do\">\n          <li><b class=\"btn\">สร้าง VO<\/b> กรอกข้อมูลทั่วไป ผลกระทบต้นทุน ผลกระทบแผนงาน และรายการ BOQ แล้ว <b class=\"btn\">บันทึก VO<\/b> และ <b class=\"btn\">ส่งอนุมัติ<\/b><\/li>\n          <li>เจ้าของอนุมัติแล้ว มูลค่าสัญญาและวันสิ้นสุดเปลี่ยนตาม และได้แผ่น BOQ งานเพิ่มแยกต่างหาก<\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"lab\">สถานะ<\/span><span class=\"st\">ร่าง<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">รออนุมัติ<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">อนุมัติแล้ว<\/span><span class=\"arr\">/<\/span><span class=\"st bad\">ไม่อนุมัติ<\/span><\/div>\n      <\/div>","ติดตามเงินและผลงาน":"<div class=\"card\">\n        <h3>ติดตามเงินและผลงาน<\/h3>\n        <div class=\"meta\"><span class=\"who pm\">PM<\/span><span class=\"who fin\">การเงิน<\/span><span class=\"who pur\">จัดซื้อ<\/span><span class=\"who exec\">ผู้บริหาร<\/span><\/div>\n        <ul class=\"do\">\n          <li><b>รายรับรายจ่ายโครงการ<\/b>: เงินเข้าจากใบเสร็จลูกค้า เงินออกจาก PV ที่จ่ายแล้ว มีปุ่ม <b class=\"btn\">วางบิลลูกค้า<\/b> และ <b class=\"btn\">ขอเบิกจ่าย (PRV)<\/b><\/li>\n          <li><b>Cost Performance<\/b>: CPI SPI EAC และ S-Curve เทียบงบ BOQ กับต้นทุนจริง<\/li>\n          <li><b>Timeline โครงการ<\/b>: แถบหนึ่งเส้นต่อโครงการ สีน้ำเงินคือช่วงสัญญา สีเขียวคือผลงานจริง (ทำได้ X% / แผน Y%)<\/li>\n        <\/ul>\n      <\/div>","ส่งมอบโครงการ":"<div class=\"card\">\n        <h3>ส่งมอบโครงการ<\/h3>\n        <div class=\"meta\"><span class=\"who pm\">PM<\/span><span class=\"who exec\">ผจก.ทั่วไป<\/span><span class=\"who exec\">เจ้าของ<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">บันทึกการส่งมอบ<\/b> เลือกสถานะ วันที่ ผู้ตรวจรับ ระยะประกันผลงานทั่วไป (เริ่มต้น 12 เดือน) และประกันโครงสร้าง (เริ่มต้น 60 เดือน)<\/li>\n          <li>เมื่อเลือก ลูกค้าตรวจรับแล้ว ระบบออกเลขใบรับประกัน (WAR) และเปลี่ยนโครงการเป็นเสร็จสิ้น<\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"st\">นัดส่งมอบ<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">ส่งมอบแล้ว รอตรวจรับ<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">ลูกค้าตรวจรับแล้ว<\/span><\/div>\n      <\/div>","ใบรับประกันผลงานและแจ้งซ่อม":"<div class=\"card\">\n        <h3>ใบรับประกันผลงานและแจ้งซ่อม<\/h3>\n        <div class=\"meta\"><span class=\"who site\">หน้างาน<\/span><span class=\"who pm\">PM<\/span><span class=\"who exec\">ผู้บริหาร<\/span><\/div>\n        <ul class=\"do\">\n          <li>คลิกโครงการที่ส่งมอบแล้ว เปิด <b>รายการแจ้งซ่อม<\/b> ใส่อาการ ตำแหน่ง ผู้แจ้ง แล้วกด <b class=\"btn\">แจ้ง<\/b> ได้เลข DF<\/li>\n          <li>อัปเดตสถานะงานซ่อม จนเป็นซ่อมเสร็จ (ใส่วิธีแก้ไข) หรือไม่อยู่ในเงื่อนไขประกัน (ใส่เหตุผล) หมดประกันแล้วแจ้งซ่อมไม่ได้<\/li>\n        <\/ul>\n        <div class=\"statusline\"><span class=\"st\">รับแจ้ง<\/span><span class=\"arr\">›<\/span><span class=\"st wait\">กำลังซ่อม<\/span><span class=\"arr\">›<\/span><span class=\"st ok\">ซ่อมเสร็จ<\/span><\/div>\n      <\/div>","แผนงวดงานจ่าย (ผู้รับเหมา)":"<div class=\"card\">\n        <h3>แผนงวดงานจ่าย (ผู้รับเหมา)<\/h3>\n        <p class=\"note\">เปิดโครงการ แล้วกด <b class=\"btn\">เพิ่มงวดงาน<\/b> หรือ <b class=\"btn\">สร้างจาก BOQ<\/b> (หนึ่งงวดต่อหนึ่งหมวด BOQ หักประกันผลงาน 5% เป็นค่าเริ่มต้น)<\/p>\n        <div class=\"statusline\"><span class=\"st\">ตามแผน<\/span><span class=\"arr\">›<\/span><b class=\"btn\">รับใบเบิกงวด<\/b><span class=\"arr\">›<\/span><b class=\"btn\">อนุมัติ<\/b><span class=\"arr\">›<\/span><b class=\"btn\">บันทึกจ่าย<\/b><\/div>\n        <div class=\"meta\"><span class=\"who pm\">PM รับใบเบิก<\/span><span class=\"who exec\">ผจก.ทั่วไป / เจ้าของ อนุมัติ<\/span><span class=\"who fin\">การเงิน จ่าย<\/span><\/div>\n      <\/div>","เปิดใบขอเบิก":"<div class=\"card\">\n        <h3>เปิดใบขอเบิก<\/h3>\n        <div class=\"meta\"><span class=\"who site\">หน้างาน<\/span><span class=\"who pur\">จัดซื้อ<\/span><span class=\"who fin\">การเงิน<\/span><\/div>\n        <ul class=\"do\">\n          <li>กด <b class=\"btn\">เปิดใบขอเบิกเงินใหม่ (PRV)<\/b> เลือกประเภท: งวดงานผู้รับเหมา, ค่าใช้จ่ายทั่วไปของโครงการ หรือเบิกชดเชยเงินสดย่อย<\/li>\n          <li>เลือกผู้รับเงิน งวดที่ รายการและผลงานงวดนี้ (%) ประกันผลงาน หัก ณ ที่จ่าย VAT และวิธีจ่าย เช็คหรือโอน แล้ว <b class=\"btn\">บันทึกใบขอเบิกเงิน (PRV)<\/b><\/li>\n          <li>ยอดสุทธิ = ยอดเบิก − ประกันผลงาน − หัก ณ ที่จ่าย + VAT (หัก ณ ที่จ่ายคิดจากยอดเบิกหลังหักประกันผลงาน)<\/li>\n        <\/ul>\n      <\/div>","ส่งขอเบิก":"<div class=\"card\">\n        <h3>ส่งขอเบิก<\/h3>\n        <ul class=\"do\"><li>กด <b class=\"btn\">ส่งขอเบิกเงิน<\/b> PM ผจก.ทั่วไป และเจ้าของได้รับแจ้ง<\/li><\/ul>\n        <div class=\"statusline\"><span class=\"st wait\">ส่งขอเบิก (รอ PM ตรวจ)<\/span><\/div>\n      <\/div>","PM รับรองผลงาน":"<div class=\"card\">\n        <h3>PM รับรองผลงาน<\/h3>\n        <div class=\"meta\"><span class=\"who pm\">PM ของโครงการ<\/span><span class=\"who exec\">ผจก.ทั่วไป<\/span><span class=\"who exec\">เจ้าของ<\/span><\/div>\n        <ul class=\"do\"><li>กด <b class=\"btn\">PM รับรองผลงาน ➔ ส่งเจ้าของอนุมัติ<\/b> หรือ <b class=\"btn\">ตีกลับ<\/b> พร้อมเหตุผล<\/li><\/ul>\n        <div class=\"statusline\"><span class=\"st wait\">PM ตรวจแล้ว (รอเจ้าของอนุมัติ)<\/span><\/div>\n      <\/div>","เจ้าของอนุมัติจ่าย":"<div class=\"card\">\n        <h3>เจ้าของอนุมัติจ่าย<\/h3>\n        <div class=\"meta\"><span class=\"who exec\">เจ้าของ<\/span><\/div>\n        <ul class=\"do\"><li>กด <b class=\"btn\">เจ้าของอนุมัติจ่าย<\/b> ระบบสร้างรายการในคิวตั้งจ่าย และแจ้งผู้ขอกับการเงิน<\/li><\/ul>\n        <div class=\"statusline\"><span class=\"st ok\">อนุมัติแล้ว (ส่งการเงิน)<\/span><\/div>\n      <\/div>","การเงินออกใบสำคัญจ่าย":"<div class=\"card\">\n        <h3>การเงินออกใบสำคัญจ่าย<\/h3>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><\/div>\n        <ul class=\"do\"><li>กด <b class=\"btn\">ออกใบสำคัญจ่าย (PV) ➔<\/b> แล้วทำต่อตามขั้นที่ 7–9 ของสายจัดซื้อ<\/li><\/ul>\n      <\/div>","ตรวจผังบัญชี":"<div class=\"card\">\n        <h3>ตรวจผังบัญชี<\/h3>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">บัญชี / ภาษี › สมุดรายวัน / ผังบัญชี › แท็บ ผังบัญชี<\/span><\/div>\n        <ul class=\"do\">\n          <li>ระบบตั้งผังบัญชีมาตรฐานไทยไว้ให้แล้ว เพิ่มหรือแก้ชื่อบัญชีได้ และเลือกได้ว่าเอกสารแต่ละแบบลงบัญชีไหน<\/li>\n          <li>เปลี่ยนบัญชีแล้วมีผลกับเอกสารที่บันทึกต่อจากนี้ รายการเก่าคงเดิมจนกว่าจะกด <b class=\"btn\">ลงบัญชีย้อนหลัง / ตรวจสอบ<\/b><\/li>\n        <\/ul>\n      <\/div>","ตั้งยอดยกมา (ครั้งแรกที่เริ่มใช้)":"<div class=\"card\">\n        <h3>ตั้งยอดยกมา (ครั้งแรกที่เริ่มใช้)<\/h3>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">บัญชี / ภาษี › ยอดยกมา<\/span><\/div>\n        <ul class=\"do\">\n          <li><b>1. ยอดบัญชียกมา<\/b>: ใส่ยอดเดบิต/เครดิตของแต่ละบัญชีให้รวมเท่ากัน แล้วกด <b class=\"btn\">บันทึกยอดยกมา<\/b> บันทึกซ้ำจะแทนที่รายการเดิม<\/li>\n          <li><b>2. ลูกหนี้คงค้างยกมา<\/b>: ลูกค้า เลขที่บิลเดิม ยอดค้าง วันครบกำหนด รับเงินจากบิลเหล่านี้ได้ตามปกติ<\/li>\n          <li><b>3. เจ้าหนี้คงค้างยกมา<\/b>: ผู้ขาย เลขที่บิลเดิม ยอดค้าง เข้าคิวตั้งจ่ายให้จ่ายด้วย PV<\/li>\n          <li>หน้าเทียบยอดรวมของข้อ 2 และ 3 กับบัญชีลูกหนี้/เจ้าหนี้ในข้อ 1 ถ้าตรงจะขึ้น <span class=\"st ok\">✓ ตรงกัน<\/span><\/li>\n        <\/ul>\n      <\/div>","ลงบัญชีอัตโนมัติ และดูสมุด":"<div class=\"card\">\n        <div class=\"card-title\"><span class=\"code\">JV<\/span><h3>ลงบัญชีอัตโนมัติ และดูสมุด<\/h3><\/div>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">ผจก.ทั่วไป<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">บัญชี / ภาษี › สมุดรายวัน / ผังบัญชี<\/span><\/div>\n        <ul class=\"do\">\n          <li>ลงให้เอง: ใบแจ้งหนี้ผู้ขาย (สมุดซื้อ) · PV เมื่อจ่ายแล้ว (สมุดจ่าย) · ใบแจ้งหนี้ลูกค้าเมื่อวางบิล (สมุดขาย) · รับเงิน (สมุดรับ) · ใบลดหนี้ · ใบกำกับภาษีพร้อมต้นทุนขาย · ใบเสร็จ รายรับ รายจ่าย · ใบปรับปรุงสต็อก AJ แต่ละรายการได้เลข JV<\/li>\n          <li>ยกเลิกหรือแก้เอกสาร ระบบยกเลิกรายการบัญชีเดิมและลงใหม่ให้<\/li>\n          <li>แท็บ <b>สมุดรายวัน<\/b> (ค้นหา กรองตามสมุด ประเภทเอกสาร และช่วงวันที่) · <b>งบทดลอง<\/b> · <b>บัญชีแยกประเภท<\/b> (เลือกบัญชี) · <b>ผังบัญชี<\/b> ทุกแท็บส่งออก CSV ได้<\/li>\n          <li><b class=\"btn\">ลงบัญชีย้อนหลัง / ตรวจสอบ<\/b>: ลงเอกสารที่ทำไว้ก่อนมีระบบนี้ และตรวจทุกรายการกับเอกสารอีกรอบ กดซ้ำได้ ไม่เกิดรายการซ้ำ<\/li>\n        <\/ul>\n      <\/div>","กระทบยอดเงินฝากธนาคาร":"<div class=\"card\">\n        <h3>กระทบยอดเงินฝากธนาคาร<\/h3>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">การเงิน › กระทบยอดธนาคาร<\/span><\/div>\n        <ul class=\"do\">\n          <li>เลือกบัญชีธนาคาร ใส่วันที่และ <b>ยอดตาม Statement ธนาคาร<\/b><\/li>\n          <li>ติ๊กรายการฝาก/รับ และถอน/จ่าย ที่อยู่ใน Statement ระบบโชว์ยอดกระทบยอดแล้ว + ที่เลือก กด <b class=\"btn\">บันทึกการกระทบยอด<\/b> ได้เมื่อยอดเท่ากับ Statement<\/li>\n          <li>รายการที่ไม่ได้ติ๊กค้างไว้กระทบรอบหน้า ถ้าบันทึกผิด กด <b class=\"btn\">ยกเลิก Statement ล่าสุด<\/b><\/li>\n        <\/ul>\n      <\/div>","ปิดงวดรายเดือน และปิดบัญชีสิ้นปี":"<div class=\"card\">\n        <h3>ปิดงวดรายเดือน และปิดบัญชีสิ้นปี<\/h3>\n        <div class=\"meta\"><span class=\"who fin\">การเงิน<\/span><span class=\"who exec\">เจ้าของ<\/span><span class=\"who admin\">แอดมิน<\/span><span class=\"where\">บัญชี / ภาษี › ปิดงวด / ปิดบัญชีสิ้นปี<\/span><\/div>\n        <ul class=\"do\">\n          <li>ทำหลังยื่น ภ.พ.30 / ภ.ง.ด. ของเดือนนั้นแล้ว เลือกวันสิ้นเดือน แล้วกด <b class=\"btn\">ปิดงวด<\/b><\/li>\n          <li>เอกสารที่ลงวันที่ในงวดที่ปิดแล้ว จะบันทึก แก้ หรือยกเลิกไม่ได้ ระบบแจ้งเหตุผลให้<\/li>\n          <li>สิ้นปีกด <b class=\"btn\">ปิดบัญชีสิ้นปี<\/b> ปุ่มบอกกำไรหรือขาดทุนของปี ระบบโอนรายได้และค่าใช้จ่ายเข้ากำไรสะสม และปิดงวดถึง 31 ธ.ค.<\/li>\n          <li>ต้องแก้งวดที่ปิดแล้ว: เจ้าของหรือผู้ดูแลระบบใส่ <b>เหตุผลที่เปิดงวด<\/b> แล้วกด <b class=\"btn\">เปิดงวดล่าสุด<\/b> ถ้าเป็นการปิดสิ้นปี รายการปิดบัญชีจะถูกยกเลิกด้วย ดูทุกครั้งที่ปิด/เปิดได้ที่ ประวัติการปิดงวด<\/li>\n        <\/ul>\n      <\/div>","เคลื่อนไหวของ":"<div class=\"card\">\n        <h3>เคลื่อนไหวของ<\/h3>\n        <ul class=\"do\">\n          <li><b>บันทึกการใช้วัสดุ<\/b>: เลือกโครงการ ติ๊กวัสดุ ใส่จำนวนและพื้นที่ แล้วกด <b class=\"btn\">บันทึกการใช้วัสดุ<\/b><\/li>\n          <li><b class=\"btn\">สร้างรายการ<\/b>: รับเข้า / จ่ายออก / โอนย้าย / ยืม จ่ายออกต้องเลือกประเภท เช่น เบิกใช้หน้างาน คืนผู้ขาย ชำรุด/สูญหาย<\/li>\n          <li>สร้างรหัสสินค้าใหม่ได้เฉพาะจัดซื้อ หัวหน้าจัดซื้อ เจ้าของ และแอดมิน<\/li>\n        <\/ul>\n      <\/div>","นับและปรับยอด":"<div class=\"card\">\n        <h3>นับและปรับยอด<\/h3>\n        <ul class=\"do\">\n          <li><b>นับสต็อก<\/b>: ใส่จำนวนนับจริง แล้ว <b class=\"btn\">บันทึกผลนับสต็อก<\/b> ยอดยังไม่เปลี่ยน<\/li>\n          <li>ถ้านับแล้วไม่ตรง ไปที่ <b>ปรับปรุงยอดสต็อก<\/b> › <b class=\"btn\">สร้างใบปรับปรุงยอด<\/b> › <b class=\"btn\">ส่งคำขอปรับยอด<\/b> พร้อมเหตุผล ใบนี้ได้เลข <b>AJ<\/b><\/li>\n          <li>หัวหน้าจัดซื้อ ผจก.ทั่วไป เจ้าของ หรือแอดมินอนุมัติ ยอดจึงเปลี่ยน และระบบลงบัญชีส่วนต่างมูลค่าสต็อกให้<\/li>\n        <\/ul>\n      <\/div>","วัสดุใกล้หมด":"<div class=\"card\">\n        <h3>วัสดุใกล้หมด<\/h3>\n        <ul class=\"do\">\n          <li>รายการที่ต่ำกว่าจุดสั่งซื้อจะเป็นสีแดง กด <b class=\"btn\">ตั้งค่าจุดสั่งซื้อ<\/b> (ใส่ 0 = ไม่เตือน) หรือกด <b class=\"btn\">รับเข้า<\/b><\/li>\n          <li>รายงานความเคลื่อนไหวสินค้า แสดงสต็อกการ์ดย้อนหลัง 13 เดือน<\/li>\n          <li>Dashboard มีตารางสินค้าต่ำกว่าจุดสั่งซื้อ พร้อมลิงก์ CSV<\/li>\n        <\/ul>\n      <\/div>","สมุดคุมสต็อก (Stock Card)":"<div class=\"card\">\n      <h3>สมุดคุมสต็อก (Stock Card)<\/h3>\n      <div class=\"meta\"><span class=\"where\" style=\"margin-left:0\">สต็อก › สมุดคุมสต็อก (Stock Card)<\/span><\/div>\n      <ul class=\"do\">\n        <li>เลือกสินค้า คลัง (คลังกลาง คลังของแต่ละโครงการ หรือ <b>ทุกคลังรวมกัน<\/b>) และช่วงวันที่ แล้วกด <b class=\"btn\">แสดง<\/b><\/li>\n        <li>แต่ละบรรทัดบอกวันที่ เลขที่ / อ้างอิง ประเภท (รับเข้า เบิก/จ่ายออก โอนย้าย รับคืน ปรับปรุง (AJ)) จำนวนรับเข้า จ่ายออก คงเหลือ ทุน/หน่วย และมูลค่าคงเหลือ<\/li>\n        <li>ต้นทุนเฉลี่ยคำนวณใหม่ทุกครั้งที่รับของ และใช้เป็นต้นทุนขายตอนออกใบกำกับภาษี กด <b class=\"btn\">Export CSV<\/b> เพื่อส่งให้บัญชี<\/li>\n      <\/ul>\n    <\/div>"};
+(function () {
+  var I = {
+    clip: '<rect x="11" y="9" width="26" height="33" rx="3"/><path d="M18 9V6h12v3M17 20h14M17 27h14M17 34h8"/>',
+    check: '<circle cx="24" cy="24" r="17"/><path d="m16 24 6 6 11-12"/>',
+    cart: '<path d="M5 9h6l5 21h20l4-14H14"/><circle cx="19" cy="38" r="3"/><circle cx="33" cy="38" r="3"/>',
+    shield: '<path d="M24 5 39 11v11c0 10-7 17-15 20C16 39 9 32 9 22V11Z"/><path d="m17 23 5 5 9-10"/>',
+    truck: '<path d="M3 12h24v18H3zM27 18h9l6 7v5H27"/><circle cx="11" cy="34" r="4"/><circle cx="34" cy="34" r="4"/>',
+    invoice: '<path d="M11 5h19l7 7v31H11z"/><path d="M30 5v7h7M17 20h14M17 27h14M17 34h9"/>',
+    pv: '<rect x="5" y="12" width="38" height="24" rx="3"/><circle cx="24" cy="24" r="6"/><path d="M11 18v12M37 18v12"/>',
+    owner: '<circle cx="20" cy="16" r="8"/><path d="M6 41c1-9 7-14 14-14 4 0 7 1 9 3"/><path d="m29 36 4 4 9-9"/>',
+    pay: '<path d="M6 30c6 0 9-4 15-4h8a3 3 0 0 1 0 6h-7"/><path d="m22 32 13-4c3-1 5 2 3 4l-11 7c-3 2-8 2-12 0L6 36"/><circle cx="31" cy="12" r="7"/><path d="M31 9v6"/>',
+    upload: '<path d="M6 14h13l4 4h19v22H6z"/><path d="M24 36V24M19 29l5-5 5 5"/>',
+    user: '<circle cx="24" cy="16" r="8"/><path d="M9 42c1-10 7-15 15-15s14 5 15 15"/>',
+    quote: '<path d="M11 5h26v38H11z"/><path d="M17 14h14M17 21h14M17 28h8"/><circle cx="31" cy="35" r="4"/>',
+    building: '<path d="M8 42V12l14-6v36M22 16h18v26M4 42h40"/><path d="M13 18h4M13 26h4M13 34h4M28 24h6M28 32h6"/>',
+    table: '<rect x="5" y="8" width="38" height="32" rx="3"/><path d="M5 17h38M5 26h38M5 33h38M17 8v32"/>',
+    gantt: '<path d="M6 6v36h36"/><rect x="11" y="10" width="14" height="5" rx="2"/><rect x="18" y="20" width="16" height="5" rx="2"/><rect x="26" y="30" width="12" height="5" rx="2"/>',
+    report: '<circle cx="16" cy="14" r="6"/><path d="M16 3v3M16 22v3M5 14h3M24 14h3"/><path d="M24 26h16v16H8V32"/><path d="M28 32h8M28 37h5"/>',
+    vo: '<rect x="6" y="6" width="36" height="36" rx="5"/><path d="M14 17h8M18 13v8M27 31h8"/><path d="m33 12-18 24"/>',
+    chart: '<path d="M6 6v36h36"/><path d="m12 32 9-10 7 6 12-14"/><path d="M34 14h6v6"/>',
+    key: '<circle cx="15" cy="31" r="8"/><path d="m21 25 17-17M32 14l5 5M27 19l4 4"/>',
+    wrench: '<path d="M30 6a10 10 0 0 0-9 14L6 35a4 4 0 0 0 6 6l15-15a10 10 0 0 0 14-9l-6 6-6-2-2-6Z"/>',
+    calendar: '<rect x="6" y="9" width="36" height="33" rx="4"/><path d="M6 18h36M15 5v8M33 5v8M14 26h5M22 26h5M30 26h4M14 33h5M22 33h5"/>',
+    book: '<path d="M8 8h13a5 5 0 0 1 5 5v29a4 4 0 0 0-4-4H8z"/><path d="M40 8H31a5 5 0 0 0-5 5v29a4 4 0 0 1 4-4h10z"/>',
+    flag: '<path d="M10 43V6"/><path d="M10 8h24l-5 8 5 8H10"/>',
+    journal: '<rect x="9" y="5" width="30" height="38" rx="3"/><path d="M15 14h18M15 21h18M15 28h12"/><path d="m27 36 3 3 6-6"/>',
+    bank: '<path d="M5 18 24 7l19 11H5ZM9 22v14M19 22v14M29 22v14M39 22v14M5 41h38"/>',
+    lock: '<rect x="9" y="21" width="30" height="21" rx="4"/><path d="M15 21v-6a9 9 0 0 1 18 0v6M24 29v6"/>',
+    box: '<path d="m24 4 18 9v22l-18 9-18-9V13Z"/><path d="m6 13 18 9 18-9M24 22v22"/>',
+    count: '<path d="M24 6v36M10 12h28"/><path d="m10 12-6 13a6 6 0 0 0 12 0ZM38 12l-6 13a6 6 0 0 0 12 0Z"/><path d="M16 42h16"/>',
+    alert: '<path d="M24 6 44 40H4Z"/><path d="M24 19v10M24 34v1"/>',
+    card: '<rect x="5" y="8" width="38" height="32" rx="3"/><path d="M11 16h26M11 23h26M11 30h16"/><path d="M33 30v6M30 33h6"/>',
+    send: '<path d="M43 5 5 21l15 6 6 15Z"/><path d="m20 27 23-22"/>'
+  };
+  var GLOW = ['#3aa0ff', '#38d98a', '#a66bff', '#2ee6d6', '#ff9f43', '#ffd23f', '#4dd4ff', '#ff5e9c', '#8be36b', '#7c8cff'];
+  var T = {
+    cart: '<path d="M4 5h3l3 12h11l2-8H8"/><circle cx="11" cy="21" r="1.6"/><circle cx="19" cy="21" r="1.6"/>',
+    shield: '<path d="M13 3 21 7v6c0 6-4 9-8 10-4-1-8-4-8-10V7Z"/><path d="m9 13 3 3 5-6"/>',
+    truck: '<path d="M2 7h13v10H2zM15 11h5l3 3v3h-8"/><circle cx="7" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>',
+    doc: '<path d="M6 3h10l4 4v16H6z"/><path d="M10 11h6M10 15h6M10 19h3"/>',
+    cash: '<rect x="3" y="7" width="20" height="13" rx="2"/><circle cx="13" cy="13.5" r="3"/><path d="M6 4h14"/>',
+    folder: '<path d="M3 8h7l2 2h11v11H3z"/><path d="M13 13v6M10 16l3 3 3-3"/>',
+    user: '<circle cx="13" cy="9" r="4"/><path d="M5 22c1-5 4-8 8-8s7 3 8 8"/>',
+    chart: '<path d="M4 4v18h18"/><path d="m7 17 5-6 4 3 6-8"/>',
+    grid: '<rect x="3" y="4" width="20" height="18" rx="2"/><path d="M3 10h20M3 16h20M10 4v18"/>',
+    cal: '<rect x="3" y="5" width="20" height="17" rx="2"/><path d="M3 10h20M8 3v4M18 3v4"/>',
+    book: '<path d="M4 4h7a3 3 0 0 1 3 3v15a2 2 0 0 0-2-2H4zM22 4h-5a3 3 0 0 0-3 3"/>',
+    bank: '<path d="M3 10 13 4l10 6ZM6 12v7M11 12v7M16 12v7M21 12v7M3 22h20"/>',
+    lock: '<rect x="5" y="11" width="16" height="11" rx="2"/><path d="M8 11V8a5 5 0 0 1 10 0v3"/>',
+    box: '<path d="m13 3 9 4.5v11L13 23l-9-4.5v-11Z"/><path d="m4 7.5 9 4.5 9-4.5M13 12v11"/>',
+    alert: '<path d="M13 3 24 22H2Z"/><path d="M13 10v5M13 18v.5"/>',
+    key: '<circle cx="8" cy="17" r="4.5"/><path d="m11 14 10-10M18 7l3 3"/>'
+  };
+  // Each step: [title, who, icon, check 1, check 2, guide heading, positions]
+  var LINES = [
+    { id: 'procure', tab: 'จัดซื้อ → จ่ายเงิน', code: 'PR→PV', title: 'จัดซื้อ → รับของ → จ่ายเงิน',
+      master: ['K Tec Approve', 'ศูนย์อนุมัติเอกสาร ทุกใบที่รออนุมัติมาอยู่ที่นี่ กดอนุมัติหรือตีกลับได้ในที่เดียว', [1, 3, 7]],
+      docs: ['ใบขอซื้อ PR · ใบสั่งซื้อ PO', 'ใบรับของ · ใบแจ้งหนี้ผู้ขาย (AP)', 'ใบสำคัญจ่าย PV · หนังสือรับรอง 50 ทวิ'],
+      loop: ['ตีกลับ → แก้ → ส่งใหม่', 'ถ้าผู้อนุมัติกด ตีกลับ เอกสารกลับไปหาผู้เปิดพร้อมเหตุผล แก้แล้วส่งขออนุมัติใหม่ได้เลย'],
+      tools: [['cart', 'จัดซื้อ / สั่งซื้อ', 'PR · PO · ใบ AP'], ['shield', 'K Tec Approve', 'รออนุมัติทั้งหมด'], ['truck', 'รอรับสินค้า', 'รับของหน้างาน'], ['doc', 'ใบแจ้งหนี้ผู้ขาย', 'ตั้งหนี้'], ['cash', 'ใบสำคัญจ่าย', 'PV · ตารางจ่ายเช็ค'], ['folder', 'รายงาน / 50 ทวิ', 'ส่งสำนักงานบัญชี']],
+      steps: [
+        ['ขอซื้อ (PR)', 'หน้างาน · PM', 'clip', 'เลือกรายการจาก BOQ', 'ส่งขออนุมัติ', 'เปิดใบขอซื้อ', 'site pm'],
+        ['อนุมัติ PR', 'PM ของโครงการ', 'check', 'อนุมัติ หรือ ตีกลับ', 'เกิน BOQ ไปหาเจ้าของ', 'PM อนุมัติใบขอซื้อ', 'pm owner'],
+        ['สั่งซื้อ (PO)', 'จัดซื้อ', 'cart', 'ดึงรายการจาก PR', 'ตัดงบ BOQ + วิธีจ่าย', 'เปิดใบสั่งซื้อ', 'pur head'],
+        ['ตรวจ + อนุมัติ PO', 'หัวหน้าจัดซื้อ → ผู้อนุมัติ', 'shield', 'หัวหน้าจัดซื้อตรวจก่อน', 'เกินวงเงินให้เจ้าของ', 'หัวหน้าจัดซื้อตรวจ แล้วผู้มีอำนาจอนุมัติ', 'head owner'],
+        ['รับของ', 'หน้างาน', 'truck', 'ถ่ายรูปใบส่งของ', 'สต็อกเพิ่มให้เอง', 'รับของหน้างาน', 'site pm'],
+        ['ตั้งหนี้ (AP)', 'การเงิน', 'invoice', 'บันทึกใบแจ้งหนี้ผู้ขาย', 'ระบบคิดวันครบกำหนด', 'ตั้งหนี้ (บันทึกยอดที่ต้องจ่าย)', 'fin pur'],
+        ['ใบสำคัญจ่าย (PV)', 'การเงิน', 'pv', 'ติ๊กรายการค้างจ่าย', 'เลือกหัก ณ ที่จ่าย', 'ทำใบสำคัญจ่าย', 'fin'],
+        ['อนุมัติ PV', 'เจ้าของ', 'owner', 'อนุมัติ หรือ ตีกลับ', 'จ่ายก่อนกำหนดใส่เหตุผล', 'เจ้าของอนุมัติใบสำคัญจ่าย', 'owner'],
+        ['จ่ายเงิน + 50 ทวิ', 'การเงิน', 'pay', 'โอน / เช็ค / เงินสด', 'ออก 50 ทวิให้เอง', 'จ่ายเงิน และออกหนังสือรับรองหัก ณ ที่จ่าย', 'fin owner'],
+        ['ส่งสำนักงานบัญชี', 'การเงิน · ทุกเดือน', 'upload', 'เลือกงวดเดือน', 'โหลด Excel 3 ไฟล์', 'ส่งไฟล์ให้สำนักงานบัญชีทุกเดือน', 'fin owner']
+      ] },
+    { id: 'sales', tab: 'ขาย', code: 'QT→SO→TI', title: 'ขาย: ใบเสนอราคา → ใบสั่งขาย → ใบกำกับภาษี',
+      master: ['ลงบัญชีให้อัตโนมัติ', 'เปิดเอกสารใบถัดไปจากใบเดิมได้ในคลิกเดียว ใบกำกับภาษีและใบเสร็จลงบัญชีขาย ภาษีขาย และลูกหนี้ให้เอง', [3, 4]],
+      docs: ['ใบเสนอราคา QT · ใบสั่งขาย SO', 'ใบกำกับภาษี TI · ใบกำกับภาษีอย่างย่อ', 'ใบเสร็จรับเงิน · ใบลดหนี้ / ใบเพิ่มหนี้'],
+      loop: ['คืนของ หรือแก้ยอดขาย', 'ลูกค้าคืนของหรือต้องแก้ยอด ออกใบลดหนี้หรือใบเพิ่มหนี้จากเมนู ขาย / ลูกหนี้ ยอดค้างของลูกค้าจะปรับให้'],
+      tools: [['user', 'ลูกค้า', 'วงเงินเครดิต'], ['doc', 'ใบเสนอราคา', 'QT'], ['doc', 'ใบสั่งขาย (SO)', 'ยืนยันคำสั่งซื้อ'], ['doc', 'ใบกำกับภาษี', 'ตัดสต็อก'], ['cash', 'ใบเสร็จรับเงิน', 'รับเงินลูกค้า'], ['chart', 'ลูกหนี้', 'ยอดค้างตามอายุหนี้']],
+      steps: [
+        ['ตั้งลูกค้า', 'การเงิน', 'user', 'ใส่วงเงินเครดิต', 'เลือกพนักงานขาย', 'ตั้งข้อมูลลูกค้า วงเงินเครดิต และพนักงานขาย', 'fin owner'],
+        ['ใบเสนอราคา (QT)', 'การเงิน', 'quote', 'ส่วนลดรายบรรทัด', 'เลือกประเภท VAT', 'ใบเสนอราคา', 'fin owner'],
+        ['ใบสั่งขาย (SO)', 'การเงิน', 'clip', 'เปิดจากใบเสนอราคา', 'ยังไม่ตัดสต็อก', 'ใบสั่งขาย', 'fin owner'],
+        ['ใบกำกับภาษี (TI)', 'การเงิน', 'invoice', 'ตัดสต็อกให้เอง', 'สต็อกไม่พอบันทึกไม่ได้', 'ใบกำกับภาษี (ขายเชื่อ) ตัดสต็อกและลงต้นทุนขาย', 'fin owner'],
+        ['รับเงิน (REC)', 'การเงิน', 'pay', 'ออกใบเสร็จรับเงิน', 'ดูยอดค้างที่ ลูกหนี้', 'รับเงินและติดตามหนี้', 'fin owner']
+      ] },
+    { id: 'projects', tab: 'โครงการ', code: 'BOQ→ส่งมอบ', title: 'โครงการ: ตั้งต้นจนส่งมอบ',
+      master: ['K Tec Approve', 'งานเพิ่ม/ลด (VO) ส่งให้เจ้าของอนุมัติที่นี่ อนุมัติแล้วมูลค่าสัญญาและวันสิ้นสุดเปลี่ยนตาม', [4]],
+      docs: ['BOQ หลัก · BOQ งานเพิ่ม', 'รายงานประจำวัน / สัปดาห์ / เดือน', 'VO · ใบรับประกัน WAR · แจ้งซ่อม DF'],
+      loop: ['VO ไม่อนุมัติ → ปรับ → ส่งใหม่', 'ถ้าเจ้าของไม่อนุมัติงานเพิ่ม/ลด PM ปรับรายการหรือมูลค่าแล้วส่งอนุมัติใหม่ได้'],
+      tools: [['grid', 'โครงการ', 'ภาพรวม · ทีมงาน'], ['grid', 'BOQ', 'Import Excel'], ['cal', 'งาน / แกนต์', 'ปฏิทิน · S-Curve'], ['doc', 'รายงาน', 'ประจำวัน'], ['chart', 'Timeline โครงการ', 'แผน vs ผลงาน'], ['key', 'บริการหลังก่อสร้าง', 'ส่งมอบ · รับประกัน']],
+      steps: [
+        ['สร้างโครงการ', 'จัดซื้อ · ผู้บริหาร', 'building', 'ใส่ชื่อโครงการ', 'นำเข้าสัญญา PDF ได้', 'สร้างโครงการ', 'pur head owner'],
+        ['ทำ BOQ', 'PM · วิศวกร', 'table', 'Import Excel ได้', 'สรุปราคาแยกหมวด', 'ทำ BOQ', 'pm owner'],
+        ['วางแผนงาน', 'PM', 'gantt', 'เพิ่มงาน + วันที่', 'แกนต์ / S-Curve', 'วางแผนงานและอัปเดตความคืบหน้า', 'pm site owner'],
+        ['รายงานประจำวัน', 'หน้างาน', 'report', 'ใส่ผลงานวันนี้ (%)', 'ส่งแล้วแก้ไม่ได้', 'รายงานประจำวัน', 'site pm owner'],
+        ['งานเพิ่ม/ลด (VO)', 'PM → เจ้าของ', 'vo', 'ใส่ผลกระทบต้นทุน', 'เจ้าของอนุมัติ', 'งานเพิ่ม/ลด', 'pm owner'],
+        ['ติดตามเงินและผลงาน', 'PM · การเงิน', 'chart', 'รายรับรายจ่ายโครงการ', 'CPI / SPI / S-Curve', 'ติดตามเงินและผลงาน', 'pm fin pur head owner'],
+        ['ส่งมอบโครงการ', 'PM', 'key', 'บันทึกการส่งมอบ', 'ได้เลขใบรับประกัน', 'ส่งมอบโครงการ', 'pm owner'],
+        ['รับประกัน / แจ้งซ่อม', 'หน้างาน · PM', 'wrench', 'แจ้งซ่อมได้เลข DF', 'ปิดเมื่อซ่อมเสร็จ', 'ใบรับประกันผลงานและแจ้งซ่อม', 'site pm owner']
+      ] },
+    { id: 'labor', tab: 'งวดงาน / เบิกเงิน', code: 'PRV', title: 'งวดงานและใบขอเบิกเงิน (PRV)',
+      master: ['K Tec Approve', 'ใบขอเบิกผ่าน PM รับรองผลงาน แล้วเจ้าของอนุมัติจ่าย ทั้งสองขั้นกดได้จากที่นี่', [3, 4]],
+      docs: ['แผนงวดงานจ่าย · แผนงวดงานรับ', 'ใบขอเบิกเงิน PRV', 'ใบสำคัญจ่าย PV · 50 ทวิ'],
+      loop: ['ตีกลับ → แก้ → ส่งใหม่', 'ถ้า PM หรือเจ้าของกด ตีกลับ ใบขอเบิกกลับไปหาผู้เปิดพร้อมเหตุผล แก้แล้วส่งขอเบิกใหม่ได้'],
+      tools: [['cal', 'แผนงวดงานจ่าย', 'ผู้รับเหมา'], ['cal', 'แผนงวดงานรับ', 'ลูกค้า'], ['doc', 'ใบสั่งจ่ายเงิน (PRV)', 'เปิด · ส่งขอเบิก'], ['cash', 'คิวตั้งจ่าย', 'รอออก PV'], ['user', 'ผู้รับเหมาและทีมงาน', 'ผู้รับเงิน'], ['chart', 'รายงานงวดงาน', 'ภาพรวมงวด']],
+      steps: [
+        ['แผนงวดงาน', 'PM', 'calendar', 'สร้างจาก BOQ ได้', 'หักประกันผลงาน 5%', 'แผนงวดงานจ่าย (ผู้รับเหมา)', 'pm owner fin'],
+        ['เปิดใบขอเบิก (PRV)', 'หน้างาน · จัดซื้อ', 'clip', 'เลือกผู้รับเงิน + งวด', 'ระบบคิดยอดสุทธิ', 'เปิดใบขอเบิก', 'site pur head fin'],
+        ['ส่งขอเบิก', 'หน้างาน', 'send', 'กด ส่งขอเบิกเงิน', 'PM ได้รับแจ้ง', 'ส่งขอเบิก', 'site pur head fin'],
+        ['PM รับรองผลงาน', 'PM ของโครงการ', 'check', 'รับรอง หรือ ตีกลับ', 'ส่งต่อเจ้าของ', 'PM รับรองผลงาน', 'pm owner'],
+        ['เจ้าของอนุมัติจ่าย', 'เจ้าของ', 'owner', 'กด อนุมัติจ่าย', 'เข้าคิวตั้งจ่าย', 'เจ้าของอนุมัติจ่าย', 'owner'],
+        ['ออกใบสำคัญจ่าย', 'การเงิน', 'pv', 'ออก PV จากใบขอเบิก', 'จ่ายเงิน + 50 ทวิ', 'การเงินออกใบสำคัญจ่าย', 'fin']
+      ] },
+    { id: 'ledger', tab: 'บัญชี · ปิดงวด', code: 'GL', title: 'สมุดบัญชี · ยอดยกมา · ปิดงวด',
+      master: ['สมุดรายวัน / ผังบัญชี', 'เอกสารที่อนุมัติหรือจ่ายแล้วลงสมุดรายวันให้เอง ดูงบทดลองและบัญชีแยกประเภทได้ทันที', [2]],
+      docs: ['ผังบัญชี · ยอดยกมา', 'สมุดรายวัน JV · งบทดลอง', 'Statement ธนาคาร · งวดที่ปิดแล้ว'],
+      loop: ['ต้องแก้งวดที่ปิดแล้ว', 'เจ้าของหรือผู้ดูแลระบบใส่เหตุผลแล้วเปิดงวดอีกครั้ง แก้เอกสาร แล้วปิดงวดใหม่'],
+      tools: [['book', 'สมุดรายวัน / ผังบัญชี', 'JV · งบทดลอง'], ['book', 'ยอดยกมา', 'เริ่มใช้ครั้งแรก'], ['bank', 'กระทบยอดธนาคาร', 'เทียบ Statement'], ['lock', 'ปิดงวด / ปิดปี', 'ล็อกงวดที่ยื่นแล้ว'], ['doc', 'ภาษีซื้อ / ภาษีขาย', 'รายงานภาษี'], ['chart', 'รายงานบัญชี', 'งบการเงิน']],
+      steps: [
+        ['ตรวจผังบัญชี', 'การเงิน', 'book', 'ผังมาตรฐานไทยมีให้แล้ว', 'เลือกบัญชีของเอกสาร', 'ตรวจผังบัญชี', 'fin owner'],
+        ['ตั้งยอดยกมา', 'การเงิน · ครั้งแรก', 'flag', 'ยอดบัญชียกมา', 'ลูกหนี้ / เจ้าหนี้ค้าง', 'ตั้งยอดยกมา (ครั้งแรกที่เริ่มใช้)', 'fin owner'],
+        ['ลงบัญชีอัตโนมัติ (JV)', 'ระบบลงให้', 'journal', 'เอกสารลงสมุดให้เอง', 'ดูงบทดลองได้ทันที', 'ลงบัญชีอัตโนมัติ และดูสมุด', 'fin owner'],
+        ['กระทบยอดธนาคาร', 'การเงิน', 'bank', 'ใส่ยอดตาม Statement', 'ติ๊กรายการที่ตรงกัน', 'กระทบยอดเงินฝากธนาคาร', 'fin owner'],
+        ['ปิดงวด / ปิดปี', 'การเงิน', 'lock', 'ปิดหลังยื่นภาษี', 'ปิดแล้วแก้ไม่ได้', 'ปิดงวดรายเดือน และปิดบัญชีสิ้นปี', 'fin owner']
+      ] },
+    { id: 'stock', tab: 'สต็อก', code: 'Stock Card', title: 'สต็อก: เคลื่อนไหว · นับ · ปรับยอด',
+      master: ['K Tec Approve', 'ใบปรับปรุงยอดสต็อก (AJ) ต้องให้หัวหน้าจัดซื้อหรือผู้บริหารอนุมัติก่อน ยอดจึงเปลี่ยน', [1]],
+      docs: ['ใบรับเข้า / จ่ายออก / โอนย้าย', 'ผลนับสต็อก · ใบปรับปรุงยอด AJ', 'สมุดคุมสต็อก (Stock Card)'],
+      loop: ['นับไม่ตรง → ขอปรับยอด', 'ถ้านับแล้วไม่ตรงกับในระบบ ส่งคำขอปรับยอดพร้อมเหตุผล อนุมัติแล้วยอดและบัญชีปรับให้เอง'],
+      tools: [['box', 'ภาพรวมสต็อก', 'ยอดคงเหลือ'], ['box', 'รายการเคลื่อนไหว', 'รับเข้า · จ่ายออก'], ['grid', 'นับสต็อก', 'บันทึกผลนับ'], ['doc', 'ปรับปรุงยอดสต็อก', 'ใบ AJ'], ['alert', 'วัสดุใกล้หมด', 'จุดสั่งซื้อ'], ['book', 'สมุดคุมสต็อก', 'Stock Card']],
+      steps: [
+        ['เคลื่อนไหวของ', 'หน้างาน · จัดซื้อ', 'box', 'รับเข้า / จ่ายออก / โอนย้าย', 'บันทึกการใช้วัสดุ', 'เคลื่อนไหวของ', 'site pm pur head owner'],
+        ['นับและปรับยอด (AJ)', 'หน้างาน → ผู้อนุมัติ', 'count', 'บันทึกผลนับ', 'ส่งคำขอปรับยอด', 'นับและปรับยอด', 'site pm pur head owner'],
+        ['วัสดุใกล้หมด', 'จัดซื้อ', 'alert', 'ต่ำกว่าจุดสั่งซื้อเป็นสีแดง', 'กดรับเข้าได้ทันที', 'วัสดุใกล้หมด', 'pur head owner site pm'],
+        ['สมุดคุมสต็อก', 'การเงิน · ทุกคน', 'card', 'ดูรับเข้า-จ่ายออกรายตัว', 'Export CSV', 'สมุดคุมสต็อก (Stock Card)', 'fin pur head site pm owner']
+      ] }
+  ];
+  var ROLE_NAME = { site: 'หน้างาน', pm: 'PM', pur: 'จัดซื้อ', head: 'หัวหน้าจัดซื้อ', fin: 'การเงิน', owner: 'ผู้บริหาร' };
+  var GL = ['#2997ff', '#30d158', '#bf5af2', '#64d2ff', '#ff9f0a', '#ffd60a', '#5ac8fa', '#ff375f', '#a2f257', '#7d7aff'];
+  var $ = function (id) { return document.getElementById(id); };
+  var hasG = typeof window.gsap !== 'undefined' && typeof window.ScrollTrigger !== 'undefined';
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var anim = hasG && !reduce;
+  if (hasG) gsap.registerPlugin(ScrollTrigger);
+  var line = LINES[0], role = null, cards = [], idx = 0, mm = null;
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function tsvg(k) { return '<svg viewBox="0 0 26 26" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + T[k] + '</svg>'; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  // segmented control
+  var seg = $('seg'), pill = $('pill');
+  LINES.forEach(function (L) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = L.tab;
+    b.addEventListener('click', function () { if (L !== line) { setLine(L, true); } });
+    L.btn = b; seg.appendChild(b);
+  });
+  function movePill(instant) {
+    var b = line.btn, x = b.offsetLeft, w = b.offsetWidth;
+    if (anim && !instant) gsap.to(pill, { x: x, width: w, duration: .45, ease: 'power3.out' });
+    else { pill.style.transform = 'translateX(' + x + 'px)'; pill.style.width = w + 'px'; }
+    b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  function setLine(L, jump) {
+    line = L;
+    LINES.forEach(function (x) { x.btn.setAttribute('aria-pressed', String(x === L)); });
+    movePill(!jump);
+    var k = LINES.indexOf(L);
+    document.documentElement.style.setProperty('--accent', GL[k % GL.length]);
+    $('l-code').textContent = 'สายงานที่ ' + (k + 1) + ' · ' + L.code;
+    $('l-title').innerHTML = L.title.split(' → ').map(function (t) { return '<span class="nw">' + esc(t) + '</span>'; }).join(' → ');
+    $('l-text').textContent = L.steps.length + ' ขั้น เลื่อนลงเพื่อเดินไปตามสาย หรือแตะการ์ดเพื่อดูวิธีทำ';
+    $('m-title').textContent = L.master[0]; $('m-text').textContent = L.master[1];
+    $('m-links').innerHTML = '';
+    L.master[2].forEach(function (i) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = 'ขั้นที่ ' + (i + 1) + ' · ' + L.steps[i][0];
+      b.addEventListener('click', function () { openSheet(i); }); $('m-links').appendChild(b);
+    });
+    $('docs').innerHTML = L.docs.map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('');
+    $('loop-title').textContent = L.loop[0]; $('loop-text').textContent = L.loop[1];
+    $('tools').innerHTML = L.tools.map(function (t) { return '<div>' + tsvg(t[0]) + esc(t[1]) + '<small>' + esc(t[2]) + '</small></div>'; }).join('');
+
+    var track = $('track'); track.innerHTML = ''; cards = [];
+    L.steps.forEach(function (s, i) {
+      var g = GL[i % GL.length], b = document.createElement('button'); b.type = 'button'; b.className = 'step'; b.style.setProperty('--g', g);
+      var ap = L.master[2].indexOf(i) >= 0 && L.master[0] === 'K Tec Approve';
+      b.innerHTML = '<span class="glow"></span><span class="no">ขั้นที่ ' + pad(i + 1) + '</span>' + (ap ? '<span class="tagap">อนุมัติ</span>' : '') +
+        '<span class="ic"><svg viewBox="0 0 48 48" fill="none" stroke="' + g + '" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">' + I[s[2]] + '</svg></span>' +
+        '<h3>' + esc(s[0]) + '</h3><span class="who">' + esc(s[1]) + '</span>' +
+        '<ul><li>' + esc(s[3]) + '</li><li>' + esc(s[4]) + '</li></ul><span class="more">ดูวิธีทำ<b aria-hidden="true">+</b></span>';
+      b.addEventListener('click', function () { openSheet(i); });
+      track.appendChild(b); cards.push(b);
+    });
+    applyRole();
+    try { localStorage.setItem('ktec-pipeline-line', L.id); } catch (e) {}
+    setupScroll();
+    if (jump) {
+      var y = $('trackwrap').closest('main').querySelector('.intro').getBoundingClientRect().top + window.scrollY - 60;
+      if (window.scrollY > y) window.scrollTo(0, y);
+    }
+    if (anim) {
+      gsap.fromTo(['#l-code', '#l-title', '#l-text'], { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: .7, stagger: .08, ease: 'power3.out' });
+      gsap.fromTo(cards, { y: 40, opacity: 0 }, { y: 0, opacity: function (i, el) { return el.classList.contains('dim') ? .28 : 1; }, duration: .7, stagger: .05, ease: 'power3.out', delay: .1, clearProps: 'opacity' });
+    }
+  }
+
+  function setupScroll() {
+    if (!hasG) return;
+    if (mm) mm.revert();
+    mm = gsap.matchMedia();
+    var track = $('track'), wrap = $('trackwrap');
+    mm.add('(min-width: 900px)', function () {
+      var dist = function () { return Math.max(0, track.scrollWidth - window.innerWidth); };
+      var tw = gsap.to(track, { x: function () { return -dist(); }, ease: 'none' });
+      ScrollTrigger.create({
+        trigger: wrap, start: 'top top+=64', end: function () { return '+=' + dist(); }, pin: true, scrub: reduce ? true : 0.8, animation: tw, invalidateOnRefresh: true,
+        onUpdate: function (st) { gsap.set('#bar', { scaleX: st.progress }); }
+      });
+    });
+    mm.add('(max-width: 899px)', function () {
+      if (reduce) return;
+      cards.forEach(function (c) {
+        gsap.from(c, { y: 50, scale: .96, opacity: 0, duration: .8, ease: 'power3.out', clearProps: 'all', scrollTrigger: { trigger: c, start: 'top 88%' } });
+      });
+    });
+    ScrollTrigger.refresh();
+  }
+
+  var ROLE_LABEL = { site: 'หน้างาน', pm: 'PM', pur: 'จัดซื้อ', head: 'หัวหน้าจัดซื้อ', fin: 'การเงิน', owner: 'ผู้บริหาร' };
+  function mine(i) { return !!role && line.steps[i][6].split(' ').indexOf(role) >= 0; }
+  function applyRole() {
+    document.querySelectorAll('[data-r]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-r') === role)); });
+    var list = [];
+    cards.forEach(function (c, k) {
+      var m = mine(k); if (m) list.push(k + 1);
+      c.classList.toggle('dim', !!role && !m);
+      var t = c.querySelector('.mine'); if (t) t.remove();
+      if (m) { var s = document.createElement('span'); s.className = 'mine'; s.textContent = 'งานของคุณ'; c.querySelector('.no').after(s); }
+    });
+    $('rolenote').textContent = !role ? 'เลือกตำแหน่งเพื่อดูว่าขั้นไหนเป็นงานของคุณ'
+      : list.length ? ROLE_LABEL[role] + ' ทำขั้นที่ ' + list.join(', ') + ' · แตะอีกครั้งเพื่อดูทั้งหมด'
+      : ROLE_LABEL[role] + ' ไม่มีขั้นในสายนี้ · แตะอีกครั้งเพื่อดูทั้งหมด';
+  }
+  document.querySelectorAll('[data-r]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var r = b.getAttribute('data-r'); role = role === r ? null : r; applyRole();
+      if (anim) gsap.fromTo(cards, { scale: .97 }, { scale: 1, duration: .5, ease: 'back.out(2)', stagger: .02, clearProps: 'transform' });
+      try { localStorage.setItem('ktec-pipeline-role', role || ''); } catch (e) {}
+    });
+  });
+
+  // sheet
+  var sheet = $('sheet'), panel = $('panel'), lastFocus = null;
+  function fill(i) {
+    idx = i;
+    var s = line.steps[i];
+    panel.innerHTML = '<div class="grab"></div>';
+    var top = document.createElement('div'); top.className = 'stop';
+    top.innerHTML = '<span>' + esc(line.tab) + ' · ขั้นที่ ' + (i + 1) + ' จาก ' + line.steps.length + '</span>';
+    var acts = document.createElement('div'); acts.className = 'acts';
+    [['‹ ก่อนหน้า', i - 1, i === 0, ''], ['ถัดไป ›', i + 1, i === line.steps.length - 1, ''], ['✕', -1, false, 'x']].forEach(function (x) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = x[0]; b.disabled = x[2]; if (x[3]) { b.className = x[3]; b.setAttribute('aria-label', 'ปิด'); }
+      b.addEventListener('click', function () { if (x[1] < 0) closeSheet(); else { fill(x[1]); if (anim) gsap.from(panel.querySelector('.card'), { x: x[1] > i ? 40 : -40, opacity: 0, duration: .35, ease: 'power2.out' }); } });
+      acts.appendChild(b);
+    });
+    top.appendChild(acts); panel.appendChild(top);
+    panel.insertAdjacentHTML('beforeend', CARDS[s[5]] || '<div class="card"><h3>' + esc(s[0]) + '</h3></div>');
+    panel.scrollTop = 0;
+  }
+  function openSheet(i) {
+    lastFocus = document.activeElement;
+    fill(i); sheet.hidden = false; document.documentElement.style.overflow = 'hidden';
+    if (anim) { gsap.fromTo('#scrim', { opacity: 0 }, { opacity: 1, duration: .3 }); gsap.fromTo(panel, { yPercent: 100 }, { yPercent: 0, duration: .55, ease: 'expo.out' }); }
+    var x = panel.querySelector('.x'); if (x) x.focus();
+  }
+  function closeSheet() {
+    var done = function () { sheet.hidden = true; document.documentElement.style.overflow = ''; if (lastFocus) lastFocus.focus(); };
+    if (anim) { gsap.to('#scrim', { opacity: 0, duration: .25 }); gsap.to(panel, { yPercent: 100, duration: .35, ease: 'power2.in', onComplete: done }); } else done();
+  }
+  $('scrim').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) {
+    if (sheet.hidden) return;
+    if (e.key === 'Escape') closeSheet();
+    if (e.key === 'ArrowRight' && idx < line.steps.length - 1) fill(idx + 1);
+    if (e.key === 'ArrowLeft' && idx > 0) fill(idx - 1);
+  });
+
+  // hero + bento entrances
+  if (anim) {
+    gsap.from('.hx', { y: 40, opacity: 0, duration: 1.1, stagger: .12, ease: 'power3.out' });
+    gsap.utils.toArray('.bx').forEach(function (el, i) {
+      gsap.from(el, { y: 60, opacity: 0, duration: .9, ease: 'power3.out', delay: (i % 2) * .08, scrollTrigger: { trigger: el, start: 'top 90%' } });
+    });
+    gsap.to('.hero .inner', { yPercent: 18, opacity: .2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+  }
+
+  window.addEventListener('resize', function () { movePill(true); });
+  try { role = localStorage.getItem('ktec-pipeline-role') || null; } catch (e) {}
+  if (role && !ROLE_LABEL[role]) role = null;
+  var saved = null; try { saved = localStorage.getItem('ktec-pipeline-line'); } catch (e) {}
+  setLine(LINES.filter(function (L) { return L.id === saved; })[0] || LINES[0], false);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { movePill(true); if (hasG) ScrollTrigger.refresh(); });
+})();
+</script>

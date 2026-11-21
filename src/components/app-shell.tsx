@@ -34,6 +34,7 @@ import {
   PenLine,
   Hash,
   FileCog,
+  BookOpen,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -906,6 +907,18 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                       <span>แบบฟอร์มเอกสาร</span>
                     </Link>
                     )}
+                    <Link
+                      href="/settings/guide"
+                      prefetch={false}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
+                        pathname.startsWith('/settings/guide')
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                      <span>คู่มือการใช้งาน</span>
+                    </Link>
                     <Link
                       href="/profile"
                       prefetch={false}
