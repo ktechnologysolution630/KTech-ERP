@@ -5,7 +5,7 @@ import { boqLines, boqs, items, poLines, prLines, projects, units, type BoqKind,
 import { computeBoqTotals } from '@/domain/boq';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
-import { itemNameKey, unitKey, type UnitReference } from '@/domain/unit-match';
+import { itemNameKey, sameUnit, unitKey, type UnitReference } from '@/domain/unit-match';
 import { assertCan, can } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
@@ -313,6 +313,35 @@ export async function writeBoqDocument(
       );
     }
     await tx.delete(boqLines).where(inArray(boqLines.id, removedIds));
+  }
+
+  // A line PRs or POs already counted in one unit cannot switch to another kind of unit (กก. → เส้น):
+  // their quantities would be read in the new unit
+  const savedUnits = new Map(
+    (await tx.select({ id: boqLines.id, unit: boqLines.unit, description: boqLines.description }).from(boqLines).where(eq(boqLines.boqId, boq.id))).map(
+      (r) => [r.id, r],
+    ),
+  );
+  const unitChanged = data.lines.filter((l) => {
+    const old = l.id && keptIds.has(l.id) ? savedUnits.get(l.id) : undefined;
+    return !l.isCategory && old && old.unit.trim() && !sameUnit(old.unit, l.unit);
+  });
+  if (unitChanged.length > 0) {
+    const ids = unitChanged.map((l) => l.id!);
+    const [poUse, prUse] = await Promise.all([
+      tx.selectDistinct({ id: poLines.boqLineId }).from(poLines).where(inArray(poLines.boqLineId, ids)),
+      tx.selectDistinct({ id: prLines.boqLineId }).from(prLines).where(inArray(prLines.boqLineId, ids)),
+    ]);
+    const used = new Set([...poUse, ...prUse].map((r) => r.id));
+    const blocked = unitChanged.filter((l) => used.has(l.id!));
+    if (blocked.length > 0) {
+      const names = blocked.slice(0, 3).map((l) => `${l.description.trim()} (${savedUnits.get(l.id!)!.unit} → ${l.unit})`);
+      throw new DomainError(
+        'BOQ_UNIT_IN_USE',
+        `เปลี่ยนหน่วยไม่ได้ เพราะมีใบขอซื้อหรือใบสั่งซื้อนับรายการนี้เป็นหน่วยเดิมแล้ว: ${names.join(', ')}${blocked.length > 3 ? ` และอีก ${blocked.length - 3} รายการ` : ''}`,
+        409,
+      );
+    }
   }
 
   for (const [i, l] of data.lines.entries()) {

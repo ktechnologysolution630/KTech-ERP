@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Ruler,
+  Scale,
 } from 'lucide-react';
 import { computeBoqCategoryTotals, computeBoqLine } from '@/domain/boq';
 import { BOQ_SHEET_COLUMNS, parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
@@ -33,6 +34,7 @@ import {
   type BoqRow,
 } from '@/components/boq-line-grid';
 import { BoqImportDialog } from '@/components/boq-import-dialog';
+import { BoqUnitConvertDialog } from '@/components/boq-unit-convert-dialog';
 import { DateInput } from '@/components/date-input';
 
 export type { BoqRow };
@@ -128,6 +130,15 @@ export function BoqSheetEditor({
     if (r.unknown > 0) parts.push(`${r.unknown} รายการใช้หน่วยที่ไม่มีในทะเบียน (ช่องสีเหลือง)`);
     if (r.itemDiffers > 0) parts.push(`${r.itemDiffers} รายการนับคนละหน่วยกับสินค้าในทะเบียน ตรวจจำนวนก่อนแก้ (ช่องสีแดง)`);
     return parts.join(' · ');
+  };
+
+  // Convert weight-counted rows (เหล็ก กก.) to the unit they are bought in; money stays the same
+  const [converting, setConverting] = useState(false);
+  const applyConvert = (converted: Map<string, BoqRow>) => {
+    setRows((prev) => prev.map((r) => converted.get(r.id) ?? r));
+    markDirty();
+    setConverting(false);
+    setUnitNotice(`แปลงหน่วยและจำนวนแล้ว ${converted.size} รายการ ยอดเงินเท่าเดิม (กดบันทึกเพื่อยืนยัน)`);
   };
 
   // Respell units to the register's spelling; quantities stay as they are
@@ -486,6 +497,18 @@ export function BoqSheetEditor({
             <span className="text-[9px] text-slate-400">ปรับหน่วยนับ</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setConverting(true)}
+            disabled={!editable}
+            className="disabled:opacity-50 flex flex-col items-center justify-center px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 transition"
+            title="แปลงแถวที่นับเป็น กก. เป็นเส้น/แผ่น: คำนวณจำนวนและราคาต่อหน่วยใหม่ ยอดเงินเท่าเดิม"
+          >
+            <Scale className="w-4 h-4 text-amber-600" />
+            <span className="text-[11px] font-semibold mt-0.5">แปลงหน่วย</span>
+            <span className="text-[9px] text-slate-400">กก. → เส้น</span>
+          </button>
+
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
           {/* 5. Template BOQ */}
@@ -765,6 +788,9 @@ export function BoqSheetEditor({
         </div>
       </div>
       </fieldset>
+      {converting && (
+        <BoqUnitConvertDialog rows={rows} unitRef={unitRef} onApply={applyConvert} onClose={() => setConverting(false)} />
+      )}
       {importReview && (
         <BoqImportDialog
           fileName={importReview.fileName}
