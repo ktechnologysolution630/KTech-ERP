@@ -8,6 +8,8 @@ import { type StockCategory } from './stock';
  */
 export function stockCategoryOfBoq(name: string): StockCategory | null {
   const n = name.replace(/\s+/g, '');
+  // Checked first: "ไฟฟ้าชั่วคราว" under preliminaries is site setup, not the building's electrical work
+  if (/เตรียมการ|ชั่วคราว|แคมป์|ที่พักคนงาน|preliminar/i.test(n)) return 'งานเตรียมการ';
   if (/ปรับอากาศ|ระบายอากาศ/.test(n)) return 'งานระบบปรับอากาศ';
   if (/สุขาภิบาล|ประปา|ระบายน้ำ|บำบัดน้ำ/.test(n)) return 'งานสุขาภิบาล';
   if (/ไฟฟ้า|สื่อสาร|ภาพเสียง|เครื่องเสียง|โทรศัพท์|กล้องวงจรปิด|cctv/i.test(n)) return 'งานระบบไฟฟ้าและสื่อสาร';
