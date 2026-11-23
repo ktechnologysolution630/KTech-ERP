@@ -9,12 +9,13 @@ import { listOpenPayables } from '@/server/services/payable';
 import { getPv } from '@/server/services/pv';
 import { updatePvAction } from '../../actions';
 import { PvPayablesTable, readPvPayables, type PvPayableRow } from '../../pv-payables-table';
+import { loadOrNotFound } from '@/app/(app)/or-not-found';
 
 export default async function EditPvPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const actor = await requireUser();
   const db = await getDb();
-  const pv = await getPv(db, actor, id);
+  const pv = await loadOrNotFound(id, () => getPv(db, actor, id));
 
   const back = (
     <Link href={`/pv/${pv.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">

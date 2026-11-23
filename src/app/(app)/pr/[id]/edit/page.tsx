@@ -13,12 +13,13 @@ import { getSettings } from '@/server/services/settings';
 import { companyHeaderFrom, vendorRefsFrom } from '@/components/doc-paper-data';
 import { PrForm } from '@/components/pr-form';
 import { canEditPr } from '../../edit-rule';
+import { loadOrNotFound } from '@/app/(app)/or-not-found';
 
 export default async function EditPrPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const actor = await requireUser();
   const db = await getDb();
-  const pr = await getPr(db, actor, id);
+  const pr = await loadOrNotFound(id, () => getPr(db, actor, id));
 
   const back = (
     <Link href={`/pr/${pr.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900">
