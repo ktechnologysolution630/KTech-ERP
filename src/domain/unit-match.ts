@@ -76,7 +76,8 @@ export function registerUnitFor(unit: string, registerUnits: readonly string[]):
 
 /** Item names are compared the way people type them: spacing and case do not count. */
 export function itemNameKey(name: string): string {
-  return unitKey(name);
+  // BOQ sub-items are written "- เหล็กกล่อง …" or "└ …"; the marker is not part of the name
+  return unitKey(name.replace(/^[\s\-–—•·*└├>]+/, ''));
 }
 
 export interface UnitReference {

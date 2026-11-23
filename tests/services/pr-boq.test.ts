@@ -303,3 +303,30 @@ describe('PO approval by the owner alone', () => {
     expect((await getPo(db, f.users.owner, po.id)).status).toBe('APPROVED');
   });
 });
+
+describe('changing a BOQ unit', () => {
+  test('a line PRs already counted cannot switch to another kind of unit, a respelling is fine', async () => {
+    const { db, f, steel } = await setup();
+    await createPr(db, f.users.foreman, { projectId: f.projectA, prType: 'GOODS', lines: [steelLine(steel.id, 10)] });
+    const sheet = (await getProjectBoqSheet(db, f.users.pm, f.projectA)).boq!;
+    const save = (unit: string, qty: number) =>
+      saveProjectMainBoq(db, f.users.pm, f.projectA, {
+        baseUpdatedAt: sheet.updatedAt,
+        revision: 0,
+        estimateDate: null,
+        projectTitle: '',
+        location: '',
+        owner: '',
+        workDetail: '',
+        estimator: '',
+        overheadPercent: 0,
+        discountAmount: 0,
+        vatPercent: 7,
+        remarks: '',
+        lines: sheet.lines.map((l) => (l.id === steel.id ? { ...l, unit, qty } : l)),
+      });
+    await expect(save('กก.', 888)).rejects.toMatchObject({ code: 'BOQ_UNIT_IN_USE' });
+    await expect(save('ท่อน', 100)).resolves.toBeTruthy();
+  });
+});
+
