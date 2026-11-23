@@ -50,9 +50,12 @@ describe('QT → SO → TI with stock cut and cost of sales', () => {
 
     // A sales order can't go back to a quotation
     await expect(createSalesDoc(db, f.users.finance, { kind: 'QT', docDate: '2026-11-11', customerName: 'ลูกค้า ก', lines }, { sourceId: so.id })).rejects.toMatchObject({ status: 400 });
-    // Short stock refuses the whole invoice
+    // More than the order holds is refused; short stock refuses the whole invoice
     await expect(
       createSalesDoc(db, f.users.finance, { kind: 'TI', docDate: '2026-11-12', customerName: 'ลูกค้า ก', lines: [{ ...lines[0]!, qty: 50 }] }, { sourceId: so.id }),
+    ).rejects.toMatchObject({ code: 'OVER_SALES_ORDER' });
+    await expect(
+      createSalesDoc(db, f.users.finance, { kind: 'TI', docDate: '2026-11-12', customerName: 'ลูกค้า ก', lines: [{ ...lines[0]!, qty: 50 }] }),
     ).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK' });
 
     const ti = await createSalesDoc(db, f.users.finance, { kind: 'TI', docDate: '2026-11-12', customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', lines }, { sourceId: so.id });
@@ -123,5 +126,29 @@ describe('TI → RC collects the receivable', () => {
       { kind: 'RC', docDate: '2026-11-16', customerName: 'ลูกค้า ก', vatMode: 'EXCLUSIVE', payMethod: 'TRANSFER', lines: [{ name: 'รับชำระ', qty: 1, unitPrice: 4000 }] },
       { sourceId: ti.id },
     );
+  });
+});
+
+describe('tax invoices stay within their sales order', () => {
+  test('SO → TI refuses more than ordered, counting invoices already issued; a cancelled one frees its quantity', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const item = await upsertStockItem(db, f.users.buyer, { name: 'กระเบื้อง 60x60', unit: 'กล่อง', unitCost: 0 });
+    await recordStockMovement(db, f.users.buyer, { stockItemId: item.id, projectId: null, type: 'RECEIVE', quantity: 100, unitCost: 300 });
+    const tile = { name: 'กระเบื้อง 60x60', unit: 'กล่อง', unitPrice: 500, stockItemId: item.id };
+    const so = await createSalesDoc(db, f.users.finance, { kind: 'SO', docDate: '2026-11-11', customerName: 'ลูกค้า ก', lines: [{ ...tile, qty: 5 }, { name: 'ค่าติดตั้ง', qty: 1, unitPrice: 1000 }] });
+    const ti = (qty: number, extra: { name: string; qty: number; unitPrice: number }[] = []) =>
+      createSalesDoc(db, f.users.finance, { kind: 'TI', docDate: '2026-11-12', customerName: 'ลูกค้า ก', lines: [{ ...tile, qty }, ...extra] }, { sourceId: so.id });
+
+    await expect(ti(20)).rejects.toMatchObject({ code: 'OVER_SALES_ORDER', status: 409 });
+    const first = await ti(3, [{ name: 'ค่าติดตั้ง', qty: 1, unitPrice: 1000 }]);
+    // Only 2 boxes are left, and the installation was already billed
+    await expect(ti(3)).rejects.toMatchObject({ code: 'OVER_SALES_ORDER' });
+    await expect(ti(2, [{ name: 'ค่าติดตั้ง', qty: 1, unitPrice: 1000 }])).rejects.toMatchObject({ code: 'OVER_SALES_ORDER' });
+    await ti(2);
+    await expect(ti(1)).rejects.toMatchObject({ code: 'OVER_SALES_ORDER' });
+
+    await cancelSalesDoc(db, f.users.finance, first.id, 'ออกผิด');
+    await ti(3);
   });
 });

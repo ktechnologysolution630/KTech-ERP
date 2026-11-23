@@ -51,6 +51,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     throw err;
   }
   const { vendor: v, documents } = detail;
+  // Purchasing can see a supplier's bills and payments listed, but only finance may open them;
+  // a link they cannot open would land on the error page
+  const canOpen = (href: string) =>
+    href.startsWith('/invoices/') ? can(actor, 'invoice.manage') : href.startsWith('/pv/') ? can(actor, 'pv.manage') : href === '/payables' ? can(actor, 'payable.request') : true;
   const attachments = await listAttachments(db, 'VENDOR', v.id);
   const fullAddress = [v.address, v.building, v.moo && `หมู่ ${v.moo}`, v.soi && `ซอย ${v.soi}`, v.road && `ถนน ${v.road}`, v.subdistrict, v.district, v.province, v.postcode]
     .filter(Boolean)
@@ -180,9 +184,13 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
             {documents.map((doc, i) => (
               <li key={`${doc.href}-${i}`} className="flex items-center gap-3 px-5 py-2">
                 <span className="w-32 shrink-0 text-slate-500">{doc.label}</span>
-                <Link href={doc.href} className="min-w-0 truncate font-mono text-[#2453d4] hover:underline">
-                  {doc.number}
-                </Link>
+                {canOpen(doc.href) ? (
+                  <Link href={doc.href} className="min-w-0 truncate font-mono text-[#2453d4] hover:underline">
+                    {doc.number}
+                  </Link>
+                ) : (
+                  <span className="min-w-0 truncate font-mono text-slate-700">{doc.number}</span>
+                )}
                 {doc.cancelled && <span className="shrink-0 text-slate-500">(ยกเลิกแล้ว)</span>}
               </li>
             ))}
