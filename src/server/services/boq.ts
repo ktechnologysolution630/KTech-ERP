@@ -1,10 +1,11 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { boqLines, boqs, poLines, prLines, projects, type BoqKind, type SessionUser } from '@/db/schema';
+import { boqLines, boqs, items, poLines, prLines, projects, units, type BoqKind, type SessionUser } from '@/db/schema';
 import { computeBoqTotals } from '@/domain/boq';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
+import { itemNameKey, unitKey, type UnitReference } from '@/domain/unit-match';
 import { assertCan, can } from '@/server/policy';
 import { logActivity } from './activity';
 import { nextDocNumber } from './numbering';
@@ -144,6 +145,30 @@ export interface ProjectBoqSheet {
 }
 
 /** Loads the project's main BOQ for viewing; throws 404/403 for unknown or inaccessible projects. */
+/**
+ * Units of the item register (ทะเบียนสินค้า) and each active item's unit, for checking BOQ units.
+ * A name used by items counted in different units is left out: it does not say which unit is right.
+ */
+export async function getUnitReference(db: Db): Promise<UnitReference> {
+  const unitRows = await db.select({ name: units.name }).from(units).orderBy(asc(units.name));
+  const itemRows = await db
+    .select({ name: items.name, unit: units.name })
+    .from(items)
+    .innerJoin(units, eq(units.id, items.unitId))
+    .where(eq(items.active, true));
+  const itemUnits: Record<string, string> = {};
+  const ambiguous = new Set<string>();
+  for (const it of itemRows) {
+    const key = itemNameKey(it.name);
+    if (!key) continue;
+    const seen = itemUnits[key];
+    if (seen !== undefined && unitKey(seen) !== unitKey(it.unit)) ambiguous.add(key);
+    else itemUnits[key] = it.unit;
+  }
+  for (const key of ambiguous) delete itemUnits[key];
+  return { units: unitRows.map((u) => u.name), itemUnits };
+}
+
 export async function getProjectBoqSheet(
   db: Db,
   actor: SessionUser,
