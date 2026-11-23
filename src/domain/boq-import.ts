@@ -2,6 +2,9 @@ import { D, parseDecimalInput, round2 } from './money';
 import { findDates } from './project-pdf';
 
 /** One spreadsheet cell: its stored value, and the text Excel shows, which keeps numbering like 1.10 intact. */
+/** Column headings of a BOQ workbook: the template and export write them, the import reads them */
+export const BOQ_SHEET_COLUMNS = ['ลำดับ', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วยวัสดุ', 'ราคาต่อหน่วยค่าแรง', 'หมายเหตุ'] as const;
+
 export interface BoqSheetCell {
   v: string | number;
   w: string;

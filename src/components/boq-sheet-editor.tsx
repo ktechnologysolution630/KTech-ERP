@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { computeBoqCategoryTotals, computeBoqLine } from '@/domain/boq';
-import { parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
+import { BOQ_SHEET_COLUMNS, parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
 import { bangkokDateString } from '@/domain/thai';
 import type { BoqDocumentDto } from '@/server/services/boq';
 import { saveBoqAction } from '@/app/(app)/projects/[id]/boq/actions';
@@ -35,7 +35,7 @@ import { DateInput } from '@/components/date-input';
 
 export type { BoqRow };
 
-const BOQ_IMPORT_COLUMNS = ['ลำดับ', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วยวัสดุ', 'ราคาต่อหน่วยค่าแรง', 'หมายเหตุ'] as const;
+const BOQ_IMPORT_COLUMNS = BOQ_SHEET_COLUMNS;
 
 interface BoqSheetEditorProps {
   projectId: string;

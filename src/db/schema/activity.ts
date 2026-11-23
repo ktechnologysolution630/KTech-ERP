@@ -11,6 +11,7 @@ export type EntityType =
   | 'PV'
   | 'CLOSE_SHORT'
   | 'BOQ'
+  | 'BOQ_TAKEOFF'
   | 'MILESTONE'
   | 'VO'
   | 'AR_INVOICE'

@@ -42,6 +42,7 @@ export type DocPrefix =
   | 'INC'
   | 'EXP'
   | 'BOQ'
+  | 'TO'
   | 'PJ'
   | 'AP'
   | 'VO'

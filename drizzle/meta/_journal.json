@@ -428,6 +428,13 @@
       "when": 1795154865268,
       "tag": "0060_sales_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1795408561747,
+      "tag": "0061_boq_takeoffs",
+      "breakpoints": true
     }
   ]
 }

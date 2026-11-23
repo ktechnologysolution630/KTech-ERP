@@ -35,6 +35,7 @@ import {
   Hash,
   FileCog,
   BookOpen,
+  Ruler,
 } from 'lucide-react';
 import type { SessionUser } from '@/db/schema';
 import { isMenuVisible, type MenuKey } from '@/domain/menu';
@@ -290,6 +291,26 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                   <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
                   {!collapsed && <span>Timeline โครงการ</span>}
                 </div>
+              </Link>
+              )}
+
+              {/* ถอดแบบ BOQ จากไฟล์ PDF ของแบบ CAD */}
+              {canSee('BOQ_TAKEOFF') && (
+              <Link
+                href="/boq-takeoff"
+                prefetch={false}
+                className={`flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition ${
+                  pathname.startsWith('/boq-takeoff')
+                    ? 'bg-blue-50 text-brand font-semibold'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+                title="ถอดแบบ BOQ จาก PDF"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Ruler className="w-4 h-4 text-slate-500 shrink-0" />
+                  {!collapsed && <span>ถอดแบบ BOQ (PDF)</span>}
+                </div>
+                {!collapsed && <span className="text-[10px] text-slate-400">Take-off</span>}
               </Link>
               )}
 
