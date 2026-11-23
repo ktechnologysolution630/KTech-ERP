@@ -8,6 +8,7 @@ import {
   arInvoices,
   arReceipts,
   assets,
+  boqTakeoffs,
   vehicleTrips,
   vehicleTripExpenses,
   attachments,
@@ -311,6 +312,8 @@ export async function deleteProject(db: Db, actor: SessionUser, projectId: strin
       await tx.update(assets).set({ projectId: null, updatedAt: new Date() }).where(eq(assets.projectId, projectId));
       // A trip is the vehicle's history: it stays, counted as an office trip from now on
       await tx.update(vehicleTrips).set({ projectId: null, updatedAt: new Date() }).where(eq(vehicleTrips.projectId, projectId));
+      // Measurements made on the project's drawings are kept, no longer tied to a project
+      await tx.update(boqTakeoffs).set({ projectId: null }).where(eq(boqTakeoffs.projectId, projectId));
 
       const files = await tx.select({ url: attachments.url }).from(attachments).where(inArray(attachments.entityId, entityIds));
       await tx.delete(attachments).where(inArray(attachments.entityId, entityIds));

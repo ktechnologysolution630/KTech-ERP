@@ -282,7 +282,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
       <li><span class="dot"></span><span class="rt-name">จ่ายเงิน + 50 ทวิ</span><span class="rt-who">การเงิน</span></li>
     </ol>
     <nav class="toc" aria-label="สารบัญ">
-      <a href="#whatsnew">มีอะไรใหม่</a><a href="#start">เริ่มต้นใช้งาน</a><a href="#modules">แผนที่เมนู</a><a href="#roles">ตำแหน่งและสิทธิ์</a><a href="#procure">จัดซื้อ → จ่ายเงิน</a><a href="#approvals">ใครอนุมัติอะไร</a><a href="#projects">โครงการ</a><a href="#labor">ค่าแรง / งวดงาน</a><a href="#money">เงินทดรอง · รายรับ · บัญชี</a><a href="#sales">ขาย QT → SO → ใบกำกับภาษี</a><a href="#ledger">สมุดบัญชี · ปิดงวด</a><a href="#stock">สต็อก · ทรัพย์สิน</a><a href="#vehicles">การใช้รถ</a><a href="#after">ส่งมอบ · ประกัน</a><a href="#admin">ผู้ดูแลระบบ</a><a href="#tips">ข้อควรรู้</a>
+      <a href="#whatsnew">มีอะไรใหม่</a><a href="#start">เริ่มต้นใช้งาน</a><a href="#modules">แผนที่เมนู</a><a href="#roles">ตำแหน่งและสิทธิ์</a><a href="#procure">จัดซื้อ → จ่ายเงิน</a><a href="#approvals">ใครอนุมัติอะไร</a><a href="#projects">โครงการ</a><a href="#takeoff">ถอดแบบ BOQ (PDF)</a><a href="#labor">ค่าแรง / งวดงาน</a><a href="#money">เงินทดรอง · รายรับ · บัญชี</a><a href="#sales">ขาย QT → SO → ใบกำกับภาษี</a><a href="#ledger">สมุดบัญชี · ปิดงวด</a><a href="#stock">สต็อก · ทรัพย์สิน</a><a href="#vehicles">การใช้รถ</a><a href="#after">ส่งมอบ · ประกัน</a><a href="#admin">ผู้ดูแลระบบ</a><a href="#tips">ข้อควรรู้</a>
     </nav>
   </div>
 </header>
@@ -313,11 +313,13 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
   <!-- ===================== WHAT'S NEW ===================== -->
   <section id="whatsnew">
     <div class="sec-head">
-      <span class="eyebrow">อัปเดต 21 พ.ย. 2569</span>
+      <span class="eyebrow">อัปเดต 23 พ.ย. 2569</span>
       <h2>มีอะไรใหม่</h2>
       <p>สรุปความสามารถที่เพิ่มเข้ามารอบนี้ กดลิงก์ในแต่ละข้อเพื่อไปดูขั้นตอน</p>
     </div>
     <ul class="tips">
+      <li data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><b>เมนูใหม่: ถอดแบบ BOQ จาก PDF</b>เปิดแบบ CAD ที่สั่งพิมพ์เป็น PDF แล้ววัดระยะ วัดพื้นที่ และนับจำนวนบนแบบได้เลย ระบบรวมปริมาณเป็นรายการ BOQ ให้ ดาวน์โหลดเป็น Excel หรือส่งเข้า BOQ ของโครงการได้ในคลิกเดียว ดู <a href="#takeoff">ถอดแบบ BOQ</a></li>
+      <li data-roles="SITE PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><b>หมวดใหม่: งานเตรียมการ (แคมป์คนงานและงานชั่วคราว)</b>วัสดุที่ใช้ทำแคมป์คนงาน เช่น ไม้ เหล็ก สังกะสี ให้เลือกหมวด <b>งานเตรียมการ</b> แล้วเลือกกลุ่ม <b>ที่พักคนงานและสิ่งอำนวยความสะดวกชั่วคราว</b> งบงานโครงสร้างและงานหลังคาจะได้ไม่เพี้ยน ในหมวดนี้ยังมีกลุ่ม สำนักงานสนามและโรงเก็บวัสดุชั่วคราว · ไฟฟ้าและประปาชั่วคราว · รั้วชั่วคราวและทางเข้าออกหน้างาน เลือกได้ทั้งตอนเปิดใบขอซื้อ PR และตอนเพิ่มสินค้าในทะเบียนสินค้า ถ้า BOQ ของโครงการมีหัวหมวดชื่อ “งานเตรียมการ” หรือมีคำว่า “ชั่วคราว” / “แคมป์” รายการใต้หัวนั้นจะขึ้นให้เลือกในหมวดนี้</li>
       <li data-roles="ALL"><b>หน้าตาใหม่สไตล์ Apple</b>ทุกหน้าใช้สีเทาอ่อนสบายตา ปุ่มหลักสีฟ้า การ์ดมุมโค้ง หัวตารางสีเทาอ่อน ตัวเลขเงินเรียงตรงคอลัมน์ เมนูซ้ายและแถบด้านบนโปร่งแสง เปลี่ยนหน้าแล้วเนื้อหาค่อย ๆ เลื่อนขึ้นมา กดปุ่มแล้วปุ่มยุบลงเล็กน้อย กดเมนูย่อยแล้วกางออกแบบนุ่ม ๆ คลิกช่องกรอกแล้วมีขอบสีฟ้ารอบช่อง ถ้าไม่ชอบการเคลื่อนไหว ให้เปิด “ลดการเคลื่อนไหว” ในการตั้งค่าของ Windows / macOS / มือถือ ระบบจะหยุดอนิเมชันให้เอง ปุ่ม เมนู ขั้นตอน และฟอร์มเอกสารที่พิมพ์ออกยังเหมือนเดิม</li>
       <li data-roles="ALL"><b>คู่มือการใช้งานแบบ Pipeline ในระบบ</b>กดเมนู ตั้งค่า › คู่มือการใช้งาน เลือกสายงานได้ 10 สาย (เริ่มต้นใช้งาน จัดซื้อ ขาย โครงการ งวดงาน เงินทดรอง · รายรับ บัญชี สต็อก · ทรัพย์สิน การใช้รถ และผู้ดูแลระบบ) แล้วเลื่อนหน้าจอเพื่อดูทีละขั้น แตะการ์ดเพื่อดูวิธีทำของขั้นนั้น เลือกตำแหน่งของคุณจาก 11 ตำแหน่งในระบบ (เช่น โฟร์แมน วิศวกร จัดซื้อ การเงิน/บัญชี) เพื่อให้ขั้นที่เป็นงานของคุณมีป้าย งานของคุณ กด เปิดเต็มจอ เพื่อดูแบบเต็มหน้าจอ</li>
       <li data-roles="ALL"><b>เมนูบัญชี / การเงิน แบ่งเป็น 6 กลุ่ม</b>ขาย / ลูกหนี้ · ซื้อ / เจ้าหนี้ · การเงิน · บัญชี / ภาษี · รายงาน · ทรัพย์สิน / การใช้รถ กดชื่อกลุ่มเพื่อกางหรือพับ ดู <a href="#finance-groups">แผนที่เมนู</a></li>
@@ -402,6 +404,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
       <div class="tile" data-roles="FINANCE GENERAL_MANAGER OWNER ADMIN"><span class="tile-name">Dashboard</span><p>ยอดขายเดือนนี้/ปีนี้ กำไรขั้นต้น มูลค่าสินค้าคงเหลือ กราฟยอดขาย 12 เดือน สินค้าต่ำกว่าจุดสั่งซื้อ เงินเข้า/ออก ลูกหนี้ เจ้าหนี้ และสุขภาพแต่ละโครงการ</p><div class="meta"><span class="who fin">การเงิน</span><span class="who exec">ผจก.ทั่วไป</span><span class="who exec">เจ้าของ</span><span class="who admin">แอดมิน</span></div></div>
       <div class="tile" data-roles="PM PURCHASING_HEAD FINANCE GENERAL_MANAGER OWNER ADMIN"><span class="tile-name">K Tec Approve</span><p>ศูนย์อนุมัติเอกสาร 12 ประเภท รวมไว้ที่เดียว</p><div class="meta"><span class="who pm">PM</span><span class="who pur">หัวหน้าจัดซื้อ</span><span class="who fin">การเงิน</span><span class="who exec">ผู้บริหาร</span></div></div>
       <div class="tile" data-roles="ALL"><span class="tile-name">โครงการ · Timeline โครงการ</span><p>พื้นที่ทำงานของแต่ละโครงการ 14 แท็บ: BOQ งาน แกนต์ รายงานประจำวัน VO เอกสาร แชท และภาพรวมทุกโครงการบนไทม์ไลน์</p><div class="meta"><span class="who admin">ทุกคน</span><span class="where" style="margin-left:0">หน้างานเห็นเฉพาะโครงการที่สังกัด</span></div></div>
+      <div class="tile" data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><span class="tile-name">ถอดแบบ BOQ (PDF)</span><p>เปิดแบบ CAD ที่พิมพ์เป็น PDF วัดระยะ พื้นที่ นับจำนวน แล้วได้รายการ BOQ พร้อมปริมาณ ส่งเข้า BOQ โครงการหรือดาวน์โหลด Excel</p><div class="meta"><span class="who site">วิศวกร</span><span class="who site">สถาปนิก</span><span class="who pm">PM</span><span class="who pur">จัดซื้อ</span><span class="who exec">ผู้บริหาร</span></div></div>
       <div class="tile" data-roles="SITE PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><span class="tile-name">สต็อก</span><p>ภาพรวม ความเคลื่อนไหว วัสดุใกล้หมด บันทึกการใช้วัสดุ นับสต็อก ปรับปรุงยอด (AJ) และสมุดคุมสต็อก (Stock Card)</p><div class="meta"><span class="who site">หน้างาน</span><span class="who pur">จัดซื้อ</span><span class="who exec">ผู้บริหาร</span></div></div>
       <div class="tile" data-roles="SITE PM PURCHASING PURCHASING_HEAD FINANCE GENERAL_MANAGER OWNER ADMIN"><span class="tile-name">จัดซื้อ / สั่งซื้อ</span><p>ใบขอซื้อ PR, ใบสั่งซื้อ PO, อนุมัติจัดซื้อ, ใบ AP (ขอซื้อเกิน BOQ), รอรับสินค้า, ซัพพลายเออร์, ทะเบียนสินค้า, รายงานจัดซื้อประจำโครงการ</p><div class="meta"><span class="who site">หน้างาน</span><span class="who pur">จัดซื้อ</span><span class="who pm">PM</span></div></div>
       <div class="tile" data-roles="SITE PM PURCHASING PURCHASING_HEAD FINANCE GENERAL_MANAGER OWNER ADMIN"><span class="tile-name">ค่าแรง / งวดงาน</span><p>แผนงวดงานจ่าย (ผู้รับเหมา) และแผนงวดงานรับ (ลูกค้า), ผู้รับเหมาและทีมงาน, ใบสั่งจ่ายเงิน (PRV), คิวตั้งจ่าย</p><div class="meta"><span class="who site">หน้างาน</span><span class="who pm">PM</span><span class="who fin">การเงิน</span></div></div>
@@ -697,6 +700,76 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
       <div class="tabitem"><b>ทีมงาน</b>เพิ่ม/ถอดคนออกจากโครงการ</div>
       <div class="tabitem"><b>ตั้งค่า</b>รูปพื้นหลัง และลบโครงการ (เจ้าของ/แอดมิน)</div>
     </div>
+  </section>
+
+  <!-- ===================== TAKE-OFF ===================== -->
+  <section id="takeoff">
+    <div class="sec-head">
+      <span class="eyebrow">เมนู ถอดแบบ BOQ (PDF)</span>
+      <h2>ถอดแบบ BOQ จากไฟล์ PDF</h2>
+      <p>ใช้กับแบบ CAD ที่สั่งพิมพ์ออกมาเป็น PDF วัดบนแบบด้วยเมาส์ แล้วระบบคำนวณปริมาณและราคาให้ ไฟล์ PDF เปิดอยู่ในเครื่องของคุณเท่านั้น ไม่ถูกอัปโหลด ระบบเก็บเฉพาะผลการวัด</p>
+    </div>
+    <ol class="flow">
+      <li class="step"><span class="n">1</span><div class="card" data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN">
+        <div class="card-title"><span class="code">TO</span><h3>เริ่มงานถอดแบบ</h3></div>
+        <div class="meta"><span class="who site">วิศวกร</span><span class="who site">สถาปนิก</span><span class="who pm">PM</span><span class="who pur">จัดซื้อ</span><span class="who exec">ผู้บริหาร</span><span class="where">ถอดแบบ BOQ (PDF)</span></div>
+        <ul class="do">
+          <li>กดเมนู <b>ถอดแบบ BOQ (PDF)</b> ที่แถบซ้าย (ใต้ Timeline โครงการ) แล้วกด <b class="btn">ถอดแบบใหม่</b></li>
+          <li>ใส่ชื่องาน เช่น อาคาร A ชั้น 1 งานสถาปัตย์ เลือกโครงการ (ไม่บังคับ) แล้วกด <b class="btn">สร้างแล้วเลือกไฟล์ PDF</b> ระบบออกเลขที่ TO ให้</li>
+          <li>กด <b class="btn">เลือกไฟล์ PDF</b> หรือลากไฟล์มาวาง แบบหลายหน้าเลือกหน้าได้ที่ช่อง หน้า 1/N (หน้าที่มีการวัดแล้วมีจุด •)</li>
+          <li>ครั้งต่อไปที่เปิดงานเดิมบนเครื่องเดิม แบบจะเปิดขึ้นมาเอง ถ้าเปิดจากเครื่องอื่น ระบบจะขอให้เลือกไฟล์เดิมอีกครั้ง และเตือนถ้าเลือกไฟล์ที่ไม่ใช่ไฟล์เดียวกัน</li>
+        </ul>
+      </div></li>
+      <li class="step"><span class="n">2</span><div class="card" data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN">
+        <h3>ตั้งสเกลของหน้า</h3>
+        <div class="meta"><span class="where">ถอดแบบ BOQ (PDF) › แผงขวา › สเกลของหน้า</span></div>
+        <ul class="do">
+          <li>แบบที่สั่งพิมพ์ตามสเกลจริง: เลือกสเกลจากช่อง <b class="btn">สเกลตามแบบ...</b> เช่น 1:100</li>
+          <li>แบบที่ย่อให้พอดีกระดาษ หรือไม่แน่ใจ: กด <b class="btn">วัดเทียบระยะจริง</b> คลิกหัวและท้ายของเส้นที่รู้ระยะ (เช่น เส้นบอกระยะ 6.00 ม.) ใส่ระยะจริงเป็นเมตร แล้วกด <b class="btn">ใช้กับหน้านี้</b> หรือ <b class="btn">ใช้กับทุกหน้า</b></li>
+          <li>หน้าที่ยังไม่ตั้งสเกลจะมีข้อความสีส้มเตือน การวัดระยะและพื้นที่บนหน้านั้นยังไม่ถูกนับจนกว่าจะตั้งสเกล (การนับจำนวนไม่ต้องใช้สเกล)</li>
+        </ul>
+      </div></li>
+      <li class="step"><span class="n">3</span><div class="card" data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN">
+        <h3>เพิ่มรายการแล้ววัดบนแบบ</h3>
+        <div class="meta"><span class="where">ถอดแบบ BOQ (PDF) › แผงขวา › รายการถอดแบบ</span></div>
+        <ul class="do">
+          <li>กด <b class="btn">เพิ่มรายการ</b> เลือกวิธีวัด <b>วัดระยะ</b> (เช่น ผนัง ท่อ บัว) <b>วัดพื้นที่</b> (เช่น พื้น ฝ้า หลังคา) หรือ <b>นับจำนวน</b> (เช่น ดวงโคม สุขภัณฑ์ ประตู) ใส่หมวดงาน ชื่อรายการ หน่วย และราคาวัสดุ/ค่าแรงต่อหน่วย (ถ้ามี)</li>
+          <li><b>ตัวคูณ</b>: ใส่ความสูงผนังเพื่อเปลี่ยนความยาวเป็นตารางเมตร ใส่ความหนาเพื่อเปลี่ยนพื้นที่เป็นลูกบาศก์เมตร หรือใส่ 1 เพื่อใช้ค่าที่วัดตรงๆ <b>เผื่อเสีย (%)</b> บวกเพิ่มจากที่วัด</li>
+          <li>กด <b class="btn">เพิ่มแล้วเริ่มวัด</b> แล้วคลิกบนแบบ: วัดระยะ คลิกทีละจุดตามแนว แล้วดับเบิลคลิกหรือกด Enter เพื่อจบเส้น · วัดพื้นที่ คลิกรอบขอบ แล้วคลิกจุดแรกหรือกด Enter เพื่อปิดรูป · นับจำนวน คลิกทีละจุด</li>
+          <li>ระหว่างวัดเห็นระยะหรือพื้นที่ที่ปลายเมาส์ กด Shift ค้างให้เส้นตรงแนวนอน/แนวตั้ง กด Backspace ลบจุดล่าสุด กด Esc ยกเลิกเส้นที่กำลังวาด</li>
+          <li>ต้องหักช่องประตู หน้าต่าง หรือช่องเปิด: เลือกรายการพื้นที่นั้น ติ๊ก <b class="btn">หักช่องเปิด</b> แล้ววาดรอบช่องเปิด ระบบลบพื้นที่ส่วนนั้นออกให้ (เส้นประ)</li>
+          <li>วัดรายการอื่นต่อ: กดชื่อรายการในแผงขวาแล้วคลิกบนแบบได้เลย ปริมาณรวมของแต่ละรายการขึ้นทางขวาทันที</li>
+        </ul>
+      </div></li>
+      <li class="step"><span class="n">4</span><div class="card" data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN">
+        <h3>ตรวจและแก้การวัด</h3>
+        <div class="meta"><span class="where">ถอดแบบ BOQ (PDF) › แถบเครื่องมือเหนือแบบ</span></div>
+        <ul class="do">
+          <li>กดรายการที่เลือกอยู่ในแผงขวาเพื่อดูการวัดทีละครั้ง (หน้า และค่าที่วัด) กดแถวเพื่อไปที่หน้านั้น หรือกดถังขยะเพื่อลบ</li>
+          <li>เครื่องมือ <b class="btn">เลือก/ลบ</b>: คลิกเส้น พื้นที่ หรือจุดบนแบบ แล้วกด Delete เพื่อลบ · ปุ่มลูกศรย้อน (Ctrl+Z) ย้อนการแก้ไขล่าสุด</li>
+          <li>เครื่องมือ <b class="btn">เลื่อน</b>: ลากเพื่อเลื่อนแบบ · ซูมด้วยปุ่ม + / − หรือกด Ctrl ค้างแล้วเลื่อนล้อเมาส์ · ปุ่มกรอบสี่เหลี่ยมให้แบบพอดีความกว้างจอ</li>
+          <li>แก้ชื่อ หน่วย ตัวคูณ ราคา หรือสี: กดรูปดินสอข้างรายการ ลบทั้งรายการได้ที่ <b class="btn">ลบรายการ</b></li>
+        </ul>
+      </div></li>
+      <li class="step"><span class="n">5</span><div class="card" data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN">
+        <h3>บันทึก ส่งออก และส่งเข้า BOQ โครงการ</h3>
+        <div class="meta"><span class="who pm">PM</span><span class="who site">วิศวกร</span><span class="who site">สถาปนิก</span><span class="who exec">ผู้บริหาร</span><span class="where">ถอดแบบ BOQ (PDF) › ปุ่มมุมขวาบน</span></div>
+        <ul class="do">
+          <li>ระบบบันทึกให้เองทุกไม่กี่วินาทีหลังแก้ไข หรือกด <b class="btn">บันทึก</b> (Ctrl+S) สถานะบันทึกแล้ว/ยังไม่บันทึก แสดงข้างปุ่ม</li>
+          <li><b class="btn">Excel</b>: ดาวน์โหลดรายการเป็นไฟล์แบบฟอร์ม BOQ (ลำดับ รายการ จำนวน หน่วย ราคาวัสดุ ค่าแรง หมายเหตุ) นำไปกด Import ในหน้า BOQ ของโครงการได้</li>
+          <li><b class="btn">ส่งเข้า BOQ โครงการ</b>: เลือกโครงการ แล้วกด <b class="btn">ส่งเข้า BOQ</b> ระบบเพิ่มหัวหมวดและรายการต่อท้าย BOQ หลักของโครงการ (ถ้ายังไม่มี BOQ ระบบสร้างให้) รายการเดิมใน BOQ ไม่ถูกแก้ หมายเหตุของแต่ละแถวมีเลขที่ TO ที่มา</li>
+          <li>ส่งเข้า BOQ ได้เฉพาะคนที่แก้ BOQ ของโครงการนั้นได้ (PM วิศวกร สถาปนิกของโครงการ ผู้จัดการทั่วไป เจ้าของ แอดมิน) คนอื่นใช้ปุ่ม Excel แล้วส่งไฟล์ให้ผู้ดูแล BOQ</li>
+          <li>ถ้าเคยส่งแล้วระบบจะเตือนก่อนส่งซ้ำ เพราะรายการจะซ้ำใน BOQ หน้ารายการงานถอดแบบแสดงคอลัมน์ ส่งเข้า BOQ ว่าส่งเข้า BOQ เลขที่ใดแล้ว</li>
+        </ul>
+      </div></li>
+    </ol>
+    <div class="subhead"><h3>เคล็ดลับ</h3><p>สิ่งที่ช่วยให้ถอดแบบได้เร็วและแม่นขึ้น</p></div>
+    <ul class="tips">
+      <li data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><b>สั่งพิมพ์ PDF จาก CAD แบบ Vector</b>ไฟล์คมชัดเมื่อซูมมาก และวางจุดได้ตรงกว่าไฟล์สแกน</li>
+      <li data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><b>ตรวจสเกลก่อนวัดจริง</b>วัดเส้นบอกระยะสักเส้นด้วยรายการวัดระยะ ถ้าได้ตัวเลขตรงกับที่เขียนบนแบบ แปลว่าสเกลถูก</li>
+      <li data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><b>แยกงานตามชั้นหรือหมวด</b>เช่น งานถอดแบบละ 1 ชั้น ทำให้ตรวจง่ายและส่งเข้า BOQ เป็นหมวดๆ ได้</li>
+      <li data-roles="ENGINEER ARCHITECT PROJECT_CLERK PM PURCHASING PURCHASING_HEAD GENERAL_MANAGER OWNER ADMIN"><b>ลบงานถอดแบบ</b>ทำได้ที่หน้ารายการ (ไอคอนถังขยะ) เฉพาะผู้สร้างหรือผู้ดูแลระบบ รายการที่ส่งเข้า BOQ ไปแล้วไม่ถูกลบตาม</li>
+    </ul>
   </section>
 
   <!-- ===================== LABOR ===================== -->
@@ -1100,6 +1173,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
       <li><b>เลขที่เอกสาร</b>PR-รหัสโครงการ-เดือนลำดับ เช่น PR-K68-007-11001 เอกสารอื่นเป็น ชื่อย่อ-ปีเดือน(พ.ศ.)-ลำดับ เช่น PO-6911-0001 เริ่มนับใหม่ทุกเดือน</li>
       <li><b>ยกเลิกแล้วระบบถามยืนยันก่อน</b>ถ้ากดแล้วทำไม่ได้ เช่น ยกเลิก PO ที่รับของแล้ว จะขึ้นแถบสีแดงบอกเหตุผลเป็นภาษาไทย ให้อ่านแล้วแก้ตามนั้น</li>
       <li><b>ใบกำกับภาษีจากใบสั่งขายออกได้ไม่เกินยอดที่สั่ง</b>แบ่งออกหลายใบได้ แต่รวมกันต้องไม่เกินจำนวนในใบสั่งขาย ถ้าเกินจะขึ้นแถบสีแดงบอกว่าเหลือออกได้อีกเท่าไร ถ้ายกเลิกใบกำกับภาษีใบไหน ยอดนั้นจะกลับมาออกใหม่ได้</li>
+      <li><b>ของทำแคมป์คนงานไม่ใช่งานโครงสร้าง</b>ไม้ เหล็ก สังกะสี ที่ใช้ทำที่พักหรือโรงเก็บของชั่วคราว ให้ลงหมวด งานเตรียมการ ไม่ใช่งานโครงสร้างหรืองานหลังคา</li>
       <li><b>ใบสั่งขายยังไม่ตัดสต็อก</b>สต็อกและต้นทุนขายเกิดตอนออกใบกำกับภาษี (หรือใบกำกับภาษีอย่างย่อ) และสต็อกไม่พอออกไม่ได้</li>
       <li><b>วงเงินเครดิตเป็นคำเตือน</b>ใบแจ้งหนี้ที่ทำให้ลูกค้าเกินวงเงินยังวางบิลได้ แต่จะขึ้นเตือนให้ตัดสินใจ</li>
       <li><b>งวดที่ปิดแล้วแก้ไม่ได้</b>เอกสารลงวันที่ในงวดที่ปิด บันทึก แก้ หรือยกเลิกไม่ได้ ต้องให้เจ้าของหรือผู้ดูแลระบบเปิดงวดก่อน</li>
@@ -1112,7 +1186,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
 
 <footer>
   <div class="wrap">
-    <span>จัดทำจากระบบ K Tec ERP เวอร์ชันวันที่ 21 พ.ย. 2569 ชื่อปุ่มและสถานะตรงกับหน้าจอจริง</span>
+    <span>จัดทำจากระบบ K Tec ERP เวอร์ชันวันที่ 23 พ.ย. 2569 ชื่อปุ่มและสถานะตรงกับหน้าจอจริง</span>
     <span>ถ้าหน้าจอจริงต่างจากคู่มือ ให้ยึดหน้าจอเป็นหลัก และแจ้งผู้ดูแลระบบเพื่ออัปเดตคู่มือ</span>
   </div>
 </footer>
@@ -1126,7 +1200,7 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
 
   // The sidebar, from src/domain/menu.ts
   var MENU = [
-    ['DASHBOARD', 'Dashboard'], ['APPROVALS', 'K Tec Approve'], ['PROJECTS', 'โครงการ'], ['TIMELINE', 'Timeline โครงการ'],
+    ['DASHBOARD', 'Dashboard'], ['APPROVALS', 'K Tec Approve'], ['PROJECTS', 'โครงการ'], ['TIMELINE', 'Timeline โครงการ'], ['BOQ_TAKEOFF', 'ถอดแบบ BOQ (PDF)'],
     ['STOCK', 'สต็อก', [['STOCK_OVERVIEW', 'ภาพรวมสต็อก'], ['STOCK_MOVEMENTS', 'รายการเคลื่อนไหวล่าสุด'], ['STOCK_LOW', 'แจ้งเตือนวัสดุใกล้หมด'], ['STOCK_ISSUES', 'รายงานความเคลื่อนไหวสินค้า'], ['STOCK_USAGE', 'บันทึกการใช้วัสดุ'], ['STOCK_ALL', 'สต็อกทั้งหมด'], ['STOCK_COUNT', 'นับสต็อก'], ['STOCK_ADJUST', 'ปรับปรุงยอดสต็อก'], ['STOCK_CARD', 'สมุดคุมสต็อก (Stock Card)']]],
     ['PURCHASING', 'จัดซื้อ / สั่งซื้อ', [['PUR_PROJECT_REPORT', 'รายงานสรุปการจัดซื้อประจำโครงการ'], ['PUR_OVERVIEW', 'ภาพรวมจัดซื้อ'], ['PUR_PR', 'ใบขอซื้อ PR'], ['PUR_PO', 'ใบสั่งซื้อ PO'], ['PUR_APPROVE', 'อนุมัติจัดซื้อ'], ['PUR_AP', 'ใบ AP'], ['PUR_VENDORS', 'ซัพพลายเออร์'], ['PUR_ITEMS', 'ทะเบียนสินค้า'], ['PUR_RECEIVE', 'รอรับสินค้า']]],
     ['LABOR', 'ค่าแรง / งวดงาน', [['LABOR_PAY', 'แผนงวดงานจ่าย'], ['LABOR_RECEIVE', 'แผนงวดงานรับ'], ['LABOR_REPORT', 'รายงานงวดงาน'], ['LABOR_CONTRACTORS', 'ผู้รับเหมาและทีมงาน'], ['LABOR_PRV', 'ใบสั่งจ่ายเงิน (PRV)'], ['LABOR_PAYABLES', 'คิวตั้งจ่าย']]],
@@ -1143,15 +1217,15 @@ tbody tr.is-mine td { background: color-mix(in srgb, var(--brand) 8%, var(--surf
   var EVERYONE = ['PROJECTS', 'TIMELINE', 'FIN_ADVANCES', 'FIN_RECEIPT_SUBSTITUTES'];
   var STOCK = ['STOCK_OVERVIEW', 'STOCK_MOVEMENTS', 'STOCK_LOW', 'STOCK_ISSUES', 'STOCK_USAGE', 'STOCK_ALL', 'STOCK_COUNT', 'STOCK_ADJUST', 'STOCK_CARD'];
   var FOREMAN = EVERYONE.concat(STOCK, ['PUR_PR', 'PUR_RECEIVE', 'LABOR_PRV', 'FIN_ASSETS', 'AS_WARRANTY']);
-  var ENGINEER = FOREMAN.concat(['LABOR_REPORT']);
-  var PURCHASING = EVERYONE.concat(STOCK, ['PUR_OVERVIEW', 'PUR_PROJECT_REPORT', 'PUR_PR', 'PUR_PO', 'PUR_AP', 'PUR_VENDORS', 'PUR_ITEMS', 'PUR_RECEIVE', 'LABOR_PRV', 'LABOR_CONTRACTORS']);
+  var ENGINEER = FOREMAN.concat(['LABOR_REPORT', 'BOQ_TAKEOFF']);
+  var PURCHASING = EVERYONE.concat(STOCK, ['BOQ_TAKEOFF', 'PUR_OVERVIEW', 'PUR_PROJECT_REPORT', 'PUR_PR', 'PUR_PO', 'PUR_AP', 'PUR_VENDORS', 'PUR_ITEMS', 'PUR_RECEIVE', 'LABOR_PRV', 'LABOR_CONTRACTORS']);
   var VISIBLE = {
     FOREMAN: FOREMAN, ENGINEER: ENGINEER, ARCHITECT: ENGINEER, PROJECT_CLERK: ENGINEER,
     PM: ENGINEER.concat(['APPROVALS', 'PUR_OVERVIEW', 'PUR_PROJECT_REPORT', 'PUR_PO', 'PUR_APPROVE', 'LABOR_PAY', 'LABOR_RECEIVE', 'LABOR_CONTRACTORS', 'AS_HANDOVER']),
     PURCHASING: PURCHASING,
     PURCHASING_HEAD: PURCHASING.concat(['APPROVALS', 'PUR_APPROVE', 'FIN_ASSETS']),
     FINANCE: EVERYONE.concat(['DASHBOARD', 'APPROVALS', 'PUR_PO', 'PUR_VENDORS', 'PUR_ITEMS', 'LABOR_PAY', 'LABOR_RECEIVE', 'LABOR_REPORT', 'LABOR_CONTRACTORS', 'LABOR_PRV', 'LABOR_PAYABLES', 'FIN_CUSTOMERS', 'FIN_AR_INVOICES', 'FIN_ACCOUNTING_OVERVIEW', 'FIN_GL', 'FIN_BILL_SCAN', 'FIN_ACCOUNTING_SETTINGS', 'FIN_INPUT_VAT', 'FIN_WHT', 'FIN_ACCOUNTING_REPORTS', 'FIN_WHT_REPORT', 'FIN_PROJECT_BUDGET', 'FIN_INCOME', 'FIN_EXPENSE', 'FIN_CREDIT_NOTES', 'FIN_CASH_BANK', 'FIN_QUOTATIONS', 'FIN_SALES_ORDERS', 'FIN_RECEIPTS', 'FIN_TAX_INVOICES', 'FIN_DEBIT_NOTES', 'FIN_SHORT_TAX_INVOICES', 'FIN_RECEIVABLES', 'FIN_OUTPUT_VAT', 'FIN_AP_INVOICES', 'FIN_PV', 'FIN_CHEQUES', 'FIN_EXPORTS', 'FIN_ASSETS']),
-    GENERAL_MANAGER: EVERYONE.concat(STOCK, ['DASHBOARD', 'APPROVALS', 'PUR_OVERVIEW', 'PUR_PROJECT_REPORT', 'PUR_PR', 'PUR_PO', 'PUR_APPROVE', 'PUR_AP', 'PUR_VENDORS', 'PUR_ITEMS', 'PUR_RECEIVE', 'LABOR_PAY', 'LABOR_RECEIVE', 'LABOR_REPORT', 'LABOR_CONTRACTORS', 'LABOR_PRV', 'FIN_EXPORTS', 'FIN_ASSETS', 'AS_HANDOVER', 'AS_WARRANTY'])
+    GENERAL_MANAGER: EVERYONE.concat(STOCK, ['BOQ_TAKEOFF', 'DASHBOARD', 'APPROVALS', 'PUR_OVERVIEW', 'PUR_PROJECT_REPORT', 'PUR_PR', 'PUR_PO', 'PUR_APPROVE', 'PUR_AP', 'PUR_VENDORS', 'PUR_ITEMS', 'PUR_RECEIVE', 'LABOR_PAY', 'LABOR_RECEIVE', 'LABOR_REPORT', 'LABOR_CONTRACTORS', 'LABOR_PRV', 'FIN_EXPORTS', 'FIN_ASSETS', 'AS_HANDOVER', 'AS_WARRANTY'])
   };
 
   function expand(list) {

@@ -137,7 +137,7 @@ describe('every page and entry is accounted for', () => {
 
   test('every tickable entry actually controls a page', () => {
     const urls: [string, string?][] = [
-      ['/dashboard'], ['/approvals'], ['/projects'], ['/timeline'],
+      ['/dashboard'], ['/approvals'], ['/projects'], ['/timeline'], ['/boq-takeoff'],
       ['/stock', 'overview'], ['/stock', 'movements'], ['/stock', 'low-stock'], ['/stock', 'issues'], ['/stock', 'material-usage'], ['/stock', 'all-stock'], ['/stock', 'stock-count'], ['/stock', 'stock-adjust'], ['/stock/card'],
       ['/purchasing'], ['/purchasing/project-report'], ['/pr'], ['/po'], ['/purchasing/approve'], ['/purchasing/ap'], ['/purchasing/vendors'], ['/purchasing/items'], ['/receive'],
       ['/labor-payments', 'payment-milestones'], ['/labor-payments', 'receive-milestones'], ['/labor-payments', 'milestones'], ['/labor-payments/contractors'], ['/prv'], ['/payables'],

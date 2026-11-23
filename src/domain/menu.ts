@@ -7,6 +7,7 @@ export const MENU_TREE = [
   { key: 'APPROVALS', label: 'K Tec Approve' },
   { key: 'PROJECTS', label: 'โครงการ' },
   { key: 'TIMELINE', label: 'Timeline โครงการ' },
+  { key: 'BOQ_TAKEOFF', label: 'ถอดแบบ BOQ จาก PDF' },
   {
     key: 'STOCK',
     label: 'สต็อก',
@@ -164,6 +165,7 @@ const PATHS: [string, MenuKey[]][] = [
   ['/approvals', ['APPROVALS']],
   ['/projects', ['PROJECTS']],
   ['/timeline', ['TIMELINE']],
+  ['/boq-takeoff', ['BOQ_TAKEOFF']],
   ['/stock', ['STOCK_OVERVIEW', 'STOCK_MOVEMENTS', 'STOCK_LOW', 'STOCK_ISSUES', 'STOCK_USAGE', 'STOCK_ALL', 'STOCK_COUNT', 'STOCK_ADJUST']],
   ['/stock/card', ['STOCK_CARD']],
   ['/purchasing', ['PUR_OVERVIEW']],
