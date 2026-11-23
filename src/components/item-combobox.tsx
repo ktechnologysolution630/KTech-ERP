@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
+import { filterBySearch } from '@/lib/search-match';
 
 export interface ComboItem {
   id: string;
@@ -42,9 +43,8 @@ export function ItemCombobox({
   const [other, setOther] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const q = value.trim().toLowerCase();
   // While an entry is picked, show the whole list so another can be chosen
-  const matches = (selectedId || !q ? items : items.filter((i) => `${i.code} ${i.name}`.toLowerCase().includes(q))).slice(0, MAX_SHOWN);
+  const matches = (selectedId ? items : filterBySearch(items, value, (i) => `${i.code} ${i.name}`)).slice(0, MAX_SHOWN);
   /** "อื่นๆ" sits after the matches, so the keyboard reaches it last */
   const otherIndex = matches.length;
 

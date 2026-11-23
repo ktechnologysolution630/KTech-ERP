@@ -4,6 +4,8 @@ import { bangkokDateString, formatThaiDate } from '@/domain/thai';
 import { requireUser } from '@/server/auth/current-user';
 import { isSiteScopedOnly } from '@/server/policy';
 import { ALL_KEY, CENTRAL_KEY, cardStores, getStockCard, listCardItems } from '@/server/services/stock-card';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { SearchSelect } from '@/components/search-select';
 
 const TYPE_LABEL = { RECEIVE: 'รับเข้า', ISSUE: 'เบิก/จ่ายออก', TRANSFER: 'โอนย้าย', ADJUST: 'ปรับปรุง (AJ)', RETURN: 'รับคืน' } as const;
 const field = 'rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs';
@@ -34,30 +36,29 @@ export default async function StockCardPage({ searchParams }: { searchParams: Pr
         <p className="text-xs text-slate-500">ความเคลื่อนไหวรับเข้า-จ่ายออก-โอน-ปรับปรุงของสินค้าแต่ละตัว แยกตามคลัง คิดมูลค่าแบบต้นทุนเฉลี่ยเคลื่อนที่ (Moving Average)</p>
       </div>
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <form className="flex flex-wrap items-end gap-2">
-          <select name="item" defaultValue={itemId} aria-label="สินค้า" className={`${field} max-w-xs`}>
+        <AutoSubmitForm className="flex flex-wrap items-end gap-2">
+          <SearchSelect name="item" defaultValue={itemId} aria-label="สินค้า" className={`${field} max-w-xs`}>
             {items.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.sku} {i.name}
               </option>
             ))}
-          </select>
-          <select name="store" defaultValue={store} aria-label="คลัง" className={field}>
+          </SearchSelect>
+          <SearchSelect name="store" defaultValue={store} aria-label="คลัง" className={field}>
             {!scoped && <option value={ALL_KEY}>ทุกคลังรวมกัน</option>}
             {stores.map((s) => (
               <option key={s.key} value={s.key}>
                 {s.name}
               </option>
             ))}
-          </select>
+          </SearchSelect>
           <label className="text-[11px] text-slate-500">
             ตั้งแต่ <input type="date" name="from" defaultValue={from} className={field} />
           </label>
           <label className="text-[11px] text-slate-500">
             ถึง <input type="date" name="to" defaultValue={to} className={field} />
           </label>
-          <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
-        </form>
+        </AutoSubmitForm>
         {card && (
           <a href={`/api/csv/stock-card?${qs({ item: card.item.id, store, from, to })}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
             Export CSV

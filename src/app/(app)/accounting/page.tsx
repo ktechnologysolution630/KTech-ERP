@@ -5,6 +5,8 @@ import { requireUser } from '@/server/auth/current-user';
 import { getAccountingOverview } from '@/server/services/accounting';
 import { listProjects } from '@/server/services/master';
 import { money, selectCls, Stat, THAI_MONTHS } from './shared';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { SearchSelect } from '@/components/search-select';
 
 export default async function AccountingOverviewPage({ searchParams }: { searchParams: Promise<{ projectId?: string; tab?: string }> }) {
   const sp = await searchParams;
@@ -24,8 +26,8 @@ export default async function AccountingOverviewPage({ searchParams }: { searchP
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-900">ภาพรวมบัญชี</h1>
-        <form className="flex items-center gap-2">
-          <select name="projectId" defaultValue={sp.projectId ?? ''} aria-label="โครงการ" className={selectCls}>
+        <AutoSubmitForm className="flex items-center gap-2">
+          <SearchSelect name="projectId" defaultValue={sp.projectId ?? ''} aria-label="โครงการ" className={selectCls}>
             <option value="">ทุกโครงการ</option>
             <option value="OFFICE">สำนักงาน / ส่วนกลาง</option>
             {projects.map((p) => (
@@ -33,9 +35,8 @@ export default async function AccountingOverviewPage({ searchParams }: { searchP
                 {p.code} {p.name}
               </option>
             ))}
-          </select>
-          <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
-        </form>
+          </SearchSelect>
+        </AutoSubmitForm>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

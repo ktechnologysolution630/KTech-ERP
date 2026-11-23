@@ -12,6 +12,7 @@ import {
   type AdvResult,
 } from '../../advances/actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 export interface SubstituteEditorData {
   id: string;
@@ -88,25 +89,25 @@ export function SubstituteEditor({
           </label>
           <label>
             <span className="block text-slate-600">โครงการ</span>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={inputClass}>
+            <SearchSelect value={projectId} onChange={(e) => setProjectId(e.target.value)} className={inputClass}>
               <option value="">— ไม่ระบุ —</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
           <label>
             <span className="block text-slate-600">ใช้เคลียร์เงินทดรอง</span>
-            <select value={advanceId} onChange={(e) => setAdvanceId(e.target.value)} className={inputClass}>
+            <SearchSelect value={advanceId} onChange={(e) => setAdvanceId(e.target.value)} className={inputClass}>
               <option value="">— ไม่อ้างอิง —</option>
               {advances.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
         </div>
 

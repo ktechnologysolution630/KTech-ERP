@@ -6,6 +6,7 @@ import { Pencil, Plus, X } from 'lucide-react';
 import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
 import { deleteCustomersAction } from '@/app/(app)/accounting/delete-actions';
 import { saveCustomerAction } from '../actions';
+import { SearchSelect } from '@/components/search-select';
 
 export interface CustomerRow {
   id: string;
@@ -215,14 +216,14 @@ export function CustomersClient({
               </label>
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">พนักงานขาย</span>
-                <select value={form.salespersonId} onChange={(e) => set('salespersonId', e.target.value)} className={inputClass}>
+                <SearchSelect value={form.salespersonId} onChange={(e) => set('salespersonId', e.target.value)} className={inputClass}>
                   <option value="">— ไม่ระบุ —</option>
                   {salespeople.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <label className="block col-span-2">
                 <span className="block font-medium text-slate-700 mb-1">ชื่อลูกค้า *</span>

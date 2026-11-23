@@ -6,6 +6,8 @@ import { can } from '@/server/policy';
 import { getBankRecView, listCashAccounts, listReconciliations } from '@/server/services/bank-rec';
 import { money, selectCls } from '../../shared';
 import { BankRecClient } from './bank-rec-client';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { SearchSelect } from '@/components/search-select';
 
 export default async function BankRecPage({ searchParams }: { searchParams: Promise<{ account?: string; date?: string }> }) {
   const sp = await searchParams;
@@ -25,25 +27,22 @@ export default async function BankRecPage({ searchParams }: { searchParams: Prom
         <h1 className="mt-1 text-xl font-bold text-slate-900">กระทบยอดเงินฝากธนาคาร</h1>
         <p className="text-xs text-slate-500">ติ๊กรายการที่ปรากฏใน Statement ของธนาคาร จนยอดตรงกัน รายการที่เหลือคือเช็คจ่ายที่ยังไม่ขึ้นเงินหรือเงินฝากระหว่างทาง</p>
       </div>
-      <form className="flex flex-wrap items-end gap-2">
+      <AutoSubmitForm className="flex flex-wrap items-end gap-2">
         <label className="text-xs text-slate-600">
           บัญชี
-          <select name="account" defaultValue={account?.id} className={`${selectCls} ml-1`}>
+          <SearchSelect name="account" defaultValue={account?.id} className={`${selectCls} ml-1`}>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.code} {a.name}
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </label>
         <label className="text-xs text-slate-600">
           วันที่ Statement
           <input type="date" name="date" defaultValue={date} className={`${selectCls} ml-1`} />
         </label>
-        <button type="submit" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs">
-          แสดง
-        </button>
-      </form>
+      </AutoSubmitForm>
       {view ? <BankRecClient key={`${view.account.id}-${date}`} view={view} canManage={can(actor, 'gl.manage')} /> : <p className="text-sm text-slate-500">ยังไม่มีบัญชีเงินสด/ธนาคารในผังบัญชี</p>}
       {history.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-5">

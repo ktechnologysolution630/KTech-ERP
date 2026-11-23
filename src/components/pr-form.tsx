@@ -31,6 +31,7 @@ import { LINE_KIND_LABEL, PR_TYPE_META, type PrLineKind, type PrType } from '@/d
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { classifyItem, groupOfItemCode, groupsOfCategory } from '@/domain/item-groups';
 import type { BoqQtyOption } from '@/server/services/pr-boq';
+import { SearchSelect } from '@/components/search-select';
 
 /** Value of the BOQ picker for a goods line that is not in the BOQ */
 const OUTSIDE_BOQ = 'OUTSIDE';
@@ -658,7 +659,7 @@ export function PrForm({
 
   /** The project of a new PR; fixed once the PR is saved */
   const projectPicker = (
-    <select
+    <SearchSelect
       disabled={Boolean(existing)}
       value={projectId}
       onChange={(e) => pickProject(e.target.value)}
@@ -671,7 +672,7 @@ export function PrForm({
           {p.code} - {p.name}
         </option>
       ))}
-    </select>
+    </SearchSelect>
   );
 
   return (

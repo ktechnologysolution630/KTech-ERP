@@ -10,6 +10,7 @@ import { formatMoneyDisplay } from '@/domain/money';
 import { computeSalesTotals, type CategoryOption } from '@/domain/sales-doc';
 import { readBillLines } from '@/lib/read-bill';
 import { createSalesDocAction } from '../../sales/actions';
+import { SearchSelect } from '@/components/search-select';
 
 const field = 'mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm font-normal focus:border-brand focus:outline-none';
 const label = 'block text-xs font-semibold text-slate-700';
@@ -216,7 +217,7 @@ export function BillScanClient({
             <div className="grid grid-cols-2 gap-3">
               <label className={`${label} col-span-2`}>
                 ผู้ขาย / ผู้รับเงิน
-                <select
+                <SearchSelect
                   value={form.vendorId}
                   onChange={(e) => {
                     const v = vendors.find((x) => x.id === e.target.value);
@@ -230,7 +231,7 @@ export function BillScanClient({
                       {v.name}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <label className={`${label} col-span-2`}>
                 ชื่อบนบิล <span className="text-red-500">*</span>
@@ -250,23 +251,23 @@ export function BillScanClient({
               </label>
               <label className={label}>
                 โครงการ
-                <select value={form.projectId} onChange={(e) => set({ projectId: e.target.value })} className={field}>
+                <SearchSelect value={form.projectId} onChange={(e) => set({ projectId: e.target.value })} className={field}>
                   <option value="">ไม่ระบุโครงการ</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.code} {p.name}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <label className={label}>
                 หมวดบัญชี
-                <select value={form.category} onChange={(e) => pickCategory(e.target.value)} className={field}>
+                <SearchSelect value={form.category} onChange={(e) => pickCategory(e.target.value)} className={field}>
                   <option value="">เลือกหมวดบัญชี</option>
                   {categories.map((c) => (
                     <option key={c.label}>{c.label}</option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <label className={label}>
                 รายการ
@@ -295,14 +296,14 @@ export function BillScanClient({
               </label>
               <label className={label}>
                 จ่ายจากบัญชีบริษัท
-                <select value={form.accountId} onChange={(e) => set({ accountId: e.target.value })} className={field}>
+                <SearchSelect value={form.accountId} onChange={(e) => set({ accountId: e.target.value })} className={field}>
                   <option value="">ไม่ระบุ</option>
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.label}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
             </div>
             <dl className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">

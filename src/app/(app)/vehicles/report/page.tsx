@@ -8,6 +8,7 @@ import { formatThaiDateTime } from '@/domain/vehicle';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { getVehicleReport } from '@/server/services/vehicles';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
 
 const baht = (n: number) => formatMoneyDisplay(n.toFixed(2));
 const km = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 1 });
@@ -76,7 +77,7 @@ export default async function VehicleReportPage({ searchParams }: { searchParams
           <h1 className="text-xl font-bold text-slate-900">รายงานการใช้รถ</h1>
           <p className="text-xs text-slate-500">นับรายการที่คืนรถแล้วในช่วงวันที่ที่เลือก ระยะทางตามเลขไมล์</p>
         </div>
-        <form className="flex flex-wrap items-end gap-2 text-xs">
+        <AutoSubmitForm className="flex flex-wrap items-end gap-2 text-xs">
           <label className="space-y-1">
             <span className="block font-semibold text-slate-700">ตั้งแต่</span>
             <input type="date" name="from" defaultValue={from} className="rounded-lg border border-slate-300 px-2 py-1.5" />
@@ -85,10 +86,7 @@ export default async function VehicleReportPage({ searchParams }: { searchParams
             <span className="block font-semibold text-slate-700">ถึง</span>
             <input type="date" name="to" defaultValue={to} className="rounded-lg border border-slate-300 px-2 py-1.5" />
           </label>
-          <button type="submit" className="rounded-lg bg-slate-800 px-4 py-2 font-semibold text-white">
-            แสดง
-          </button>
-        </form>
+        </AutoSubmitForm>
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-xs">

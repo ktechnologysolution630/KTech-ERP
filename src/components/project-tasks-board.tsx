@@ -20,6 +20,7 @@ import {
   type TaskActionResult,
 } from '@/app/(app)/projects/[id]/task-actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 interface ProjectTasksBoardProps {
   projectId: string;
@@ -416,7 +417,7 @@ export function ProjectTasksBoard({
                   </div>
                   <div>
                     <label htmlFor="tk-assignee" className="block font-medium text-slate-700 mb-1">ผู้รับผิดชอบ</label>
-                    <select
+                    <SearchSelect
                       id="tk-assignee"
                       value={dialog.form.assigneeId ?? ''}
                       onChange={(e) => setField('assigneeId', e.target.value || null)}
@@ -428,7 +429,7 @@ export function ProjectTasksBoard({
                           {u.name}
                         </option>
                       ))}
-                    </select>
+                    </SearchSelect>
                   </div>
                 </div>
               </fieldset>

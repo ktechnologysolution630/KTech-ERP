@@ -13,6 +13,7 @@ import { MaterialUsageDialog } from './material-usage-dialog';
 import { StockDocHistoryView } from './stock-doc-history';
 import { ReorderPointDialog } from './reorder-dialog';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
+import { SearchSelect } from '@/components/search-select';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -606,14 +607,14 @@ function LedgerTab({ data }: { data: StockPageData }) {
             <p className="text-xs text-slate-400">บัตรคุมสินค้า: รับ-จ่ายทุกรายการพร้อมยอดคงเหลือ (ย้อนหลัง 13 เดือน)</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={itemId} onChange={(e) => setItemId(e.target.value)} className="py-1.5 px-3 text-xs border border-slate-200 rounded-lg bg-white max-w-[280px]">
+            <SearchSelect value={itemId} onChange={(e) => setItemId(e.target.value)} className="py-1.5 px-3 text-xs border border-slate-200 rounded-lg bg-white max-w-[280px]">
               {data.items.length === 0 && <option value="">ยังไม่มีรายการวัสดุ</option>}
               {itemOptions.map((it) => (
                 <option key={it.id} value={it.id}>
                   [{it.sku}] {it.name}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
             <select value={loc} onChange={(e) => setLoc(e.target.value)} className="py-1.5 px-3 text-xs border border-slate-200 rounded-lg bg-white max-w-[220px]">
               <option value="All">ทุกคลัง</option>
               {data.locations.map((l) => (

@@ -11,6 +11,7 @@ import {
   removeArOpeningAction,
   saveOpeningEntryAction,
 } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 const field = 'w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-brand focus:outline-none';
 const money = (v: number) => formatMoneyDisplay(v.toFixed(2));
@@ -66,14 +67,14 @@ export function OpeningEntryEditor({
             {lines.map((l) => (
               <tr key={l.key} className="border-b border-slate-100">
                 <td className="py-1 pr-2">
-                  <select value={l.accountId} onChange={(e) => set(l.key, { accountId: e.target.value })} disabled={!canManage} aria-label="บัญชี" className={field}>
+                  <SearchSelect value={l.accountId} onChange={(e) => set(l.key, { accountId: e.target.value })} disabled={!canManage} aria-label="บัญชี" className={field}>
                     <option value="">— เลือกบัญชี —</option>
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.code} {a.name}
                       </option>
                     ))}
-                  </select>
+                  </SearchSelect>
                 </td>
                 <td className="py-1 pr-2">
                   <input type="number" step="0.01" min="0" value={l.debit} onChange={(e) => set(l.key, { debit: e.target.value, credit: e.target.value ? '' : l.credit })} disabled={!canManage} aria-label="เดบิต" className={`${field} text-right`} />
@@ -171,14 +172,14 @@ export function ArOpeningForm({ customers, defaultDate }: { customers: { id: str
       }}
       className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs sm:grid-cols-6"
     >
-      <select name="customerId" required aria-label="ลูกค้า" className={`${field} col-span-2`}>
+      <SearchSelect name="customerId" required aria-label="ลูกค้า" className={`${field} col-span-2`}>
         <option value="">— ลูกค้า —</option>
         {customers.map((c) => (
           <option key={c.id} value={c.id}>
             {c.code} {c.name}
           </option>
         ))}
-      </select>
+      </SearchSelect>
       <input name="number" required placeholder="เลขที่บิลเดิม" aria-label="เลขที่บิลเดิม" className={field} />
       <input name="docDate" type="date" required defaultValue={defaultDate} aria-label="วันที่บิล" className={field} />
       <input name="dueDate" type="date" required defaultValue={defaultDate} aria-label="ครบกำหนด" className={field} />
@@ -215,14 +216,14 @@ export function ApOpeningForm({ vendors, defaultDate }: { vendors: { id: string;
       }}
       className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs sm:grid-cols-6"
     >
-      <select name="vendorId" required aria-label="ผู้ขาย" className={`${field} col-span-2`}>
+      <SearchSelect name="vendorId" required aria-label="ผู้ขาย" className={`${field} col-span-2`}>
         <option value="">— ผู้ขาย —</option>
         {vendors.map((v) => (
           <option key={v.id} value={v.id}>
             {v.code} {v.name}
           </option>
         ))}
-      </select>
+      </SearchSelect>
       <input name="docNo" required placeholder="เลขที่บิลเดิม" aria-label="เลขที่บิลเดิม" className={field} />
       <input name="dueDate" type="date" required defaultValue={defaultDate} aria-label="ครบกำหนด" className={field} />
       <input name="gross" type="number" step="0.01" min="0.01" required placeholder="ยอดค้างรวม VAT" aria-label="ยอดค้างรวม VAT" className={`${field} text-right`} />

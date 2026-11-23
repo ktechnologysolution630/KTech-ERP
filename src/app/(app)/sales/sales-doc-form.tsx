@@ -11,6 +11,7 @@ import { THAI_BANKS } from '@/domain/vendor-profile';
 import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
 import { createSalesDocAction, updateSalesDocAction } from './actions';
 import type { SalesDocFormInitial, SalesDocFormLine, SalesDocFormMode } from './sales-doc-initial';
+import { SearchSelect } from '@/components/search-select';
 
 export interface SalesCustomerOption {
   id: string;
@@ -273,14 +274,14 @@ export function SalesDocForm({
               {isExpense ? 'ผู้ขาย / ผู้รับเงิน' : 'ลูกค้า'}
               {kind !== 'STI' && <span className="text-red-500"> *</span>}
             </p>
-            <select value={customerId} onChange={(e) => pickCustomer(e.target.value)} aria-label={isExpense ? 'ผู้ขาย / ผู้รับเงิน' : 'ลูกค้า'} className={`${paperInput} font-semibold`}>
+            <SearchSelect value={customerId} onChange={(e) => pickCustomer(e.target.value)} aria-label={isExpense ? 'ผู้ขาย / ผู้รับเงิน' : 'ลูกค้า'} className={`${paperInput} font-semibold`}>
               <option value="">{kind === 'STI' ? 'ไม่ระบุลูกค้า (ขายปลีก)' : isExpense ? 'เลือกผู้ขาย / ผู้รับเงิน' : 'เลือกลูกค้า'}</option>
               {parties.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.code})
                 </option>
               ))}
-            </select>
+            </SearchSelect>
             {!customerId && (
               <input value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} placeholder={isExpense ? 'หรือพิมพ์ชื่อผู้รับเงิน' : 'หรือพิมพ์ชื่อลูกค้า'} aria-label="ชื่อ" className={paperInput} />
             )}
@@ -295,21 +296,21 @@ export function SalesDocForm({
           </div>
           <div className="space-y-1.5 text-sm">
             <p className="text-xs font-semibold text-slate-600">โครงการ</p>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={paperInput}>
+            <SearchSelect value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="โครงการ" className={paperInput}>
               <option value="">ไม่ระบุโครงการ</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.code} - {p.name}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
             <input value={milestone} onChange={(e) => setMilestone(e.target.value)} placeholder="งวดงาน" aria-label="งวดงาน" className={paperInput} />
-            <select value={accountCategory} onChange={(e) => pickCategory(e.target.value)} aria-label="หมวดบัญชี" className={paperInput}>
+            <SearchSelect value={accountCategory} onChange={(e) => pickCategory(e.target.value)} aria-label="หมวดบัญชี" className={paperInput}>
               <option value="">เลือกหมวดบัญชี</option>
               {categoryList.map((a) => (
                 <option key={a.label}>{a.label}</option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
         </div>
 
@@ -348,7 +349,7 @@ export function SalesDocForm({
                       <input value={l.name} onChange={(e) => setLine(i, { name: e.target.value })} placeholder="ชื่อรายการ" aria-label={`ชื่อรายการแถวที่ ${i + 1}`} className={`${paperCell} font-medium`} />
                       <textarea value={l.detail} onChange={(e) => setLine(i, { detail: e.target.value })} placeholder="รายละเอียดรายการ" rows={1} aria-label={`รายละเอียดแถวที่ ${i + 1}`} className={`${paperCell} mt-1 resize-y text-xs text-slate-600`} />
                       {stockItems.length > 0 && (
-                        <select
+                        <SearchSelect
                           value={l.stockItemId}
                           onChange={(e) => {
                             const s = stockItems.find((x) => x.id === e.target.value);
@@ -367,7 +368,7 @@ export function SalesDocForm({
                               })`}
                             </option>
                           ))}
-                        </select>
+                        </SearchSelect>
                       )}
                     </td>
                     <td className="border border-slate-200 px-1 py-1">
@@ -428,14 +429,14 @@ export function SalesDocForm({
                 </label>
                 <label className="block text-xs font-semibold text-slate-600">
                   {isExpense ? 'จ่ายจากบัญชีบริษัท' : 'เข้าบัญชีบริษัท'}
-                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={box}>
+                  <SearchSelect value={accountId} onChange={(e) => setAccountId(e.target.value)} className={box}>
                     <option value="">{accounts.length === 0 ? 'ยังไม่มีบัญชี (เพิ่มที่เมนูเงินสด / ธนาคาร)' : 'ไม่ระบุ'}</option>
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.label}
                       </option>
                     ))}
-                  </select>
+                  </SearchSelect>
                 </label>
                 {payMethod !== 'CASH' && (
                   <>

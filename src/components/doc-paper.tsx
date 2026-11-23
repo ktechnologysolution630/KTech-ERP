@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { COMPANY_NAME_EN } from '@/domain/brand';
 import { bahtText, formatMoneyDisplay, VAT_RATE, type DocTotals, type VatMode } from '@/domain/money';
+import { SearchSelect } from '@/components/search-select';
 
 /**
  * The purchasing forms on screen, drawn like their printed PDF (src/pdf/form-parts.tsx): the same
@@ -183,7 +184,7 @@ export function VendorSelect({
   onChange: (id: string) => void;
 }) {
   return (
-    <select value={vendorId} onChange={(e) => onChange(e.target.value)} className={`${paperInput} font-semibold`} aria-label={label}>
+    <SearchSelect value={vendorId} onChange={(e) => onChange(e.target.value)} className={`${paperInput} font-semibold`} aria-label={label}>
       <option value="">ยังไม่ระบุซัพพลายเออร์ / ผู้รับเหมา</option>
       {[...vendors]
         .sort((a, b) => a.name.localeCompare(b.name, 'th'))
@@ -192,7 +193,7 @@ export function VendorSelect({
             {x.name} ({x.code})
           </option>
         ))}
-    </select>
+    </SearchSelect>
   );
 }
 

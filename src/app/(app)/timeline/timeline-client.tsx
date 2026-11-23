@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle, ChevronRight, Search } from 'lucide-react';
 import { PROJECT_STATUS_LABELS, isProjectClosed } from '@/domain/project';
 import type { TimelineRow } from '@/server/services/timeline';
+import { SearchSelect } from '@/components/search-select';
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const DAY_MS = 86_400_000;
@@ -82,14 +83,14 @@ export function TimelineClient({ today, rows }: { today: string; rows: TimelineR
         </label>
         <label className="flex flex-col">
           <span className="text-[10px] text-slate-400 font-medium mb-0.5">Project Manager</span>
-          <select value={pm} onChange={(e) => setPm(e.target.value)} className={control}>
+          <SearchSelect value={pm} onChange={(e) => setPm(e.target.value)} className={control}>
             <option value="">ทุก Project Manager</option>
             {pms.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </label>
         <label className="flex flex-col">
           <span className="text-[10px] text-slate-400 font-medium mb-0.5">ปี (พ.ศ.)</span>

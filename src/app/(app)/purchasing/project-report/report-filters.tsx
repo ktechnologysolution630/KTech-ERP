@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-none';
 
-/** Filters of the project purchasing report; "สร้างรายงาน" puts them in the URL so the page renders the report. */
+/** Filters of the project purchasing report; they go into the URL (by themselves or with "สร้างรายงาน") so the page renders the report. */
 export function ReportFilters({
   projects,
   initial,
@@ -35,6 +36,19 @@ export function ReportFilters({
   const unchanged = projectId === initial.projectId && from === initial.from && to === initial.to && q.trim() === initial.q;
   const canExport = hasReport && unchanged;
 
+  // Filters apply by themselves: a project or date at once, typed search after a short pause
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    if (!projectId || badRange || unchanged) return;
+    const t = setTimeout(() => startTransition(() => router.replace(`/purchasing/project-report?${params()}`, { scroll: false })), 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, from, to, q]);
+
   return (
     <form
       onSubmit={(e) => {
@@ -47,14 +61,14 @@ export function ReportFilters({
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <label className="block lg:col-span-2">
           <span className="mb-1 block font-medium text-slate-700">โครงการ *</span>
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)} required className={inputClass}>
+          <SearchSelect value={projectId} onChange={(e) => setProjectId(e.target.value)} required className={inputClass}>
             <option value="">เลือกโครงการ</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.code} - {p.name}
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </label>
         <div>
           <span className="mb-1 block font-medium text-slate-700">ช่วงวันที่ (วันที่ออก PO)</span>

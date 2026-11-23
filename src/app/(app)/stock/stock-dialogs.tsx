@@ -6,6 +6,7 @@ import { Package, Plus, X } from 'lucide-react';
 import type { PoLineOptionDto, StockItemDto, StockPageData } from '@/server/services/stock';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { recordStockMovementAction, requestStockAdjustAction, saveStockItemAction } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 export type MovementKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'ADJUST';
 
@@ -167,7 +168,7 @@ export function MovementDialog({
           <fieldset disabled={isPending} className="space-y-3.5">
             <label className="block">
               <Label required>เลือกสินค้า / วัสดุ</Label>
-              <select
+              <SearchSelect
                 required
                 value={itemId}
                 onChange={(e) => {
@@ -183,7 +184,7 @@ export function MovementDialog({
                     [{it.sku}] {it.name} (รวม {it.totalQty} {it.unit})
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
             </label>
 
             <div className="grid grid-cols-2 gap-3">

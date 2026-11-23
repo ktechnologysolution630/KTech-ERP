@@ -7,6 +7,8 @@ import { PrintRoot } from '@/components/project-site/report-sheet';
 import { DateInput } from '@/components/date-input';
 import { PrintButton } from '../print-button';
 import { money, selectCls, THAI_MONTHS } from '../shared';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { SearchSelect } from '@/components/search-select';
 
 type Sp = { from?: string; to?: string; month?: string; year?: string; form?: string; payee?: string; status?: string };
 
@@ -137,7 +139,7 @@ export default async function WhtReportPage({ searchParams }: { searchParams: Pr
           <PrintButton label="พิมพ์ / PDF" />
         </div>
       </div>
-      <form className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs">
+      <AutoSubmitForm className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs">
         <label>
           <span className="block text-slate-500">วันที่เริ่มต้น</span>
           <DateInput name="from" defaultValue={sp.from ?? ''} className={selectCls} />
@@ -181,12 +183,12 @@ export default async function WhtReportPage({ searchParams }: { searchParams: Pr
         </label>
         <label>
           <span className="block text-slate-500">ผู้รับเงิน / คู่ค้า</span>
-          <select name="payee" defaultValue={sp.payee ?? 'ALL'} className={`${selectCls} max-w-48`}>
+          <SearchSelect name="payee" defaultValue={sp.payee ?? 'ALL'} className={`${selectCls} max-w-48`}>
             <option value="ALL">ทั้งหมด</option>
             {payees.map((p) => (
               <option key={p}>{p}</option>
             ))}
-          </select>
+          </SearchSelect>
         </label>
         <label>
           <span className="block text-slate-500">สถานะ</span>
@@ -196,8 +198,7 @@ export default async function WhtReportPage({ searchParams }: { searchParams: Pr
             <option value="ALL">ทั้งหมด</option>
           </select>
         </label>
-        <button className="rounded-lg bg-brand px-4 py-2 font-semibold text-white">ค้นหา</button>
-      </form>
+      </AutoSubmitForm>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">{report}</div>
       <PrintRoot>
         <div className="a4-page p-6">{report}</div>

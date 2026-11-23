@@ -8,6 +8,8 @@ import { getSettings } from '@/server/services/settings';
 import { PrintRoot } from '@/components/project-site/report-sheet';
 import { PrintButton } from '../print-button';
 import { money, MonthYearFields, periodOf, selectCls, THAI_MONTHS, yearsAround } from '../shared';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { SearchSelect } from '@/components/search-select';
 
 type Sp = { year?: string; month?: string; projectId?: string; type?: string; party?: string; view?: string };
 
@@ -107,9 +109,9 @@ export default async function AccountingReportsPage({ searchParams }: { searchPa
         </div>
         <PrintButton label="พิมพ์ A4 / PDF" />
       </div>
-      <form className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+      <AutoSubmitForm className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
         <input type="hidden" name="view" value={view} />
-        <select name="projectId" defaultValue={sp.projectId ?? ''} aria-label="โครงการ" className={selectCls}>
+        <SearchSelect name="projectId" defaultValue={sp.projectId ?? ''} aria-label="โครงการ" className={selectCls}>
           <option value="">รวมทั้งหมด</option>
           <option value="OFFICE">สำนักงาน / ส่วนกลาง</option>
           {projects.map((p) => (
@@ -117,22 +119,21 @@ export default async function AccountingReportsPage({ searchParams }: { searchPa
               {p.code} {p.name}
             </option>
           ))}
-        </select>
+        </SearchSelect>
         <select name="type" defaultValue={sp.type ?? ''} aria-label="ประเภทเอกสาร" className={selectCls}>
           <option value="">ประเภทเอกสารทั้งหมด</option>
           {types.map((t) => (
             <option key={t}>{t}</option>
           ))}
         </select>
-        <select name="party" defaultValue={sp.party ?? ''} aria-label="คู่ค้า" className={`${selectCls} max-w-56`}>
+        <SearchSelect name="party" defaultValue={sp.party ?? ''} aria-label="คู่ค้า" className={`${selectCls} max-w-56`}>
           <option value="">{view === 'IN' ? 'ลูกค้าทั้งหมด' : 'ผู้ขายทั้งหมด'}</option>
           {parties.map((p) => (
             <option key={p}>{p}</option>
           ))}
-        </select>
+        </SearchSelect>
         <MonthYearFields year={year} month={month} years={yearsAround(year)} />
-        <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
-      </form>
+      </AutoSubmitForm>
       <div className="flex gap-1 text-xs">
         {(
           [

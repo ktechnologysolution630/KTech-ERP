@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { DocNumberStatus } from '@/server/services/doc-numbers';
 import { renumberDocumentAction, setNextDocNumberAction, type DocNumberResult } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 const input = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm';
 
@@ -121,7 +122,7 @@ export function DocNumbersClient({
           </div>
           <label className="text-xs text-slate-600">
             โครงการ (สำหรับเลข PR ซึ่งนับแยกแต่ละโครงการ)
-            <select
+            <SearchSelect
               value={projectId ?? ''}
               onChange={(e) => router.push(e.target.value ? `/settings/doc-numbers?project=${e.target.value}` : '/settings/doc-numbers')}
               className="mt-1 block w-72 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -132,7 +133,7 @@ export function DocNumbersClient({
                   {p.code} - {p.name}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
         </div>
         <div className="overflow-x-auto">

@@ -6,6 +6,7 @@ import { listVendors } from '@/server/services/master';
 import { listOpenPayables } from '@/server/services/payable';
 import { createPvAction } from '../actions';
 import { PvPayablesTable, readPvPayables } from '../pv-payables-table';
+import { SearchSelect } from '@/components/search-select';
 
 export default async function NewPvPage({
   searchParams,
@@ -46,7 +47,7 @@ export default async function NewPvPage({
           <label className="block text-xs font-medium text-slate-700 mb-1">
             เลือกผู้ขาย (Vendor)
           </label>
-          <select
+          <SearchSelect
             name="vendorId"
             defaultValue={selectedVendorId}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
@@ -56,7 +57,7 @@ export default async function NewPvPage({
                 {v.code} - {v.name} (หัก ณ ที่จ่ายเริ่มต้น {v.defaultWhtRate}%)
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </div>
         <button
           type="submit"

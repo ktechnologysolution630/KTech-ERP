@@ -7,6 +7,7 @@ import { bangkokDateString } from '@/domain/thai';
 import type { VatMode } from '@/domain/money';
 import { createArInvoiceAction } from '../../actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 interface Option {
   id: string;
@@ -81,17 +82,17 @@ export function ArInvoiceForm({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">ลูกค้า *</span>
-            <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={inputClass}>
+            <SearchSelect value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={inputClass}>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">โครงการ</span>
-            <select
+            <SearchSelect
               value={projectId}
               onChange={(e) => {
                 setProjectId(e.target.value);
@@ -106,7 +107,7 @@ export function ArInvoiceForm({
                   {p.label}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
           <label className="block">
             <span className="block font-medium text-slate-700 mb-1">การคิด VAT</span>

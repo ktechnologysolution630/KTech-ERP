@@ -17,6 +17,7 @@ import {
 import { bangkokDateString } from '@/domain/thai';
 import { createPrvAction, updatePrvAction } from '../actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 interface LineItem {
   description: string;
@@ -147,13 +148,13 @@ export function PrvFormClient({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">โครงการก่อสร้าง *</span>
-                <select required value={projectId} onChange={(e) => setProjectId(e.target.value)} className={field}>
+                <SearchSelect required value={projectId} onChange={(e) => setProjectId(e.target.value)} className={field}>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">ประเภทการขอเบิก *</span>
@@ -167,14 +168,14 @@ export function PrvFormClient({
               </label>
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">ผู้รับเงิน / ผู้รับเหมา *</span>
-                <select required value={vendorId} onChange={(e) => setVendorId(e.target.value)} className={field}>
+                <SearchSelect required value={vendorId} onChange={(e) => setVendorId(e.target.value)} className={field}>
                   <option value="">-- เลือกผู้รับเหมา / ผู้ขาย --</option>
                   {vendors.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
                 <Link href="/labor-payments/contractors" className="mt-1 inline-block text-[11px] text-blue-600 hover:underline">
                   + เพิ่มผู้รับเหมาใหม่
                 </Link>

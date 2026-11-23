@@ -7,6 +7,7 @@ import { getSettings } from '@/server/services/settings';
 import { PrintRoot } from '@/components/project-site/report-sheet';
 import { PrintButton } from '../print-button';
 import { money, MonthYearFields, periodOf, Stat, THAI_MONTHS, yearsAround } from '../shared';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
 
 export default async function InputVatPage({ searchParams }: { searchParams: Promise<{ year?: string; month?: string }> }) {
   const sp = await searchParams;
@@ -77,10 +78,9 @@ export default async function InputVatPage({ searchParams }: { searchParams: Pro
           <p className="text-xs text-slate-500">รวบรวม VAT จากใบกำกับภาษีตามใบสั่งซื้อ ใบสำคัญจ่าย และการรับเข้าสต็อกที่มีใบกำกับภาษี</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <form className="flex items-center gap-2">
+          <AutoSubmitForm className="flex items-center gap-2">
             <MonthYearFields year={year} month={month} years={yearsAround(year)} />
-            <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
-          </form>
+          </AutoSubmitForm>
           <a href={`/api/export/purchase-vat?year=${year}&month=${month}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
             Excel
           </a>

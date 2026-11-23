@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Plus, Save, X } from 'lucide-react';
 import { formatMoneyDisplay } from '@/domain/money';
 import type { BoqMaterialPick } from '@/components/po-form';
+import { SearchSelect } from '@/components/search-select';
 
 export interface BoqAllocLine {
   description: string;
@@ -54,14 +55,14 @@ export function PoBoqDialog({
         <div className="space-y-4 p-6 text-sm">
           <label className="block max-w-md">
             <span className="mb-1 block text-slate-700">เอกสาร BOQ</span>
-            <select value={source} onChange={(e) => setSource(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 focus:border-brand focus:outline-none">
+            <SearchSelect value={source} onChange={(e) => setSource(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 focus:border-brand focus:outline-none">
               <option value="">เลือกเอกสาร BOQ ก่อนเลือกรายการ</option>
               {sources.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
 
           <div className="overflow-x-auto rounded-md border border-slate-200">
@@ -82,7 +83,7 @@ export function PoBoqDialog({
                       <td className="px-3 py-2.5">{i + 1}</td>
                       <td className="px-3 py-2.5">{l.description || `รายการที่ ${i + 1}`}</td>
                       <td className="px-3 py-1.5">
-                        <select
+                        <SearchSelect
                           value={picks[i] ?? ''}
                           onChange={(e) => setPicks((prev) => prev.map((p, j) => (j === i ? e.target.value : p)))}
                           disabled={!source && !picks[i]}
@@ -96,7 +97,7 @@ export function PoBoqDialog({
                               {b.no} {b.description} · คงเหลือ {formatMoneyDisplay(b.remaining.toFixed(2))}
                             </option>
                           ))}
-                        </select>
+                        </SearchSelect>
                       </td>
                       <td className="px-3 py-2.5 text-right">{formatMoneyDisplay(l.amount.toFixed(2))}</td>
                     </tr>
@@ -120,14 +121,14 @@ export function PoBoqDialog({
             </table>
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-2.5 text-xs">
               <div className="flex items-center gap-2">
-                <select value={adding} onChange={(e) => setAdding(e.target.value)} disabled={!source} aria-label="เลือกรายการ BOQ เพื่อเพิ่มเป็นรายการใหม่" className="max-w-xs rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-50">
+                <SearchSelect value={adding} onChange={(e) => setAdding(e.target.value)} disabled={!source} aria-label="เลือกรายการ BOQ เพื่อเพิ่มเป็นรายการใหม่" className="max-w-xs rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-50">
                   <option value="">เลือกรายการ BOQ…</option>
                   {options.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.no} {b.description}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
                 <button
                   type="button"
                   disabled={!adding}
