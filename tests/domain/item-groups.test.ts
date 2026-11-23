@@ -14,6 +14,7 @@ describe('item groups', () => {
   test('an item code CC-GG-NNN names its group', () => {
     expect(groupOfItemCode('10-02-004')).toMatchObject({ category: 'งานโครงสร้าง', name: 'เหล็กเสริม' });
     expect(groupOfItemCode(' 40-01-001 ')).toMatchObject({ name: 'สายไฟฟ้า' });
+    expect(groupOfItemCode('80-01-001')).toMatchObject({ category: 'งานเตรียมการ', name: 'ที่พักคนงานและสิ่งอำนวยความสะดวกชั่วคราว' });
     expect(groupOfItemCode('ITM-001')).toBeUndefined();
     expect(groupOfItemCode('99-99-001')).toBeUndefined();
     expect(groupOfItemCode(null)).toBeUndefined();
