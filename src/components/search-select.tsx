@@ -2,6 +2,7 @@
 
 import {
   Children,
+  Fragment,
   isValidElement,
   useCallback,
   useEffect,
@@ -14,7 +15,8 @@ import {
 } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
-import { filterBySearch } from '@/lib/search-match';
+import { filterBySearch, similarBySearch } from '@/lib/search-match';
+import { useFloatingList } from './use-floating-list';
 
 interface Opt {
   value: string;
@@ -71,6 +73,7 @@ export function SearchSelect({
   const listId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const options = useMemo(() => collectOptions(children), [children]);
 
   const initial = selectProps.value ?? selectProps.defaultValue;
@@ -101,7 +104,13 @@ export function SearchSelect({
   const shownText = query ?? (selected && selected.value !== '' ? selected.label : '');
 
   const matches = useMemo(() => filterBySearch(options, query ?? '', (o) => `${o.label} ${o.group ?? ''}`), [options, query]);
-  const shown = matches.slice(0, MAX_SHOWN);
+  const direct = matches.slice(0, MAX_SHOWN);
+  // Close matches (spelt alike, some words shared) under the direct ones, while few match outright
+  const near = useMemo(
+    () => (query && matches.length < 10 ? similarBySearch(options, query, (o) => o.label, 8).filter((o) => o.value !== '') : []),
+    [options, query, matches.length],
+  );
+  const shown = [...direct, ...near];
 
   const close = () => {
     setOpen(false);
@@ -122,9 +131,11 @@ export function SearchSelect({
   };
 
   const disabled = !!selectProps.disabled;
+  const listStyle = useFloatingList(boxRef, open && !disabled);
 
   return (
     <div
+      ref={boxRef}
       className={twMerge(
         'relative inline-flex items-center text-xs focus-within:border-brand',
         // Without classes of its own it looks like a plain bordered box
@@ -207,14 +218,18 @@ export function SearchSelect({
         <ul
           id={listId}
           role="listbox"
-          className="absolute left-0 top-full z-50 mt-1 max-h-72 w-max min-w-full max-w-[min(36rem,90vw)] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs text-slate-700 shadow-lg"
+          style={listStyle}
+          className="z-[60] w-max overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs text-slate-700 shadow-lg"
         >
-          {shown.length === 0 ? (
-            <li className="px-3 py-2 text-slate-500">ไม่พบรายการที่ตรงกับ “{query}”</li>
-          ) : (
-            shown.map((o, i) => (
+          {direct.length === 0 && <li className="px-3 py-2 text-slate-500">ไม่พบรายการที่ตรงกับ “{query}”</li>}
+          {shown.map((o, i) => (
+            <Fragment key={`${o.value}-${i}`}>
+              {i === direct.length && (
+                <li role="presentation" className="border-t border-slate-100 bg-amber-50/60 px-3 pb-1 pt-1.5 text-[11px] font-semibold text-amber-800">
+                  รายการใกล้เคียง
+                </li>
+              )}
               <li
-                key={`${o.value}-${i}`}
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={o.value === current}
@@ -229,8 +244,8 @@ export function SearchSelect({
                 {o.group && <span className="mr-1 text-[10px] text-slate-400">{o.group} ›</span>}
                 {o.label || '—'}
               </li>
-            ))
-          )}
+            </Fragment>
+          ))}
           {matches.length > MAX_SHOWN && (
             <li className="border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-400">
               แสดง {MAX_SHOWN} จาก {matches.length} รายการ — พิมพ์เพิ่มเพื่อกรอง

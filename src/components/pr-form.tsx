@@ -249,6 +249,15 @@ export function PrForm({
       ...(boqStays ? {} : { boq: '' }),
     };
   };
+  /** Register items of the same kind as the typed name (its group, else its category), for close matches */
+  const relatedItems = (text: string) => {
+    const found = detectItemType(text, pickableItems);
+    if (!found) return [];
+    return pickableItems.filter((i) => {
+      const c = classifyItem(i);
+      return c.category === found.category && (!found.group || !c.group || c.group === found.group);
+    });
+  };
   /** Line of what the system read from the typed name */
   const autoNote = (line: LineState) =>
     line.autoType && line.category ? (
@@ -540,6 +549,7 @@ export function PrForm({
                   ) : (
                     <ItemCombobox
                       items={itemsFor(line)}
+                      related={relatedItems}
                       selectedId={line.itemId}
                       value={line.itemId ? itemLabel(line.itemId) : line.description}
                       // Typing is free text: it becomes the item name and drops any picked item
