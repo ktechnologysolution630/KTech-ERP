@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db/client';
 import { DomainError } from '@/domain/errors';
-import { requireWriter } from '@/server/auth/current-user';
+import { requireUser, requireWriter } from '@/server/auth/current-user';
+import type { UnitReference } from '@/domain/unit-match';
 import {
+  getUnitReference,
   saveProjectMainBoq,
   type BoqDocumentDto,
   type SaveBoqInput,
@@ -32,4 +34,10 @@ export async function saveBoqAction(
     }
     throw err;
   }
+}
+
+/** Units of the item register, for matching BOQ units to it */
+export async function loadUnitReferenceAction(): Promise<UnitReference> {
+  await requireUser();
+  return getUnitReference(await getDb());
 }

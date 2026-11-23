@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useTransition } from 'react';
+import React, { useEffect, useRef, useState, useTransition } from 'react';
 import { downloadWorkbook } from '@/lib/spreadsheet';
 import Link from 'next/link';
 import {
@@ -11,12 +11,14 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
+  Ruler,
 } from 'lucide-react';
 import { computeBoqCategoryTotals, computeBoqLine } from '@/domain/boq';
 import { parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
 import { bangkokDateString } from '@/domain/thai';
 import type { BoqDocumentDto } from '@/server/services/boq';
-import { saveBoqAction } from '@/app/(app)/projects/[id]/boq/actions';
+import { loadUnitReferenceAction, saveBoqAction } from '@/app/(app)/projects/[id]/boq/actions';
+import { alignBoqUnits, type AlignResult, type UnitReference } from '@/domain/unit-match';
 import { saveVoBoqAction } from '@/app/(app)/projects/[id]/vo-actions';
 import type { SaveBoqInput } from '@/server/services/boq';
 import {
@@ -107,6 +109,37 @@ export function BoqSheetEditor({
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
   const editable = canEdit && !isPending;
+
+  // Units of the item register: the grid offers them and flags units that do not match
+  const [unitRef, setUnitRef] = useState<UnitReference | null>(null);
+  const [unitNotice, setUnitNotice] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadUnitReferenceAction()
+      .then((ref) => live && setUnitRef(ref))
+      .catch((err) => console.error(err));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const describeAlign = (r: AlignResult<unknown>, lead: string) => {
+    const parts = [r.changed > 0 ? `${lead} ${r.changed} รายการ` : 'หน่วยนับตรงกับทะเบียนสินค้าแล้ว'];
+    if (r.unknown > 0) parts.push(`${r.unknown} รายการใช้หน่วยที่ไม่มีในทะเบียน (ช่องสีเหลือง)`);
+    if (r.itemDiffers > 0) parts.push(`${r.itemDiffers} รายการนับคนละหน่วยกับสินค้าในทะเบียน ตรวจจำนวนก่อนแก้ (ช่องสีแดง)`);
+    return parts.join(' · ');
+  };
+
+  // Respell units to the register's spelling; quantities stay as they are
+  const handleAlignUnits = () => {
+    if (!unitRef) return;
+    const result = alignBoqUnits(rows, unitRef);
+    if (result.changed > 0) {
+      setRows(result.rows);
+      markDirty();
+    }
+    setUnitNotice(describeAlign(result, 'ปรับหน่วยให้ตรงทะเบียนสินค้า') + (result.changed > 0 ? ' (กดบันทึกเพื่อยืนยัน)' : ''));
+  };
 
   const markDirty = () => {
     setIsSaved(false);
@@ -275,7 +308,13 @@ export function BoqSheetEditor({
     if (!importReview) return;
     const { lines, offerLines, meta: found } = importReview.result;
     const chosen = atOfferPrice && offerLines ? offerLines : lines;
-    const imported: BoqRow[] = chosen.map((line) => ({ ...line, id: newRowId() }));
+    let imported: BoqRow[] = chosen.map((line) => ({ ...line, id: newRowId() }));
+    // Imported units take the item register's spelling
+    if (unitRef) {
+      const aligned = alignBoqUnits(imported, unitRef);
+      imported = aligned.rows;
+      setUnitNotice(describeAlign(aligned, 'นำเข้าแล้ว ปรับหน่วยให้ตรงทะเบียนสินค้า'));
+    }
     setRows((prev) => (mode === 'replace' ? imported : [...prev, ...imported]));
     // This price already includes VAT
     if (atOfferPrice && offerLines) setVatPercent(0);
@@ -434,6 +473,19 @@ export function BoqSheetEditor({
             <span className="text-[9px] text-slate-400">จัดรูปแบบ</span>
           </button>
 
+          {/* หน่วยตามทะเบียนสินค้า */}
+          <button
+            type="button"
+            onClick={handleAlignUnits}
+            disabled={!editable || !unitRef}
+            className="disabled:opacity-50 flex flex-col items-center justify-center px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 transition"
+            title="เปลี่ยนหน่วยนับใน BOQ ให้เขียนตรงกับทะเบียนสินค้า (ไม่เปลี่ยนจำนวน)"
+          >
+            <Ruler className="w-4 h-4 text-amber-600" />
+            <span className="text-[11px] font-semibold mt-0.5">หน่วยตามทะเบียน</span>
+            <span className="text-[9px] text-slate-400">ปรับหน่วยนับ</span>
+          </button>
+
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
           {/* 5. Template BOQ */}
@@ -528,6 +580,14 @@ export function BoqSheetEditor({
             <span className="text-[9px] text-emerald-100">BOQ</span>
           </button>
         </div>
+        {unitNotice && (
+          <div role="status" className="mt-2 flex items-start justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-900">
+            <span>{unitNotice}</span>
+            <button type="button" onClick={() => setUnitNotice(null)} className="text-amber-700 hover:text-amber-900" aria-label="ปิดข้อความ">
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 4. Main Construction Document Paper (Pixel-Perfect Matching Sheet) */}
@@ -668,6 +728,7 @@ export function BoqSheetEditor({
             }}
             selectedRowId={selectedRowId}
             onSelectRow={setSelectedRowId}
+            unitRef={unitRef}
             overheadPercent={overheadPercent}
             onOverheadPercentChange={(v) => {
               setOverheadPercent(v);
