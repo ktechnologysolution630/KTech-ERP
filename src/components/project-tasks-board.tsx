@@ -86,9 +86,8 @@ export function ProjectTasksBoard({
   const [dialog, setDialog] = useState<{ taskId: string | null; form: TaskForm } | null>(null);
 
   const topLevel = tasks.filter((t) => t.parentId === null);
-  // Ready-made groups (BOQ categories, else standard) the project's tasks do not have yet; picking one creates it
+  // Only the ready-made groups (BOQ categories, else standard) are offered; one the project already has is reused
   const topTitles = new Set(topLevel.map((t) => t.title.trim()));
-  const missingGroups = groupOptions.filter((g) => !topTitles.has(g.title));
 
   const submit = (action: () => Promise<TaskActionResult>, onOk?: () => void) => {
     setError(null);
@@ -335,24 +334,11 @@ export function ProjectTasksBoard({
                       className={inputClass}
                     >
                       <option value="">— ไม่มี (ตั้งเป็นกลุ่มงานใหม่) —</option>
-                      {topLevel.length > 0 && (
-                        <optgroup label="กลุ่มงานในโครงการนี้">
-                          {topLevel.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.wbs} {t.title}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {missingGroups.length > 0 && (
+                      {groupOptions.length > 0 && (
                         <optgroup
-                          label={
-                            groupSource === 'BOQ'
-                              ? 'หมวดจาก BOQ ของโครงการ (ระบบสร้างให้)'
-                              : 'กลุ่มงานมาตรฐาน (ยังไม่มี BOQ · ระบบสร้างให้)'
-                          }
+                          label={groupSource === 'BOQ' ? 'หมวดจาก BOQ ของโครงการ' : 'กลุ่มงานมาตรฐาน (ยังไม่มี BOQ)'}
                         >
-                          {missingGroups.map((g) => (
+                          {groupOptions.map((g) => (
                             <option key={g.title} value={`std:${g.title}`}>
                               {g.label}
                             </option>
@@ -362,7 +348,9 @@ export function ProjectTasksBoard({
                     </select>
                     {dialog.form.parentGroup && (
                       <p className="mt-1 text-[11px] text-slate-500">
-                        ระบบจะสร้างกลุ่มงาน “{dialog.form.parentGroup}” ในโครงการนี้ให้ แล้วใส่หมวดงานนี้ไว้ข้างใต้
+                        {topTitles.has(dialog.form.parentGroup)
+                          ? `ใส่หมวดงานนี้ไว้ใต้กลุ่มงาน “${dialog.form.parentGroup}” ที่มีอยู่แล้ว`
+                          : `ระบบจะสร้างกลุ่มงาน “${dialog.form.parentGroup}” ในโครงการนี้ให้ แล้วใส่หมวดงานนี้ไว้ข้างใต้`}
                       </p>
                     )}
                   </div>
