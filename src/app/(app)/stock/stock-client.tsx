@@ -13,6 +13,7 @@ import { MaterialUsageDialog } from './material-usage-dialog';
 import { StockDocHistoryView } from './stock-doc-history';
 import { ReorderPointDialog } from './reorder-dialog';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
+import { SearchPicker, textMatches } from './search-picker';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -556,72 +557,115 @@ function LowStockTab({
   );
 }
 
-/** Stock card: every movement of one item with a running balance, optionally per location. */
+const LEDGER_PAGE_SIZE = 50;
+
+interface LedgerLine {
+  m: StockMovementDto;
+  /** Balance change at the chosen location; 0 for a transfer seen across all locations */
+  delta: number;
+  /** The item's balance right after this movement (at the chosen location) */
+  balance: number;
+  unit: string;
+  seq: number;
+}
+
+/**
+ * Stock movement report: opens on every item at every location, newest first, each line with the
+ * item's running balance. The item and location pickers take typed search; the search box filters lines.
+ */
 function LedgerTab({ data }: { data: StockPageData }) {
-  const [chosenItemId, setItemId] = useState(data.items[0]?.id ?? '');
-  const [loc, setLoc] = useState('All');
-  const [search, setSearch] = useState('');
-  const q = search.trim().toLowerCase();
+  const [itemId, setItemIdRaw] = useState('');
+  const [loc, setLocRaw] = useState('');
+  const [search, setSearchRaw] = useState('');
+  const [page, setPage] = useState(1);
+  const setItemId = (v: string) => (setItemIdRaw(v), setPage(1));
+  const setLoc = (v: string) => (setLocRaw(v), setPage(1));
+  const setSearch = (v: string) => (setSearchRaw(v), setPage(1));
+  const q = search.trim();
 
-  // Text that names an item (name / SKU / category) narrows the item list and shows that item's card
-  const itemMatches = q ? data.items.filter((i) => `${i.sku} ${i.name} ${i.category}`.toLowerCase().includes(q)) : [];
-  const itemOptions = itemMatches.length > 0 ? itemMatches : data.items;
-  const itemId = itemMatches.length > 0 && !itemMatches.some((i) => i.id === chosenItemId) ? itemMatches[0]!.id : chosenItemId;
-  const item = data.items.find((i) => i.id === itemId);
-  const key = loc === 'All' ? undefined : loc;
+  const item = itemId ? data.items.find((i) => i.id === itemId) : undefined;
+  const key = loc === '' ? undefined : loc;
+  const itemsById = useMemo(() => new Map(data.items.map((i) => [i.id, i])), [data.items]);
 
-  const rows = useMemo(() => {
-    if (!item) return [];
-    const relevant = data.movements
-      .filter((m) => m.stockItemId === item.id && deltaAt(m, key) !== 0)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const current = key === undefined ? item.totalQty : (item.balances.find((b) => locKey(b.projectId) === key)?.quantity ?? 0);
-    // Opening balance before the oldest movement still in the 13-month window
-    let running = current - relevant.reduce((s, m) => s + deltaAt(m, key), 0);
-    const opening = running;
-    const list = relevant.map((m) => {
-      const delta = deltaAt(m, key);
-      running += delta;
-      return { m, delta, balance: running };
-    });
-    return [{ opening }, ...list.reverse()];
-  }, [data.movements, item, key]);
+  const { lines, opening } = useMemo(() => {
+    const byItem = new Map<string, StockMovementDto[]>();
+    for (const m of data.movements) {
+      if (itemId && m.stockItemId !== itemId) continue;
+      // A transfer seen across all locations moves nothing overall, but it is still listed
+      const shown = deltaAt(m, key) !== 0 || (key === undefined && m.type === 'TRANSFER');
+      if (!shown) continue;
+      const list = byItem.get(m.stockItemId) ?? [];
+      list.push(m);
+      byItem.set(m.stockItemId, list);
+    }
+    const all: LedgerLine[] = [];
+    let seq = 0;
+    let firstOpening = 0;
+    for (const [id, moves] of byItem) {
+      const it = itemsById.get(id);
+      moves.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const current = !it ? 0 : key === undefined ? it.totalQty : (it.balances.find((b) => locKey(b.projectId) === key)?.quantity ?? 0);
+      // Opening balance before the oldest movement still in the 13-month window
+      let running = current - moves.reduce((s, m) => s + deltaAt(m, key), 0);
+      if (id === itemId) firstOpening = running;
+      for (const m of moves) {
+        const delta = deltaAt(m, key);
+        running += delta;
+        all.push({ m, delta, balance: running, unit: it?.unit ?? m.unit, seq: seq++ });
+      }
+    }
+    if (itemId && !byItem.has(itemId) && item) {
+      firstOpening = key === undefined ? item.totalQty : (item.balances.find((b) => locKey(b.projectId) === key)?.quantity ?? 0);
+    }
+    all.sort((a, b) => new Date(b.m.date).getTime() - new Date(a.m.date).getTime() || b.seq - a.seq);
+    return { lines: all, opening: firstOpening };
+  }, [data.movements, itemId, item, key, itemsById]);
 
-  // Otherwise the text filters the card's lines (document, reference, from/to, recorded by, note);
-  // balances stay those of the full card
-  const filterLines = q !== '' && itemMatches.length === 0;
-  const lineMatches = (m: StockMovementDto) =>
-    [m.movementNumber, m.referenceNumber ?? '', m.fromName, m.toName, m.performedByName, m.notes, TYPE_LABEL[m.type]]
-      .join(' ')
-      .toLowerCase()
-      .includes(q);
-  const shownLines = rows.filter((r): r is Exclude<(typeof rows)[number], { opening: number }> => !('opening' in r) && (!filterLines || lineMatches(r.m)));
+  const shownLines = q
+    ? lines.filter((r) =>
+        textMatches(
+          [r.m.sku, r.m.itemName, itemsById.get(r.m.stockItemId)?.category ?? '', r.m.movementNumber, r.m.referenceNumber ?? '', r.m.fromName, r.m.toName, r.m.performedByName, r.m.notes, TYPE_LABEL[shownType(r.m)]].join(' '),
+          q,
+        ),
+      )
+    : lines;
+
+  const pageCount = Math.max(1, Math.ceil(shownLines.length / LEDGER_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageLines = shownLines.slice((safePage - 1) * LEDGER_PAGE_SIZE, safePage * LEDGER_PAGE_SIZE);
+  const showItemCol = !item;
+  const cols = showItemCol ? 9 : 8;
+
+  const itemOptions = useMemo(() => data.items.map((it) => ({ value: it.id, label: `[${it.sku}] ${it.name}`, keywords: it.category })), [data.items]);
+  const locOptions = useMemo(() => data.locations.map((l) => ({ value: locKey(l.projectId), label: l.name })), [data.locations]);
 
   return (
     <GsapReveal>
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs">
         <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-slate-900">รายงานความเคลื่อนไหวสินค้า</h2>
-            <p className="text-xs text-slate-400">บัตรคุมสินค้า: รับ-จ่ายทุกรายการพร้อมยอดคงเหลือ (ย้อนหลัง 13 เดือน)</p>
+            <p className="text-xs text-slate-400">รับ-จ่ายทุกรายการพร้อมยอดคงเหลือของแต่ละสินค้า (ย้อนหลัง 13 เดือน)</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={itemId} onChange={(e) => setItemId(e.target.value)} className="py-1.5 px-3 text-xs border border-slate-200 rounded-lg bg-white max-w-[280px]">
-              {data.items.length === 0 && <option value="">ยังไม่มีรายการวัสดุ</option>}
-              {itemOptions.map((it) => (
-                <option key={it.id} value={it.id}>
-                  [{it.sku}] {it.name}
-                </option>
-              ))}
-            </select>
-            <select value={loc} onChange={(e) => setLoc(e.target.value)} className="py-1.5 px-3 text-xs border border-slate-200 rounded-lg bg-white max-w-[220px]">
-              <option value="All">ทุกคลัง</option>
-              {data.locations.map((l) => (
-                <option key={locKey(l.projectId)} value={locKey(l.projectId)}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+            <SearchPicker
+              value={itemId}
+              onChange={setItemId}
+              options={itemOptions}
+              allLabel="ทุกสินค้า"
+              placeholder="พิมพ์ชื่อหรือรหัสสินค้า..."
+              ariaLabel="เลือกสินค้า"
+              className="w-[280px] max-w-full"
+            />
+            <SearchPicker
+              value={loc}
+              onChange={setLoc}
+              options={locOptions}
+              allLabel="ทุกคลัง / ทุกโครงการ"
+              placeholder="พิมพ์ชื่อโครงการหรือคลัง..."
+              ariaLabel="เลือกคลังหรือโครงการ"
+              className="w-[240px] max-w-full"
+            />
             <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs">
               <FileText className="w-3.5 h-3.5" /> พิมพ์
             </button>
@@ -634,25 +678,23 @@ function LedgerTab({ data }: { data: StockPageData }) {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาสินค้า, SKU, เอกสาร, ต้นทาง, ปลายทาง..."
+              placeholder="ค้นหาสินค้า, SKU, เอกสาร, ต้นทาง, ปลายทาง, ผู้บันทึก..."
               aria-label="ค้นหาในรายงานความเคลื่อนไหวสินค้า"
               className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-brand"
             />
           </div>
-          {q && (
-            <p className="mt-1.5 text-[11px] text-slate-500" role="status">
-              {itemMatches.length > 0
-                ? `พบสินค้า ${itemMatches.length} รายการที่ตรงกับ “${search.trim()}” — เลือกได้จากช่องด้านบน`
-                : `ไม่พบชื่อสินค้า — แสดงเฉพาะรายการเคลื่อนไหวที่ตรงกับ “${search.trim()}” (${shownLines.length} รายการ)`}
-            </p>
-          )}
+          <p className="mt-1.5 text-[11px] text-slate-500" role="status">
+            {item ? `สินค้า [${item.sku}] ${item.name}` : 'ทุกสินค้า'} · {loc ? (locOptions.find((o) => o.value === loc)?.label ?? '') : 'ทุกคลัง / ทุกโครงการ'} · พบ{' '}
+            {shownLines.length.toLocaleString('th-TH')} รายการ{q ? ` ที่ตรงกับ “${q}”` : ''}
+          </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-xs">
+          <table className="w-full min-w-[1000px] text-xs">
             <thead className={tableHead}>
               <tr>
                 <th className="px-3.5 py-2.5 text-left font-medium">วันที่</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ / อ้างอิง</th>
+                {showItemCol && <th className="px-3.5 py-2.5 text-left font-medium">สินค้า</th>}
                 <th className="px-3.5 py-2.5 text-left font-medium">ประเภท</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ต้นทาง → ปลายทาง</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">รับ</th>
@@ -662,50 +704,56 @@ function LedgerTab({ data }: { data: StockPageData }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {!item ? (
+              {pageLines.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    เลือกสินค้าเพื่อดูความเคลื่อนไหว
-                  </td>
-                </tr>
-              ) : filterLines && shownLines.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    ไม่พบรายการเคลื่อนไหวที่ตรงกับ “{search.trim()}”
+                  <td colSpan={cols} className="py-12 text-center text-slate-400">
+                    {q ? `ไม่พบรายการเคลื่อนไหวที่ตรงกับ “${q}”` : 'ยังไม่มีรายการเคลื่อนไหวในช่วงนี้'}
                   </td>
                 </tr>
               ) : (
-                shownLines.map((r) =>
-                  (
+                pageLines.map((r) => {
+                  const t = shownType(r.m);
+                  const moved = r.m.type === 'TRANSFER' && r.delta === 0;
+                  return (
                     <tr key={r.m.id} className="hover:bg-slate-50">
                       <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap">{dateText(r.m.date)}</td>
                       <td className="px-3.5 py-2.5">
                         <div className="font-mono text-brand">{r.m.movementNumber}</div>
                         {r.m.referenceNumber && <div className="text-[10px] text-slate-400">{r.m.referenceNumber}</div>}
                       </td>
+                      {showItemCol && (
+                        <td className="px-3.5 py-2.5">
+                          <button type="button" onClick={() => setItemId(r.m.stockItemId)} className="text-left hover:underline" title="ดูเฉพาะสินค้านี้">
+                            <div className="font-semibold text-slate-900">{r.m.itemName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{r.m.sku}</div>
+                          </button>
+                        </td>
+                      )}
                       <td className="px-3.5 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[r.m.type]}`}>{TYPE_LABEL[r.m.type]}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[t]}`}>{TYPE_LABEL[t]}</span>
                       </td>
                       <td className="px-3.5 py-2.5 text-slate-600">
                         {r.m.fromName} → {r.m.toName}
                       </td>
-                      <td className="px-3.5 py-2.5 text-right text-emerald-700 font-semibold">{r.delta > 0 ? qtyText(r.delta) : ''}</td>
+                      <td className="px-3.5 py-2.5 text-right text-emerald-700 font-semibold">
+                        {moved ? <span className="font-normal text-slate-400" title="โอนระหว่างคลัง ยอดรวมไม่เปลี่ยน">⇄ {qtyText(r.m.quantity)}</span> : r.delta > 0 ? qtyText(r.delta) : ''}
+                      </td>
                       <td className="px-3.5 py-2.5 text-right text-rose-600 font-semibold">{r.delta < 0 ? qtyText(-r.delta) : ''}</td>
-                      <td className="px-3.5 py-2.5 text-right font-bold text-slate-900">
-                        {qtyText(r.balance)} {item.unit}
+                      <td className="px-3.5 py-2.5 text-right font-bold text-slate-900 whitespace-nowrap">
+                        {qtyText(r.balance)} {r.unit}
                       </td>
                       <td className="px-3.5 py-2.5 text-slate-500">{r.m.performedByName}</td>
                     </tr>
-                  ),
-                )
+                  );
+                })
               )}
-              {item && (
+              {item && !q && safePage === pageCount && (
                 <tr className="bg-slate-50">
-                  <td colSpan={6} className="px-3.5 py-2 text-right text-slate-500">
+                  <td colSpan={cols - 2} className="px-3.5 py-2 text-right text-slate-500">
                     ยอดยกมา
                   </td>
                   <td className="px-3.5 py-2 text-right font-semibold text-slate-700">
-                    {qtyText((rows[0] as { opening: number }).opening)} {item.unit}
+                    {qtyText(opening)} {item.unit}
                   </td>
                   <td />
                 </tr>
@@ -713,6 +761,25 @@ function LedgerTab({ data }: { data: StockPageData }) {
             </tbody>
           </table>
         </div>
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 text-xs text-slate-500 print:hidden">
+            <span>
+              แสดง {((safePage - 1) * LEDGER_PAGE_SIZE + 1).toLocaleString('th-TH')}–{Math.min(safePage * LEDGER_PAGE_SIZE, shownLines.length).toLocaleString('th-TH')} จาก{' '}
+              {shownLines.length.toLocaleString('th-TH')} รายการ
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)} className="px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
+                ก่อนหน้า
+              </button>
+              <span className="px-1">
+                หน้า {safePage} / {pageCount}
+              </span>
+              <button type="button" disabled={safePage >= pageCount} onClick={() => setPage(safePage + 1)} className="px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
+                ถัดไป
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </GsapReveal>
   );
