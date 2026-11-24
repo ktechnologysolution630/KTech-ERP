@@ -175,7 +175,7 @@ export function ProjectTasksBoard({
                           <span className="font-mono text-[10px] text-slate-400">{t.wbs}</span>
                           <h4 className="font-semibold text-slate-800 leading-snug break-words">
                             {t.title}
-                            {t.hasChildren && <span className="ml-1 text-[10px] text-slate-400">(งานหลัก)</span>}
+                            {t.hasChildren && <span className="ml-1 text-[10px] text-slate-400">(กลุ่มงาน)</span>}
                           </h4>
                         </div>
                         {canManage && (
@@ -193,7 +193,7 @@ export function ProjectTasksBoard({
                               disabled={isPending}
                               onClick={() => {
                                 const msg = t.hasChildren
-                                  ? `ลบ "${t.title}" และงานย่อยทั้งหมด?`
+                                  ? `ลบกลุ่มงาน "${t.title}" และหมวดงานทั้งหมดในกลุ่มนี้?`
                                   : `ลบ "${t.title}"?`;
                                 if (confirm(msg)) submit(() => deleteTaskAction(projectId, t.id));
                               }}
@@ -291,7 +291,7 @@ export function ProjectTasksBoard({
               <fieldset disabled={isPending} className="space-y-3">
                 <div>
                   <label htmlFor="tk-title" className="block font-medium text-slate-700 mb-1">
-                    ชื่องาน <span className="text-red-500">*</span>
+                    หมวดงาน <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="tk-title"
@@ -304,14 +304,14 @@ export function ProjectTasksBoard({
 
                 {!dialog.taskId && (
                   <div>
-                    <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">อยู่ภายใต้งานหลัก</label>
+                    <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">กลุ่มงาน</label>
                     <select
                       id="tk-parent"
                       value={dialog.form.parentId ?? ''}
                       onChange={(e) => setField('parentId', e.target.value || null)}
                       className={inputClass}
                     >
-                      <option value="">— เป็นงานหลัก —</option>
+                      <option value="">— ไม่มี (ตั้งเป็นกลุ่มงานใหม่) —</option>
                       {topLevel.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.wbs} {t.title}
