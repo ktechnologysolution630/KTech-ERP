@@ -34,6 +34,8 @@ interface ProjectTasksBoardProps {
 
 interface TaskForm {
   parentId: string | null;
+  /** Title of a BOQ category (or standard group) to find or create as the group */
+  parentGroup: string | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -47,6 +49,7 @@ interface TaskForm {
 
 const EMPTY_FORM: TaskForm = {
   parentId: null,
+  parentGroup: null,
   title: '',
   description: '',
   status: 'TODO',
@@ -86,6 +89,9 @@ export function ProjectTasksBoard({
 
   const topLevel = tasks.filter((t) => t.parentId === null);
   const boqTitles = groupSource === 'BOQ' ? groupOptions : [];
+  // Groups offered besides the existing ones: every BOQ category (else standard group) not yet a group here
+  const topTitles = new Set(topLevel.map((t) => t.title.trim()));
+  const missingGroups = groupOptions.filter((g) => !topTitles.has(g.title));
 
   const submit = (action: () => Promise<TaskActionResult>, onOk?: () => void) => {
     setError(null);
@@ -110,6 +116,7 @@ export function ProjectTasksBoard({
       taskId: t.id,
       form: {
         parentId: t.parentId,
+        parentGroup: null,
         title: t.title,
         description: t.description,
         status: t.status,
@@ -133,7 +140,7 @@ export function ProjectTasksBoard({
     if (taskId) {
       // Parent is fixed after creation; everything else is editable
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { parentId: _parent, ...rest } = form;
+      const { parentId: _parent, parentGroup: _group, ...rest } = form;
       submit(() => updateTaskAction(projectId, taskId, rest), () => setDialog(null));
     } else {
       submit(() => createTaskAction(projectId, form), () => setDialog(null));
@@ -350,17 +357,45 @@ export function ProjectTasksBoard({
                     <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">กลุ่มงาน</label>
                     <select
                       id="tk-parent"
-                      value={dialog.form.parentId ?? ''}
-                      onChange={(e) => setField('parentId', e.target.value || null)}
+                      value={
+                        dialog.form.parentGroup ? `grp:${dialog.form.parentGroup}` : (dialog.form.parentId ?? '')
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const group = v.startsWith('grp:') ? v.slice(4) : null;
+                        setDialog((d) =>
+                          d ? { ...d, form: { ...d.form, parentGroup: group, parentId: group || !v ? null : v } } : d,
+                        );
+                      }}
                       className={inputClass}
                     >
                       <option value="">— ไม่มี (ตั้งเป็นกลุ่มงานใหม่) —</option>
-                      {topLevel.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.wbs} {t.title}
-                        </option>
-                      ))}
+                      {topLevel.length > 0 && (
+                        <optgroup label="กลุ่มงานที่มีในโครงการ">
+                          {topLevel.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.wbs} {t.title}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {missingGroups.length > 0 && (
+                        <optgroup
+                          label={groupSource === 'BOQ' ? 'หมวดจาก BOQ (ระบบสร้างกลุ่มให้)' : 'กลุ่มงานมาตรฐาน (ระบบสร้างกลุ่มให้)'}
+                        >
+                          {missingGroups.map((g) => (
+                            <option key={g.title} value={`grp:${g.title}`}>
+                              {g.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
+                    {dialog.form.parentGroup && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        ระบบจะสร้างกลุ่มงาน “{dialog.form.parentGroup}” ในโครงการนี้ให้ แล้วใส่หมวดงานนี้ไว้ข้างใต้
+                      </p>
+                    )}
                   </div>
                 )}
 
