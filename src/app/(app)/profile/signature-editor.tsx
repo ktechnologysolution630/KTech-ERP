@@ -14,7 +14,23 @@ const INK = '#0f172a';
  * Draw a signature with a finger, pen or mouse, or bring in a picture of one. It is kept as a
  * transparent PNG so it sits on the paper like ink.
  */
-export function SignatureEditor({ current, updatedAt }: { current: string | null; updatedAt: string | null }) {
+type SaveResult = { ok: true } | { ok: false; error: string };
+
+export function SignatureEditor({
+  current,
+  updatedAt,
+  onSave = saveSignatureAction,
+  onDelete = deleteSignatureAction,
+  ownerName,
+}: {
+  current: string | null;
+  updatedAt: string | null;
+  /** Where the picture is saved; the signed-in person's own profile unless an administrator sets someone else's */
+  onSave?: (image: string) => Promise<SaveResult>;
+  onDelete?: () => Promise<SaveResult>;
+  /** Set when an administrator edits someone else's signature */
+  ownerName?: string;
+}) {
   const router = useRouter();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -120,7 +136,7 @@ export function SignatureEditor({ current, updatedAt }: { current: string | null
     const image = canvas.current.toDataURL('image/png');
     setError(null);
     startTransition(async () => {
-      const r = await saveSignatureAction(image);
+      const r = await onSave(image);
       if (!r.ok) {
         setError(r.error);
         return;
@@ -134,7 +150,11 @@ export function SignatureEditor({ current, updatedAt }: { current: string | null
   const remove = () => {
     setError(null);
     startTransition(async () => {
-      await deleteSignatureAction();
+      const r = await onDelete();
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
       setSaved(false);
       router.refresh();
     });
@@ -148,7 +168,7 @@ export function SignatureEditor({ current, updatedAt }: { current: string | null
           <>
             <div className="flex h-36 items-center justify-center rounded-lg border border-slate-200 bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={current} alt="ลายเซ็นของคุณ" className="max-h-28 max-w-full object-contain" />
+              <img src={current} alt={ownerName ? `ลายเซ็นของ ${ownerName}` : 'ลายเซ็นของคุณ'} className="max-h-28 max-w-full object-contain" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
               <span>{updatedAt ? `บันทึกเมื่อ ${updatedAt}` : ''}</span>
@@ -158,10 +178,12 @@ export function SignatureEditor({ current, updatedAt }: { current: string | null
             </div>
           </>
         ) : (
-          <p className="flex h-36 items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-xs text-slate-500">ยังไม่มีลายเซ็น เอกสารที่คุณจัดทำหรืออนุมัติจะแสดงเฉพาะชื่อและวันที่</p>
+          <p className="flex h-36 items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-xs text-slate-500">{ownerName ? 'ยังไม่มีลายเซ็น' : 'ยังไม่มีลายเซ็น เอกสารที่คุณจัดทำหรืออนุมัติจะแสดงเฉพาะชื่อและวันที่'}</p>
         )}
         <p className="text-[11px] leading-relaxed text-slate-500">
-          ลายเซ็นนี้จะถูกลงในช่องผู้ขอ ผู้จัดทำ หรือผู้อนุมัติ โดยอัตโนมัติเมื่อคุณส่งหรือกดอนุมัติเอกสารในระบบ ไม่มีใครตั้งหรือใช้ลายเซ็นแทนคุณได้
+          {ownerName
+            ? `ลายเซ็นนี้จะถูกลงในเอกสารที่ ${ownerName} ส่งหรืออนุมัติในระบบ`
+            : 'ลายเซ็นนี้จะถูกลงในช่องผู้ขอ ผู้จัดทำ หรือผู้อนุมัติ โดยอัตโนมัติเมื่อคุณส่งหรือกดอนุมัติเอกสารในระบบ ผู้ดูแลระบบตั้งลายเซ็นให้ได้ แต่ใช้แทนคุณในเอกสารไม่ได้'}
         </p>
       </section>
 

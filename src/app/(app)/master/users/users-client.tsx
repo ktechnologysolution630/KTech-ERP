@@ -2,12 +2,13 @@
 
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, Pencil, Plus, X } from 'lucide-react';
+import { KeyRound, PenLine, Pencil, Plus, X } from 'lucide-react';
 import type { Role } from '@/db/schema';
 import { expandHiddenMenus, MENU_TREE, type MenuKey } from '@/domain/menu';
 import { hiddenMenusForRole, ROLE_PRESETS } from '@/domain/role-presets';
 import type { UserRowDto } from '@/server/services/master';
-import { resetUserPasswordAction, saveUserAction } from '../actions';
+import { deleteUserSignatureAction, resetUserPasswordAction, saveUserAction, setUserSignatureAction } from '../actions';
+import { SignatureEditor } from '../../profile/signature-editor';
 
 const ROLE_LABELS: Record<Role, string> = {
   FOREMAN: 'โฟร์แมน',
@@ -27,16 +28,19 @@ const ROLES = Object.keys(ROLE_LABELS) as Role[];
 const SITE_ROLES: Role[] = ['FOREMAN', 'ENGINEER', 'ARCHITECT', 'PROJECT_CLERK', 'PM'];
 const field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none';
 
-type Dialog = { kind: 'edit'; user: UserRowDto | null } | { kind: 'password'; user: UserRowDto };
+type Dialog = { kind: 'edit'; user: UserRowDto | null } | { kind: 'password'; user: UserRowDto } | { kind: 'signature'; user: UserRowDto };
 
 export function UsersClient({
   users,
   projects,
+  signatures,
   me,
   minPasswordLength,
 }: {
   users: UserRowDto[];
   projects: { id: string; label: string }[];
+  /** Signature image by user id; someone without one is missing */
+  signatures: Record<string, string>;
   me: string;
   minPasswordLength: number;
 }) {
@@ -92,6 +96,15 @@ export function UsersClient({
                   <button type="button" onClick={() => setDialog({ kind: 'password', user: u })} className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 text-xs hover:bg-slate-50">
                     <KeyRound className="w-3 h-3" /> ตั้งรหัสผ่าน
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setDialog({ kind: 'signature', user: u })}
+                    title={signatures[u.id] ? 'มีลายเซ็นแล้ว' : 'ยังไม่มีลายเซ็น'}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 text-xs hover:bg-slate-50"
+                  >
+                    <PenLine className="w-3 h-3" /> ลายเซ็น
+                    <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${signatures[u.id] ? 'bg-emerald-500' : 'bg-slate-300'}`} aria-hidden />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -103,6 +116,20 @@ export function UsersClient({
         <UserDialog user={dialog.user} projects={projects} minPasswordLength={minPasswordLength} onClose={() => setDialog(null)} />
       )}
       {dialog?.kind === 'password' && <PasswordDialog user={dialog.user} minPasswordLength={minPasswordLength} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'signature' && (
+        <Shell title={`ลายเซ็นของ ${dialog.user.name}`} onClose={() => setDialog(null)}>
+          <div className="p-5">
+            <SignatureEditor
+              key={dialog.user.id}
+              current={signatures[dialog.user.id] ?? null}
+              updatedAt={null}
+              ownerName={dialog.user.name}
+              onSave={(image) => setUserSignatureAction(dialog.user.id, image)}
+              onDelete={() => deleteUserSignatureAction(dialog.user.id)}
+            />
+          </div>
+        </Shell>
+      )}
     </div>
   );
 }
