@@ -89,10 +89,14 @@ export function ProjectTasksBoard({
   const [customTitle, setCustomTitle] = useState(false);
 
   const topLevel = tasks.filter((t) => t.parentId === null);
-  const boqTitles = groupSource === 'BOQ' ? groupOptions : [];
-  // Groups offered besides the existing ones: every BOQ category (else standard group) not yet a group here
-  const topTitles = new Set(topLevel.map((t) => t.title.trim()));
-  const missingGroups = groupOptions.filter((g) => !topTitles.has(g.title));
+  // กลุ่มงาน = the BOQ sections (else standard groups); หมวดงาน = the sub-headings of the chosen section
+  const allCategories = groupOptions.flatMap((g) => g.categories);
+  const groupTitleOf = (form: TaskForm) =>
+    form.parentGroup ?? (form.parentId ? (topLevel.find((t) => t.id === form.parentId)?.title ?? null) : null);
+  const categoriesFor = (form: TaskForm) => {
+    const group = groupOptions.find((g) => g.title === groupTitleOf(form));
+    return group ? group.categories : allCategories;
+  };
 
   const submit = (action: () => Promise<TaskActionResult>, onOk?: () => void) => {
     setError(null);
@@ -108,11 +112,11 @@ export function ProjectTasksBoard({
   };
 
   const openCreate = () => {
-    setCustomTitle(boqTitles.length === 0);
+    setCustomTitle(allCategories.length === 0);
     setDialog({ taskId: null, form: { ...EMPTY_FORM } });
   };
   const openEdit = (t: TaskDto) => {
-    setCustomTitle(!boqTitles.some((g) => g.title === t.title));
+    setCustomTitle(!allCategories.some((g) => g.title === t.title));
     setDialog({
       taskId: t.id,
       form: {
@@ -309,96 +313,89 @@ export function ProjectTasksBoard({
             </div>
             <form onSubmit={saveDialog} className="space-y-3 text-xs">
               <fieldset disabled={isPending} className="space-y-3">
-                <div>
-                  <label htmlFor="tk-title" className="block font-medium text-slate-700 mb-1">
-                    หมวดงาน <span className="text-red-500">*</span>
-                  </label>
-                  {boqTitles.length > 0 && (
-                    <select
-                      id={customTitle ? undefined : 'tk-title'}
-                      required={!customTitle}
-                      value={customTitle ? '__custom' : dialog.form.title}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === '__custom') {
-                          setCustomTitle(true);
-                          setField('title', '');
-                        } else {
-                          setCustomTitle(false);
-                          setField('title', v);
-                        }
-                      }}
-                      className={inputClass}
-                    >
-                      <option value="">— เลือกหมวดงานจาก BOQ —</option>
-                      <optgroup label="หมวดจาก BOQ ของโครงการ">
-                        {boqTitles.map((g) => (
-                          <option key={g.title} value={g.title}>
-                            {g.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <option value="__custom">อื่น ๆ (พิมพ์ชื่อเอง)</option>
-                    </select>
-                  )}
-                  {customTitle && (
-                    <input
-                      id="tk-title"
-                      required
-                      value={dialog.form.title}
-                      onChange={(e) => setField('title', e.target.value)}
-                      placeholder={boqTitles.length > 0 ? 'พิมพ์ชื่อหมวดงาน' : undefined}
-                      className={`${inputClass} ${boqTitles.length > 0 ? 'mt-2' : ''}`}
-                    />
-                  )}
-                </div>
-
                 {!dialog.taskId && (
                   <div>
                     <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">กลุ่มงาน</label>
                     <select
                       id="tk-parent"
-                      value={
-                        dialog.form.parentGroup ? `grp:${dialog.form.parentGroup}` : (dialog.form.parentId ?? '')
-                      }
+                      value={dialog.form.parentGroup ?? ''}
                       onChange={(e) => {
-                        const v = e.target.value;
-                        const group = v.startsWith('grp:') ? v.slice(4) : null;
-                        setDialog((d) =>
-                          d ? { ...d, form: { ...d.form, parentGroup: group, parentId: group || !v ? null : v } } : d,
-                        );
+                        const group = e.target.value || null;
+                        const options = groupOptions.find((g) => g.title === group)?.categories ?? allCategories;
+                        setDialog((d) => {
+                          if (!d) return d;
+                          // Keep the หมวดงาน only if it belongs to the new group
+                          const keep = customTitle || options.some((c) => c.title === d.form.title);
+                          return {
+                            ...d,
+                            form: { ...d.form, parentId: null, parentGroup: group, title: keep ? d.form.title : '' },
+                          };
+                        });
                       }}
                       className={inputClass}
                     >
                       <option value="">— ไม่มี (ตั้งเป็นกลุ่มงานใหม่) —</option>
-                      {topLevel.length > 0 && (
-                        <optgroup label="กลุ่มงานที่มีในโครงการ">
-                          {topLevel.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.wbs} {t.title}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {missingGroups.length > 0 && (
-                        <optgroup
-                          label={groupSource === 'BOQ' ? 'หมวดจาก BOQ (ระบบสร้างกลุ่มให้)' : 'กลุ่มงานมาตรฐาน (ระบบสร้างกลุ่มให้)'}
-                        >
-                          {missingGroups.map((g) => (
-                            <option key={g.title} value={`grp:${g.title}`}>
-                              {g.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
+                      <optgroup label={groupSource === 'BOQ' ? 'กลุ่มงานจาก BOQ ของโครงการ' : 'กลุ่มงานมาตรฐาน (ยังไม่มี BOQ)'}>
+                        {groupOptions.map((g) => (
+                          <option key={g.title} value={g.title}>
+                            {g.label}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
-                    {dialog.form.parentGroup && (
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        ระบบจะสร้างกลุ่มงาน “{dialog.form.parentGroup}” ในโครงการนี้ให้ แล้วใส่หมวดงานนี้ไว้ข้างใต้
-                      </p>
-                    )}
                   </div>
                 )}
+
+                <div>
+                  <label htmlFor="tk-title" className="block font-medium text-slate-700 mb-1">
+                    หมวดงาน <span className="text-red-500">*</span>
+                  </label>
+                  {(() => {
+                    const options = categoriesFor(dialog.form);
+                    return (
+                      <>
+                        {allCategories.length > 0 && (
+                          <select
+                            id={customTitle ? undefined : 'tk-title'}
+                            required={!customTitle}
+                            value={customTitle ? '__custom' : dialog.form.title}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === '__custom') {
+                                setCustomTitle(true);
+                                setField('title', '');
+                              } else {
+                                setCustomTitle(false);
+                                setField('title', v);
+                              }
+                            }}
+                            className={inputClass}
+                          >
+                            <option value="">
+                              {options.length > 0 ? '— เลือกหมวดงานจาก BOQ —' : '— กลุ่มนี้ไม่มีหมวดย่อยใน BOQ —'}
+                            </option>
+                            {options.map((c) => (
+                              <option key={c.title} value={c.title}>
+                                {c.label}
+                              </option>
+                            ))}
+                            <option value="__custom">อื่น ๆ (พิมพ์ชื่อเอง)</option>
+                          </select>
+                        )}
+                        {customTitle && (
+                          <input
+                            id="tk-title"
+                            required
+                            value={dialog.form.title}
+                            onChange={(e) => setField('title', e.target.value)}
+                            placeholder={allCategories.length > 0 ? 'พิมพ์ชื่อหมวดงาน' : undefined}
+                            className={`${inputClass} ${allCategories.length > 0 ? 'mt-2' : ''}`}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
 
                 <div>
                   <label htmlFor="tk-desc" className="block font-medium text-slate-700 mb-1">รายละเอียด</label>
