@@ -13,7 +13,8 @@ import { MaterialUsageDialog } from './material-usage-dialog';
 import { StockDocHistoryView } from './stock-doc-history';
 import { ReorderPointDialog } from './reorder-dialog';
 import { StockAdjustTab, StockCountTab } from './stock-count-adjust';
-import { SearchPicker, textMatches } from './search-picker';
+import { SearchSelect } from '@/components/search-select';
+import { matchesSearch } from '@/lib/search-match';
 
 const CATEGORY_COLORS = ['#4f8df7', '#32b8eb', '#8b5cf6', '#2563eb', '#0ea5a4', '#7c3aed'];
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -72,7 +73,9 @@ const tableHead = 'bg-slate-50 text-xs text-slate-500 [&_th]:border-r [&_th]:bor
 export function StockClient({ data, docOptions, canDelete = false }: { data: StockPageData; docOptions: StockDocOptions; canDelete?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const currentTab = searchParams.get('tab') || 'overview';
+  // The movement report (old tab "issues") is now part of the movements list
+  const rawTab = searchParams.get('tab') || 'overview';
+  const currentTab = rawTab === 'issues' ? 'movements' : rawTab;
   const setTab = (tab: string) => router.push(`/stock?tab=${tab}`);
 
   const [movementDialog, setMovementDialog] = useState<{ kind: MovementKind; itemId?: string } | null>(null);
@@ -84,18 +87,10 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [locationFilter, setLocationFilter] = useState('All');
+  const [itemFilter, setItemFilter] = useState('All');
   const [chartMonths, setChartMonths] = useState<6 | 12>(6);
 
   const canMoveAnything = data.permissions.moveCentral || data.permissions.movableProjectIds.length > 0;
-  const q = search.trim().toLowerCase();
-
-  const filteredMovements = data.movements.filter((m) => {
-    if (typeFilter !== 'All' && shownType(m) !== typeFilter) return false;
-    if (locationFilter !== 'All' && locKey(m.projectId) !== locationFilter && locKey(m.targetProjectId) !== locationFilter) return false;
-    if (q && ![m.itemName, m.sku, m.movementNumber, m.referenceNumber ?? '', m.fromName, m.toName].some((s) => s.toLowerCase().includes(q))) return false;
-    return true;
-  });
-
   const showTopBar = currentTab === 'overview' || currentTab === 'movements';
 
   return (
@@ -106,7 +101,7 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="ค้นหาวัสดุ, SKU, เลขที่เอกสาร, ต้นทาง, ปลายทาง..."
+              placeholder="ค้นหาวัสดุ, SKU, เลขที่เอกสาร, ต้นทาง, ปลายทาง, ผู้ทำรายการ..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -127,17 +122,41 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-xs">
-              <span className="text-slate-400 text-[11px]">คลัง:</span>
-              <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="bg-transparent font-medium text-xs focus:outline-none max-w-[220px]">
-                <option value="All">ทั้งหมด</option>
-                {data.locations.map((l) => (
-                  <option key={locKey(l.projectId)} value={locKey(l.projectId)}>
-                    {l.name}
+            {currentTab === 'movements' && (
+              <SearchSelect
+                value={itemFilter}
+                onChange={(e) => setItemFilter(e.target.value)}
+                aria-label="เลือกวัสดุ"
+                placeholder="พิมพ์ชื่อหรือรหัสวัสดุ..."
+                className="w-[240px] max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium"
+              >
+                <option value="All">ทุกวัสดุ</option>
+                {data.items.map((it) => (
+                  <option key={it.id} value={it.id}>
+                    [{it.sku}] {it.name}
                   </option>
                 ))}
-              </select>
-            </label>
+              </SearchSelect>
+            )}
+            <SearchSelect
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              aria-label="เลือกคลังหรือโครงการ"
+              placeholder="พิมพ์ชื่อโครงการหรือคลัง..."
+              className="w-[220px] max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium"
+            >
+              <option value="All">ทุกคลัง / ทุกโครงการ</option>
+              {data.locations.map((l) => (
+                <option key={locKey(l.projectId)} value={locKey(l.projectId)}>
+                  {l.name}
+                </option>
+              ))}
+            </SearchSelect>
+            {currentTab === 'movements' && (
+              <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs">
+                <FileText className="w-3.5 h-3.5" /> พิมพ์
+              </button>
+            )}
             {canMoveAnything && (
               <button
                 type="button"
@@ -153,7 +172,17 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
       )}
 
       {currentTab === 'overview' && <OverviewTab data={data} chartMonths={chartMonths} setChartMonths={setChartMonths} onSeeAll={() => setTab('all-stock')} />}
-      {currentTab === 'movements' && <MovementsTab movements={filteredMovements} canDelete={canDelete} />}
+      {currentTab === 'movements' && (
+        <MovementsTab
+          data={data}
+          search={search}
+          typeFilter={typeFilter}
+          itemFilter={itemFilter}
+          locationFilter={locationFilter}
+          onPickItem={setItemFilter}
+          canDelete={canDelete}
+        />
+      )}
       {currentTab === 'low-stock' && (
         <LowStockTab
           items={data.items}
@@ -162,7 +191,6 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
           onSettings={data.permissions.manageItems ? () => setReorderOpen(true) : undefined}
         />
       )}
-      {currentTab === 'issues' && <LedgerTab data={data} />}
       {currentTab === 'material-usage' && (
         <UsageTab data={data} canRecord={canMoveAnything} onRecord={() => setUsageOpen(true)} />
       )}
@@ -368,25 +396,121 @@ function OverviewTab({
   );
 }
 
-function MovementsTab({ movements, canDelete = false }: { movements: StockMovementDto[]; canDelete?: boolean }) {
+const MOVEMENTS_PAGE_SIZE = 50;
+
+interface MovementLine {
+  m: StockMovementDto;
+  /** Balance change at the chosen location; 0 for a transfer seen across all locations */
+  delta: number;
+  /** The item's balance right after this movement (at the chosen location, or all together) */
+  balance: number;
+  unit: string;
+  seq: number;
+}
+
+/**
+ * Every stock movement, newest first, with each item's running balance. Opens on all items at all locations;
+ * the top bar narrows by text, type, item and location.
+ */
+function MovementsTab({
+  data,
+  search,
+  typeFilter,
+  itemFilter,
+  locationFilter,
+  onPickItem,
+  canDelete = false,
+}: {
+  data: StockPageData;
+  search: string;
+  typeFilter: string;
+  itemFilter: string;
+  locationFilter: string;
+  onPickItem: (id: string) => void;
+  canDelete?: boolean;
+}) {
+  const [pageState, setPage] = useState({ page: 1, key: '' });
+  const filterKey = [search, typeFilter, itemFilter, locationFilter].join('|');
+  const page = pageState.key === filterKey ? pageState.page : 1;
+
+  const item = itemFilter !== 'All' ? data.items.find((i) => i.id === itemFilter) : undefined;
+  const key = locationFilter === 'All' ? undefined : locationFilter;
+  const itemsById = useMemo(() => new Map(data.items.map((i) => [i.id, i])), [data.items]);
+
+  const { lines, opening } = useMemo(() => {
+    const byItem = new Map<string, StockMovementDto[]>();
+    for (const m of data.movements) {
+      if (item && m.stockItemId !== item.id) continue;
+      // A transfer seen across all locations moves nothing overall, but it is still listed
+      if (deltaAt(m, key) === 0 && !(key === undefined && m.type === 'TRANSFER')) continue;
+      const list = byItem.get(m.stockItemId) ?? [];
+      list.push(m);
+      byItem.set(m.stockItemId, list);
+    }
+    const balanceNow = (it: StockItemDto) => (key === undefined ? it.totalQty : (it.balances.find((b) => locKey(b.projectId) === key)?.quantity ?? 0));
+    const all: MovementLine[] = [];
+    let seq = 0;
+    let firstOpening = item ? balanceNow(item) : 0;
+    for (const [id, moves] of byItem) {
+      const it = itemsById.get(id);
+      moves.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Opening balance before the oldest movement still in the 13-month window
+      let running = (it ? balanceNow(it) : 0) - moves.reduce((s, m) => s + deltaAt(m, key), 0);
+      if (item && id === item.id) firstOpening = running;
+      for (const m of moves) {
+        const delta = deltaAt(m, key);
+        running += delta;
+        all.push({ m, delta, balance: running, unit: it?.unit ?? m.unit, seq: seq++ });
+      }
+    }
+    all.sort((a, b) => new Date(b.m.date).getTime() - new Date(a.m.date).getTime() || b.seq - a.seq);
+    return { lines: all, opening: firstOpening };
+  }, [data.movements, item, key, itemsById]);
+
+  const shown = lines.filter((r) => {
+    if (typeFilter !== 'All' && shownType(r.m) !== typeFilter) return false;
+    if (!search.trim()) return true;
+    const m = r.m;
+    return matchesSearch(
+      [m.sku, m.itemName, itemsById.get(m.stockItemId)?.category ?? '', m.movementNumber, m.referenceNumber ?? '', m.fromName, m.toName, m.performedByName, m.notes, TYPE_LABEL[shownType(m)]].join(' '),
+      search,
+    );
+  });
+
+  const pageCount = Math.max(1, Math.ceil(shown.length / MOVEMENTS_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageLines = shown.slice((safePage - 1) * MOVEMENTS_PAGE_SIZE, safePage * MOVEMENTS_PAGE_SIZE);
+  const goTo = (p: number) => setPage({ page: p, key: filterKey });
+  const showOpening = !!item && typeFilter === 'All' && !search.trim() && safePage === pageCount;
+  const cols = canDelete ? 10 : 9;
+
   const label = (m: StockMovementDto) => `${m.movementNumber} · ${m.itemName}`;
-  const page = (
+  const scope = `${item ? `[${item.sku}] ${item.name}` : 'ทุกสินค้า'} · ${key ? (data.locations.find((l) => locKey(l.projectId) === key)?.name ?? '') : 'ทุกคลัง / ทุกโครงการ'}`;
+
+  const content = (
     <GsapReveal>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold text-slate-900">รายการเคลื่อนไหวล่าสุด</h2>
+        <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">รายการเคลื่อนไหวสต็อก</h2>
+            <p className="text-[11px] text-slate-400">
+              {scope} · รับ-จ่ายทุกรายการพร้อมยอดคงเหลือ (ย้อนหลัง 13 เดือน)
+            </p>
+          </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">{movements.length} รายการ</span>
+            <span className="text-xs text-slate-500" role="status">
+              {shown.length.toLocaleString('th-TH')} รายการ
+            </span>
             {canDelete && <BulkDeleteBar />}
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-xs">
+          <table className="w-full min-w-[1000px] text-xs">
             <thead className={tableHead}>
               <tr>
                 {canDelete && (
-                  <th className="w-8 px-3 py-2.5">
-                    <SelectAllBox items={movements.map((m) => ({ id: m.id, label: label(m) }))} />
+                  <th className="w-8 px-3 py-2.5 print:hidden">
+                    <SelectAllBox items={pageLines.map((r) => ({ id: r.m.id, label: label(r.m) }))} />
                   </th>
                 )}
                 <th className="px-3.5 py-2.5 text-left font-medium">วันที่ / เลขที่</th>
@@ -395,24 +519,27 @@ function MovementsTab({ movements, canDelete = false }: { movements: StockMoveme
                 <th className="px-3.5 py-2.5 text-left font-medium">ต้นทาง</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ปลายทาง</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">จำนวน</th>
+                <th className="px-3.5 py-2.5 text-right font-medium">คงเหลือ</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">มูลค่า</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ผู้ทำรายการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {movements.length === 0 ? (
+              {pageLines.length === 0 ? (
                 <tr>
-                  <td colSpan={canDelete ? 9 : 8} className="py-12 text-center text-slate-400">
+                  <td colSpan={cols} className="py-12 text-center text-slate-400">
                     ไม่พบรายการเคลื่อนไหว
                   </td>
                 </tr>
               ) : (
-                movements.map((m) => {
-                  const sign = m.type === 'ISSUE' ? '-' : m.type === 'ADJUST' && m.quantity < 0 ? '' : m.type === 'TRANSFER' ? '' : '+';
+                pageLines.map((r) => {
+                  const m = r.m;
+                  const t = shownType(m);
+                  const across = m.type === 'TRANSFER' && r.delta === 0;
                   return (
                     <tr key={m.id} className="hover:bg-slate-50">
                       {canDelete && (
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 print:hidden">
                           <SelectBox id={m.id} label={label(m)} />
                         </td>
                       )}
@@ -421,17 +548,29 @@ function MovementsTab({ movements, canDelete = false }: { movements: StockMoveme
                         <div className="font-mono text-[10px] text-slate-400">{m.docId && m.referenceNumber ? m.referenceNumber : m.movementNumber}</div>
                       </td>
                       <td className="px-3.5 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[shownType(m)]}`}>{TYPE_LABEL[shownType(m)]}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[t]}`}>{TYPE_LABEL[t]}</span>
                       </td>
                       <td className="px-3.5 py-2.5">
-                        <div className="font-medium text-slate-900">{m.itemName}</div>
-                        <div className="font-mono text-[10px] text-slate-400">{m.sku}</div>
+                        <button type="button" onClick={() => onPickItem(m.stockItemId)} className="text-left hover:underline" title="ดูเฉพาะวัสดุนี้">
+                          <div className="font-medium text-slate-900">{m.itemName}</div>
+                          <div className="font-mono text-[10px] text-slate-400">{m.sku}</div>
+                        </button>
                       </td>
                       <td className="px-3.5 py-2.5 text-slate-600">{m.fromName}</td>
                       <td className="px-3.5 py-2.5 text-slate-600">{m.toName}</td>
+                      <td className={`px-3.5 py-2.5 text-right font-bold whitespace-nowrap ${across ? 'text-slate-500' : r.delta < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        {across ? (
+                          <span title="โอนระหว่างคลัง ยอดรวมไม่เปลี่ยน">⇄ {qtyText(m.quantity)}</span>
+                        ) : (
+                          <>
+                            {r.delta > 0 ? '+' : '-'}
+                            {qtyText(Math.abs(r.delta))}
+                          </>
+                        )}{' '}
+                        {m.unit}
+                      </td>
                       <td className="px-3.5 py-2.5 text-right font-bold text-slate-900 whitespace-nowrap">
-                        {sign}
-                        {qtyText(m.quantity)} {m.unit}
+                        {qtyText(r.balance)} {r.unit}
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-slate-600">฿{baht(m.value)}</td>
                       <td className="px-3.5 py-2.5 text-slate-500">{m.performedByName}</td>
@@ -439,14 +578,44 @@ function MovementsTab({ movements, canDelete = false }: { movements: StockMoveme
                   );
                 })
               )}
+              {showOpening && item && (
+                <tr className="bg-slate-50">
+                  <td colSpan={canDelete ? 7 : 6} className="px-3.5 py-2 text-right text-slate-500">
+                    ยอดยกมา
+                  </td>
+                  <td className="px-3.5 py-2 text-right font-semibold text-slate-700 whitespace-nowrap">
+                    {qtyText(opening)} {item.unit}
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 text-xs text-slate-500 print:hidden">
+            <span>
+              แสดง {((safePage - 1) * MOVEMENTS_PAGE_SIZE + 1).toLocaleString('th-TH')}–{Math.min(safePage * MOVEMENTS_PAGE_SIZE, shown.length).toLocaleString('th-TH')} จาก{' '}
+              {shown.length.toLocaleString('th-TH')} รายการ
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button type="button" disabled={safePage <= 1} onClick={() => goTo(safePage - 1)} className="px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
+                ก่อนหน้า
+              </button>
+              <span className="px-1">
+                หน้า {safePage} / {pageCount}
+              </span>
+              <button type="button" disabled={safePage >= pageCount} onClick={() => goTo(safePage + 1)} className="px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
+                ถัดไป
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </GsapReveal>
   );
 
-  if (!canDelete) return page;
+  if (!canDelete) return content;
   return (
     <BulkDeleteProvider
       action={deleteStockMovementsAction}
@@ -454,7 +623,7 @@ function MovementsTab({ movements, canDelete = false }: { movements: StockMoveme
       unit="รายการ"
       hint="ลบได้เฉพาะรายการที่บันทึกเองหรือยอดยกมา ยอดคงเหลือจะถูกคืนกลับ รายการที่มาจากเอกสารสต็อก ใบรับของ หรือคำขอปรับยอด ให้ลบที่ต้นทางแทน"
     >
-      {page}
+      {content}
     </BulkDeleteProvider>
   );
 }
@@ -541,234 +710,6 @@ function LowStockTab({
             </tbody>
           </table>
         </div>
-      </div>
-    </GsapReveal>
-  );
-}
-
-const LEDGER_PAGE_SIZE = 50;
-
-interface LedgerLine {
-  m: StockMovementDto;
-  /** Balance change at the chosen location; 0 for a transfer seen across all locations */
-  delta: number;
-  /** The item's balance right after this movement (at the chosen location) */
-  balance: number;
-  unit: string;
-  seq: number;
-}
-
-/**
- * Stock movement report: opens on every item at every location, newest first, each line with the
- * item's running balance. The item and location pickers take typed search; the search box filters lines.
- */
-function LedgerTab({ data }: { data: StockPageData }) {
-  const [itemId, setItemIdRaw] = useState('');
-  const [loc, setLocRaw] = useState('');
-  const [search, setSearchRaw] = useState('');
-  const [page, setPage] = useState(1);
-  const setItemId = (v: string) => (setItemIdRaw(v), setPage(1));
-  const setLoc = (v: string) => (setLocRaw(v), setPage(1));
-  const setSearch = (v: string) => (setSearchRaw(v), setPage(1));
-  const q = search.trim();
-
-  const item = itemId ? data.items.find((i) => i.id === itemId) : undefined;
-  const key = loc === '' ? undefined : loc;
-  const itemsById = useMemo(() => new Map(data.items.map((i) => [i.id, i])), [data.items]);
-
-  const { lines, opening } = useMemo(() => {
-    const byItem = new Map<string, StockMovementDto[]>();
-    for (const m of data.movements) {
-      if (itemId && m.stockItemId !== itemId) continue;
-      // A transfer seen across all locations moves nothing overall, but it is still listed
-      const shown = deltaAt(m, key) !== 0 || (key === undefined && m.type === 'TRANSFER');
-      if (!shown) continue;
-      const list = byItem.get(m.stockItemId) ?? [];
-      list.push(m);
-      byItem.set(m.stockItemId, list);
-    }
-    const all: LedgerLine[] = [];
-    let seq = 0;
-    let firstOpening = 0;
-    for (const [id, moves] of byItem) {
-      const it = itemsById.get(id);
-      moves.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      const current = !it ? 0 : key === undefined ? it.totalQty : (it.balances.find((b) => locKey(b.projectId) === key)?.quantity ?? 0);
-      // Opening balance before the oldest movement still in the 13-month window
-      let running = current - moves.reduce((s, m) => s + deltaAt(m, key), 0);
-      if (id === itemId) firstOpening = running;
-      for (const m of moves) {
-        const delta = deltaAt(m, key);
-        running += delta;
-        all.push({ m, delta, balance: running, unit: it?.unit ?? m.unit, seq: seq++ });
-      }
-    }
-    if (itemId && !byItem.has(itemId) && item) {
-      firstOpening = key === undefined ? item.totalQty : (item.balances.find((b) => locKey(b.projectId) === key)?.quantity ?? 0);
-    }
-    all.sort((a, b) => new Date(b.m.date).getTime() - new Date(a.m.date).getTime() || b.seq - a.seq);
-    return { lines: all, opening: firstOpening };
-  }, [data.movements, itemId, item, key, itemsById]);
-
-  const shownLines = q
-    ? lines.filter((r) =>
-        textMatches(
-          [r.m.sku, r.m.itemName, itemsById.get(r.m.stockItemId)?.category ?? '', r.m.movementNumber, r.m.referenceNumber ?? '', r.m.fromName, r.m.toName, r.m.performedByName, r.m.notes, TYPE_LABEL[shownType(r.m)]].join(' '),
-          q,
-        ),
-      )
-    : lines;
-
-  const pageCount = Math.max(1, Math.ceil(shownLines.length / LEDGER_PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pageLines = shownLines.slice((safePage - 1) * LEDGER_PAGE_SIZE, safePage * LEDGER_PAGE_SIZE);
-  const showItemCol = !item;
-  const cols = showItemCol ? 9 : 8;
-
-  const itemOptions = useMemo(() => data.items.map((it) => ({ value: it.id, label: `[${it.sku}] ${it.name}`, keywords: it.category })), [data.items]);
-  const locOptions = useMemo(() => data.locations.map((l) => ({ value: locKey(l.projectId), label: l.name })), [data.locations]);
-
-  return (
-    <GsapReveal>
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">รายงานความเคลื่อนไหวสินค้า</h2>
-            <p className="text-xs text-slate-400">รับ-จ่ายทุกรายการพร้อมยอดคงเหลือของแต่ละสินค้า (ย้อนหลัง 13 เดือน)</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchPicker
-              value={itemId}
-              onChange={setItemId}
-              options={itemOptions}
-              allLabel="ทุกสินค้า"
-              placeholder="พิมพ์ชื่อหรือรหัสสินค้า..."
-              ariaLabel="เลือกสินค้า"
-              className="w-[280px] max-w-full"
-            />
-            <SearchPicker
-              value={loc}
-              onChange={setLoc}
-              options={locOptions}
-              allLabel="ทุกคลัง / ทุกโครงการ"
-              placeholder="พิมพ์ชื่อโครงการหรือคลัง..."
-              ariaLabel="เลือกคลังหรือโครงการ"
-              className="w-[240px] max-w-full"
-            />
-            <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs">
-              <FileText className="w-3.5 h-3.5" /> พิมพ์
-            </button>
-          </div>
-        </div>
-        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาสินค้า, SKU, เอกสาร, ต้นทาง, ปลายทาง, ผู้บันทึก..."
-              aria-label="ค้นหาในรายงานความเคลื่อนไหวสินค้า"
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-brand"
-            />
-          </div>
-          <p className="mt-1.5 text-[11px] text-slate-500" role="status">
-            {item ? `สินค้า [${item.sku}] ${item.name}` : 'ทุกสินค้า'} · {loc ? (locOptions.find((o) => o.value === loc)?.label ?? '') : 'ทุกคลัง / ทุกโครงการ'} · พบ{' '}
-            {shownLines.length.toLocaleString('th-TH')} รายการ{q ? ` ที่ตรงกับ “${q}”` : ''}
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-xs">
-            <thead className={tableHead}>
-              <tr>
-                <th className="px-3.5 py-2.5 text-left font-medium">วันที่</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">เลขที่ / อ้างอิง</th>
-                {showItemCol && <th className="px-3.5 py-2.5 text-left font-medium">สินค้า</th>}
-                <th className="px-3.5 py-2.5 text-left font-medium">ประเภท</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">ต้นทาง → ปลายทาง</th>
-                <th className="px-3.5 py-2.5 text-right font-medium">รับ</th>
-                <th className="px-3.5 py-2.5 text-right font-medium">จ่าย</th>
-                <th className="px-3.5 py-2.5 text-right font-medium">คงเหลือ</th>
-                <th className="px-3.5 py-2.5 text-left font-medium">ผู้บันทึก</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pageLines.length === 0 ? (
-                <tr>
-                  <td colSpan={cols} className="py-12 text-center text-slate-400">
-                    {q ? `ไม่พบรายการเคลื่อนไหวที่ตรงกับ “${q}”` : 'ยังไม่มีรายการเคลื่อนไหวในช่วงนี้'}
-                  </td>
-                </tr>
-              ) : (
-                pageLines.map((r) => {
-                  const t = shownType(r.m);
-                  const moved = r.m.type === 'TRANSFER' && r.delta === 0;
-                  return (
-                    <tr key={r.m.id} className="hover:bg-slate-50">
-                      <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap">{dateText(r.m.date)}</td>
-                      <td className="px-3.5 py-2.5">
-                        <div className="font-mono text-brand">{r.m.movementNumber}</div>
-                        {r.m.referenceNumber && <div className="text-[10px] text-slate-400">{r.m.referenceNumber}</div>}
-                      </td>
-                      {showItemCol && (
-                        <td className="px-3.5 py-2.5">
-                          <button type="button" onClick={() => setItemId(r.m.stockItemId)} className="text-left hover:underline" title="ดูเฉพาะสินค้านี้">
-                            <div className="font-semibold text-slate-900">{r.m.itemName}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{r.m.sku}</div>
-                          </button>
-                        </td>
-                      )}
-                      <td className="px-3.5 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[t]}`}>{TYPE_LABEL[t]}</span>
-                      </td>
-                      <td className="px-3.5 py-2.5 text-slate-600">
-                        {r.m.fromName} → {r.m.toName}
-                      </td>
-                      <td className="px-3.5 py-2.5 text-right text-emerald-700 font-semibold">
-                        {moved ? <span className="font-normal text-slate-400" title="โอนระหว่างคลัง ยอดรวมไม่เปลี่ยน">⇄ {qtyText(r.m.quantity)}</span> : r.delta > 0 ? qtyText(r.delta) : ''}
-                      </td>
-                      <td className="px-3.5 py-2.5 text-right text-rose-600 font-semibold">{r.delta < 0 ? qtyText(-r.delta) : ''}</td>
-                      <td className="px-3.5 py-2.5 text-right font-bold text-slate-900 whitespace-nowrap">
-                        {qtyText(r.balance)} {r.unit}
-                      </td>
-                      <td className="px-3.5 py-2.5 text-slate-500">{r.m.performedByName}</td>
-                    </tr>
-                  );
-                })
-              )}
-              {item && !q && safePage === pageCount && (
-                <tr className="bg-slate-50">
-                  <td colSpan={cols - 2} className="px-3.5 py-2 text-right text-slate-500">
-                    ยอดยกมา
-                  </td>
-                  <td className="px-3.5 py-2 text-right font-semibold text-slate-700">
-                    {qtyText(opening)} {item.unit}
-                  </td>
-                  <td />
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {pageCount > 1 && (
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 text-xs text-slate-500 print:hidden">
-            <span>
-              แสดง {((safePage - 1) * LEDGER_PAGE_SIZE + 1).toLocaleString('th-TH')}–{Math.min(safePage * LEDGER_PAGE_SIZE, shownLines.length).toLocaleString('th-TH')} จาก{' '}
-              {shownLines.length.toLocaleString('th-TH')} รายการ
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)} className="px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
-                ก่อนหน้า
-              </button>
-              <span className="px-1">
-                หน้า {safePage} / {pageCount}
-              </span>
-              <button type="button" disabled={safePage >= pageCount} onClick={() => setPage(safePage + 1)} className="px-2.5 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">
-                ถัดไป
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </GsapReveal>
   );
