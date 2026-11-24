@@ -5,6 +5,7 @@ import { projectTasks, projects, users, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
 import {
+  STANDARD_TASK_GROUPS,
   TASK_PRIORITIES,
   TASK_STATUSES,
   wbsNumbers,
@@ -52,6 +53,8 @@ const taskFields = {
 
 const createSchema = z.object({
   parentId: z.string().uuid().nullable().default(null),
+  // A standard group name: used when parentId is empty, found or created as the top-level task
+  parentGroup: z.enum(STANDARD_TASK_GROUPS, { message: 'กลุ่มงานมาตรฐานไม่ถูกต้อง' }).nullable().default(null),
   title: taskFields.title,
   description: taskFields.description.default(''),
   status: taskFields.status.default('TODO'),
@@ -187,9 +190,38 @@ export async function createTask(
   }
 
   return db.transaction(async (tx) => {
-    const siblings = data.parentId
-      ? eq(projectTasks.parentId, data.parentId)
-      : and(eq(projectTasks.projectId, projectId), isNull(projectTasks.parentId));
+    const topLevel = and(eq(projectTasks.projectId, projectId), isNull(projectTasks.parentId));
+    let parentId = data.parentId;
+    if (!parentId && data.parentGroup) {
+      // Reuse the project's group of that name, else add it at the end of the top level
+      const [existing] = await tx
+        .select({ id: projectTasks.id })
+        .from(projectTasks)
+        .where(and(topLevel, eq(projectTasks.title, data.parentGroup)))
+        .orderBy(asc(projectTasks.sort))
+        .limit(1);
+      if (existing) {
+        parentId = existing.id;
+      } else {
+        const [{ last: lastTop }] = await tx
+          .select({ last: max(projectTasks.sort) })
+          .from(projectTasks)
+          .where(topLevel);
+        const [group] = await tx
+          .insert(projectTasks)
+          .values({
+            projectId,
+            parentId: null,
+            sort: (lastTop ?? -1) + 1,
+            title: data.parentGroup,
+            createdBy: actor.id,
+          })
+          .returning();
+        parentId = group.id;
+      }
+    }
+
+    const siblings = parentId ? eq(projectTasks.parentId, parentId) : topLevel;
     const [{ last }] = await tx
       .select({ last: max(projectTasks.sort) })
       .from(projectTasks)
@@ -199,7 +231,7 @@ export async function createTask(
       .insert(projectTasks)
       .values({
         projectId,
-        parentId: data.parentId,
+        parentId,
         sort: (last ?? -1) + 1,
         title: data.title,
         description: data.description,

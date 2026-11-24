@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
+  STANDARD_TASK_GROUPS,
   TASK_PRIORITIES,
   TASK_PRIORITY_LABELS,
   TASK_STATUSES,
@@ -30,8 +31,11 @@ interface ProjectTasksBoardProps {
   today: string;
 }
 
+type StandardTaskGroup = (typeof STANDARD_TASK_GROUPS)[number];
+
 interface TaskForm {
   parentId: string | null;
+  parentGroup: StandardTaskGroup | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -45,6 +49,7 @@ interface TaskForm {
 
 const EMPTY_FORM: TaskForm = {
   parentId: null,
+  parentGroup: null,
   title: '',
   description: '',
   status: 'TODO',
@@ -79,6 +84,9 @@ export function ProjectTasksBoard({
   const [dialog, setDialog] = useState<{ taskId: string | null; form: TaskForm } | null>(null);
 
   const topLevel = tasks.filter((t) => t.parentId === null);
+  // Standard groups this project does not have yet (by name); picking one creates it
+  const topTitles = new Set(topLevel.map((t) => t.title.trim()));
+  const missingStandardGroups = STANDARD_TASK_GROUPS.filter((g) => !topTitles.has(g));
 
   const submit = (action: () => Promise<TaskActionResult>, onOk?: () => void) => {
     setError(null);
@@ -99,6 +107,7 @@ export function ProjectTasksBoard({
       taskId: t.id,
       form: {
         parentId: t.parentId,
+        parentGroup: null,
         title: t.title,
         description: t.description,
         status: t.status,
@@ -121,7 +130,7 @@ export function ProjectTasksBoard({
     if (taskId) {
       // Parent is fixed after creation; everything else is editable
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { parentId: _parent, ...rest } = form;
+      const { parentId: _parent, parentGroup: _group, ...rest } = form;
       submit(() => updateTaskAction(projectId, taskId, rest), () => setDialog(null));
     } else {
       submit(() => createTaskAction(projectId, form), () => setDialog(null));
@@ -307,17 +316,47 @@ export function ProjectTasksBoard({
                     <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">กลุ่มงาน</label>
                     <select
                       id="tk-parent"
-                      value={dialog.form.parentId ?? ''}
-                      onChange={(e) => setField('parentId', e.target.value || null)}
+                      value={
+                        dialog.form.parentGroup
+                          ? `std:${dialog.form.parentGroup}`
+                          : (dialog.form.parentId ?? '')
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const group = v.startsWith('std:') ? (v.slice(4) as StandardTaskGroup) : null;
+                        setDialog((d) =>
+                          d
+                            ? { ...d, form: { ...d.form, parentGroup: group, parentId: group || !v ? null : v } }
+                            : d,
+                        );
+                      }}
                       className={inputClass}
                     >
                       <option value="">— ไม่มี (ตั้งเป็นกลุ่มงานใหม่) —</option>
-                      {topLevel.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.wbs} {t.title}
-                        </option>
-                      ))}
+                      {topLevel.length > 0 && (
+                        <optgroup label="กลุ่มงานในโครงการนี้">
+                          {topLevel.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.wbs} {t.title}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {missingStandardGroups.length > 0 && (
+                        <optgroup label="กลุ่มงานมาตรฐาน (ระบบสร้างให้)">
+                          {missingStandardGroups.map((g) => (
+                            <option key={g} value={`std:${g}`}>
+                              {g}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
+                    {dialog.form.parentGroup && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        ระบบจะสร้างกลุ่มงาน “{dialog.form.parentGroup}” ในโครงการนี้ให้ แล้วใส่หมวดงานนี้ไว้ข้างใต้
+                      </p>
+                    )}
                   </div>
                 )}
 
