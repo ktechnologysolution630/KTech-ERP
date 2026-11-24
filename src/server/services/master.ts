@@ -770,6 +770,24 @@ export async function listItems(db: Db) {
     .orderBy(asc(items.code));
 }
 
+/**
+ * Counts the chosen items in another unit (e.g. steel from กก. to เส้น). Only the register changes:
+ * PR and PO lines keep the unit they were written in.
+ */
+export async function setItemsUnit(db: Db, actor: SessionUser, ids: string[], unitName: string): Promise<number> {
+  assertCan(actor, 'master.manage');
+  const unique = [...new Set(ids)].filter((id) => z.string().uuid().safeParse(id).success);
+  if (unique.length === 0) throw new DomainError('INVALID_ITEM', 'เลือกสินค้าก่อน');
+  if (unique.length > 5000) throw new DomainError('INVALID_ITEM', 'เลือกได้ครั้งละไม่เกิน 5,000 รายการ');
+  const unitId = await ensureUnit(db, unitName);
+  const updated = await db
+    .update(items)
+    .set({ unitId, updatedAt: new Date() })
+    .where(inArray(items.id, unique))
+    .returning();
+  return updated.length;
+}
+
 export async function listUnits(db: Db) {
   return db.select().from(units).orderBy(asc(units.name));
 }

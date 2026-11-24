@@ -39,7 +39,7 @@ export interface ProjectTaskList {
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ไม่ถูกต้อง');
 
 const taskFields = {
-  title: z.string().trim().min(1, 'กรุณาระบุชื่องาน').max(300),
+  title: z.string().trim().min(1, 'กรุณาระบุหมวดงาน').max(300),
   description: z.string().trim().max(2000),
   status: z.enum(TASK_STATUSES),
   priority: z.enum(TASK_PRIORITIES),
@@ -179,10 +179,10 @@ export async function createTask(
   if (data.parentId) {
     const parent = await loadTask(db, data.parentId);
     if (parent.projectId !== projectId) {
-      throw new DomainError('INVALID_TASK', 'งานหลักต้องอยู่ในโครงการเดียวกัน');
+      throw new DomainError('INVALID_TASK', 'กลุ่มงานต้องอยู่ในโครงการเดียวกัน');
     }
     if (parent.parentId !== null) {
-      throw new DomainError('INVALID_TASK', 'เพิ่มงานย่อยได้เพียง 1 ระดับ');
+      throw new DomainError('INVALID_TASK', 'เลือกกลุ่มงานได้เฉพาะรายการชั้นบนสุด (ลึกได้ 1 ชั้น)');
     }
   }
 
