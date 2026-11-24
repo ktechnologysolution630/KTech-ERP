@@ -54,7 +54,7 @@ describe('which menu entry a URL belongs to', () => {
     ['/stock', 'overview', 'STOCK_OVERVIEW'],
     ['/stock', 'movements', 'STOCK_MOVEMENTS'],
     ['/stock', 'low-stock', 'STOCK_LOW'],
-    ['/stock', 'issues', 'STOCK_ISSUES'],
+    ['/stock', 'issues', 'STOCK_MOVEMENTS'],
     ['/stock', 'material-usage', 'STOCK_USAGE'],
     ['/stock', 'all-stock', 'STOCK_ALL'],
     ['/stock', 'document-history', 'STOCK_ADJUST'],

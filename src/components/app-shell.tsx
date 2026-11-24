@@ -27,7 +27,6 @@ import {
   FileText,
   FileSpreadsheet,
   AlertTriangle,
-  BarChart2,
   ClipboardCheck,
   ClipboardList,
   Layers,
@@ -106,7 +105,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
   const [openSettings, setOpenSettings] = useState<boolean>(isSettingsSection);
 
   const isStockActive = (tabKey: string) => {
-    return pathname === '/stock' && currentTab === tabKey;
+    return pathname === '/stock' && (currentTab === 'issues' ? 'movements' : currentTab) === tabKey;
   };
 
   const isLaborActive = (tabKey: string) => {
@@ -383,21 +382,6 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
                     >
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                       <span>แจ้งเตือนวัสดุใกล้หมด</span>
-                    </Link>
-                    )}
-
-                    {canSee('STOCK_ISSUES') && (
-                    <Link
-                      href="/stock?tab=issues"
-                      prefetch={false}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11.5px] transition ${
-                        isStockActive('issues')
-                          ? 'bg-blue-50 text-brand font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <BarChart2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>รายงานความเคลื่อนไหวสินค้า</span>
                     </Link>
                     )}
 
