@@ -1,12 +1,14 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { boqLines, boqs, poLines, prLines, projects, type BoqKind, type SessionUser } from '@/db/schema';
+import { boqLines, boqs, items, poLines, prLines, projects, units, type BoqKind, type SessionUser } from '@/db/schema';
 import { computeBoqTotals } from '@/domain/boq';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
+import { itemNameKey, sameUnit, unitKey, type UnitReference } from '@/domain/unit-match';
 import { assertCan, can } from '@/server/policy';
 import { logActivity } from './activity';
+import { ensureUnit } from './master';
 import { nextDocNumber } from './numbering';
 
 export interface BoqLineDto {
@@ -144,6 +146,47 @@ export interface ProjectBoqSheet {
 }
 
 /** Loads the project's main BOQ for viewing; throws 404/403 for unknown or inaccessible projects. */
+/**
+ * Units of the item register (ทะเบียนสินค้า) and each active item's unit, for checking BOQ units.
+ * A name used by items counted in different units is left out: it does not say which unit is right.
+ */
+export async function getUnitReference(db: Db): Promise<UnitReference> {
+  const unitRows = await db.select({ name: units.name }).from(units).orderBy(asc(units.name));
+  const itemRows = await db
+    .select({ name: items.name, unit: units.name })
+    .from(items)
+    .innerJoin(units, eq(units.id, items.unitId))
+    .where(eq(items.active, true));
+  const itemUnits: Record<string, string> = {};
+  const ambiguous = new Set<string>();
+  for (const it of itemRows) {
+    const key = itemNameKey(it.name);
+    if (!key) continue;
+    const seen = itemUnits[key];
+    if (seen !== undefined && unitKey(seen) !== unitKey(it.unit)) ambiguous.add(key);
+    else itemUnits[key] = it.unit;
+  }
+  for (const key of ambiguous) delete itemUnits[key];
+  return { units: unitRows.map((u) => u.name), itemUnits };
+}
+
+/**
+ * Sets the register unit of the item a BOQ row names (e.g. เหล็กกล่อง กก. → เส้น), from the BOQ sheet.
+ * Only the item master changes: PR and PO lines keep the unit they were written in.
+ */
+export async function setRegisterItemUnit(db: Db, actor: SessionUser, itemName: string, unitName: string): Promise<number> {
+  assertCan(actor, 'master.manage');
+  const key = itemNameKey(itemName);
+  const unit = unitName.trim();
+  if (!key || !unit) throw new DomainError('INVALID_ITEM', 'ระบุชื่อสินค้าและหน่วย');
+  const rows = await db.select({ id: items.id, name: items.name }).from(items).where(eq(items.active, true));
+  const ids = rows.filter((r) => itemNameKey(r.name) === key).map((r) => r.id);
+  if (ids.length === 0) throw new DomainError('NOT_FOUND', 'ไม่พบสินค้านี้ในทะเบียน', 404);
+  const unitId = await ensureUnit(db, unit);
+  await db.update(items).set({ unitId, updatedAt: new Date() }).where(inArray(items.id, ids));
+  return ids.length;
+}
+
 export async function getProjectBoqSheet(
   db: Db,
   actor: SessionUser,
@@ -288,6 +331,35 @@ export async function writeBoqDocument(
       );
     }
     await tx.delete(boqLines).where(inArray(boqLines.id, removedIds));
+  }
+
+  // A line PRs or POs already counted in one unit cannot switch to another kind of unit (กก. → เส้น):
+  // their quantities would be read in the new unit
+  const savedUnits = new Map(
+    (await tx.select({ id: boqLines.id, unit: boqLines.unit, description: boqLines.description }).from(boqLines).where(eq(boqLines.boqId, boq.id))).map(
+      (r) => [r.id, r],
+    ),
+  );
+  const unitChanged = data.lines.filter((l) => {
+    const old = l.id && keptIds.has(l.id) ? savedUnits.get(l.id) : undefined;
+    return !l.isCategory && old && old.unit.trim() && !sameUnit(old.unit, l.unit);
+  });
+  if (unitChanged.length > 0) {
+    const ids = unitChanged.map((l) => l.id!);
+    const [poUse, prUse] = await Promise.all([
+      tx.selectDistinct({ id: poLines.boqLineId }).from(poLines).where(inArray(poLines.boqLineId, ids)),
+      tx.selectDistinct({ id: prLines.boqLineId }).from(prLines).where(inArray(prLines.boqLineId, ids)),
+    ]);
+    const used = new Set([...poUse, ...prUse].map((r) => r.id));
+    const blocked = unitChanged.filter((l) => used.has(l.id!));
+    if (blocked.length > 0) {
+      const names = blocked.slice(0, 3).map((l) => `${l.description.trim()} (${savedUnits.get(l.id!)!.unit} → ${l.unit})`);
+      throw new DomainError(
+        'BOQ_UNIT_IN_USE',
+        `เปลี่ยนหน่วยไม่ได้ เพราะมีใบขอซื้อหรือใบสั่งซื้อนับรายการนี้เป็นหน่วยเดิมแล้ว: ${names.join(', ')}${blocked.length > 3 ? ` และอีก ${blocked.length - 3} รายการ` : ''}`,
+        409,
+      );
+    }
   }
 
   for (const [i, l] of data.lines.entries()) {

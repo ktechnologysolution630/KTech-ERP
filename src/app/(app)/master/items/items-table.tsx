@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScanSearch, Search, Trash2, X } from 'lucide-react';
+import { Ruler, ScanSearch, Search, Trash2, X } from 'lucide-react';
 import type { ItemDeleteResult } from '@/server/services/item-delete';
-import { deleteItemsAction } from '../actions';
+import { deleteItemsAction, setItemsUnitAction } from '../actions';
 import { DuplicateCheck } from './duplicate-check';
 import { matchesSearch } from '@/lib/search-match';
 import { detectItemType } from '@/domain/item-classify';
@@ -22,7 +22,22 @@ export interface ItemRow {
 const DELETE_WORD = 'ลบ';
 
 /** The item register with search, ticking and bulk delete (owner / admin). */
-export function ItemsTable({ items, canDelete }: { items: ItemRow[]; canDelete: boolean }) {
+export function ItemsTable({
+  items,
+  canDelete,
+  canEditUnit = false,
+  units = [],
+}: {
+  items: ItemRow[];
+  canDelete: boolean;
+  /** May change the unit of ticked items in one go (e.g. all steel to เส้น) */
+  canEditUnit?: boolean;
+  units?: string[];
+}) {
+  const canSelect = canDelete || canEditUnit;
+  const [newUnit, setNewUnit] = useState('');
+  const [unitMessage, setUnitMessage] = useState<string | null>(null);
+  const [isSettingUnit, startSettingUnit] = useTransition();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -93,6 +108,47 @@ export function ItemsTable({ items, canDelete }: { items: ItemRow[]; canDelete: 
             {shown.length.toLocaleString('th-TH')} / {items.length.toLocaleString('th-TH')} รายการ
             {selectedRows.length > 0 && <b className="text-red-600"> · เลือก {selectedRows.length.toLocaleString('th-TH')}</b>}
           </span>
+          {canEditUnit && (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                list="items-table-units"
+                placeholder="หน่วยใหม่ เช่น เส้น"
+                aria-label="หน่วยใหม่ของสินค้าที่เลือก"
+                className="w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+              />
+              <datalist id="items-table-units">
+                {units.map((u) => (
+                  <option key={u} value={u} />
+                ))}
+              </datalist>
+              <button
+                type="button"
+                disabled={selectedRows.length === 0 || !newUnit.trim() || isSettingUnit}
+                title={selectedRows.length === 0 ? 'ติ๊กเลือกสินค้าที่จะเปลี่ยนหน่วยก่อน' : undefined}
+                onClick={() => {
+                  const unit = newUnit.trim();
+                  const n = selectedRows.length;
+                  if (!window.confirm(`เปลี่ยนหน่วยของสินค้าที่เลือก ${n.toLocaleString('th-TH')} รายการเป็น "${unit}"?\n\nใบขอซื้อและใบสั่งซื้อที่เปิดไปแล้วยังใช้หน่วยเดิม`)) return;
+                  setUnitMessage(null);
+                  startSettingUnit(async () => {
+                    const r = await setItemsUnitAction(selectedRows.map((i) => i.id), unit);
+                    if (!r.ok) {
+                      setUnitMessage(r.error);
+                      return;
+                    }
+                    setUnitMessage(`เปลี่ยนหน่วยเป็น "${unit}" แล้ว ${r.changed.toLocaleString('th-TH')} รายการ`);
+                    setSelected(new Set());
+                    router.refresh();
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:border-brand hover:text-brand disabled:opacity-50"
+              >
+                <Ruler className="h-4 w-4" /> {isSettingUnit ? 'กำลังเปลี่ยน...' : `เปลี่ยนหน่วย${selectedRows.length > 0 ? ` (${selectedRows.length.toLocaleString('th-TH')})` : ''}`}
+              </button>
+            </div>
+          )}
           {canDelete && (
             <button
               type="button"
@@ -109,6 +165,15 @@ export function ItemsTable({ items, canDelete }: { items: ItemRow[]; canDelete: 
           )}
         </div>
       </div>
+
+      {unitMessage && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+          <p className="font-semibold">{unitMessage}</p>
+          <button type="button" onClick={() => setUnitMessage(null)} className="text-slate-400 hover:text-slate-600" title="ปิด">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {result && (
         <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
@@ -131,7 +196,7 @@ export function ItemsTable({ items, canDelete }: { items: ItemRow[]; canDelete: 
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-slate-50 text-xs text-slate-600">
               <tr>
-                {canDelete && (
+                {canSelect && (
                   <th className="w-10 px-4 py-3">
                     <input type="checkbox" checked={allShown} onChange={toggleShown} aria-label="เลือกทั้งหมดที่แสดง" />
                   </th>
@@ -145,14 +210,14 @@ export function ItemsTable({ items, canDelete }: { items: ItemRow[]; canDelete: 
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 ? (
                 <tr>
-                  <td colSpan={canDelete ? 5 : 4} className="py-12 text-center text-slate-400">
+                  <td colSpan={canSelect ? 5 : 4} className="py-12 text-center text-slate-400">
                     {items.length === 0 ? 'ยังไม่มีสินค้าในทะเบียน' : `ไม่พบสินค้าที่ตรงกับ “${search.trim()}”`}
                   </td>
                 </tr>
               ) : (
                 shown.map((it) => (
                   <tr key={it.id} className={selected.has(it.id) ? 'bg-red-50/50' : it.active ? '' : 'bg-slate-50 text-slate-400'}>
-                    {canDelete && (
+                    {canSelect && (
                       <td className="px-4 py-2.5">
                         <input type="checkbox" checked={selected.has(it.id)} onChange={() => toggleOne(it.id)} aria-label={`เลือก ${it.code} ${it.name}`} />
                       </td>

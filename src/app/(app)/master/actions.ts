@@ -10,6 +10,7 @@ import {
   upsertUser,
   upsertVendor,
   resetPassword,
+  setItemsUnit,
   type UserInput,
 } from '@/server/services/master';
 import type { ItemImportRow, VendorImportRow } from '@/domain/master-import';
@@ -205,4 +206,19 @@ export async function itemUsageAction(ids: string[]): Promise<Record<string, { p
   await requireUser();
   const db = await getDb();
   return itemUsage(db, ids);
+}
+
+/** Count the ticked items in another unit (e.g. steel กก. → เส้น) */
+export async function setItemsUnitAction(ids: string[], unitName: string): Promise<{ ok: true; changed: number } | { ok: false; error: string }> {
+  const actor = await requireWriter();
+  const db = await getDb();
+  try {
+    const changed = await setItemsUnit(db, actor, ids, unitName);
+    revalidatePath('/master/items');
+    revalidatePath('/purchasing/items');
+    return { ok: true, changed };
+  } catch (err) {
+    if (err instanceof DomainError) return { ok: false, error: err.message };
+    throw err;
+  }
 }

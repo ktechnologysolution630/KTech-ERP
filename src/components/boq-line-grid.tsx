@@ -3,6 +3,7 @@
 import React from 'react';
 import { computeBoqCategoryTotals, computeBoqLine, computeBoqTotals, type BoqRowInput } from '@/domain/boq';
 import type { BoqDocumentDto, SaveBoqInput } from '@/server/services/boq';
+import { boqUnitStatus, type UnitReference } from '@/domain/unit-match';
 
 export interface BoqRow {
   id: string;
@@ -102,6 +103,23 @@ interface BoqLineGridProps {
   remarks: string;
   onRemarksChange: (v: string) => void;
   emptyHint?: React.ReactNode;
+  /** Item register units: the unit cell offers them and marks units that do not match */
+  unitRef?: UnitReference | null;
+  /** Set when the user may edit the item register: a red unit cell offers to make the register count in the BOQ's unit */
+  onFixRegisterUnit?: (row: BoqRow) => void;
+}
+
+const UNIT_LIST_ID = 'boq-register-units';
+
+/** Look of a unit cell that does not match the item register, with the reason on hover */
+function unitCellHint(row: BoqRow, unitRef: UnitReference | null | undefined): { className: string; title?: string } {
+  if (!unitRef) return { className: '' };
+  const s = boqUnitStatus(row, unitRef);
+  if (s.kind === 'respell') return { className: 'bg-amber-50 text-amber-800', title: `ทะเบียนสินค้าใช้หน่วย "${s.to}"` };
+  if (s.kind === 'unknown') return { className: 'bg-amber-50 text-amber-800', title: 'ไม่มีหน่วยนี้ในทะเบียนสินค้า' };
+  if (s.kind === 'item-differs')
+    return { className: 'bg-red-50 text-red-700', title: `สินค้านี้ในทะเบียนนับเป็น "${s.itemUnit}" ตรวจสอบจำนวนก่อนเปลี่ยนหน่วย` };
+  return { className: '' };
 }
 
 /**
@@ -122,6 +140,8 @@ export function BoqLineGrid({
   remarks,
   onRemarksChange,
   emptyHint,
+  unitRef,
+  onFixRegisterUnit,
 }: BoqLineGridProps) {
   const updateRow = <K extends keyof BoqRow>(id: string, field: K, value: BoqRow[K]) =>
     onRowsChange((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
@@ -137,6 +157,13 @@ export function BoqLineGrid({
 
   return (
     <>
+      {unitRef && (
+        <datalist id={UNIT_LIST_ID}>
+          {unitRef.units.map((u) => (
+            <option key={u} value={u} />
+          ))}
+        </datalist>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-xs">
           <thead>
@@ -223,6 +250,7 @@ export function BoqLineGrid({
                 }
 
                 const amounts = computeBoqLine(toRowInput(r));
+                const unitHint = unitCellHint(r, unitRef);
                 const numberCell = (field: 'qty' | 'matRate' | 'labRate', label: string, align: string) => (
                   <input
                     type="number"
@@ -261,14 +289,29 @@ export function BoqLineGrid({
                       />
                     </td>
                     <td className="border-r border-slate-300 py-1.5 px-2 text-center font-mono">{numberCell('qty', 'จำนวน', 'text-center')}</td>
-                    <td className="border-r border-slate-300 py-1.5 px-2 text-center text-slate-600">
+                    <td className={`border-r border-slate-300 py-1.5 px-2 text-center text-slate-600 ${unitHint.className}`} title={unitHint.title}>
                       <input
                         type="text"
                         aria-label="หน่วย"
+                        aria-invalid={unitHint.title ? true : undefined}
                         value={r.unit}
+                        list={unitRef ? UNIT_LIST_ID : undefined}
                         onChange={(e) => updateRow(r.id, 'unit', e.target.value)}
                         className="w-full text-center bg-transparent focus:bg-white focus:outline-hidden"
                       />
+                      {onFixRegisterUnit && unitRef && boqUnitStatus(r, unitRef).kind === 'item-differs' && r.unit.trim() && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onFixRegisterUnit(r);
+                          }}
+                          className="mt-0.5 block w-full rounded bg-red-600 px-1 py-0.5 text-[10px] font-semibold leading-tight text-white hover:bg-red-700 print:hidden"
+                          title={`เปลี่ยนหน่วยของสินค้านี้ในทะเบียนสินค้าเป็น "${r.unit.trim()}"`}
+                        >
+                          แก้ทะเบียน
+                        </button>
+                      )}
                     </td>
                     <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono">{numberCell('matRate', 'ค่าวัสดุต่อหน่วย', 'text-right')}</td>
                     <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono text-slate-700 bg-slate-50/50">

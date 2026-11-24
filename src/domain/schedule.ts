@@ -28,6 +28,21 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
 };
 
 /** Minimal task shape the schedule maths needs; dates are ISO `yyyy-mm-dd`. */
+/**
+ * Standard work groups (กลุ่มงาน) offered when adding a task, in the usual build order.
+ * Picking one that the project does not have yet creates it as a top-level task first.
+ */
+export const STANDARD_TASK_GROUPS = [
+  'งานเตรียมการ',
+  'งานโครงสร้าง',
+  'งานสถาปัตยกรรม',
+  'งานระบบไฟฟ้าและสื่อสาร',
+  'งานสุขาภิบาล',
+  'งานระบบปรับอากาศ',
+  'งานภายนอกและภูมิทัศน์',
+  'งานเก็บงานและส่งมอบ',
+] as const;
+
 export interface ScheduleTask {
   id: string;
   parentId: string | null;

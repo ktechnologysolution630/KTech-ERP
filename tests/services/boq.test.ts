@@ -145,3 +145,34 @@ describe('boq service', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('register unit from the BOQ', () => {
+  test('the item a BOQ row names takes the BOQ unit; only master managers may do it', async () => {
+    const { getUnitReference, setRegisterItemUnit } = await import('@/server/services/boq');
+    const { upsertItem } = await import('@/server/services/master');
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await upsertItem(db, f.users.admin, { code: 'ST-32', name: 'เหล็กกล่อง 100x50x3.2 มม.', unitName: 'กก.' });
+
+    await expect(setRegisterItemUnit(db, f.users.foreman, '- เหล็กกล่อง 100x50x3.2 มม.', 'เส้น')).rejects.toThrow();
+    expect(await setRegisterItemUnit(db, f.users.admin, '- เหล็กกล่อง 100x50x3.2 มม.', 'เส้น')).toBe(1);
+    expect((await getUnitReference(db)).itemUnits['เหล็กกล่อง 100x50x3.2 มม.']).toBe('เส้น');
+    await expect(setRegisterItemUnit(db, f.users.admin, 'ไม่มีสินค้านี้', 'เส้น')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
+describe('changing the unit of many register items', () => {
+  test('ticked steel items move from กก. to เส้น; only master managers may do it', async () => {
+    const { setItemsUnit, upsertItem, listItems } = await import('@/server/services/master');
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const a = await upsertItem(db, f.users.admin, { code: '10-03-001', name: 'เหล็กกล่อง 100x50x3.2 มม.', unitName: 'กก.' });
+    const b = await upsertItem(db, f.users.admin, { code: '10-03-002', name: 'เหล็ก H 150x150x7x10 มม.', unitName: 'กก.' });
+    await upsertItem(db, f.users.admin, { code: '10-02-001', name: 'ลวดผูกเหล็ก', unitName: 'กก.' });
+
+    await expect(setItemsUnit(db, f.users.foreman, [a.id, b.id], 'เส้น')).rejects.toThrow();
+    expect(await setItemsUnit(db, f.users.admin, [a.id, b.id, a.id], 'เส้น')).toBe(2);
+    const units = Object.fromEntries((await listItems(db)).map((i) => [i.code, i.unitName]));
+    expect(units).toMatchObject({ '10-03-001': 'เส้น', '10-03-002': 'เส้น', '10-02-001': 'กก.' });
+  });
+});

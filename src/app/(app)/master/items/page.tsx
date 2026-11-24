@@ -54,7 +54,12 @@ export default async function ItemsMasterPage() {
         </button>
       </form>
 
-      <ItemsTable items={itemList} canDelete={can(actor, 'item.delete')} />
+      <ItemsTable
+        items={itemList}
+        canDelete={can(actor, 'item.delete')}
+        canEditUnit={can(actor, 'master.manage')}
+        units={unitList.map((u) => u.name)}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 import { createTask, deleteTask, listProjectTasks, updateTask } from '@/server/services/tasks';
 import { createProject } from '@/server/services/master';
+import { saveProjectMainBoq } from '@/server/services/boq';
 
 describe('task service', () => {
   test('PM builds a two-level WBS listed parent-first', async () => {
@@ -96,5 +97,69 @@ describe('createProject', () => {
     await expect(createProject(db, f.users.admin, { name: 'ก' }, svg)).rejects.toMatchObject({ status: 400 });
     const huge = new File([new Uint8Array(4 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' });
     await expect(createProject(db, f.users.admin, { name: 'ข' }, huge)).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('picking a standard group creates it once, then reuses it', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await createTask(db, f.users.pm, f.projectA, { title: 'ระบบไฟฟ้า', parentGroup: 'งานโครงสร้าง' });
+    await createTask(db, f.users.pm, f.projectA, { title: 'เทฐานราก', parentGroup: 'งานโครงสร้าง' });
+    await createTask(db, f.users.pm, f.projectA, { title: 'ปรับพื้นที่', parentGroup: 'งานเตรียมการ' });
+
+    const list = await listProjectTasks(db, f.users.pm, f.projectA);
+    expect(list.tasks.map((t) => `${t.wbs} ${t.title}`)).toEqual([
+      '1 งานโครงสร้าง',
+      '1.1 ระบบไฟฟ้า',
+      '1.2 เทฐานราก',
+      '2 งานเตรียมการ',
+      '2.1 ปรับพื้นที่',
+    ]);
+
+    await expect(
+      createTask(db, f.users.pm, f.projectA, { title: 'x', parentGroup: 'กลุ่มแปลก' as never }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('groups come from the project BOQ categories when it has a BOQ', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    let list = await listProjectTasks(db, f.users.pm, f.projectA);
+    expect(list.groupSource).toBe('STANDARD');
+
+    await saveProjectMainBoq(db, f.users.pm, f.projectA, {
+      baseUpdatedAt: null,
+      revision: 0,
+      estimateDate: null,
+      projectTitle: '',
+      location: '',
+      owner: '',
+      workDetail: '',
+      estimator: '',
+      overheadPercent: 0,
+      discountAmount: 0,
+      vatPercent: 7,
+      remarks: '',
+      lines: [
+        { isCategory: true, isBold: true, no: '1', description: 'งานฐานราก', qty: '', unit: '', materialRate: '', laborRate: '', note: '' },
+        { isCategory: false, isBold: false, no: '1.1', description: 'เสาเข็ม', qty: 10, unit: 'ต้น', materialRate: 100, laborRate: 10, note: '' },
+        { isCategory: true, isBold: true, no: '1.11', description: 'งานโครงหลังคา', qty: '', unit: '', materialRate: '', laborRate: '', note: '' },
+      ],
+    });
+    list = await listProjectTasks(db, f.users.pm, f.projectA);
+    expect(list.groupSource).toBe('BOQ');
+    expect(list.groupOptions).toEqual([
+      { label: '1 งานฐานราก', title: 'งานฐานราก' },
+      { label: '1.11 งานโครงหลังคา', title: 'งานโครงหลังคา' },
+    ]);
+
+    await createTask(db, f.users.pm, f.projectA, { title: 'มุงหลังคา', parentGroup: 'งานโครงหลังคา' });
+    await createTask(db, f.users.pm, f.projectA, { title: 'ติดเชิงชาย', parentGroup: 'งานโครงหลังคา' });
+    list = await listProjectTasks(db, f.users.pm, f.projectA);
+    expect(list.tasks.map((t) => `${t.wbs} ${t.title}`)).toEqual(['1 งานโครงหลังคา', '1.1 มุงหลังคา', '1.2 ติดเชิงชาย']);
+
+    // Standard names are not offered once the project has a BOQ
+    await expect(
+      createTask(db, f.users.pm, f.projectA, { title: 'x', parentGroup: 'งานเตรียมการ' }),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });

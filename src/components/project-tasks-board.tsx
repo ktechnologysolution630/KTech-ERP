@@ -12,7 +12,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '@/domain/schedule';
-import type { TaskDto } from '@/server/services/tasks';
+import type { TaskDto, TaskGroupOption, TaskGroupSource } from '@/server/services/tasks';
 import {
   createTaskAction,
   deleteTaskAction,
@@ -25,6 +25,8 @@ import { SearchSelect } from '@/components/search-select';
 interface ProjectTasksBoardProps {
   projectId: string;
   tasks: TaskDto[];
+  groupSource: TaskGroupSource;
+  groupOptions: TaskGroupOption[];
   canManage: boolean;
   canUpdateProgress: boolean;
   users: { id: string; name: string }[];
@@ -33,6 +35,8 @@ interface ProjectTasksBoardProps {
 
 interface TaskForm {
   parentId: string | null;
+  /** Title of a BOQ category (or standard group) to find or create as the group */
+  parentGroup: string | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -46,6 +50,7 @@ interface TaskForm {
 
 const EMPTY_FORM: TaskForm = {
   parentId: null,
+  parentGroup: null,
   title: '',
   description: '',
   status: 'TODO',
@@ -69,6 +74,8 @@ const inputClass =
 export function ProjectTasksBoard({
   projectId,
   tasks,
+  groupSource,
+  groupOptions,
   canManage,
   canUpdateProgress,
   users,
@@ -78,8 +85,14 @@ export function ProjectTasksBoard({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ taskId: string | null; form: TaskForm } | null>(null);
+  // หมวดงาน is picked from the project's BOQ categories; "custom" switches to typing a name
+  const [customTitle, setCustomTitle] = useState(false);
 
   const topLevel = tasks.filter((t) => t.parentId === null);
+  const boqTitles = groupSource === 'BOQ' ? groupOptions : [];
+  // Groups offered besides the existing ones: every BOQ category (else standard group) not yet a group here
+  const topTitles = new Set(topLevel.map((t) => t.title.trim()));
+  const missingGroups = groupOptions.filter((g) => !topTitles.has(g.title));
 
   const submit = (action: () => Promise<TaskActionResult>, onOk?: () => void) => {
     setError(null);
@@ -94,12 +107,17 @@ export function ProjectTasksBoard({
     });
   };
 
-  const openCreate = () => setDialog({ taskId: null, form: { ...EMPTY_FORM } });
-  const openEdit = (t: TaskDto) =>
+  const openCreate = () => {
+    setCustomTitle(boqTitles.length === 0);
+    setDialog({ taskId: null, form: { ...EMPTY_FORM } });
+  };
+  const openEdit = (t: TaskDto) => {
+    setCustomTitle(!boqTitles.some((g) => g.title === t.title));
     setDialog({
       taskId: t.id,
       form: {
         parentId: t.parentId,
+        parentGroup: null,
         title: t.title,
         description: t.description,
         status: t.status,
@@ -111,6 +129,7 @@ export function ProjectTasksBoard({
         assigneeId: t.assigneeId,
       },
     });
+  };
 
   const setField = <K extends keyof TaskForm>(key: K, value: TaskForm[K]) =>
     setDialog((d) => (d ? { ...d, form: { ...d.form, [key]: value } } : d));
@@ -122,7 +141,7 @@ export function ProjectTasksBoard({
     if (taskId) {
       // Parent is fixed after creation; everything else is editable
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { parentId: _parent, ...rest } = form;
+      const { parentId: _parent, parentGroup: _group, ...rest } = form;
       submit(() => updateTaskAction(projectId, taskId, rest), () => setDialog(null));
     } else {
       submit(() => createTaskAction(projectId, form), () => setDialog(null));
@@ -176,7 +195,7 @@ export function ProjectTasksBoard({
                           <span className="font-mono text-[10px] text-slate-400">{t.wbs}</span>
                           <h4 className="font-semibold text-slate-800 leading-snug break-words">
                             {t.title}
-                            {t.hasChildren && <span className="ml-1 text-[10px] text-slate-400">(งานหลัก)</span>}
+                            {t.hasChildren && <span className="ml-1 text-[10px] text-slate-400">(กลุ่มงาน)</span>}
                           </h4>
                         </div>
                         {canManage && (
@@ -194,7 +213,7 @@ export function ProjectTasksBoard({
                               disabled={isPending}
                               onClick={() => {
                                 const msg = t.hasChildren
-                                  ? `ลบ "${t.title}" และงานย่อยทั้งหมด?`
+                                  ? `ลบกลุ่มงาน "${t.title}" และหมวดงานทั้งหมดในกลุ่มนี้?`
                                   : `ลบ "${t.title}"?`;
                                 if (confirm(msg)) submit(() => deleteTaskAction(projectId, t.id));
                               }}
@@ -292,33 +311,92 @@ export function ProjectTasksBoard({
               <fieldset disabled={isPending} className="space-y-3">
                 <div>
                   <label htmlFor="tk-title" className="block font-medium text-slate-700 mb-1">
-                    ชื่องาน <span className="text-red-500">*</span>
+                    หมวดงาน <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    id="tk-title"
-                    required
-                    value={dialog.form.title}
-                    onChange={(e) => setField('title', e.target.value)}
-                    className={inputClass}
-                  />
+                  {boqTitles.length > 0 && (
+                    <select
+                      id={customTitle ? undefined : 'tk-title'}
+                      required={!customTitle}
+                      value={customTitle ? '__custom' : dialog.form.title}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '__custom') {
+                          setCustomTitle(true);
+                          setField('title', '');
+                        } else {
+                          setCustomTitle(false);
+                          setField('title', v);
+                        }
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">— เลือกหมวดงานจาก BOQ —</option>
+                      <optgroup label="หมวดจาก BOQ ของโครงการ">
+                        {boqTitles.map((g) => (
+                          <option key={g.title} value={g.title}>
+                            {g.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <option value="__custom">อื่น ๆ (พิมพ์ชื่อเอง)</option>
+                    </select>
+                  )}
+                  {customTitle && (
+                    <input
+                      id="tk-title"
+                      required
+                      value={dialog.form.title}
+                      onChange={(e) => setField('title', e.target.value)}
+                      placeholder={boqTitles.length > 0 ? 'พิมพ์ชื่อหมวดงาน' : undefined}
+                      className={`${inputClass} ${boqTitles.length > 0 ? 'mt-2' : ''}`}
+                    />
+                  )}
                 </div>
 
                 {!dialog.taskId && (
                   <div>
-                    <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">อยู่ภายใต้งานหลัก</label>
+                    <label htmlFor="tk-parent" className="block font-medium text-slate-700 mb-1">กลุ่มงาน</label>
                     <select
                       id="tk-parent"
-                      value={dialog.form.parentId ?? ''}
-                      onChange={(e) => setField('parentId', e.target.value || null)}
+                      value={
+                        dialog.form.parentGroup ? `grp:${dialog.form.parentGroup}` : (dialog.form.parentId ?? '')
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const group = v.startsWith('grp:') ? v.slice(4) : null;
+                        setDialog((d) =>
+                          d ? { ...d, form: { ...d.form, parentGroup: group, parentId: group || !v ? null : v } } : d,
+                        );
+                      }}
                       className={inputClass}
                     >
-                      <option value="">— เป็นงานหลัก —</option>
-                      {topLevel.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.wbs} {t.title}
-                        </option>
-                      ))}
+                      <option value="">— ไม่มี (ตั้งเป็นกลุ่มงานใหม่) —</option>
+                      {topLevel.length > 0 && (
+                        <optgroup label="กลุ่มงานที่มีในโครงการ">
+                          {topLevel.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.wbs} {t.title}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {missingGroups.length > 0 && (
+                        <optgroup
+                          label={groupSource === 'BOQ' ? 'หมวดจาก BOQ (ระบบสร้างกลุ่มให้)' : 'กลุ่มงานมาตรฐาน (ระบบสร้างกลุ่มให้)'}
+                        >
+                          {missingGroups.map((g) => (
+                            <option key={g.title} value={`grp:${g.title}`}>
+                              {g.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
+                    {dialog.form.parentGroup && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        ระบบจะสร้างกลุ่มงาน “{dialog.form.parentGroup}” ในโครงการนี้ให้ แล้วใส่หมวดงานนี้ไว้ข้างใต้
+                      </p>
+                    )}
                   </div>
                 )}
 
