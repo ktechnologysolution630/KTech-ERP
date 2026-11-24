@@ -4,7 +4,6 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
-  STANDARD_TASK_GROUPS,
   TASK_PRIORITIES,
   TASK_PRIORITY_LABELS,
   TASK_STATUSES,
@@ -13,7 +12,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '@/domain/schedule';
-import type { TaskDto } from '@/server/services/tasks';
+import type { TaskDto, TaskGroupOption, TaskGroupSource } from '@/server/services/tasks';
 import {
   createTaskAction,
   deleteTaskAction,
@@ -25,17 +24,18 @@ import { DateInput } from '@/components/date-input';
 interface ProjectTasksBoardProps {
   projectId: string;
   tasks: TaskDto[];
+  groupSource: TaskGroupSource;
+  groupOptions: TaskGroupOption[];
   canManage: boolean;
   canUpdateProgress: boolean;
   users: { id: string; name: string }[];
   today: string;
 }
 
-type StandardTaskGroup = (typeof STANDARD_TASK_GROUPS)[number];
-
 interface TaskForm {
   parentId: string | null;
-  parentGroup: StandardTaskGroup | null;
+  /** Title of a ready-made group (BOQ category or standard) to find or create */
+  parentGroup: string | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -73,6 +73,8 @@ const inputClass =
 export function ProjectTasksBoard({
   projectId,
   tasks,
+  groupSource,
+  groupOptions,
   canManage,
   canUpdateProgress,
   users,
@@ -84,9 +86,9 @@ export function ProjectTasksBoard({
   const [dialog, setDialog] = useState<{ taskId: string | null; form: TaskForm } | null>(null);
 
   const topLevel = tasks.filter((t) => t.parentId === null);
-  // Standard groups this project does not have yet (by name); picking one creates it
+  // Ready-made groups (BOQ categories, else standard) the project's tasks do not have yet; picking one creates it
   const topTitles = new Set(topLevel.map((t) => t.title.trim()));
-  const missingStandardGroups = STANDARD_TASK_GROUPS.filter((g) => !topTitles.has(g));
+  const missingGroups = groupOptions.filter((g) => !topTitles.has(g.title));
 
   const submit = (action: () => Promise<TaskActionResult>, onOk?: () => void) => {
     setError(null);
@@ -323,7 +325,7 @@ export function ProjectTasksBoard({
                       }
                       onChange={(e) => {
                         const v = e.target.value;
-                        const group = v.startsWith('std:') ? (v.slice(4) as StandardTaskGroup) : null;
+                        const group = v.startsWith('std:') ? v.slice(4) : null;
                         setDialog((d) =>
                           d
                             ? { ...d, form: { ...d.form, parentGroup: group, parentId: group || !v ? null : v } }
@@ -342,11 +344,17 @@ export function ProjectTasksBoard({
                           ))}
                         </optgroup>
                       )}
-                      {missingStandardGroups.length > 0 && (
-                        <optgroup label="กลุ่มงานมาตรฐาน (ระบบสร้างให้)">
-                          {missingStandardGroups.map((g) => (
-                            <option key={g} value={`std:${g}`}>
-                              {g}
+                      {missingGroups.length > 0 && (
+                        <optgroup
+                          label={
+                            groupSource === 'BOQ'
+                              ? 'หมวดจาก BOQ ของโครงการ (ระบบสร้างให้)'
+                              : 'กลุ่มงานมาตรฐาน (ยังไม่มี BOQ · ระบบสร้างให้)'
+                          }
+                        >
+                          {missingGroups.map((g) => (
+                            <option key={g.title} value={`std:${g.title}`}>
+                              {g.label}
                             </option>
                           ))}
                         </optgroup>

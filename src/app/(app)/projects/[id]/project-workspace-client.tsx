@@ -746,6 +746,8 @@ export function ProjectWorkspaceClient({
           <ProjectTasksBoard
             projectId={project.id}
             tasks={tasks}
+            groupSource={taskList.groupSource}
+            groupOptions={taskList.groupOptions}
             canManage={taskList.canManage}
             canUpdateProgress={taskList.canUpdateProgress}
             users={allUsers}
