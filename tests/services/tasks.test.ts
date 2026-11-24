@@ -97,4 +97,25 @@ describe('createProject', () => {
     const huge = new File([new Uint8Array(4 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' });
     await expect(createProject(db, f.users.admin, { name: 'ข' }, huge)).rejects.toMatchObject({ status: 400 });
   });
+
+  test('picking a standard group creates it once, then reuses it', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await createTask(db, f.users.pm, f.projectA, { title: 'ระบบไฟฟ้า', parentGroup: 'งานโครงสร้าง' });
+    await createTask(db, f.users.pm, f.projectA, { title: 'เทฐานราก', parentGroup: 'งานโครงสร้าง' });
+    await createTask(db, f.users.pm, f.projectA, { title: 'ปรับพื้นที่', parentGroup: 'งานเตรียมการ' });
+
+    const list = await listProjectTasks(db, f.users.pm, f.projectA);
+    expect(list.tasks.map((t) => `${t.wbs} ${t.title}`)).toEqual([
+      '1 งานโครงสร้าง',
+      '1.1 ระบบไฟฟ้า',
+      '1.2 เทฐานราก',
+      '2 งานเตรียมการ',
+      '2.1 ปรับพื้นที่',
+    ]);
+
+    await expect(
+      createTask(db, f.users.pm, f.projectA, { title: 'x', parentGroup: 'กลุ่มแปลก' as never }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
 });
