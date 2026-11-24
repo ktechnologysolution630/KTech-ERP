@@ -2,6 +2,7 @@ import { getDb } from '@/db/client';
 import { requireUser } from '@/server/auth/current-user';
 import { can } from '@/server/policy';
 import { listProjects, listUsersWithRoles, MIN_PASSWORD_LENGTH } from '@/server/services/master';
+import { allSignatures } from '@/server/services/signatures';
 import { UsersClient } from './users-client';
 
 export default async function UsersMasterPage() {
@@ -14,11 +15,12 @@ export default async function UsersMasterPage() {
     );
   }
   const db = await getDb();
-  const [userList, projectList] = await Promise.all([listUsersWithRoles(db, actor), listProjects(db, actor)]);
+  const [userList, projectList, signatures] = await Promise.all([listUsersWithRoles(db, actor), listProjects(db, actor), allSignatures(db, actor)]);
   return (
     <UsersClient
       users={userList}
       projects={projectList.map((p) => ({ id: p.id, label: `${p.code} - ${p.name}` }))}
+      signatures={Object.fromEntries(signatures)}
       me={actor.id}
       minPasswordLength={MIN_PASSWORD_LENGTH}
     />

@@ -17,6 +17,7 @@ import type { ItemImportRow, VendorImportRow } from '@/domain/master-import';
 import { importItemCatalog, importItems, importVendorDirectory, importVendors, type DirectoryImportResult } from '@/server/services/import';
 import { updateSettings } from '@/server/services/settings';
 import { deleteItems, itemUsage, type ItemDeleteResult } from '@/server/services/item-delete';
+import { deleteUserSignature, setUserSignature } from '@/server/services/signatures';
 
 function optionalText(formData: FormData, key: string): string | undefined {
   const v = formData.get(key);
@@ -221,4 +222,17 @@ export async function setItemsUnitAction(ids: string[], unitName: string): Promi
     if (err instanceof DomainError) return { ok: false, error: err.message };
     throw err;
   }
+}
+
+/** An administrator sets someone's signature for them */
+export async function setUserSignatureAction(userId: string, image: string): Promise<UserActionResult> {
+  const actor = await requireWriter();
+  const db = await getDb();
+  return userAction(() => setUserSignature(db, actor, userId, image));
+}
+
+export async function deleteUserSignatureAction(userId: string): Promise<UserActionResult> {
+  const actor = await requireWriter();
+  const db = await getDb();
+  return userAction(() => deleteUserSignature(db, actor, userId));
 }

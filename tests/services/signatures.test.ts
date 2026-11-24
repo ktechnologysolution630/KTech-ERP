@@ -7,10 +7,30 @@ import { poSigners, prPdfSigners } from '@/server/services/doc-signers';
 import { renderDocPdf } from '@/server/services/pdf';
 import { approvePo, createPo, getPo, submitPo, reviewPo } from '@/server/services/po';
 import { approvePr, createPr, getPr, submitPr } from '@/server/services/pr';
-import { deleteMySignature, getMySignature, saveMySignature, signerPeople } from '@/server/services/signatures';
+import { allSignatures, deleteMySignature, deleteUserSignature, getMySignature, saveMySignature, setUserSignature, signerPeople } from '@/server/services/signatures';
 
 // A real 1x1 PNG
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+describe('an administrator sets signatures for others', () => {
+  test('from the user list, and nobody else can', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await setUserSignature(db, f.users.admin, f.users.pm.id, PNG);
+    expect((await getMySignature(db, f.users.pm))?.image).toBe(PNG);
+    expect((await allSignatures(db, f.users.admin)).get(f.users.pm.id)).toBe(PNG);
+
+    await expect(setUserSignature(db, f.users.pm, f.users.foreman.id, PNG)).rejects.toBeTruthy();
+    await expect(allSignatures(db, f.users.pm)).rejects.toBeTruthy();
+    await expect(setUserSignature(db, f.users.admin, f.users.foreman.id, 'data:image/gif;base64,R0lGOD')).rejects.toMatchObject({ code: 'INVALID_SIGNATURE' });
+    await expect(setUserSignature(db, f.users.admin, 'not-a-user', PNG)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(setUserSignature(db, f.users.admin, '00000000-0000-4000-8000-000000000000', PNG)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(deleteUserSignature(db, f.users.foreman, f.users.pm.id)).rejects.toBeTruthy();
+
+    await deleteUserSignature(db, f.users.admin, f.users.pm.id);
+    expect(await getMySignature(db, f.users.pm)).toBeNull();
+  });
+});
 
 describe('a person\'s own signature', () => {
   test('only a small PNG is kept', () => {
