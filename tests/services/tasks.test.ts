@@ -148,8 +148,8 @@ describe('createProject', () => {
     list = await listProjectTasks(db, f.users.pm, f.projectA);
     expect(list.groupSource).toBe('BOQ');
     expect(list.groupOptions).toEqual([
-      { label: '1 งานฐานราก', title: 'งานฐานราก' },
-      { label: '1.11 งานโครงหลังคา', title: 'งานโครงหลังคา' },
+      { label: '1 งานฐานราก', title: 'งานฐานราก', categories: [] },
+      { label: '1.11 งานโครงหลังคา', title: 'งานโครงหลังคา', categories: [] },
     ]);
 
     await createTask(db, f.users.pm, f.projectA, { title: 'มุงหลังคา', parentGroup: 'งานโครงหลังคา' });

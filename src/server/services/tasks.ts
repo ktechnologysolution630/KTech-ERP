@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { type Db } from '@/db/client';
 import { boqLines, boqs, projectTasks, projects, users, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
+import { boqTaskOutline, type TaskGroupOption } from '@/domain/task-groups';
 import { D } from '@/domain/money';
 import {
   STANDARD_TASK_GROUPS,
@@ -34,12 +35,7 @@ export interface TaskDto {
 /** Where the กลุ่มงาน picker's ready-made groups come from */
 export type TaskGroupSource = 'BOQ' | 'STANDARD';
 
-export interface TaskGroupOption {
-  /** Shown in the picker, e.g. "1.11 งานโครงหลังคา" */
-  label: string;
-  /** Title the group gets when created */
-  title: string;
-}
+export type { TaskGroupOption, TaskTitleOption } from '@/domain/task-groups';
 
 export interface ProjectTaskList {
   tasks: TaskDto[];
@@ -131,29 +127,29 @@ function normalizeProgress(status: TaskStatus | undefined, progress: number | un
 }
 
 /**
- * Groups offered when adding a task: the category rows of the project's main BOQ in sheet order
- * (title = the category's description), or the standard groups when the project has no BOQ categories.
+ * Groups offered when adding a task: the sections of the project's main BOQ with their sub-headings
+ * as หมวดงาน (see boqTaskOutline), or the standard groups when the BOQ has no sections.
  */
 export async function projectTaskGroupOptions(
   db: Db,
   projectId: string,
 ): Promise<{ source: TaskGroupSource; options: TaskGroupOption[] }> {
   const rows = await db
-    .select({ no: boqLines.no, description: boqLines.description })
+    .select({
+      isCategory: boqLines.isCategory,
+      no: boqLines.no,
+      description: boqLines.description,
+      qty: boqLines.qty,
+      materialRate: boqLines.materialRate,
+      laborRate: boqLines.laborRate,
+    })
     .from(boqLines)
     .innerJoin(boqs, eq(boqs.id, boqLines.boqId))
-    .where(and(eq(boqs.projectId, projectId), eq(boqs.kind, 'MAIN'), eq(boqLines.isCategory, true)))
+    .where(and(eq(boqs.projectId, projectId), eq(boqs.kind, 'MAIN')))
     .orderBy(asc(boqLines.sort));
-  const seen = new Set<string>();
-  const fromBoq: TaskGroupOption[] = [];
-  for (const r of rows) {
-    const title = r.description.trim().slice(0, 300);
-    if (!title || seen.has(title)) continue;
-    seen.add(title);
-    fromBoq.push({ label: [r.no.trim(), title].filter(Boolean).join(' '), title });
-  }
+  const fromBoq = boqTaskOutline(rows);
   if (fromBoq.length > 0) return { source: 'BOQ', options: fromBoq };
-  return { source: 'STANDARD', options: STANDARD_TASK_GROUPS.map((g) => ({ label: g, title: g })) };
+  return { source: 'STANDARD', options: STANDARD_TASK_GROUPS.map((g) => ({ label: g, title: g, categories: [] })) };
 }
 
 export async function listProjectTasks(
