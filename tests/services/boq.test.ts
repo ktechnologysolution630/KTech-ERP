@@ -145,3 +145,18 @@ describe('boq service', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('register unit from the BOQ', () => {
+  test('the item a BOQ row names takes the BOQ unit; only master managers may do it', async () => {
+    const { getUnitReference, setRegisterItemUnit } = await import('@/server/services/boq');
+    const { upsertItem } = await import('@/server/services/master');
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    await upsertItem(db, f.users.admin, { code: 'ST-32', name: 'เหล็กกล่อง 100x50x3.2 มม.', unitName: 'กก.' });
+
+    await expect(setRegisterItemUnit(db, f.users.foreman, '- เหล็กกล่อง 100x50x3.2 มม.', 'เส้น')).rejects.toThrow();
+    expect(await setRegisterItemUnit(db, f.users.admin, '- เหล็กกล่อง 100x50x3.2 มม.', 'เส้น')).toBe(1);
+    expect((await getUnitReference(db)).itemUnits['เหล็กกล่อง 100x50x3.2 มม.']).toBe('เส้น');
+    await expect(setRegisterItemUnit(db, f.users.admin, 'ไม่มีสินค้านี้', 'เส้น')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
