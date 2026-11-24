@@ -18,7 +18,7 @@ import { computeBoqCategoryTotals, computeBoqLine } from '@/domain/boq';
 import { BOQ_SHEET_COLUMNS, parseBoqWorkbook, type BoqImportResult } from '@/domain/boq-import';
 import { bangkokDateString } from '@/domain/thai';
 import type { BoqDocumentDto } from '@/server/services/boq';
-import { loadUnitReferenceAction, saveBoqAction } from '@/app/(app)/projects/[id]/boq/actions';
+import { loadUnitReferenceAction, saveBoqAction, setRegisterItemUnitAction } from '@/app/(app)/projects/[id]/boq/actions';
 import { alignBoqUnits, type AlignResult, type UnitReference } from '@/domain/unit-match';
 import { saveVoBoqAction } from '@/app/(app)/projects/[id]/vo-actions';
 import type { SaveBoqInput } from '@/server/services/boq';
@@ -114,11 +114,16 @@ export function BoqSheetEditor({
 
   // Units of the item register: the grid offers them and flags units that do not match
   const [unitRef, setUnitRef] = useState<UnitReference | null>(null);
+  const [canEditRegister, setCanEditRegister] = useState(false);
   const [unitNotice, setUnitNotice] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     loadUnitReferenceAction()
-      .then((ref) => live && setUnitRef(ref))
+      .then((ref) => {
+        if (!live) return;
+        setUnitRef(ref);
+        setCanEditRegister(ref.canEditRegister);
+      })
       .catch((err) => console.error(err));
     return () => {
       live = false;
@@ -130,6 +135,20 @@ export function BoqSheetEditor({
     if (r.unknown > 0) parts.push(`${r.unknown} รายการใช้หน่วยที่ไม่มีในทะเบียน (ช่องสีเหลือง)`);
     if (r.itemDiffers > 0) parts.push(`${r.itemDiffers} รายการนับคนละหน่วยกับสินค้าในทะเบียน ตรวจจำนวนก่อนแก้ (ช่องสีแดง)`);
     return parts.join(' · ');
+  };
+
+  // Make the item register count the item in the BOQ's unit (เหล็กกล่อง กก. → เส้น), once the BOQ is converted
+  const handleFixRegisterUnit = async (row: BoqRow) => {
+    const unit = row.unit.trim();
+    const name = row.description.replace(/^[\s\-–—•·*└├>]+/, '').trim();
+    if (!confirm(`เปลี่ยนหน่วยของ "${name}" ในทะเบียนสินค้าเป็น "${unit}"?\n\nใบขอซื้อและใบสั่งซื้อที่เปิดไปแล้วยังใช้หน่วยเดิม ใบใหม่จะใช้ "${unit}"`)) return;
+    const result = await setRegisterItemUnitAction(row.description, unit);
+    if (!result.ok) {
+      setUnitNotice(result.error);
+      return;
+    }
+    setUnitRef(result.ref);
+    setUnitNotice(`เปลี่ยนหน่วยของ "${name}" ในทะเบียนสินค้าเป็น "${unit}" แล้ว`);
   };
 
   // Convert weight-counted rows (เหล็ก กก.) to the unit they are bought in; money stays the same
@@ -752,6 +771,7 @@ export function BoqSheetEditor({
             selectedRowId={selectedRowId}
             onSelectRow={setSelectedRowId}
             unitRef={unitRef}
+            onFixRegisterUnit={canEditRegister && editable ? (row) => void handleFixRegisterUnit(row) : undefined}
             overheadPercent={overheadPercent}
             onOverheadPercentChange={(v) => {
               setOverheadPercent(v);

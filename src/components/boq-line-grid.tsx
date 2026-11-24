@@ -105,6 +105,8 @@ interface BoqLineGridProps {
   emptyHint?: React.ReactNode;
   /** Item register units: the unit cell offers them and marks units that do not match */
   unitRef?: UnitReference | null;
+  /** Set when the user may edit the item register: a red unit cell offers to make the register count in the BOQ's unit */
+  onFixRegisterUnit?: (row: BoqRow) => void;
 }
 
 const UNIT_LIST_ID = 'boq-register-units';
@@ -139,6 +141,7 @@ export function BoqLineGrid({
   onRemarksChange,
   emptyHint,
   unitRef,
+  onFixRegisterUnit,
 }: BoqLineGridProps) {
   const updateRow = <K extends keyof BoqRow>(id: string, field: K, value: BoqRow[K]) =>
     onRowsChange((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
@@ -296,6 +299,19 @@ export function BoqLineGrid({
                         onChange={(e) => updateRow(r.id, 'unit', e.target.value)}
                         className="w-full text-center bg-transparent focus:bg-white focus:outline-hidden"
                       />
+                      {onFixRegisterUnit && unitRef && boqUnitStatus(r, unitRef).kind === 'item-differs' && r.unit.trim() && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onFixRegisterUnit(r);
+                          }}
+                          className="mt-0.5 block w-full rounded bg-red-600 px-1 py-0.5 text-[10px] font-semibold leading-tight text-white hover:bg-red-700 print:hidden"
+                          title={`เปลี่ยนหน่วยของสินค้านี้ในทะเบียนสินค้าเป็น "${r.unit.trim()}"`}
+                        >
+                          แก้ทะเบียน
+                        </button>
+                      )}
                     </td>
                     <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono">{numberCell('matRate', 'ค่าวัสดุต่อหน่วย', 'text-right')}</td>
                     <td className="border-r border-slate-300 py-1.5 px-2 text-right font-mono text-slate-700 bg-slate-50/50">

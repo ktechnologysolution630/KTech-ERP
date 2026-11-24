@@ -8,6 +8,7 @@ import { D } from '@/domain/money';
 import { itemNameKey, sameUnit, unitKey, type UnitReference } from '@/domain/unit-match';
 import { assertCan, can } from '@/server/policy';
 import { logActivity } from './activity';
+import { ensureUnit } from './master';
 import { nextDocNumber } from './numbering';
 
 export interface BoqLineDto {
@@ -167,6 +168,23 @@ export async function getUnitReference(db: Db): Promise<UnitReference> {
   }
   for (const key of ambiguous) delete itemUnits[key];
   return { units: unitRows.map((u) => u.name), itemUnits };
+}
+
+/**
+ * Sets the register unit of the item a BOQ row names (e.g. เหล็กกล่อง กก. → เส้น), from the BOQ sheet.
+ * Only the item master changes: PR and PO lines keep the unit they were written in.
+ */
+export async function setRegisterItemUnit(db: Db, actor: SessionUser, itemName: string, unitName: string): Promise<number> {
+  assertCan(actor, 'master.manage');
+  const key = itemNameKey(itemName);
+  const unit = unitName.trim();
+  if (!key || !unit) throw new DomainError('INVALID_ITEM', 'ระบุชื่อสินค้าและหน่วย');
+  const rows = await db.select({ id: items.id, name: items.name }).from(items).where(eq(items.active, true));
+  const ids = rows.filter((r) => itemNameKey(r.name) === key).map((r) => r.id);
+  if (ids.length === 0) throw new DomainError('NOT_FOUND', 'ไม่พบสินค้านี้ในทะเบียน', 404);
+  const unitId = await ensureUnit(db, unit);
+  await db.update(items).set({ unitId, updatedAt: new Date() }).where(inArray(items.id, ids));
+  return ids.length;
 }
 
 export async function getProjectBoqSheet(
