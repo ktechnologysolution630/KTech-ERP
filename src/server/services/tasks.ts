@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull, max } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
-import { projectTasks, projects, users, type SessionUser } from '@/db/schema';
+import { boqLines, boqs, projectTasks, projects, users, type SessionUser } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { D } from '@/domain/money';
 import {
@@ -31,8 +31,21 @@ export interface TaskDto {
   hasChildren: boolean;
 }
 
+/** Where the กลุ่มงาน picker's ready-made groups come from */
+export type TaskGroupSource = 'BOQ' | 'STANDARD';
+
+export interface TaskGroupOption {
+  /** Shown in the picker, e.g. "1.11 งานโครงหลังคา" */
+  label: string;
+  /** Title the group gets when created */
+  title: string;
+}
+
 export interface ProjectTaskList {
   tasks: TaskDto[];
+  /** Ready-made groups: the project's main-BOQ categories, or the standard list when it has none */
+  groupSource: TaskGroupSource;
+  groupOptions: TaskGroupOption[];
   canManage: boolean;
   canUpdateProgress: boolean;
 }
@@ -54,7 +67,7 @@ const taskFields = {
 const createSchema = z.object({
   parentId: z.string().uuid().nullable().default(null),
   // A standard group name: used when parentId is empty, found or created as the top-level task
-  parentGroup: z.enum(STANDARD_TASK_GROUPS, { message: 'กลุ่มงานมาตรฐานไม่ถูกต้อง' }).nullable().default(null),
+  parentGroup: z.string().trim().min(1).max(300).nullable().default(null),
   title: taskFields.title,
   description: taskFields.description.default(''),
   status: taskFields.status.default('TODO'),
@@ -117,6 +130,32 @@ function normalizeProgress(status: TaskStatus | undefined, progress: number | un
   return status === 'DONE' ? 100 : progress;
 }
 
+/**
+ * Groups offered when adding a task: the category rows of the project's main BOQ in sheet order
+ * (title = the category's description), or the standard groups when the project has no BOQ categories.
+ */
+export async function projectTaskGroupOptions(
+  db: Db,
+  projectId: string,
+): Promise<{ source: TaskGroupSource; options: TaskGroupOption[] }> {
+  const rows = await db
+    .select({ no: boqLines.no, description: boqLines.description })
+    .from(boqLines)
+    .innerJoin(boqs, eq(boqs.id, boqLines.boqId))
+    .where(and(eq(boqs.projectId, projectId), eq(boqs.kind, 'MAIN'), eq(boqLines.isCategory, true)))
+    .orderBy(asc(boqLines.sort));
+  const seen = new Set<string>();
+  const fromBoq: TaskGroupOption[] = [];
+  for (const r of rows) {
+    const title = r.description.trim().slice(0, 300);
+    if (!title || seen.has(title)) continue;
+    seen.add(title);
+    fromBoq.push({ label: [r.no.trim(), title].filter(Boolean).join(' '), title });
+  }
+  if (fromBoq.length > 0) return { source: 'BOQ', options: fromBoq };
+  return { source: 'STANDARD', options: STANDARD_TASK_GROUPS.map((g) => ({ label: g, title: g })) };
+}
+
 export async function listProjectTasks(
   db: Db,
   actor: SessionUser,
@@ -144,6 +183,7 @@ export async function listProjectTasks(
   }
   const ordered = top.flatMap((r) => [r, ...(childrenOf.get(r.task.id) ?? [])]);
   const wbs = wbsNumbers(ordered.map((r) => r.task));
+  const groups = await projectTaskGroupOptions(db, projectId);
 
   return {
     tasks: ordered.map(({ task, assigneeName }) => ({
@@ -162,6 +202,8 @@ export async function listProjectTasks(
       assigneeName,
       hasChildren: childrenOf.has(task.id),
     })),
+    groupSource: groups.source,
+    groupOptions: groups.options,
     canManage: can(actor, 'task.manage', { projectId }),
     canUpdateProgress: can(actor, 'task.progress', { projectId }),
   };
@@ -186,6 +228,13 @@ export async function createTask(
     }
     if (parent.parentId !== null) {
       throw new DomainError('INVALID_TASK', 'เลือกกลุ่มงานได้เฉพาะรายการชั้นบนสุด (ลึกได้ 1 ชั้น)');
+    }
+  }
+
+  if (!data.parentId && data.parentGroup) {
+    const { options } = await projectTaskGroupOptions(db, projectId);
+    if (!options.some((o) => o.title === data.parentGroup)) {
+      throw new DomainError('INVALID_TASK', 'กลุ่มงานนี้ไม่มีใน BOQ ของโครงการหรือรายการมาตรฐาน');
     }
   }
 
