@@ -159,9 +159,7 @@ export function StockClient({ data, docOptions, canDelete = false }: { data: Sto
           items={data.items}
           canEdit={data.permissions.manageItems}
           onEdit={(item) => setItemDialog({ item })}
-          onReorder={(item) => setMovementDialog({ kind: 'RECEIVE', itemId: item.id })}
           onSettings={data.permissions.manageItems ? () => setReorderOpen(true) : undefined}
-          canMove={canMoveAnything}
         />
       )}
       {currentTab === 'issues' && <LedgerTab data={data} />}
@@ -464,21 +462,17 @@ function MovementsTab({ movements, canDelete = false }: { movements: StockMoveme
 function LowStockTab({
   items,
   canEdit,
-  canMove,
   onEdit,
-  onReorder,
   onSettings,
 }: {
   items: StockItemDto[];
   canEdit: boolean;
-  canMove: boolean;
   onEdit: (item: StockItemDto) => void;
-  onReorder: (item: StockItemDto) => void;
   /** Opens the bulk reorder point settings */
   onSettings?: () => void;
 }) {
-  const withPoint = items.filter((i) => i.reorderPoint > 0).sort((a, b) => Number(b.isLowStock) - Number(a.isLowStock));
-  const lowCount = withPoint.filter((i) => i.isLowStock).length;
+  // Only items at or below their reorder point; stock comes in through PO goods receipts
+  const low = items.filter((i) => i.reorderPoint > 0 && i.isLowStock).sort((a, b) => a.totalQty / a.reorderPoint - b.totalQty / b.reorderPoint);
   return (
     <GsapReveal>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -486,11 +480,11 @@ function LowStockTab({
           <div>
             <h2 className="text-base font-bold text-slate-900">แจ้งเตือนวัสดุใกล้หมด</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              แสดงรายการที่ตั้งจุดสั่งซื้อไว้ โดยตัวเลขสีแดงคือรายการที่คงเหลือไม่เกินจุดสั่งซื้อ ({lowCount} รายการใกล้หมด)
+              แสดงเฉพาะวัสดุที่คงเหลือไม่เกินจุดสั่งซื้อ ยอดคงเหลือเพิ่มขึ้นเมื่อรับสินค้าจากใบสั่งซื้อ (PO)
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">{withPoint.length} รายการ</span>
+            <span className="text-xs text-slate-500">{low.length} รายการ</span>
             {onSettings && (
               <button type="button" onClick={onSettings} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700">
                 ตั้งค่าจุดสั่งซื้อ
@@ -506,18 +500,18 @@ function LowStockTab({
                 <th className="px-3.5 py-2.5 text-right font-medium">คงเหลือ</th>
                 <th className="px-3.5 py-2.5 text-right font-medium">จุดสั่งซื้อ</th>
                 <th className="px-3.5 py-2.5 text-left font-medium">ที่มา / คลัง</th>
-                <th className="px-3.5 py-2.5 text-center font-medium w-40">ตั้งค่า</th>
+                {canEdit && <th className="px-3.5 py-2.5 text-center font-medium w-24">ตั้งค่า</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {withPoint.length === 0 ? (
+              {low.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
-                    ยังไม่มีรายการที่ตั้งจุดสั่งซื้อ
+                  <td colSpan={canEdit ? 5 : 4} className="py-12 text-center text-slate-400">
+                    ไม่มีวัสดุใกล้หมด
                   </td>
                 </tr>
               ) : (
-                withPoint.map((it) => (
+                low.map((it) => (
                   <tr key={it.id} className="hover:bg-slate-50">
                     <td className="px-3.5 py-2.5">
                       <div className="font-semibold text-slate-900">{it.name}</div>
@@ -525,7 +519,7 @@ function LowStockTab({
                         {it.sku} · {it.category}
                       </div>
                     </td>
-                    <td className={`px-3.5 py-2.5 text-right font-bold ${it.isLowStock ? 'text-rose-600' : 'text-slate-900'}`}>
+                    <td className="px-3.5 py-2.5 text-right font-bold text-rose-600">
                       {qtyText(it.totalQty)} {it.unit}
                     </td>
                     <td className="px-3.5 py-2.5 text-right text-slate-600">
@@ -534,18 +528,13 @@ function LowStockTab({
                     <td className="px-3.5 py-2.5 text-slate-500">
                       {it.balances.filter((b) => b.quantity > 0).map((b) => `${b.locationName}: ${qtyText(b.quantity)}`).join(' · ') || '-'}
                     </td>
-                    <td className="px-3.5 py-2.5 text-center space-x-1.5 whitespace-nowrap">
-                      {canEdit && (
+                    {canEdit && (
+                      <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
                         <button type="button" onClick={() => onEdit(it)} className="px-2.5 py-1 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-medium">
                           แก้ไข
                         </button>
-                      )}
-                      {canMove && it.isLowStock && (
-                        <button type="button" onClick={() => onReorder(it)} className="px-2.5 py-1 rounded bg-brand text-white text-[11px] font-medium">
-                          รับเข้า
-                        </button>
-                      )}
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
