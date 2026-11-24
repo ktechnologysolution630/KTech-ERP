@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CalendarClock } from 'lucide-react';
 import { formatThaiDateTime, fromBangkokLocalInput, overlaps, toBangkokLocalInput, TRIP_STATUS_LABEL, type TripStatus } from '@/domain/vehicle';
 import { requestTripAction } from '../actions';
+import { SearchSelect } from '@/components/search-select';
 
 interface Booking {
   assetId: string;
@@ -89,14 +90,14 @@ export function TripRequestForm({
           <label htmlFor="vt-vehicle" className={label}>
             รถ *
           </label>
-          <select id="vt-vehicle" value={assetId} onChange={(e) => setAssetId(e.target.value)} className={field} required>
+          <SearchSelect id="vt-vehicle" value={assetId} onChange={(e) => setAssetId(e.target.value)} className={field} required>
             <option value="">เลือกรถ</option>
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.label}
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </div>
 
         {assetId && (
@@ -135,28 +136,28 @@ export function TripRequestForm({
           <label htmlFor="vt-driver" className={label}>
             ผู้ขับ *
           </label>
-          <select id="vt-driver" value={driverId} onChange={(e) => setDriverId(e.target.value)} className={field}>
+          <SearchSelect id="vt-driver" value={driverId} onChange={(e) => setDriverId(e.target.value)} className={field}>
             {drivers.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
                 {d.id === me ? ' (ฉัน)' : ''}
               </option>
             ))}
-          </select>
+          </SearchSelect>
           <p className="mt-1 text-[11px] text-slate-500">ผู้ขับเป็นคนรับรถ ส่งตำแหน่ง และคืนรถ</p>
         </div>
         <div>
           <label htmlFor="vt-project" className={label}>
             โครงการ
           </label>
-          <select id="vt-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className={field}>
+          <SearchSelect id="vt-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className={field}>
             <option value="">สำนักงาน / ส่วนกลาง</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </div>
 
         <div className="sm:col-span-2">

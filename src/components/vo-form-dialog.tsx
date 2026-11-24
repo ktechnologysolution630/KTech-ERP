@@ -33,6 +33,7 @@ import {
   type BoqRow,
 } from '@/components/boq-line-grid';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 type VoForm = VoDocumentDto['input'];
 
@@ -315,7 +316,7 @@ function VoFormBody({
               <input id="vo-requester" maxLength={200} value={form.requesterName} onChange={(e) => set('requesterName', e.target.value)} className={inputClass} />
             </Field>
             <Field label="ผู้รับผิดชอบ" htmlFor="vo-responsible">
-              <select
+              <SearchSelect
                 id="vo-responsible"
                 value={form.responsibleUserId ?? ''}
                 onChange={(e) => set('responsibleUserId', e.target.value || null)}
@@ -327,7 +328,7 @@ function VoFormBody({
                     {u.name}
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
             </Field>
             <Field label="พื้นที่งาน" htmlFor="vo-area">
               <input id="vo-area" maxLength={300} value={form.workArea} onChange={(e) => set('workArea', e.target.value)} className={inputClass} />

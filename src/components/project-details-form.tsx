@@ -9,6 +9,7 @@ import {
   type ProjectDetailsFormInput,
 } from '@/app/(app)/projects/[id]/actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 interface ProjectDetailsFormProps {
   project: ProjectDetailDto;
@@ -159,7 +160,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
           </div>
           <div>
             <label htmlFor="pd-customer" className="block font-medium text-slate-700 mb-1">ลูกค้าสำหรับวางบิล</label>
-            <select
+            <SearchSelect
               id="pd-customer"
               value={form.customerId ?? ''}
               onChange={(e) => {
@@ -175,7 +176,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
                   {c.code} - {c.name}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
         </div>
 
@@ -205,7 +206,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label htmlFor="pd-pm" className="block font-medium text-slate-700 mb-1">ผู้จัดการโครงการ</label>
-            <select
+            <SearchSelect
               id="pd-pm"
               value={form.pmUserId ?? ''}
               onChange={(e) => set('pmUserId', e.target.value || null)}
@@ -217,7 +218,7 @@ export function ProjectDetailsForm({ project, users, customers = [], onSaved, on
                   {u.name}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </div>
           <div>
             <label htmlFor="pd-start" className="block font-medium text-slate-700 mb-1">วันเริ่มต้นสัญญา</label>

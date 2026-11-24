@@ -8,6 +8,7 @@ import type { BoqPickCategory, StockDocRow } from '@/server/services/stock-docs'
 import { D, formatMoneyDisplay, round2 } from '@/domain/money';
 import { DateInput } from '@/components/date-input';
 import { createStockDocAction } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 export type StockDocKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'BORROW';
 export interface StockDocOptions {
@@ -530,14 +531,14 @@ export function StockDocDialog({
                       </select>
                     </Field>
                     <Field label="รายการ BOQ">
-                      <select value={boqLine} onChange={(e) => setBoqLine(e.target.value)} className={input}>
+                      <SearchSelect value={boqLine} onChange={(e) => setBoqLine(e.target.value)} className={input}>
                         <option value="">{boqLines.length === 0 ? 'ไม่มีรายการ BOQ' : 'เลือกรายการ BOQ'}</option>
                         {boqLines.map((b) => (
                           <option key={b.id} value={b.id}>
                             {b.label}
                           </option>
                         ))}
-                      </select>
+                      </SearchSelect>
                     </Field>
                     <Field label="พื้นที่ / Zone / ชั้น">
                       <input value={zone} onChange={(e) => setZone(e.target.value)} placeholder="เช่น ชั้น 3 โซน A" className={input} />
@@ -660,14 +661,14 @@ export function StockDocDialog({
                       <tr key={i}>
                         <td className="px-2 py-2 text-center text-slate-500">{i + 1}</td>
                         <td className="px-1 py-2">
-                          <select value={l.stockItemId} onChange={(e) => pickItem(i, e.target.value)} required aria-label={`วัสดุรายการที่ ${i + 1}`} className={cell}>
+                          <SearchSelect value={l.stockItemId} onChange={(e) => pickItem(i, e.target.value)} required aria-label={`วัสดุรายการที่ ${i + 1}`} className={cell}>
                             <option value="">-- เลือกวัสดุ --</option>
                             {data.items.map((it) => (
                               <option key={it.id} value={it.id}>
                                 [{it.sku}] {it.name}
                               </option>
                             ))}
-                          </select>
+                          </SearchSelect>
                         </td>
                         <td className="px-2 py-2 font-mono text-slate-500">{l.sku || '-'}</td>
                         <td className="px-2 py-2 text-right text-slate-500">{l.stockItemId ? balanceAt(l.stockItemId, source).toLocaleString('th-TH') : '-'}</td>

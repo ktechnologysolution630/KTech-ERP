@@ -52,6 +52,7 @@ import { toBoqLines } from '@/domain/boq-takeoff';
 import type { TakeoffDocumentDto } from '@/server/services/boq-takeoff';
 import { saveTakeoffAction, sendTakeoffToBoqAction } from '@/app/(app)/boq-takeoff/actions';
 import { cacheTakeoffFile, readCachedTakeoffFile } from '@/lib/takeoff-file-cache';
+import { SearchSelect } from '@/components/search-select';
 
 type Tool = 'select' | 'pan' | 'measure' | 'calibrate';
 
@@ -269,13 +270,13 @@ function SendDialog({ takeoff, projects, total, lineCount, onClose, onSent }: {
             <>
               <label className="block">
                 <span className="font-semibold text-slate-700">โครงการ</span>
-                <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                <SearchSelect value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
                   {editable.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <p className="text-slate-600">
                 จะเพิ่ม {lineCount.toLocaleString()} แถว (รวมหัวหมวด) ต่อท้าย BOQ หลักของโครงการ มูลค่ารวม {fmt(total)} บาท รายการเดิมใน BOQ ไม่ถูกแก้ไข
@@ -790,7 +791,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           className="min-w-[12rem] flex-1 rounded-lg border border-transparent px-2 py-1 text-sm font-bold text-slate-900 hover:border-slate-200 focus:border-slate-300"
           aria-label="ชื่องานถอดแบบ"
         />
-        <select
+        <SearchSelect
           value={projectId ?? ''}
           onChange={(e) => {
             setProjectId(e.target.value || null);
@@ -805,7 +806,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
               {p.label}
             </option>
           ))}
-        </select>
+        </SearchSelect>
         <span className={`min-w-[7rem] text-right ${saveState.kind === 'error' ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
           {saveState.kind === 'saving' ? 'กำลังบันทึก...' : saveState.kind === 'error' ? saveState.message : dirty ? 'ยังไม่บันทึก' : saveState.kind === 'saved' ? 'บันทึกแล้ว' : ''}
         </span>

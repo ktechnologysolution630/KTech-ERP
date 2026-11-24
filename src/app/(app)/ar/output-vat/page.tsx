@@ -1,6 +1,7 @@
 import { toBangkok } from '@/domain/thai';
 import { outputVatReport } from '@/server/services/ar';
 import { baht, requireArUser } from '../ar-guard';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
@@ -19,7 +20,7 @@ export default async function OutputVatPage({ searchParams }: { searchParams: Pr
           <h1 className="text-xl font-bold text-slate-900">รายงานภาษีขาย</h1>
           <p className="text-xs text-slate-500">จากใบเสร็จรับเงิน/ใบกำกับภาษีที่ออกจริงในเดือน (จุดความรับผิดชอบเมื่อได้รับชำระ)</p>
         </div>
-        <form method="get" className="flex gap-2 text-xs">
+        <AutoSubmitForm className="flex gap-2 text-xs">
           <select name="month" defaultValue={month} aria-label="เดือน" className="px-2 py-1.5 border border-slate-200 rounded-lg">
             {MONTHS.map((m, i) => (
               <option key={m} value={i + 1}>
@@ -34,8 +35,7 @@ export default async function OutputVatPage({ searchParams }: { searchParams: Pr
               </option>
             ))}
           </select>
-          <button type="submit" className="px-3 py-1.5 rounded-lg bg-brand text-white">แสดง</button>
-        </form>
+        </AutoSubmitForm>
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-xs">

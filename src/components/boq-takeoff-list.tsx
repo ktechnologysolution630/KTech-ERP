@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FileText, Plus, Ruler, Search, Trash2, X } from 'lucide-react';
 import type { TakeoffSummaryDto } from '@/server/services/boq-takeoff';
 import { createTakeoffAction, deleteTakeoffAction } from '@/app/(app)/boq-takeoff/actions';
+import { SearchSelect } from '@/components/search-select';
 
 const dateTime = (iso: string) =>
   new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -82,14 +83,14 @@ export function BoqTakeoffList({ takeoffs, projects }: { takeoffs: TakeoffSummar
             </label>
             <label className="block text-xs">
               <span className="font-semibold text-slate-700">โครงการ (ไม่บังคับ)</span>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <SearchSelect value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 <option value="">ยังไม่ระบุโครงการ</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label}
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
             </label>
           </div>
           {error && <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>}

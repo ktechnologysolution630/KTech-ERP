@@ -6,6 +6,7 @@ import { can } from '@/server/policy';
 import { listWhtRows } from '@/server/services/accounting';
 import { money, selectCls } from '../shared';
 import { WhtCertActions } from './wht-cert-actions';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
 
 export default async function WhtPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const sp = await searchParams;
@@ -24,18 +25,17 @@ export default async function WhtPage({ searchParams }: { searchParams: Promise<
           <h1 className="text-xl font-bold text-slate-900">หัก ณ ที่จ่าย</h1>
           <p className="text-xs text-slate-500">หนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) ระบบออกให้อัตโนมัติเมื่อบันทึกจ่ายใบสำคัญจ่าย (PV) ที่มีการหัก ณ ที่จ่าย</p>
         </div>
-        <form className="flex flex-wrap items-center gap-2">
+        <AutoSubmitForm className="flex flex-wrap items-center gap-2">
           <input name="q" defaultValue={sp.q ?? ''} placeholder="ค้นหาเลขที่ ผู้ถูกหักภาษี PV" aria-label="ค้นหา" className={`${selectCls} w-56`} />
           <select name="status" defaultValue={sp.status ?? 'ACTIVE'} aria-label="สถานะ" className={selectCls}>
             <option value="ACTIVE">ออกแล้ว</option>
             <option value="VOID">ยกเลิก</option>
             <option value="ALL">ทั้งหมด</option>
           </select>
-          <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">ตัวกรอง</button>
           <Link href="/accounting/wht-report" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700">
             รายงานภาษีหัก ณ ที่จ่าย
           </Link>
-        </form>
+        </AutoSubmitForm>
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[900px] text-xs">

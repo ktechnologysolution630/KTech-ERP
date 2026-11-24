@@ -9,6 +9,7 @@ import type { AdvanceList } from '@/server/services/advances';
 import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
 import { deleteAdvancesAction } from '@/app/(app)/accounting/delete-actions';
 import { requestAdvanceAction } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 type Tab = 'all' | 'clearing' | 'outstanding';
 
@@ -85,15 +86,15 @@ export function AdvancesClient({
       </nav>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <select aria-label="ผู้รับเงิน" value={payee} onChange={(e) => setPayee(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg">
+        <SearchSelect aria-label="ผู้รับเงิน" value={payee} onChange={(e) => setPayee(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg">
           <option value="ALL">ผู้รับเงิน: ทุกคน</option>
           {payees.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
             </option>
           ))}
-        </select>
-        <select aria-label="โครงการ" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg">
+        </SearchSelect>
+        <SearchSelect aria-label="โครงการ" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg">
           <option value="ALL">โครงการ: ทุกโครงการ</option>
           <option value="OFFICE">สำนักงาน</option>
           {projects.map((p) => (
@@ -101,7 +102,7 @@ export function AdvancesClient({
               {p.label}
             </option>
           ))}
-        </select>
+        </SearchSelect>
         <select aria-label="สถานะ" value={status} onChange={(e) => setStatus(e.target.value as AdvanceStatus | 'ALL')} className="px-2 py-1.5 border border-slate-200 rounded-lg">
           <option value="ALL">ทุกสถานะ</option>
           {ADVANCE_STATUSES.map((s) => (
@@ -206,14 +207,14 @@ export function AdvancesClient({
             <fieldset disabled={isPending} className="space-y-3">
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">โครงการ</span>
-                <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })} className={inputClass}>
+                <SearchSelect value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })} className={inputClass}>
                   <option value="">สำนักงาน / ไม่ระบุโครงการ</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </SearchSelect>
               </label>
               <label className="block">
                 <span className="block font-medium text-slate-700 mb-1">วัตถุประสงค์ *</span>

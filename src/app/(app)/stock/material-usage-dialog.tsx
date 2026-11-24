@@ -6,6 +6,7 @@ import { RefreshCw, Save, Search, X } from 'lucide-react';
 import type { StockPageData } from '@/server/services/stock';
 import { DateInput } from '@/components/date-input';
 import { createStockDocAction } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 const CENTRAL = 'CENTRAL';
 const toProjectId = (v: string) => (v === CENTRAL ? null : v);
@@ -105,7 +106,7 @@ export function MaterialUsageDialog({ data, meName, today, onClose }: { data: St
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <label className="block">
               <span className="mb-1 block text-slate-700">โครงการ</span>
-              <select
+              <SearchSelect
                 value={store}
                 onChange={(e) => {
                   setStore(e.target.value);
@@ -121,7 +122,7 @@ export function MaterialUsageDialog({ data, meName, today, onClose }: { data: St
                     {l.name}
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
             </label>
             <label className="block">
               <span className="mb-1 block text-slate-700">ผู้บันทึก</span>

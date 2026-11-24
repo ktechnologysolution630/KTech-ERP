@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
+import { SearchSelect } from '@/components/search-select';
 
 /** A credit note is issued from its invoice, so pick the invoice first */
 export function NewCreditNotePicker({ invoices }: { invoices: { id: string; label: string }[] }) {
@@ -18,14 +19,14 @@ export function NewCreditNotePicker({ invoices }: { invoices: { id: string; labe
   }
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 text-xs">
-      <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="ใบแจ้งหนี้ที่จะลดหนี้" className="max-w-xs rounded border border-slate-300 px-2 py-1.5">
+      <SearchSelect value={pick} onChange={(e) => setPick(e.target.value)} aria-label="ใบแจ้งหนี้ที่จะลดหนี้" className="max-w-xs rounded border border-slate-300 px-2 py-1.5">
         <option value="">{invoices.length === 0 ? 'ยังไม่มีใบแจ้งหนี้ที่วางบิลแล้ว' : 'เลือกใบแจ้งหนี้ที่จะลดหนี้'}</option>
         {invoices.map((i) => (
           <option key={i.id} value={i.id}>
             {i.label}
           </option>
         ))}
-      </select>
+      </SearchSelect>
       <button type="button" disabled={!pick} onClick={() => router.push(`/ar/invoices/${pick}`)} className="rounded bg-brand px-3 py-1.5 font-semibold text-white disabled:opacity-40">
         ไปออกใบลดหนี้
       </button>

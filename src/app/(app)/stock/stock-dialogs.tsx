@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Package, Plus, X } from 'lucide-react';
 import type { PoLineOptionDto, StockItemDto, StockPageData } from '@/server/services/stock';
 import { STOCK_CATEGORIES } from '@/domain/stock';
+import { detectItemType } from '@/domain/item-classify';
 import { recordStockMovementAction, requestStockAdjustAction, saveStockItemAction } from './actions';
+import { SearchSelect } from '@/components/search-select';
 
 export type MovementKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'ADJUST';
 
@@ -167,7 +169,7 @@ export function MovementDialog({
           <fieldset disabled={isPending} className="space-y-3.5">
             <label className="block">
               <Label required>เลือกสินค้า / วัสดุ</Label>
-              <select
+              <SearchSelect
                 required
                 value={itemId}
                 onChange={(e) => {
@@ -183,7 +185,7 @@ export function MovementDialog({
                     [{it.sku}] {it.name} (รวม {it.totalQty} {it.unit})
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
             </label>
 
             <div className="grid grid-cols-2 gap-3">
@@ -330,6 +332,14 @@ export function ItemDialog({
   });
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const [poQuery, setPoQuery] = useState('');
+  /** A new item's category follows its name until it is chosen by hand */
+  const [categoryPicked, setCategoryPicked] = useState(item !== null);
+  const detected = categoryPicked ? null : detectItemType(form.name);
+  const setName = (name: string) =>
+    setForm((f) => {
+      const found = categoryPicked ? null : detectItemType(name);
+      return { ...f, name, ...(found ? { category: found.category } : {}) };
+    });
 
   // An existing item may carry a category from before the fixed list; keep it selectable
   const categoryOptions: string[] = (STOCK_CATEGORIES as readonly string[]).includes(form.category)
@@ -429,18 +439,32 @@ export function ItemDialog({
           </label>
           <label className="block">
             <Label required>ชื่อวัสดุ / สินค้า</Label>
-            <input required value={form.name} onChange={(e) => set('name', e.target.value)} className={inputClass} />
+            <input required value={form.name} onChange={(e) => setName(e.target.value)} className={inputClass} />
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block">
               <Label required>หมวดหมู่</Label>
-              <select required value={form.category} onChange={(e) => set('category', e.target.value)} className={inputClass}>
+              <select
+                required
+                value={form.category}
+                onChange={(e) => {
+                  set('category', e.target.value);
+                  setCategoryPicked(true);
+                }}
+                className={inputClass}
+              >
                 {categoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {(STOCK_CATEGORIES as readonly string[]).includes(c) ? c : `${c} (หมวดเดิม)`}
                   </option>
                 ))}
               </select>
+              {detected && (
+                <span className="mt-1 block text-[11px] text-emerald-700" aria-live="polite">
+                  ระบบตรวจพบ: {detected.category}
+                  {detected.group ? ` › ${detected.group}` : ''}
+                </span>
+              )}
             </label>
             <label className="block">
               <Label required>หน่วยนับ</Label>

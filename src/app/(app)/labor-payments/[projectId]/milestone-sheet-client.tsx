@@ -23,6 +23,7 @@ import {
 } from '../actions';
 import { invoiceFromMilestoneAction } from '@/app/(app)/ar/actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 interface Props {
   sheet: MilestoneSheet;
@@ -395,7 +396,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
               {isPay && (
                 <div>
                   <label htmlFor="ms-vendor" className="block font-medium text-slate-700 mb-1">ผู้รับเหมา</label>
-                  <select
+                  <SearchSelect
                     id="ms-vendor"
                     value={dialog.form.vendorId ?? ''}
                     onChange={(e) => setField('vendorId', e.target.value || null)}
@@ -407,7 +408,7 @@ export function MilestoneSheetClient({ sheet, contractors }: Props) {
                         {c.name}
                       </option>
                     ))}
-                  </select>
+                  </SearchSelect>
                 </div>
               )}
               <div className="grid grid-cols-3 gap-3">

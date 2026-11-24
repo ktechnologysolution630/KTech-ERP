@@ -36,6 +36,7 @@ import { PriceIncreaseNote } from '@/components/price-increase';
 import { BoqCategoryOverrunNote } from '@/components/boq-category-overrun';
 import { computeBoqCategoryOverrun } from '@/domain/boq-overrun';
 import { resolveFormText, type FormKind, type FormText } from '@/domain/form-templates';
+import { SearchSelect } from '@/components/search-select';
 
 export interface OrderablePrLineOption {
   id: string;
@@ -502,7 +503,7 @@ export function PoForm({
               <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="สถานที่จัดส่ง" aria-label="สถานที่จัดส่ง" className={paperInput} />
             </BoxRow>
             <BoxRow label="Project" required>
-              <select value={projectId} onChange={(e) => pickProject(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
+              <SearchSelect value={projectId} onChange={(e) => pickProject(e.target.value)} aria-label="โครงการ" className={`${paperInput} font-semibold`}>
                 <option value="">เลือกโครงการ</option>
                 <option value="OFFICE">สำนักงาน / ส่วนกลาง (ไม่มี PR)</option>
                 {projects.map((p) => (
@@ -510,7 +511,7 @@ export function PoForm({
                     {p.code} - {p.name}
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
             </BoxRow>
             <BoxRow label="ผู้ขอซื้อ">
               <input value={requester} onChange={(e) => setRequester(e.target.value)} placeholder="ผู้ขอซื้อ" aria-label="ผู้ขอซื้อ" className={paperInput} />

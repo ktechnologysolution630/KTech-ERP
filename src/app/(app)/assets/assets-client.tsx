@@ -28,6 +28,7 @@ import { AssetCheckDialog } from './asset-check-dialog';
 import { Dialog } from './asset-dialog';
 import { deleteAssetsAction, loadInspectionsAction, saveAssetAction } from './actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsDialog), { ssr: false });
 const ImportDialog = dynamic(() => import('./asset-tools').then((m) => m.ImportDialog), { ssr: false });
@@ -136,14 +137,14 @@ function AssetFormDialog({ asset, projects, stockItems, onClose }: { asset: Asse
           </label>
           <label className="block">
             <span className={labelClass}>ที่อยู่ปัจจุบัน</span>
-            <select value={form.projectId} onChange={set('projectId')} className={fieldClass}>
+            <SearchSelect value={form.projectId} onChange={set('projectId')} className={fieldClass}>
               <option value="">สำนักงาน</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
           <label className="block">
             <span className={labelClass}>ผู้ดูแล</span>
@@ -152,7 +153,7 @@ function AssetFormDialog({ asset, projects, stockItems, onClose }: { asset: Asse
           {(stockItems.length > 0 || form.stockItemId) && (
             <label className="block sm:col-span-2">
               <span className={labelClass}>รายการในสต๊อก</span>
-              <select value={form.stockItemId} onChange={set('stockItemId')} className={fieldClass}>
+              <SearchSelect value={form.stockItemId} onChange={set('stockItemId')} className={fieldClass}>
                 <option value="">ไม่ผูกกับสต๊อก</option>
                 {form.stockItemId && !stockItems.some((i) => i.id === form.stockItemId) && <option value={form.stockItemId}>{asset?.stockItemLabel ?? 'รายการเดิม'}</option>}
                 {stockItems.map((i) => (
@@ -160,7 +161,7 @@ function AssetFormDialog({ asset, projects, stockItems, onClose }: { asset: Asse
                     {i.label}
                   </option>
                 ))}
-              </select>
+              </SearchSelect>
               <span className="mt-1 block text-[11px] text-slate-500">ผูกไว้เพื่อเทียบจำนวนทรัพย์สินกับยอดคงเหลือในสต๊อก</span>
             </label>
           )}
@@ -540,7 +541,7 @@ export function AssetsClient({
           </label>
           <label>
             <span className="sr-only">ที่อยู่</span>
-            <select value={location} onChange={(e) => setLocation(e.target.value)} className={`${fieldClass} w-64`}>
+            <SearchSelect value={location} onChange={(e) => setLocation(e.target.value)} className={`${fieldClass} w-64`}>
               <option value="ALL">ทุกที่อยู่</option>
               <option value="OFFICE">สำนักงาน</option>
               {projects.map((p) => (
@@ -548,7 +549,7 @@ export function AssetsClient({
                   {p.label}
                 </option>
               ))}
-            </select>
+            </SearchSelect>
           </label>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {canDelete && (

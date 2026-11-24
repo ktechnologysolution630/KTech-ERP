@@ -14,6 +14,7 @@ import {
   type AdvResult,
 } from '../actions';
 import { DateInput } from '@/components/date-input';
+import { SearchSelect } from '@/components/search-select';
 
 const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-brand';
 
@@ -174,14 +175,14 @@ export function AdvanceActions({
               {expense.evidence === 'SUBSTITUTE' ? (
                 <label>
                   <span className="block text-slate-600">ใบรับรองแทนใบเสร็จ (อนุมัติแล้ว)</span>
-                  <select required value={expense.substituteId} onChange={(e) => setExpense({ ...expense, substituteId: e.target.value })} className={inputClass}>
+                  <SearchSelect required value={expense.substituteId} onChange={(e) => setExpense({ ...expense, substituteId: e.target.value })} className={inputClass}>
                     <option value="">— เลือก —</option>
                     {substitutes.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.number} ({s.total.toLocaleString('th-TH')})
                       </option>
                     ))}
-                  </select>
+                  </SearchSelect>
                 </label>
               ) : (
                 <label>

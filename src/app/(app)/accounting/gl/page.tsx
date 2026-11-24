@@ -10,6 +10,8 @@ import { PrintRoot } from '@/components/project-site/report-sheet';
 import { PrintButton } from '../print-button';
 import { money, selectCls } from '../shared';
 import { AccountsClient, RepostButton } from './gl-client';
+import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { SearchSelect } from '@/components/search-select';
 
 type Tab = 'journal' | 'trial' | 'ledger' | 'accounts';
 const TABS: { key: Tab; label: string }[] = [
@@ -77,7 +79,7 @@ export default async function GlPage({ searchParams }: { searchParams: Promise<S
 
 function RangeFields({ from, to, tab, children }: { from: string; to: string; tab: Tab; children?: React.ReactNode }) {
   return (
-    <form className="flex flex-wrap items-end gap-2">
+    <AutoSubmitForm className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="tab" value={tab} />
       <label className="text-[11px] text-slate-500">
         ตั้งแต่
@@ -88,8 +90,7 @@ function RangeFields({ from, to, tab, children }: { from: string; to: string; ta
         <input type="date" name="to" defaultValue={to} className={`${input} ml-1`} />
       </label>
       {children}
-      <button className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white">แสดง</button>
-    </form>
+    </AutoSubmitForm>
   );
 }
 
@@ -305,13 +306,13 @@ async function LedgerTab({ from, to, accountId }: { from: string; to: string; ac
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <RangeFields from={from} to={to} tab="ledger">
-          <select name="account" defaultValue={picked?.id} aria-label="บัญชี" className={selectCls}>
+          <SearchSelect name="account" defaultValue={picked?.id} aria-label="บัญชี" className={selectCls}>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.code} {a.name}
               </option>
             ))}
-          </select>
+          </SearchSelect>
         </RangeFields>
         {picked && (
           <a href={`/api/csv/gl-ledger?${qs({ account: picked.id, from, to })}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">

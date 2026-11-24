@@ -1,7 +1,9 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { Fragment, useId, useRef, useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
+import { filterBySearch, similarBySearch } from '@/lib/search-match';
+import { useFloatingList } from './use-floating-list';
 
 export interface ComboItem {
   id: string;
@@ -10,6 +12,7 @@ export interface ComboItem {
 }
 
 const MAX_SHOWN = 50;
+const MAX_NEAR = 8;
 
 /**
  * Text box that searches a list as you type. Picking an entry calls `onPick`; typing anything
@@ -24,6 +27,7 @@ export function ItemCombobox({
   onPick,
   placeholder = 'พิมพ์ชื่อหรือรหัส เพื่อค้นหา / กรอกเอง',
   className = '',
+  related,
 }: {
   items: ComboItem[];
   /** Text shown in the box */
@@ -34,6 +38,8 @@ export function ItemCombobox({
   onPick: (item: ComboItem) => void;
   placeholder?: string;
   className?: string;
+  /** More entries of the same kind as the typed text (e.g. the same item group), offered as close matches */
+  related?: (text: string) => ComboItem[];
 }) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -41,12 +47,27 @@ export function ItemCombobox({
   /** "อื่นๆ" was chosen: the box asks for a name of one's own */
   const [other, setOther] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const listStyle = useFloatingList(boxRef, open, 240);
 
-  const q = value.trim().toLowerCase();
   // While an entry is picked, show the whole list so another can be chosen
-  const matches = (selectedId || !q ? items : items.filter((i) => `${i.code} ${i.name}`.toLowerCase().includes(q))).slice(0, MAX_SHOWN);
-  /** "อื่นๆ" sits after the matches, so the keyboard reaches it last */
-  const otherIndex = matches.length;
+  const matches = (selectedId ? items : filterBySearch(items, value, (i) => `${i.code} ${i.name}`)).slice(0, MAX_SHOWN);
+  /**
+   * Close matches under the direct ones: names spelt alike or sharing words, then entries of the
+   * same kind, so "สังกะสีลอนเล็ก" still offers "สังกะสีลอนใหญ่" from the register
+   */
+  const near: ComboItem[] = [];
+  if (!selectedId && value.trim()) {
+    const seen = new Set(matches.map((m) => m.id));
+    for (const it of [...similarBySearch(items, value, (i) => i.name), ...(related?.(value) ?? [])]) {
+      if (near.length >= MAX_NEAR || seen.has(it.id)) continue;
+      seen.add(it.id);
+      near.push(it);
+    }
+  }
+  /** Keyboard order: direct matches, close matches, then "อื่นๆ" */
+  const options = [...matches, ...near];
+  const otherIndex = options.length;
 
   const pick = (item: ComboItem) => {
     onPick(item);
@@ -62,7 +83,7 @@ export function ItemCombobox({
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div ref={boxRef} className={`relative ${className}`}>
       <input
         ref={inputRef}
         type="text"
@@ -70,7 +91,7 @@ export function ItemCombobox({
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={open ? (active === otherIndex ? `${listId}-other` : matches[active] ? `${listId}-${active}` : undefined) : undefined}
+        aria-activedescendant={open ? (active === otherIndex ? `${listId}-other` : options[active] ? `${listId}-${active}` : undefined) : undefined}
         value={value}
         placeholder={other && !selectedId ? 'ระบุชื่อรายการ' : placeholder}
         onChange={(e) => {
@@ -92,9 +113,9 @@ export function ItemCombobox({
           } else if (e.key === 'Enter' && open && active === otherIndex) {
             e.preventDefault();
             pickOther();
-          } else if (e.key === 'Enter' && open && matches[active]) {
+          } else if (e.key === 'Enter' && open && options[active]) {
             e.preventDefault();
-            pick(matches[active]);
+            pick(options[active]);
           } else if (e.key === 'Escape') {
             setOpen(false);
           }
@@ -133,15 +154,21 @@ export function ItemCombobox({
       </div>
 
       {open && (
-        <ul id={listId} role="listbox" className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg">
-          {matches.length === 0 ? (
+        <ul id={listId} role="listbox" style={listStyle} className="z-[60] w-max overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg">
+          {matches.length === 0 && (
             <li className="px-3 py-2 text-slate-500">
-              {items.length === 0 ? 'ยังไม่มีสินค้าในทะเบียน' : 'ไม่พบในทะเบียนสินค้า'} — ใช้ข้อความที่พิมพ์เป็นรายการใหม่
+              {items.length === 0 ? 'ยังไม่มีสินค้าในทะเบียน' : 'ไม่พบชื่อนี้ตรงๆ ในทะเบียนสินค้า'}
+              {near.length === 0 ? ' — ใช้ข้อความที่พิมพ์เป็นรายการใหม่' : ''}
             </li>
-          ) : (
-            matches.map((it, i) => (
+          )}
+          {options.map((it, i) => (
+            <Fragment key={it.id}>
+              {i === matches.length && (
+                <li role="presentation" className="border-t border-slate-100 bg-amber-50/60 px-3 pb-1 pt-1.5 text-[11px] font-semibold text-amber-800">
+                  รายการใกล้เคียง
+                </li>
+              )}
               <li
-                key={it.id}
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={it.id === selectedId}
@@ -152,8 +179,8 @@ export function ItemCombobox({
               >
                 <span className="font-mono text-[11px] text-slate-500">{it.code}</span> {it.name}
               </li>
-            ))
-          )}
+            </Fragment>
+          ))}
           <li
             id={`${listId}-other`}
             role="option"

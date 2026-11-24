@@ -30,7 +30,9 @@ import { prFormKind, resolveFormText, type FormKind, type FormText } from '@/dom
 import { LINE_KIND_LABEL, PR_TYPE_META, type PrLineKind, type PrType } from '@/domain/pr-type';
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { classifyItem, groupOfItemCode, groupsOfCategory } from '@/domain/item-groups';
+import { detectItemType } from '@/domain/item-classify';
 import type { BoqQtyOption } from '@/server/services/pr-boq';
+import { SearchSelect } from '@/components/search-select';
 
 /** Value of the BOQ picker for a goods line that is not in the BOQ */
 const OUTSIDE_BOQ = 'OUTSIDE';
@@ -66,6 +68,8 @@ interface LineState {
   /** When this line is needed; the goods form asks it per line */
   neededDate: string;
   note: string;
+  /** Category and group were filled in from what was typed, not chosen; typing again may change them */
+  autoType?: boolean;
 }
 
 const emptyLine = (kind: PrLineKind): LineState => ({
@@ -212,6 +216,8 @@ export function PrForm({
   const pickableItems = items.filter((i) => i.active !== false);
   /** Items of the line's group, else of its category; the whole register when neither narrows it */
   const itemsFor = (line: LineState) => {
+    // A guessed category only ranks; it must not hide the item that was meant
+    if (line.autoType) return pickableItems;
     if (line.group) {
       const inGroup = pickableItems.filter((i) => groupOfItemCode(i.code)?.name === line.group && classifyItem(i).category === line.category);
       if (inGroup.length > 0) return inGroup;
@@ -227,6 +233,39 @@ export function PrForm({
     return it ? `${it.code} - ${it.name}` : '';
   };
   const setLine = (idx: number, patch: Partial<LineState>) => setLines((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  /**
+   * Category (and group, for goods) read from what was typed: the register first, then words in the
+   * name (สังกะสี → งานหลังคา). Only fills a line whose category was not chosen by hand.
+   */
+  const autoPlace = (line: LineState, text: string): Partial<LineState> => {
+    if (line.category && !line.autoType) return {};
+    const found = detectItemType(text, pickableItems);
+    if (!found) return line.autoType ? { category: '', group: '', autoType: false } : {};
+    const boqStays = !line.boq || line.boq === OUTSIDE_BOQ || boqFor(found.category).some((o) => o.id === line.boq);
+    return {
+      category: found.category,
+      group: line.kind === 'LABOR' ? line.group : found.group,
+      autoType: true,
+      ...(boqStays ? {} : { boq: '' }),
+    };
+  };
+  /** Register items of the same kind as the typed name (its group, else its category), for close matches */
+  const relatedItems = (text: string) => {
+    const found = detectItemType(text, pickableItems);
+    if (!found) return [];
+    return pickableItems.filter((i) => {
+      const c = classifyItem(i);
+      return c.category === found.category && (!found.group || !c.group || c.group === found.group);
+    });
+  };
+  /** Line of what the system read from the typed name */
+  const autoNote = (line: LineState) =>
+    line.autoType && line.category ? (
+      <p className="mt-0.5 text-[11px] text-emerald-700" aria-live="polite">
+        ระบบตรวจพบประเภท: {line.category}
+        {line.group ? ` › ${line.group}` : ''} (เปลี่ยนได้ที่ช่องหมวด)
+      </p>
+    ) : null;
   const amountOf = (l: LineState) => num(l.qty).times(num(l.estUnitPrice)).minus(num(l.discount));
 
   const totals = useMemo(
@@ -362,6 +401,7 @@ export function PrForm({
           const boqStays = !line.boq || line.boq === OUTSIDE_BOQ || boqFor(category).some((o) => o.id === line.boq);
           setLine(idx, {
             category,
+            autoType: false,
             group: groupsOfCategory(category).some((g) => g.name === line.group) ? line.group : '',
             ...(boqStays ? {} : { boq: '' }),
           });
@@ -483,7 +523,7 @@ export function PrForm({
                 <td className={td}>
                   <select
                     value={line.group}
-                    onChange={(e) => setLine(idx, { group: e.target.value })}
+                    onChange={(e) => setLine(idx, { group: e.target.value, autoType: false })}
                     disabled={!line.category}
                     aria-label={`กลุ่ม${work ? 'งาน' : 'รายการ'}ที่ ${n + 1}`}
                     className={`${paperCell} text-xs disabled:bg-slate-50 disabled:text-slate-400`}
@@ -501,7 +541,7 @@ export function PrForm({
                   {work ? (
                     <input
                       value={line.description}
-                      onChange={(e) => setLine(idx, { description: e.target.value })}
+                      onChange={(e) => setLine(idx, { description: e.target.value, ...autoPlace(line, e.target.value) })}
                       placeholder="เช่น ค่าแรงก่ออิฐฉาบปูน, จ้างเดินท่อประปา"
                       aria-label={`รายการงานที่ ${n + 1}`}
                       className={`${paperCell} font-medium`}
@@ -509,10 +549,11 @@ export function PrForm({
                   ) : (
                     <ItemCombobox
                       items={itemsFor(line)}
+                      related={relatedItems}
                       selectedId={line.itemId}
                       value={line.itemId ? itemLabel(line.itemId) : line.description}
                       // Typing is free text: it becomes the item name and drops any picked item
-                      onType={(text) => setLine(idx, { itemId: '', description: text })}
+                      onType={(text) => setLine(idx, { itemId: '', description: text, ...autoPlace(line, text) })}
                       onPick={(chosen) => {
                         const item = items.find((it) => it.id === chosen.id);
                         // The register knows where the item belongs; keep what was chosen when it does not
@@ -523,10 +564,13 @@ export function PrForm({
                           unitName: item?.unitName || line.unitName,
                           category: placed?.category || line.category,
                           group: placed?.category ? placed.group : line.group,
+                          // The register decided; the line is no longer a guess
+                          autoType: placed?.category ? false : line.autoType,
                         });
                       }}
                     />
                   )}
+                  {autoNote(line)}
                   <textarea
                     value={line.detail}
                     onChange={(e) => setLine(idx, { detail: e.target.value })}
@@ -658,7 +702,7 @@ export function PrForm({
 
   /** The project of a new PR; fixed once the PR is saved */
   const projectPicker = (
-    <select
+    <SearchSelect
       disabled={Boolean(existing)}
       value={projectId}
       onChange={(e) => pickProject(e.target.value)}
@@ -671,7 +715,7 @@ export function PrForm({
           {p.code} - {p.name}
         </option>
       ))}
-    </select>
+    </SearchSelect>
   );
 
   return (

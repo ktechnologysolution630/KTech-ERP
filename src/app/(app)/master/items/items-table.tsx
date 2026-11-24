@@ -6,6 +6,9 @@ import { Ruler, ScanSearch, Search, Trash2, X } from 'lucide-react';
 import type { ItemDeleteResult } from '@/server/services/item-delete';
 import { deleteItemsAction, setItemsUnitAction } from '../actions';
 import { DuplicateCheck } from './duplicate-check';
+import { matchesSearch } from '@/lib/search-match';
+import { detectItemType } from '@/domain/item-classify';
+import { classifyItem } from '@/domain/item-groups';
 
 export interface ItemRow {
   id: string;
@@ -42,8 +45,11 @@ export function ItemsTable({
   const [result, setResult] = useState<ItemDeleteResult | null>(null);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
 
-  const q = search.trim().toLowerCase();
-  const shown = q ? items.filter((i) => `${i.code} ${i.name} ${i.category ?? ''}`.toLowerCase().includes(q)) : items;
+  // Search reads code, name, category and the item's group, so "งานหลังคา" lists every roof item
+  const shown = search.trim() ? items.filter((i) => matchesSearch(`${i.code} ${i.name} ${i.category ?? ''} ${classifyItem(i).group}`, search)) : items;
+  /** What kind of item the typed words describe, offered as a one-click filter */
+  const detected = detectItemType(search, items);
+  const detectedFilter = detected ? detected.group || detected.category : '';
   const selectedRows = items.filter((i) => selected.has(i.id));
   // "All" ticks only what the search shows, so nothing hidden is deleted by surprise
   const allShown = shown.length > 0 && shown.every((i) => selected.has(i.id));
@@ -78,6 +84,17 @@ export function ItemsTable({
               className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-brand focus:outline-none"
             />
           </div>
+          {detected && detectedFilter !== search.trim() && (
+            <button
+              type="button"
+              onClick={() => setSearch(detectedFilter)}
+              title="แสดงสินค้าทั้งหมดในประเภทนี้"
+              className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-800 hover:border-emerald-400"
+            >
+              ประเภท: {detected.category}
+              {detected.group ? ` › ${detected.group}` : ''} · ดูทั้งหมด
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setCheckingDuplicates(true)}

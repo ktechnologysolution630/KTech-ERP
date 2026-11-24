@@ -61,7 +61,7 @@ describe('every action that writes refuses a view-only device', () => {
     'listMyNotificationsAction', 'markAllMyNotificationsReadAction', 'markMyNotificationReadAction',
     'loadCalendarAction', 'loadCashflowAction', 'loadChatAction', 'loadCostPerformanceAction', 'loadDailyReportAction', 'loadDailyReportsAction',
     'loadDefectsAction', 'loadFilesAction', 'loadForecastAction', 'loadInspectionsAction', 'loadPeriodicReportAction', 'loadTeamAction',
-    'loadVoBoqAction', 'loadVoDocumentAction',
+    'loadVoBoqAction', 'loadVoDocumentAction', 'loadUnitReferenceAction',
     'loadFleetLiveAction', 'loadTripRouteAction',
     'itemUsageAction',
   ];
