@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type Db } from '@/db/client';
 import { boqs, boqTakeoffs, projects, users, type SessionUser } from '@/db/schema';
@@ -189,7 +189,8 @@ export async function saveTakeoff(db: Db, actor: SessionUser, id: string, input:
       updatedBy: actor.id,
       updatedAt: new Date(),
     })
-    .where(and(eq(boqTakeoffs.id, id), eq(boqTakeoffs.updatedAt, current.updatedAt)))
+    // Postgres keeps microseconds that a JS date drops, so the stamps are compared to the millisecond
+    .where(and(eq(boqTakeoffs.id, id), sql`date_trunc('milliseconds', ${boqTakeoffs.updatedAt}) = ${current.updatedAt.toISOString()}::timestamptz`))
     .returning();
   if (!saved) throw new DomainError('TAKEOFF_CONFLICT', 'มีผู้อื่นบันทึกงานถอดแบบนี้หลังจากที่คุณเปิด กรุณาโหลดหน้าใหม่ก่อนบันทึก', 409);
   return toDocument(db, actor, saved);
