@@ -37,7 +37,8 @@ export class ScanReader {
       const scheduler = createScheduler();
       const add = async () => {
         const worker = await createWorker(['tha', 'eng'], OEM.LSTM_ONLY, { workerPath: '/ocr/worker.min.js', corePath: '/ocr/core', langPath: '/ocr/lang' });
-        await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
+        // Automatic layout keeps each note's words together as lines, which the written quantities need
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' });
         scheduler.addWorker(worker);
       };
       await add();
@@ -61,18 +62,21 @@ export class ScanReader {
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const words: OcrWord[] = [];
+    const lines: string[] = [];
     if (withOcr) {
       const scheduler = await this.start();
       const { data } = await scheduler.addJob('recognize', canvas, {}, { blocks: true, text: false, hocr: false, tsv: false });
       for (const block of data.blocks ?? [])
         for (const para of block.paragraphs)
-          for (const line of para.lines)
+          for (const line of para.lines) {
+            if (line.text.trim()) lines.push(line.text.trim());
             for (const w of line.words) words.push({ text: w.text, conf: w.confidence, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 });
+          }
     }
     const img = toGray(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
     canvas.width = 0;
     const { paths, texts } = rasterToVectors(img, { scale, words, minTextConfidence: MIN_WORD_CONFIDENCE });
-    return { page: pageNo, width: base.width, height: base.height, paths, texts, truncated: false, scanned: true };
+    return { page: pageNo, width: base.width, height: base.height, paths, texts, lines, truncated: false, scanned: true };
   }
 
   stop() {

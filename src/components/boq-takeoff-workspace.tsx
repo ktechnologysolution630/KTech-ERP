@@ -773,9 +773,26 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     setNotice(`เพิ่ม ${picked.length} รายการจาก AI แล้ว ตรวจตัวเลขและกดบันทึก`);
   };
 
-  const addAutoGroups = (picked: AutoPickedGroup[]) => {
+  const addAutoGroups = (picked: AutoPickedGroup[], written: AiPickedItem[]) => {
     change((d) => {
       const items: TakeoffItem[] = [];
+      // Quantities written in the drawing's notes: an item with that quantity, nothing to measure
+      written.forEach((p, i) =>
+        items.push({
+          id: newId(),
+          category: p.category,
+          description: p.description.slice(0, 1000),
+          kind: p.kind,
+          unit: p.unit || defaultUnitOf(p.kind),
+          factor: 1,
+          wastePercent: 0,
+          materialRate: '',
+          laborRate: '',
+          color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
+          note: `ปริมาณจากข้อความบนแบบ ${p.basis}`.slice(0, 500),
+          fixedQty: p.qty,
+        }),
+      );
       const measurements: Measurement[] = [];
       picked.forEach((p, i) => {
         const item: TakeoffItem = {
@@ -788,7 +805,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           wastePercent: 0,
           materialRate: '',
           laborRate: '',
-          color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
+          color: ITEM_COLORS[(d.items.length + written.length + i) % ITEM_COLORS.length]!,
           note: `ถอดแบบอัตโนมัติ: ${p.group.label}`.slice(0, 500),
         };
         items.push(item);
@@ -797,7 +814,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return { ...d, items: [...d.items, ...items], measurements: [...d.measurements, ...measurements] };
     });
     setAutoOpen(false);
-    setNotice(`เพิ่ม ${picked.length} รายการจากการถอดแบบอัตโนมัติแล้ว ตรวจบนแบบแล้วกดบันทึก`);
+    setNotice(`เพิ่ม ${picked.length + written.length} รายการจากการถอดแบบอัตโนมัติแล้ว ตรวจบนแบบแล้วกดบันทึก`);
   };
 
   const setScalesByPage = (ratioByPage: Record<number, number>) => {
