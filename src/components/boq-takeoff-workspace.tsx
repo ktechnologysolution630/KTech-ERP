@@ -725,6 +725,8 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
 
   // ── derived ──
   const quantities = useMemo(() => new Map(data.items.map((i) => [i.id, itemQuantity(i, data)])), [data]);
+  /** What the AI dialog checks its rows against, so work already taken off is not added twice */
+  const existingForAi = useMemo(() => data.items.map((it) => ({ description: it.description, kind: it.kind, unit: it.unit, qty: quantities.get(it.id)?.measured ?? 0 })), [data.items, quantities]);
   const groups = useMemo(() => groupByCategory(data.items), [data.items]);
   const grandTotal = useMemo(() => data.items.reduce((s, i) => s + itemAmount(i, quantities.get(i.id)!.qty), 0), [data.items, quantities]);
   const categories = useMemo(() => [...new Set([...STOCK_CATEGORIES, ...data.items.map((i) => i.category).filter(Boolean)])], [data.items]);
@@ -1352,6 +1354,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           pageCount={pageCount}
           currentPage={page}
           scales={data.scales}
+          existing={existingForAi}
           onAdd={addAiItems}
           onClose={() => setAiOpen(false)}
         />

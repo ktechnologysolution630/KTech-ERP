@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkAgainstDrawing, mergeAcrossPages, type PagedAiItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
+import { checkAgainstDrawing, findInTakeoff, mergeAcrossPages, type PagedAiItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
 
 const item = (page: number, description: string, qty: number, unit = 'ม.', kind: PagedAiItem['kind'] = 'length', confidence: PagedAiItem['confidence'] = 'high'): PagedAiItem => ({
   page,
@@ -71,5 +71,47 @@ describe('checking AI rows against what the drawing says', () => {
     expect(checks.map((c) => c?.status ?? null)).toEqual(['match', 'match', 'part', null, null]);
     expect(checks[2]).toMatchObject({ written: { qty: 90 } });
     expect(missing.map((m) => m.qty)).toEqual([90, 7]);
+  });
+});
+
+describe('findInTakeoff', () => {
+  const existing = [
+    { description: 'ก่อสร้างปรับปรุงถนนลาดยางแอสฟัลท์ติกคอนกรีต', kind: 'area' as const, unit: 'ตร.ม.', qty: 9000 },
+    { description: 'บ่อพัก คสล.', kind: 'count' as const, unit: 'บ่อ', qty: 90 },
+    { description: 'ป้ายชื่อโครงการ', kind: 'count' as const, unit: 'ป้าย', qty: 2 },
+  ];
+  it('finds the same total read again, even under another name', () => {
+    const hits = findInTakeoff(
+      [
+        { description: 'ผิวทางแอสฟัลต์ หนา 0.05 ม.', kind: 'area', unit: 'ตารางเมตร', qty: 9000 },
+        { description: 'บ่อพัก คสล.1 ขนาด 0.90×1.50 ม.', kind: 'count', unit: 'บ่อ', qty: 90 },
+        { description: 'คอนกรีตหยาบรองใต้บ่อพัก', kind: 'area', unit: 'ตร.ม.', qty: 121.5 },
+      ],
+      existing,
+    );
+    expect(hits.map((h) => h?.qty ?? null)).toEqual([9000, 90, null]);
+  });
+  it('needs a similar name for small counts', () => {
+    const hits = findInTakeoff(
+      [
+        { description: 'ประตูเหล็ก', kind: 'count', unit: 'ป้าย', qty: 2 },
+        { description: 'ป้ายชื่อโครงการ ขนาด 1.2×2.4 ม.', kind: 'count', unit: 'ป้าย', qty: 2 },
+      ],
+      existing,
+    );
+    expect(hits.map((h) => h?.qty ?? null)).toEqual([null, 2]);
+  });
+});
+
+describe('findInTakeoff pairs one row per item', () => {
+  it('does not take the pipe for the road length already in the take-off', () => {
+    const hits = findInTakeoff(
+      [
+        { description: 'ความยาวถนนลาดยาง', kind: 'length', unit: 'ม.', qty: 1800 },
+        { description: 'ท่อระบายน้ำ HDPE ศก. 0.40 ม.', kind: 'length', unit: 'ม.', qty: 1800 },
+      ],
+      [{ description: 'ปรับปรุงประตูเหล็กดัดอิตาลี', kind: 'length', unit: 'ม.', qty: 1800 }],
+    );
+    expect(hits.map((h) => (h ? 'dup' : 'new'))).toEqual(['dup', 'new']);
   });
 });

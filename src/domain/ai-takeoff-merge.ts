@@ -115,3 +115,38 @@ export function checkAgainstDrawing(rows: Checkable[], written: WrittenQty[]): {
   const missing = written.filter((w) => !used.has(w) && !rows.some((r) => same(r, w) && sameQty(r.qty, w.qty)));
   return { checks, missing };
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * Rows already in the take-off. The free ถอดแบบอัตโนมัติ may have put the written totals in first;
+ * the AI then reads the same notes again. A row with the same quantity and unit as an item already
+ * there is the same work, so adding it would count it twice in the BOQ.
+ * ---------------------------------------------------------------------------------------------- */
+
+export interface ExistingItem {
+  description: string;
+  kind: 'length' | 'area' | 'count';
+  unit: string;
+  qty: number;
+}
+
+/**
+ * Each item in the take-off stands for one row at most: the free take-off names a note's total from
+ * garbled OCR, so a big number alone is enough to pair it, but the road's 1,800 ม. is not also the
+ * pipe's 1,800 ม. Rows with a similar name pair first; then the first row with the same number.
+ */
+export function findInTakeoff<E extends ExistingItem>(rows: Checkable[], existing: E[]): (E | null)[] {
+  const out: (E | null)[] = rows.map(() => null);
+  const used = new Set<E>();
+  const same = (r: Checkable, e: E) => e.qty > 0 && r.kind === e.kind && unitKey(r.unit) === unitKey(e.unit) && sameQty(r.qty, e.qty);
+  for (const byName of [true, false]) {
+    rows.forEach((r, i) => {
+      if (out[i]) return;
+      const hit = existing.find((e) => !used.has(e) && same(r, e) && (byName ? sameName(r.description, e.description) : e.qty >= SURE_QTY));
+      if (hit) {
+        out[i] = hit;
+        used.add(hit);
+      }
+    });
+  }
+  return out;
+}
