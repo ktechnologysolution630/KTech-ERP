@@ -10,7 +10,7 @@ import { aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
 /** Long edge of the page image sent to the AI; the drawing's small text needs a sharp image */
 const IMAGE_LONG_EDGE = 2400;
 /** One run reads at most this many pages, so a whole drawing set is not sent by mistake */
-const MAX_PAGES_PER_RUN = 30;
+const MAX_PAGES_PER_RUN = 200;
 
 export interface AiPickedItem {
   page: number;
@@ -166,7 +166,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
             </label>
           </div>
           <p className="text-slate-500">
-            AI อ่านตัวเลขบอกระยะ ตาราง และสัญลักษณ์บนแบบ แล้วคำนวณปริมาณให้ ใช้เวลาประมาณ 1–2 นาทีต่อหน้า ตัวเลขเป็นค่าประมาณ กรุณาตรวจก่อนเพิ่มเข้างานถอดแบบ
+            AI อ่านตัวเลขบอกระยะ ตาราง และสัญลักษณ์บนแบบ แล้วคำนวณปริมาณให้ ใช้เวลาประมาณ 1–2 นาทีต่อหน้า (มีค่าใช้จ่ายทุกหน้า) ตัวเลขเป็นค่าประมาณ กรุณาตรวจก่อนเพิ่มเข้างานถอดแบบ
           </p>
 
           {(running || notes.length > 0) && (
