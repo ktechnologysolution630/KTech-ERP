@@ -88,7 +88,7 @@ interface Rule {
 
 const num = (s: string) => Number(s.replace(/[,，]/g, ''));
 // Words between the measure and the number that OCR often reads: รวม, ประมาณ (ประมาน, ประมาฌ), ทั้งหมด
-const ABOUT = String.raw`(?:\s*(?:รวม|ทั้งหมด|ทังหมด|ประมา[ณนฌ]|ประมา|ราว|ไม่น้อยกว่า|ไมนอยกวา))*\s*[:=]?\s*`;
+const ABOUT = String.raw`(?:\s*(?:รวม|ทั้งหมด|ทังหมด|ประมา[ณนฌ]|ประมา|ราว))*\s*[:=]?\s*`;
 
 /** “ยาว 6.00 ม./ต้น” is the size of one piece, not a quantity of work */
 const NOT_PER = String.raw`(?!\s*(?:/|ต่อ))`;
@@ -144,7 +144,7 @@ function isHeading(s: string): boolean {
 function cleanDescription(s: string): string {
   return s
     .replace(/\(?\s*ดูแบบ[^)]*\)?/g, '')
-    .replace(new RegExp(String.raw`(?:ความ)?(?:กว้าง|กวาง|ควาง|หนา|สูง|ลึก)${ABOUT}${NUM}\s*(?:เมตร|ม\.|ซม\.|เซนติเมตร|มม\.)`, 'g'), '')
+    .replace(new RegExp(String.raw`(?:ความ)?(?:ก?ว[่้]?าง|ควาง|หนา|สูง|ลึก)${ABOUT}${NUM}\s*(?:เมตร|ม\.|ซม\.|เซนติเมตร|มม\.)`, 'g'), '')
     .replace(/\(\s*\)/g, '')
     .replace(/[\s,.:;\-–—=]+$/g, '')
     .replace(/^(?:[ก-๙]?[\s,.:;\-–—=*•»«>_]{2,})+/g, '')
@@ -227,6 +227,20 @@ function similar(a: string, b: string): boolean {
 const keyOf = (s: string) => s.replace(/[^ก-ฮ]/g, '');
 
 /**
+ * A name read off a scan is only trusted when it holds a word of construction work. OCR of a title
+ * block or a smudge gives Thai-looking letters too, and those must not become items.
+ */
+const WORK_WORD =
+  /ก่อสร้าง|ปรับปรุง|ติดตั้ง|รื้อ|ซ่อม|ถนน|ทาง|พื้น|ผนัง|ท่อ|บ่อ|ฝา|เสา|เข็ม|คอนกรีต|คสล|เหล็ก|ทาสี|พื้นสี|หญ้า|ต้นไม้|ปลูก|ราว|รั้ว|ประตู|หน้าต่าง|โคม|ไฟ|สาย|ปั๊ม|สูบ|เครื่อง|กระเบื้อง|หิน|ทราย|ดิน|ขุด|ถม|ลาน|สนาม|จอด|ช่อง|ร่อง|ระบาย|หลังคา|ฝ้า|ประปา|สุขภัณฑ์|ห้องน้ำ|ป้าย|ม้านั่ง|กระบะ|แผง|ตะแกรง|แผ่น|ยาง|แอสฟัลท์|เขื่อน|กำแพง|บันได|โครง|คาน|ฐาน|จักรยาน|พิมพ์ลาย|ลวดลาย|อาคาร|ห้อง|งาน/;
+const isWorkName = (s: string) => thaiCount(s) >= 4 && WORK_WORD.test(s);
+
+/** Quantities this big that repeat are the same note; small ones (2 ชุด) may well be different things */
+const MERGE_FROM = 20;
+
+/** Below these a length or area is the size of one piece (“ยาว 0.50 ม.”), not a quantity of work */
+const MIN_QTY: Partial<Record<string, number>> = { 'ม.': 3, 'ตร.ม.': 1 };
+
+/**
  * Lines found on most of the sheets read are the title block (project name, place, sign-offs),
  * not notes about work, so they never name an item.
  */
@@ -288,7 +302,9 @@ export function extractTextItems(lines: TextLine[]): TextQtyItem[] {
     // “ขนาด 0.10 ลบ.ม./วินาที จำนวน 2 เครื่อง” gives the size; the heading above says of what
     const description = thaiCount(own) >= 6 && !/^(ขนาด|กว้าง|ยาว|หนา|สูง|ชนิด|แบบ)/.test(own) ? own : [heading, own].filter(Boolean).join(' ').trim();
     if (thaiCount(own) >= 6 && isHeading(own)) headings.push(own);
-    for (const h of hits) found.push({ page: p, line, description: thaiCount(description) >= 4 ? description : null, ...h });
+    // Sign-off names that OCR ran into the note: “กระบะปลูกต้นไม้ (นางสาว…”
+    const name = description.replace(/\(?\s*(นาย|นาง|น\.ส\.).*$/, '').trim();
+    for (const h of hits) if (h.qty >= (MIN_QTY[h.unit] ?? 0)) found.push({ page: p, line, description: isWorkName(name) ? name : null, ...h });
   }
 
   const items = new Map<string, TextQtyItem>();
@@ -304,6 +320,23 @@ export function extractTextItems(lines: TextLine[]): TextQtyItem[] {
     }
     if (!f.description) continue;
     items.set(key, { key, description: f.description.slice(0, 300), kind: f.kind, unit: f.unit, qty: f.qty, pages: [f.page], source: f.line.slice(0, 300) });
+  }
+  // A sizeable quantity met under different names is one note read badly on some sheets
+  // (“พื้นที่รวมประมาณ 1,020.00 ตารางเมตร” under a title-block line). The name seen on most sheets wins.
+  const byQty = new Map<string, TextQtyItem[]>();
+  for (const i of items.values()) {
+    if (i.qty < MERGE_FROM) continue;
+    const k = `${i.kind}|${i.unit}|${i.qty}`;
+    byQty.set(k, [...(byQty.get(k) ?? []), i]);
+  }
+  for (const list of byQty.values()) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => b.pages.length - a.pages.length || a.pages[0]! - b.pages[0]!);
+    const keep = list[0]!;
+    for (const other of list.slice(1)) {
+      for (const pg of other.pages) if (!keep.pages.includes(pg)) keep.pages.push(pg);
+      items.delete(other.key);
+    }
   }
   for (const i of items.values()) i.pages.sort((a, b) => a - b);
   return [...items.values()];
