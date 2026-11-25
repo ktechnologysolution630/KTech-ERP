@@ -215,7 +215,7 @@ const bigrams = (s: string) => {
   for (let i = 1; i < t.length; i++) out.add(t.slice(i - 1, i + 1));
   return out;
 };
-function similar(a: string, b: string): boolean {
+export function similar(a: string, b: string): boolean {
   const x = bigrams(a),
     y = bigrams(b);
   if (!x.size || !y.size) return false;

@@ -773,7 +773,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         materialRate: '',
         laborRate: '',
         color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
-        note: `AI หน้า ${p.page}: ${p.basis}`.slice(0, 500),
+        note: `AI หน้า ${(p.pages ?? [p.page]).join(', ')}: ${p.basis}`.slice(0, 500),
         fixedQty: p.qty,
       }));
       return { ...d, items: [...d.items, ...added] };
