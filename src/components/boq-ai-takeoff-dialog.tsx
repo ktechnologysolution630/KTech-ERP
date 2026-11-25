@@ -2,10 +2,10 @@
 
 import React, { useMemo, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { AlertCircle, Loader2, Sparkles, X } from 'lucide-react';
+import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, type PageScale, type TakeoffKind } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
-import { aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
+import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
 import { mergeAcrossPages } from '@/domain/ai-takeoff-merge';
 
 /** Long edge of the page image sent to the AI; the drawing's small text needs a sharp image */
@@ -33,6 +33,12 @@ interface Row extends AiTakeoffItem {
 }
 
 type PageMode = 'current' | 'all' | 'range';
+
+const SCOPE: Record<AiTakeoffItem['scope'], { label: string; cls: string } | null> = {
+  project_total: null,
+  this_sheet: { label: 'เฉพาะแผ่นนี้', cls: 'bg-amber-50 text-amber-700' },
+  per_unit: { label: 'ต่อ 1 หน่วย', cls: 'bg-red-50 text-red-700' },
+};
 
 const CONFIDENCE: Record<AiTakeoffItem['confidence'], { label: string; cls: string }> = {
   high: { label: 'มั่นใจ', cls: 'bg-emerald-50 text-emerald-700' },
@@ -77,6 +83,10 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
   const [rows, setRows] = useState<Row[]>([]);
   /** Items as the AI returned them, before repeats across sheets were joined */
   const [readCount, setReadCount] = useState(0);
+  /** Rows as read sheet by sheet, kept while the joined BOQ list is shown so the user can go back */
+  const [perSheet, setPerSheet] = useState<Row[] | null>(null);
+  const [joining, setJoining] = useState(false);
+  const [joinNotes, setJoinNotes] = useState<{ text: string; error?: boolean }[]>([]);
   const [notes, setNotes] = useState<{ page: number; text: string; error?: boolean }[]>([]);
   const stopRef = useRef(false);
 
@@ -93,6 +103,8 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     stopRef.current = false;
     setRows([]);
     setReadCount(0);
+    setPerSheet(null);
+    setJoinNotes([]);
     setNotes([]);
     let n = 0;
     for (const p of pages) {
@@ -114,7 +126,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
         } else {
           const { result } = res;
           // A note repeated on several sheets is one item, not one per sheet
-          setRows((x) => mergeAcrossPages([...x, ...result.items.map((it, i) => ({ ...it, key: `${p}-${i}`, page: p, picked: true }))]));
+          setRows((x) => mergeAcrossPages([...x, ...result.items.map((it, i) => ({ ...it, key: `${p}-${i}`, page: p, picked: it.scope !== 'per_unit' }))]));
           setReadCount((c) => c + result.items.length);
           const head = [result.drawingTitle, result.scaleSeen && `สเกลบนแบบ ${result.scaleSeen}`].filter(Boolean).join(' · ');
           const text = [head, `พบ ${result.items.length} รายการ`, ...result.warnings].filter(Boolean).join(' — ');
@@ -128,6 +140,54 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     }
     setProgress(null);
     setRunning(false);
+  };
+
+  // One more AI call, text only: multiply per-unit details by their count, keep totals over their parts
+  const join = async () => {
+    setJoining(true);
+    setJoinNotes([]);
+    const before = rows;
+    const res = await aiConsolidateTakeoffAction(takeoffId, {
+      hint: hint.trim() || undefined,
+      rows: before.map((r) => ({
+        id: r.key,
+        pages: r.pages,
+        category: r.category.slice(0, 200),
+        description: r.description.trim().slice(0, 1000) || '-',
+        kind: r.kind,
+        unit: r.unit.slice(0, 50),
+        qty: r.qty,
+        scope: r.scope,
+        perUnitOf: r.perUnitOf.slice(0, 200),
+        basis: r.basis.slice(0, 500),
+      })),
+    }).catch(() => ({ ok: false as const, error: 'รวมรายการไม่สำเร็จ (การเชื่อมต่อขัดข้อง)' }));
+    setJoining(false);
+    if (!res.ok) {
+      setJoinNotes([{ text: res.error, error: true }]);
+      return;
+    }
+    const byKey = new Map(before.map((r) => [r.key, r]));
+    const { items, dropped, notes: aiNotes, unaccounted } = res.result;
+    const joined: Row[] = items.map((it, i) => {
+      const pages = [...new Set(it.sources.flatMap((k) => byKey.get(k)?.pages ?? []))].sort((a, b) => a - b);
+      return { ...it, scope: 'project_total', perUnitOf: '', key: `j-${i}`, pages: pages.length ? pages : [before[0]!.page], page: pages[0] ?? before[0]!.page, picked: true };
+    });
+    // Rows the AI did not account for stay in the list, unticked, so nothing disappears silently
+    const missing = unaccounted.map((k) => byKey.get(k)).filter((r): r is Row => Boolean(r)).map((r) => ({ ...r, picked: false }));
+    setPerSheet(before);
+    setRows([...joined, ...missing]);
+    setJoinNotes([
+      { text: `รวมจาก ${before.length.toLocaleString()} รายการรายแผ่น เหลือ ${joined.length.toLocaleString()} รายการ BOQ` },
+      ...aiNotes.map((text) => ({ text })),
+      ...dropped.map((d) => ({ text: `ตัดออก: ${byKey.get(d.id)?.description ?? d.id} (${d.reason})` })),
+      ...(missing.length ? [{ text: `AI ไม่ได้ใช้ ${missing.length} รายการ แสดงไว้ท้ายตารางแบบไม่ติ๊ก ตรวจดูก่อนเพิ่ม` }] : []),
+    ]);
+  };
+  const unjoin = () => {
+    if (perSheet) setRows(perSheet);
+    setPerSheet(null);
+    setJoinNotes([]);
   };
 
   const update = (key: string, patch: Partial<Row>) => setRows((x) => x.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -199,7 +259,39 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
             </div>
           )}
 
-          {rows.length > 0 && readCount > rows.length && (
+          {!running && rows.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-violet-900">
+              {perSheet ? (
+                <>
+                  <span className="flex-1">แสดงรายการ BOQ ที่ AI รวมแล้ว (คูณปริมาณต่อหน่วยกับจำนวน และใช้ยอดรวมแทนส่วนย่อย) ตรวจ “ที่มาของตัวเลข” ก่อนเพิ่ม</span>
+                  <button type="button" onClick={unjoin} className="flex items-center gap-1 rounded-lg border border-violet-300 bg-white px-2.5 py-1.5 font-semibold hover:bg-violet-100">
+                    <Undo2 className="h-3.5 w-3.5" /> กลับไปรายการรายแผ่น
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1">
+                    รายการนี้ยังเป็นรายแผ่น อาจมีส่วนย่อยที่ซ้ำกับยอดรวม และปริมาณ “ต่อ 1 หน่วย” ที่ยังไม่ได้คูณจำนวน กด <b>รวมเป็น BOQ</b> ให้ AI จัดให้ (ส่งเฉพาะข้อความ ไม่ส่งภาพ ค่าใช้จ่ายน้อย)
+                  </span>
+                  <button type="button" onClick={() => void join()} disabled={joining} className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                    {joining ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />}
+                    {joining ? 'กำลังรวม… (1–3 นาที)' : 'รวมเป็น BOQ'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {joinNotes.length > 0 && (
+            <div className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              {joinNotes.map((n, i) => (
+                <p key={i} className={n.error ? 'flex items-start gap-1 font-semibold text-red-700' : 'text-slate-600'}>
+                  {n.error && <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                  {n.text}
+                </p>
+              ))}
+            </div>
+          )}
+          {rows.length > 0 && !perSheet && readCount > rows.length && (
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-800">
               AI อ่านได้ {readCount.toLocaleString()} รายการ เป็นรายการเดียวกันที่เขียนซ้ำในหลายแผ่น {(readCount - rows.length).toLocaleString()} รายการ จึงรวมไว้เหลือ {rows.length.toLocaleString()} รายการ (ช่อง “หน้า” บอกทุกแผ่นที่พบ) ไม่นับซ้ำ
             </p>
@@ -243,6 +335,12 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                       </td>
                       <td className="px-2 py-1.5 align-top text-slate-600">
                         <span className={`mr-1 inline-block rounded px-1.5 py-0.5 font-semibold ${CONFIDENCE[r.confidence].cls}`}>{CONFIDENCE[r.confidence].label}</span>
+                        {SCOPE[r.scope] && (
+                          <span className={`mr-1 inline-block rounded px-1.5 py-0.5 font-semibold ${SCOPE[r.scope]!.cls}`} title={r.perUnitOf || undefined}>
+                            {SCOPE[r.scope]!.label}
+                            {r.scope === 'per_unit' && r.perUnitOf ? `: ${r.perUnitOf}` : ''}
+                          </span>
+                        )}
                         {r.basis}
                       </td>
                     </tr>
@@ -255,7 +353,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
-          <button type="button" onClick={run} disabled={running || tooMany || pages.length === 0} className="flex items-center gap-1.5 rounded-lg border border-brand px-3 py-2 font-semibold text-brand hover:bg-blue-50 disabled:opacity-50">
+          <button type="button" onClick={run} disabled={running || joining || tooMany || pages.length === 0} className="flex items-center gap-1.5 rounded-lg border border-brand px-3 py-2 font-semibold text-brand hover:bg-blue-50 disabled:opacity-50">
             {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             {rows.length > 0 || notes.length > 0 ? 'ให้ AI อ่านใหม่' : `เริ่มให้ AI อ่าน ${pages.length} หน้า`}
           </button>
@@ -265,7 +363,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
             </button>
             <button
               type="button"
-              disabled={running || picked.length === 0}
+              disabled={running || joining || picked.length === 0}
               onClick={() => onAdd(picked.map((r) => ({ page: r.page, pages: r.pages, category: r.category.trim(), description: r.description.trim(), kind: r.kind, unit: r.unit.trim(), qty: r.qty, basis: r.basis })))}
               className="rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
             >

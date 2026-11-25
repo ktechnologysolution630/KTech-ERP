@@ -13,7 +13,7 @@ import {
   type SaveTakeoffInput,
   type TakeoffDocumentDto,
 } from '@/server/services/boq-takeoff';
-import { readTakeoffPage, type AiTakeoffPage, type AiTakeoffPageInput } from '@/server/services/boq-ai-takeoff';
+import { consolidateTakeoff, readTakeoffPage, type AiConsolidateRow, type AiTakeoffPage, type AiTakeoffPageInput } from '@/server/services/boq-ai-takeoff';
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string; conflict?: boolean };
 
@@ -74,4 +74,10 @@ export async function aiReadTakeoffPageAction(id: string, input: AiTakeoffPageIn
   const actor = await requireWriter();
   const db = await getDb();
   return attempt(async () => ({ result: await readTakeoffPage(db, actor, id, input) }));
+}
+
+export async function aiConsolidateTakeoffAction(id: string, input: { rows: AiConsolidateRow[]; hint?: string }): Promise<Result<{ result: Awaited<ReturnType<typeof consolidateTakeoff>> }>> {
+  const actor = await requireWriter();
+  const db = await getDb();
+  return attempt(async () => ({ result: await consolidateTakeoff(db, actor, id, input) }));
 }

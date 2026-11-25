@@ -26,6 +26,10 @@ const aiItemSchema = z4.object({
   qty: z4.number().describe('Quantity in the unit, before waste'),
   basis: z4.string().describe('Short Thai note of how the quantity was worked out (dimensions read, counts, formula)'),
   confidence: z4.enum(['high', 'medium', 'low']),
+  scope: z4
+    .enum(['project_total', 'this_sheet', 'per_unit'])
+    .describe('project_total: a total for the whole job written on the sheet; this_sheet: only what this sheet shows (one segment, one floor); per_unit: for ONE typical unit in a detail (one pit, one panel, one footing)'),
+  perUnitOf: z4.string().describe('For per_unit: the unit it is for, in Thai, e.g. "บ่อพัก คสล.1 1 บ่อ". Empty otherwise'),
 });
 
 const aiPageSchema = z4.object({
@@ -47,6 +51,7 @@ How to quantify:
 - Counts (doors, windows, columns, footings, lights, sockets, sanitary ware) come from counting symbols or tags, or from schedules.
 - Walls: length × height when the height is known (from sections or notes), otherwise give length in ม. and say so in basis.
 - Floors/ceilings/roof: area in ตร.ม. Concrete: volume in ลบ.ม. when sizes are given.
+- Say what each quantity covers in scope. A detail sheet of a typical pit, panel or footing gives quantities for one unit: mark them per_unit and name the unit in perUnitOf, never multiply by a count you cannot see on this sheet. A plan of one segment gives this_sheet counts. A note that states the total for the whole job is project_total.
 - Do not invent items the sheet does not show. Do not double count the same item. If the sheet is a cover, index or a detail with nothing to measure, return no items and explain in warnings.
 - Write description, unit, basis and warnings in Thai. Keep basis short and show the numbers used, e.g. "แกน A-D 12.00 ม. × แกน 1-4 9.00 ม. หักบันได 2.4 ตร.ม."
 - confidence: high when the quantity comes straight from written dimensions or a schedule; medium when you combined several readings; low when you scaled or assumed.`;
@@ -81,12 +86,12 @@ export type AiReader = (input: AiTakeoffPageInput) => Promise<AiTakeoffPage>;
 export const isAiTakeoffConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY);
 
 let client: Anthropic | null = null;
+const getClient = () => (client ??= new Anthropic({ timeout: 10 * 60 * 1000, maxRetries: 2 }));
 
 export const claudeReader: AiReader = async (input) => {
   if (!isAiTakeoffConfigured()) {
     throw new DomainError('AI_NOT_CONFIGURED', 'ยังไม่ได้ตั้งค่า AI ถอดแบบ (ANTHROPIC_API_KEY) กรุณาแจ้งผู้ดูแลระบบ', 400);
   }
-  client ??= new Anthropic({ timeout: 5 * 60 * 1000, maxRetries: 2 });
   const facts = [
     `Sheet: page ${input.page} of the PDF.`,
     `Paper size: ${Math.round(input.paperMm.w)} × ${Math.round(input.paperMm.h)} mm (the image shows the whole page).`,
@@ -98,7 +103,7 @@ export const claudeReader: AiReader = async (input) => {
 
   let response;
   try {
-    response = await client.beta.messages.parse({
+    response = await getClient().beta.messages.parse({
       model: AI_TAKEOFF_MODEL,
       max_tokens: 16000,
       betas: ['server-side-fallback-2026-07-01'],
@@ -163,6 +168,157 @@ export async function readTakeoffPage(
         qty: Math.round(i.qty * 1000) / 1000,
         basis: i.basis.trim().slice(0, 400),
         confidence: i.confidence,
+        scope: i.scope ?? 'project_total',
+        perUnitOf: (i.perUnitOf ?? '').trim().slice(0, 200),
       })),
+  };
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Joining the sheets into one BOQ. Each sheet is read on its own, so the list still holds partial
+ * counts of a total written elsewhere and quantities for one typical pit or panel. One more call,
+ * with the rows as text only, does what an estimator does at the end: multiply per-unit details by
+ * how many there are, keep the total instead of its parts, and keep everything else as it is.
+ * ---------------------------------------------------------------------------------------------- */
+
+const CONSOLIDATE_SYSTEM = `You are a senior Thai quantity surveyor finishing a BOQ take-off. Rows were read sheet by sheet from one drawing set; each row has an id, the sheets it was found on, and a scope:
+- project_total: a total for the whole job written on a sheet
+- this_sheet: only what one sheet shows (one segment of a road, one floor)
+- per_unit: quantity for ONE typical unit in a detail (perUnitOf names the unit)
+
+Produce the final BOQ list:
+1. Same work found as a project_total and as this_sheet parts: keep the total once; drop the parts (list them in sources). Only if no total exists, add the this_sheet parts up, and only for sheets that show different areas.
+2. per_unit rows: multiply by how many of that unit the job has, taken from other rows (e.g. 90 pits × 1.35 ตร.ม. per pit). Write the multiplication in basis. If no count for that unit can be found, keep the per-unit quantity, set confidence "low" and say in basis "ต่อ 1 … ยังไม่ทราบจำนวน".
+3. The same work read twice with slightly different names or units is one item.
+4. Keep every other row as it is. Do not invent work or quantities that are not in the rows. Keep descriptions specific (size, spec) and in Thai; use a consistent Thai BOQ category for each item.
+5. sources: every input id this item stands for, including the ones it replaced. Every input id should appear in exactly one item's sources or in dropped.
+6. dropped: ids of rows that are not BOQ work at all (e.g. a whole building counted as "1 หลัง" when its parts are listed), with a short Thai reason.`;
+
+const consolidatedSchema = z4.object({
+  items: z4.array(
+    z4.object({
+      category: z4.string(),
+      description: z4.string(),
+      kind: z4.enum(['length', 'area', 'count']),
+      unit: z4.string(),
+      qty: z4.number(),
+      basis: z4.string().describe('Short Thai note; show any multiplication'),
+      confidence: z4.enum(['high', 'medium', 'low']),
+      sources: z4.array(z4.string()).describe('Input row ids this item stands for'),
+    }),
+  ),
+  dropped: z4.array(z4.object({ id: z4.string(), reason: z4.string() })),
+  notes: z4.array(z4.string()).describe('Thai notes for the estimator, e.g. counts that could not be found'),
+});
+export type AiConsolidated = z4.infer<typeof consolidatedSchema>;
+
+const consolidateRowSchema = z.object({
+  id: z.string().min(1).max(100),
+  pages: z.array(z.number().int().min(1).max(99999)).min(1).max(500),
+  category: z.string().max(200),
+  description: z.string().min(1).max(1000),
+  kind: z.enum(['length', 'area', 'count']),
+  unit: z.string().max(50),
+  qty: z.number().positive().max(1e9),
+  scope: z.enum(['project_total', 'this_sheet', 'per_unit']),
+  perUnitOf: z.string().max(200),
+  basis: z.string().max(500),
+});
+export type AiConsolidateRow = z.infer<typeof consolidateRowSchema>;
+const consolidateInputSchema = z.object({ rows: z.array(consolidateRowSchema).min(2, 'ต้องมีอย่างน้อย 2 รายการจึงจะรวมได้').max(2000, 'รายการมากเกินไป กรุณาอ่านทีละช่วงหน้า'), hint: z.string().max(1000).optional() });
+
+export type AiConsolidator = (rows: AiConsolidateRow[], hint?: string) => Promise<AiConsolidated>;
+
+export const claudeConsolidator: AiConsolidator = async (rows, hint) => {
+  if (!isAiTakeoffConfigured()) {
+    throw new DomainError('AI_NOT_CONFIGURED', 'ยังไม่ได้ตั้งค่า AI ถอดแบบ (ANTHROPIC_API_KEY) กรุณาแจ้งผู้ดูแลระบบ', 400);
+  }
+  const table = rows
+    .map((r) => [r.id, r.pages.join(','), r.scope, r.perUnitOf, r.category, r.description, r.qty, r.unit, r.kind, r.basis].map((v) => String(v).replace(/[\t\n]+/g, ' ')).join('\t'))
+    .join('\n');
+  let response;
+  try {
+    // A long list comes back long; streaming keeps the request inside HTTP time limits
+    response = await getClient()
+      .beta.messages.stream({
+        model: AI_TAKEOFF_MODEL,
+        max_tokens: 64000,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        output_config: { effort: 'high', format: betaZodOutputFormat(consolidatedSchema) },
+        system: CONSOLIDATE_SYSTEM,
+        messages: [
+          {
+            role: 'user',
+            content: `${hint?.trim() ? `Note from the user: ${hint.trim()}\n\n` : ''}Rows (tab separated: id, sheets, scope, perUnitOf, category, description, qty, unit, kind, basis):\n${table}\n\nProduce the final BOQ list.`,
+          },
+        ],
+      })
+      .finalMessage();
+  } catch (err) {
+    console.error('AI take-off consolidation failed', err);
+    if (err instanceof Anthropic.AuthenticationError) {
+      throw new DomainError('AI_NOT_CONFIGURED', 'API key ของ AI ถอดแบบไม่ถูกต้อง กรุณาแจ้งผู้ดูแลระบบ', 400);
+    }
+    if (err instanceof Anthropic.RateLimitError) {
+      throw new DomainError('AI_BUSY', 'AI มีคิวเต็ม กรุณารอสักครู่แล้วลองใหม่', 400);
+    }
+    throw new DomainError('AI_FAILED', 'AI รวมรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', 400);
+  }
+  if (response.stop_reason === 'refusal') {
+    throw new DomainError('AI_REFUSED', 'AI ไม่สามารถรวมรายการชุดนี้ได้ กรุณาตรวจรายการเอง', 400);
+  }
+  if (response.stop_reason === 'max_tokens' || !response.parsed_output) {
+    throw new DomainError('AI_FAILED', 'รายการมากเกินกว่าที่ AI รวมได้ในครั้งเดียว กรุณาอ่านทีละช่วงหน้าแล้วรวม', 400);
+  }
+  return response.parsed_output;
+};
+
+export interface ConsolidatedItem {
+  category: string;
+  description: string;
+  kind: 'length' | 'area' | 'count';
+  unit: string;
+  qty: number;
+  basis: string;
+  confidence: 'high' | 'medium' | 'low';
+  /** Input rows this item stands for */
+  sources: string[];
+}
+
+/** Joins the rows read sheet by sheet into the final list; nothing is saved */
+export async function consolidateTakeoff(
+  db: Db,
+  actor: SessionUser,
+  takeoffId: string,
+  input: { rows: AiConsolidateRow[]; hint?: string },
+  consolidator: AiConsolidator = claudeConsolidator,
+): Promise<{ items: ConsolidatedItem[]; dropped: { id: string; reason: string }[]; notes: string[]; unaccounted: string[] }> {
+  const parsed = consolidateInputSchema.safeParse(input);
+  if (!parsed.success) throw new DomainError('INVALID_TAKEOFF', parsed.error.issues[0]!.message);
+  await assertCanViewTakeoff(db, actor, takeoffId);
+  const ids = new Set(parsed.data.rows.map((r) => r.id));
+  const out = await consolidator(parsed.data.rows, parsed.data.hint);
+  const items = out.items
+    .filter((i) => i.description.trim() && Number.isFinite(i.qty) && i.qty > 0 && i.qty < 1e9)
+    .slice(0, 1000)
+    .map((i) => ({
+      category: i.category.trim().slice(0, 200),
+      description: i.description.trim().slice(0, 1000),
+      kind: i.kind,
+      unit: i.unit.trim().slice(0, 50),
+      qty: Math.round(i.qty * 1000) / 1000,
+      basis: i.basis.trim().slice(0, 400),
+      confidence: i.confidence,
+      sources: [...new Set(i.sources.filter((s) => ids.has(s)))],
+    }));
+  const dropped = out.dropped.filter((d) => ids.has(d.id)).map((d) => ({ id: d.id, reason: d.reason.trim().slice(0, 300) }));
+  // Rows the AI left out without a word are shown, so nothing disappears silently
+  const seen = new Set([...items.flatMap((i) => i.sources), ...dropped.map((d) => d.id)]);
+  return {
+    items,
+    dropped,
+    notes: out.notes.map((n) => n.slice(0, 500)).slice(0, 30),
+    unaccounted: [...ids].filter((id) => !seen.has(id)),
   };
 }
