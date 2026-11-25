@@ -6,7 +6,9 @@ import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, type PageScale, type TakeoffKind } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
-import { mergeAcrossPages } from '@/domain/ai-takeoff-merge';
+import { checkAgainstDrawing, mergeAcrossPages, type WrittenQty } from '@/domain/ai-takeoff-merge';
+import { extractTextItems, type TextLine } from '@/domain/text-takeoff';
+import { PageLineReader } from '@/lib/pdf-lines';
 
 /** Long edge of the page image sent to the AI; the drawing's small text needs a sharp image */
 const IMAGE_LONG_EDGE = 2400;
@@ -86,6 +88,10 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
   /** Rows as read sheet by sheet, kept while the joined BOQ list is shown so the user can go back */
   const [perSheet, setPerSheet] = useState<Row[] | null>(null);
   const [joining, setJoining] = useState(false);
+  /** Quantities written in the drawing's notes, read alongside the AI to check it */
+  const [checkText, setCheckText] = useState(true);
+  const [written, setWritten] = useState<WrittenQty[] | null>(null);
+  const [checking, setChecking] = useState(false);
   const [joinNotes, setJoinNotes] = useState<{ text: string; error?: boolean }[]>([]);
   const [notes, setNotes] = useState<{ page: number; text: string; error?: boolean }[]>([]);
   const stopRef = useRef(false);
@@ -106,10 +112,23 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     setPerSheet(null);
     setJoinNotes([]);
     setNotes([]);
+    setWritten(null);
+    // The notes on each sheet are read in the background, one page at a time, while the AI works
+    const reader = checkText ? new PageLineReader() : null;
+    const lines: TextLine[] = [];
+    let lineChain = Promise.resolve();
     let n = 0;
     for (const p of pages) {
       if (stopRef.current) break;
       setProgress({ done: n, total: pages.length, page: p });
+      if (reader) {
+        lineChain = lineChain.then(() =>
+          reader
+            .read(pdf, p)
+            .then((ls) => void lines.push(...ls.map((text) => ({ page: p, text }))))
+            .catch((err: unknown) => console.error(err)),
+        );
+      }
       try {
         const img = await pageToJpeg(pdf, p);
         const res = await aiReadTakeoffPageAction(takeoffId, {
@@ -139,7 +158,47 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
       n++;
     }
     setProgress(null);
+    if (reader) {
+      setChecking(true);
+      await lineChain;
+      reader.stop();
+      const w = extractTextItems(lines);
+      setWritten(w);
+      // Shares of a total the drawing writes would count it twice: they start unticked
+      setRows((x) => {
+        const { checks } = checkAgainstDrawing(x, w);
+        return x.map((r, i) => (checks[i]?.status === 'part' ? { ...r, picked: false } : r));
+      });
+      setChecking(false);
+    }
     setRunning(false);
+  };
+
+  const check = useMemo(() => {
+    if (!written) return null;
+    const { checks, missing } = checkAgainstDrawing(rows, written);
+    return { byKey: new Map(rows.map((r, i) => [r.key, checks[i] ?? null])), missing, match: checks.filter((c) => c?.status === 'match').length, parts: checks.filter((c) => c?.status === 'part').length, differs: checks.filter((c) => c?.status === 'differs').length };
+  }, [rows, written]);
+  const addWritten = () => {
+    if (!check) return;
+    setRows((x) => [
+      ...x,
+      ...check.missing.map((w, i) => ({
+        key: `w-${Date.now()}-${i}`,
+        page: w.pages[0]!,
+        pages: w.pages,
+        category: '',
+        description: w.description,
+        kind: w.kind,
+        unit: w.unit,
+        qty: w.qty,
+        basis: `ตัวเลขที่เขียนบนแบบ: ${w.source}`.slice(0, 400),
+        confidence: 'high' as const,
+        scope: 'project_total' as const,
+        perUnitOf: '',
+        picked: true,
+      })),
+    ]);
   };
 
   // One more AI call, text only: multiply per-unit details by their count, keep totals over their parts
@@ -234,6 +293,12 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
               <textarea value={hint} disabled={running} onChange={(e) => setHint(e.target.value)} rows={2} maxLength={1000} placeholder="เช่น ถอดเฉพาะงานสถาปัตย์ ผนังสูง 3.00 ม. ไม่ต้องถอดงานระบบ" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
             </label>
           </div>
+          <label className="flex items-start gap-2 text-slate-700">
+            <input type="checkbox" checked={checkText} disabled={running} onChange={(e) => setCheckText(e.target.checked)} className="mt-0.5" />
+            <span>
+              <b>ตรวจกับตัวเลขที่เขียนบนแบบ</b> ระบบอ่านหมายเหตุบนแบบไปพร้อมกัน (ฟรี ไม่ใช้ AI) แล้วบอกว่าตัวเลขของ AI ตรงกับที่ผู้ออกแบบเขียนไว้หรือไม่ และตัวเลขบนแบบที่ AI ไม่ได้ใส่
+            </span>
+          </label>
           <p className="text-slate-500">
             AI อ่านตัวเลขบอกระยะ ตาราง และสัญลักษณ์บนแบบ แล้วคำนวณปริมาณให้ ใช้เวลาประมาณ 1–2 นาทีต่อหน้า (มีค่าใช้จ่ายทุกหน้า) ตัวเลขเป็นค่าประมาณ กรุณาตรวจก่อนเพิ่มเข้างานถอดแบบ
           </p>
@@ -259,6 +324,36 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
             </div>
           )}
 
+          {checking && (
+            <p className="flex items-center gap-1.5 font-semibold text-emerald-700">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> กำลังอ่านตัวเลขที่เขียนบนแบบเพื่อตรวจ…
+            </p>
+          )}
+          {check && rows.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+              <span className="flex-1">
+                ตรวจกับตัวเลขที่เขียนบนแบบ: <b>ตรง {check.match}</b> รายการ
+                {check.parts > 0 && (
+                  <>
+                    {' · '}
+                    <b>ส่วนย่อยของยอดรวมบนแบบ {check.parts}</b> รายการ (ไม่ติ๊กไว้ เพื่อไม่นับซ้ำ)
+                  </>
+                )}
+                {check.differs > 0 && (
+                  <>
+                    {' · '}
+                    <b className="text-amber-700">ต่างจากแบบ {check.differs}</b> รายการ (ดูป้ายสีเหลืองในช่องปริมาณ)
+                  </>
+                )}
+                {check.missing.length > 0 && <> · ตัวเลขบนแบบที่ AI ไม่ได้ใส่ {check.missing.length} รายการ</>}
+              </span>
+              {check.missing.length > 0 && (
+                <button type="button" onClick={addWritten} className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 font-semibold hover:bg-emerald-100">
+                  เพิ่ม {check.missing.length} รายการจากแบบเข้าตาราง
+                </button>
+              )}
+            </div>
+          )}
           {!running && rows.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-violet-900">
               {perSheet ? (
@@ -329,6 +424,27 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                       </td>
                       <td className="px-2 py-1.5 align-top">
                         <input type="number" step="any" min={0} value={r.qty} onChange={(e) => update(r.key, { qty: Math.max(0, Number(e.target.value) || 0) })} className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right" aria-label="ปริมาณ" />
+                        {(() => {
+                          const c = check?.byKey.get(r.key);
+                          if (!c) return null;
+                          if (c.status === 'match') return <span className="mt-1 block rounded bg-emerald-50 px-1.5 py-0.5 text-center font-semibold text-emerald-700">ตรงกับแบบ</span>;
+                          if (c.status === 'part')
+                            return (
+                              <span className="mt-1 block w-24 rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-600" title={`บนแบบหน้า ${c.written.pages.join(', ')}: ${c.written.source}`}>
+                                ส่วนหนึ่งของ {c.written.qty.toLocaleString()} {c.written.unit} บนแบบ
+                              </span>
+                            );
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => update(r.key, { qty: c.written.qty })}
+                              title={`บนแบบหน้า ${c.written.pages.join(', ')}: ${c.written.source}`}
+                              className="mt-1 block w-24 rounded bg-amber-50 px-1.5 py-0.5 text-left font-semibold text-amber-800 hover:bg-amber-100"
+                            >
+                              แบบเขียน {c.written.qty.toLocaleString()} {c.written.unit} · ใช้ค่านี้
+                            </button>
+                          );
+                        })()}
                       </td>
                       <td className="px-2 py-1.5 align-top">
                         <input value={r.unit} onChange={(e) => update(r.key, { unit: e.target.value })} className="w-16 rounded border border-slate-200 px-1.5 py-1" aria-label="หน่วย" />

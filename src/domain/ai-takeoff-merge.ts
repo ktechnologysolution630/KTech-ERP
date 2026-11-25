@@ -65,3 +65,53 @@ export function mergeAcrossPages<T extends Input>(items: T[]): (T & MergedAiItem
   }
   return out;
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * Checking the AI against the numbers written on the drawing. A total the designer wrote in a note
+ * (“พื้นที่รวมประมาณ 9,000 ตร.ม.”) is the figure to trust; the AI's row for the same work either
+ * agrees with it, or the user is shown what the drawing says. Written totals the AI left out are
+ * handed back so they can be added too.
+ * ---------------------------------------------------------------------------------------------- */
+
+export interface WrittenQty {
+  description: string;
+  kind: 'length' | 'area' | 'count';
+  unit: string;
+  qty: number;
+  pages: number[];
+  source: string;
+}
+
+/** part: a share of a total the drawing writes (one road segment of the 9,000 ตร.ม.) */
+export type DrawingCheck = { status: 'match' } | { status: 'part' | 'differs'; written: WrittenQty };
+
+/** A quantity this big that matches in number and unit is the same note, even under a garbled OCR name */
+const SURE_QTY = 20;
+
+interface Checkable {
+  description: string;
+  kind: 'length' | 'area' | 'count';
+  unit: string;
+  qty: number;
+  scope?: string;
+}
+
+export function checkAgainstDrawing(rows: Checkable[], written: WrittenQty[]): { checks: (DrawingCheck | null)[]; missing: WrittenQty[] } {
+  const same = (r: Checkable, w: WrittenQty) => r.kind === w.kind && unitKey(r.unit) === unitKey(w.unit);
+  const used = new Set<WrittenQty>();
+  const checks = rows.map((r): DrawingCheck | null => {
+    const hit = written.find((w) => same(r, w) && sameQty(r.qty, w.qty) && (w.qty >= SURE_QTY || sameName(r.description, w.description)));
+    if (hit) {
+      used.add(hit);
+      return { status: 'match' };
+    }
+    // A quantity for one pit or panel is meant to differ from the job's total
+    if (r.scope === 'per_unit') return null;
+    const near = written.filter((w) => same(r, w) && sameName(r.description, w.description)).sort((a, b) => b.pages.length - a.pages.length)[0];
+    if (!near) return null;
+    return { status: r.qty < near.qty ? 'part' : 'differs', written: near };
+  });
+  // A written total counts as covered when any row carries the same number in the same unit
+  const missing = written.filter((w) => !used.has(w) && !rows.some((r) => same(r, w) && sameQty(r.qty, w.qty)));
+  return { checks, missing };
+}

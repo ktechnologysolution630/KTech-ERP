@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeAcrossPages, type PagedAiItem } from '@/domain/ai-takeoff-merge';
+import { checkAgainstDrawing, mergeAcrossPages, type PagedAiItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
 
 const item = (page: number, description: string, qty: number, unit = 'ม.', kind: PagedAiItem['kind'] = 'length', confidence: PagedAiItem['confidence'] = 'high'): PagedAiItem => ({
   page,
@@ -47,5 +47,29 @@ describe('merging as sheets arrive', () => {
     const next = mergeAcrossPages([...first, { ...item(16, 'ก่อสร้างถนนลาดยางหนา 5 ซม.', 1800), key: 'b', picked: true }]);
     expect(next).toHaveLength(1);
     expect(next[0]).toMatchObject({ key: 'a', picked: false, pages: [14, 16], page: 14, description: 'ถนนลาดยาง (แก้ชื่อแล้ว)' });
+  });
+});
+
+describe('checking AI rows against what the drawing says', () => {
+  const written: WrittenQty[] = [
+    { description: 'ก่อสร้างปรับปรุงถนนลาดยางแอสฟัลท์ติกคอนกรีต', kind: 'area', unit: 'ตร.ม.', qty: 9000, pages: [14, 15], source: 'พื้นที่ประมาณ 9,000.00 ตารางเมตร' },
+    { description: 'ทาลิพืนทางจักรยาน', kind: 'area', unit: 'ตร.ม.', qty: 2700, pages: [38], source: '' },
+    { description: 'บ่อพัก คสล.ขนาด', kind: 'count', unit: 'บ่อ', qty: 90, pages: [15, 16], source: '' },
+    { description: 'ช่องจอดรถ', kind: 'count', unit: 'ช่อง', qty: 7, pages: [52], source: '' },
+  ];
+  it('marks agreement, shows the drawing figure where the AI differs, and hands back totals it left out', () => {
+    const { checks, missing } = checkAgainstDrawing(
+      [
+        { description: 'ก่อสร้างปรับปรุงผิวถนนลาดยางแอสฟัลท์ติกคอนกรีต หนา 0.05 ม.', kind: 'area', unit: 'ตร.ม', qty: 9000 },
+        { description: 'ทาสีพื้นทางจักรยาน (ช่องกว้าง 1.20 ม.)', kind: 'area', unit: 'ตร.ม.', qty: 2700 },
+        { description: 'บ่อพัก คสล. 0.90×1.50 ม.', kind: 'count', unit: 'บ่อ', qty: 4, scope: 'this_sheet' },
+        { description: 'พื้นบ่อพัก คสล.', kind: 'count', unit: 'บ่อ', qty: 1, scope: 'per_unit' },
+        { description: 'ท่อระบายน้ำ HDPE', kind: 'length', unit: 'ม.', qty: 1800 },
+      ],
+      written,
+    );
+    expect(checks.map((c) => c?.status ?? null)).toEqual(['match', 'match', 'part', null, null]);
+    expect(checks[2]).toMatchObject({ written: { qty: 90 } });
+    expect(missing.map((m) => m.qty)).toEqual([90, 7]);
   });
 });
