@@ -300,3 +300,104 @@ export function measurementCountOf(g: AutoGroup): number {
   }
   return n;
 }
+
+// ───────────────────────────── Name suggestions ─────────────────────────────
+
+export interface NameSuggestion {
+  description: string;
+  unit: string;
+  /** Why the name was suggested, shown under it */
+  reason: string;
+  /** Symbols that are the legend's sample, not work on the drawing: left out of the count */
+  legend?: { page: number; at: Point }[];
+}
+
+/** Usual Thai drawing tags: letter prefix → BOQ wording and unit */
+const TAG_PREFIXES: [RegExp, string, string][] = [
+  [/^SD/, 'ประตูบานเลื่อน', 'ชุด'],
+  [/^SW/, 'หน้าต่างบานเลื่อน', 'ชุด'],
+  [/^DW/, 'ประตูหน้าต่าง', 'ชุด'],
+  [/^D/, 'ประตู', 'ชุด'],
+  [/^W/, 'หน้าต่าง', 'ชุด'],
+  [/^GB/, 'คานคอดิน', 'ต้น'],
+  [/^RB/, 'คานหลังคา', 'ต้น'],
+  [/^B/, 'คาน', 'ต้น'],
+  [/^C/, 'เสา', 'ต้น'],
+  [/^F/, 'ฐานราก', 'ฐาน'],
+  [/^P/, 'เสาเข็ม', 'ต้น'],
+  [/^ST/, 'บันได', 'ชุด'],
+  [/^S/, 'พื้น', 'แผ่น'],
+];
+
+/** Text that names something: has letters, is not a dimension, tag, scale or sheet code */
+const isName = (s: string) => {
+  const t = s.trim();
+  return t.length >= 3 && t.length <= 60 && /[A-Za-zก-๙]/.test(t) && !isTag(t) && !/^\d|1\s*:\s*\d/.test(t) && !/^(SCALE|มาตราส่วน|A[0-4])$/i.test(t);
+};
+
+/**
+ * Names the system can guess without asking: tags by their prefix (D1 → ประตู D1), symbols by the
+ * text written next to them (usually the legend or a label), and the thickest long lines as walls.
+ */
+export function suggestNames(groups: AutoGroup[], pages: PageVectors[]): Map<string, NameSuggestion> {
+  const out = new Map<string, NameSuggestion>();
+  const textsByPage = new Map(pages.map((p) => [p.page, p.texts.filter((t) => isName(t.str))]));
+
+  for (const g of groups) {
+    if (g.type === 'tag') {
+      const tag = g.label.replace(/^ป้าย “|”$/g, '');
+      const hit = TAG_PREFIXES.find(([re]) => re.test(tag));
+      if (hit) out.set(g.key, { description: `${hit[1]} ${tag}`, unit: hit[2], reason: `ป้าย ${tag} บนแบบ` });
+    } else if (g.type === 'symbol') {
+      // Text just to the right of (or under) an instance of the symbol, most often seen
+      const votes = new Map<string, { page: number; at: Point }[]>();
+      for (const [page, items] of g.pages) {
+        const texts = textsByPage.get(page) ?? [];
+        for (const [at] of items) {
+          for (const t of texts) {
+            const dx = t.at[0] - at![0],
+              dy = Math.abs(t.at[1] - at![1]);
+            if (dx > 0 && dx < 120 && dy < 10) {
+              const k = t.str.trim();
+              votes.set(k, [...(votes.get(k) ?? []), { page, at: at! }]);
+            }
+          }
+        }
+      }
+      let best: [string, { page: number; at: Point }[]] | null = null;
+      for (const v of votes) if (!best || v[1].length > best[1].length) best = v;
+      if (best) {
+        // Named at only a few of its places: those are the legend's samples. Named at most: labels on each.
+        const legend = best[1].length * 2 < g.count ? best[1] : undefined;
+        out.set(g.key, { description: best[0], unit: 'จุด', reason: legend ? 'ชื่อจากตารางสัญลักษณ์บนแบบ (ไม่นับตัวอย่างในตาราง)' : 'ข้อความข้างสัญลักษณ์บนแบบ', legend });
+      }
+    }
+  }
+
+  // Walls: the thickest line group that is also long (not a short heavy mark)
+  const lines = groups.filter((g) => g.type === 'line');
+  const width = (g: AutoGroup) => Number(/หนา ([\d.]+)/.exec(g.label)?.[1] ?? 0);
+  const lengthUnits = (g: AutoGroup) => {
+    let n = 0;
+    for (const items of g.pages.values()) for (const pts of items) for (let i = 1; i < pts.length; i++) n += distance(pts[i - 1]!, pts[i]!);
+    return n;
+  };
+  const longest = Math.max(0, ...lines.map(lengthUnits));
+  const walls = lines.filter((g) => lengthUnits(g) >= longest * 0.2).sort((a, b) => width(b) - width(a))[0];
+  if (walls && lines.length > 1) out.set(walls.key, { description: 'ผนัง', unit: 'ม.', reason: 'เส้นหนาที่สุดในแบบ มักเป็นเส้นผนัง' });
+  return out;
+}
+
+/** The group without its legend samples, so the count is only the work on the drawing */
+export function withoutLegend(g: AutoGroup, sug: NameSuggestion | undefined): AutoGroup {
+  if (!sug?.legend?.length) return g;
+  const drop = new Set(sug.legend.map((l) => `${l.page}|${l.at[0]}|${l.at[1]}`));
+  const pages = new Map<number, Point[][]>();
+  let count = 0;
+  for (const [page, items] of g.pages) {
+    const kept = items.filter(([at]) => !drop.has(`${page}|${at![0]}|${at![1]}`));
+    if (kept.length) pages.set(page, kept);
+    count += kept.length;
+  }
+  return { ...g, pages, count };
+}

@@ -12,6 +12,8 @@ import {
   isTag,
   measurementCountOf,
   scaleFromText,
+  suggestNames,
+  withoutLegend,
 } from '@/domain/vector-takeoff';
 import { extractPageVectors } from '@/lib/pdf-vectors';
 
@@ -70,5 +72,31 @@ describe('reading a CAD PDF', () => {
     expect(itemQuantity(item, data).qty).toBeCloseTo(228, 1);
     expect(itemQuantity(lightItem, data).qty).toBe(12);
     expect(takeoffDataSchema.safeParse(data).success).toBe(true);
+  });
+});
+
+describe('name suggestions', () => {
+  test('tags by prefix, symbols from their legend text, thickest long lines as walls', async () => {
+    const file = path.join(__dirname, '../fixtures/plan-tags-legend-1-100.pdf');
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(fs.readFileSync(file)), isEvalSupported: false, verbosity: 0 }).promise;
+    const pages = [await extractPageVectors(await doc.getPage(1), 1, pdfjs.OPS as unknown as Record<string, number>)];
+    expect(scaleFromText(pages[0]!.texts)).toBe(100);
+    const groups = groupVectors(pages);
+    const names = suggestNames(groups, pages);
+    const byLabel = (label: string) => groups.find((g) => g.label === label)!;
+    expect(names.get(byLabel('ป้าย “D1”').key)).toMatchObject({ description: 'ประตู D1', unit: 'ชุด' });
+    expect(names.get(byLabel('ป้าย “W1”').key)).toMatchObject({ description: 'หน้าต่าง W1' });
+    expect(names.get(byLabel('ป้าย “C1”').key)).toMatchObject({ description: 'เสา C1', unit: 'ต้น' });
+    expect(byLabel('ป้าย “D1”').count).toBe(3);
+
+    // 6 lights in the room + 1 in the legend; the legend text names them
+    const lights = groups.find((g) => g.type === 'symbol' && g.count === 7)!;
+    expect(names.get(lights.key)?.description).toBe('โคมดาวน์ไลท์ LED 12W');
+    expect(withoutLegend(lights, names.get(lights.key)).count).toBe(6);
+
+    const walls = groups.find((g) => names.get(g.key)?.description === 'ผนัง')!;
+    expect(walls.label).toContain('แดง');
+    // 12 × 8 m outline + 8 m partition
+    expect(groupQuantity(walls, { '1': scaleFromRatio(100) }).qty).toBeCloseTo(48, 1);
   });
 });

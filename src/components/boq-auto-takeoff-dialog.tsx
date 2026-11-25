@@ -2,15 +2,18 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
-import { AlertCircle, Loader2, ScanLine, X } from 'lucide-react';
+import { AlertCircle, Loader2, ScanLine, Wand2, X } from 'lucide-react';
 import { defaultUnitOf, type PageScale, type TakeoffKind } from '@/domain/boq-takeoff';
 import {
   groupQuantity,
   groupVectors,
   measurementCountOf,
   scaleFromText,
+  suggestNames,
+  withoutLegend,
   type AutoGroup,
   type AutoGroupType,
+  type NameSuggestion,
   type PageVectors,
 } from '@/domain/vector-takeoff';
 import { extractPageVectors } from '@/lib/pdf-vectors';
@@ -58,7 +61,8 @@ async function loadOps() {
 function GroupPreview({ pdf, group }: { pdf: PDFDocumentProxy; group: AutoGroup }) {
   const page = [...group.pages.keys()][0]!;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const items = group.pages.get(page) ?? [];
   useEffect(() => {
     let task: RenderTask | null = null;
     let cancelled = false;
@@ -66,13 +70,25 @@ function GroupPreview({ pdf, group }: { pdf: PDFDocumentProxy; group: AutoGroup 
       const p = await pdf.getPage(page);
       if (cancelled) return;
       const base = p.getViewport({ scale: 1 });
-      const scale = Math.min(2, 1400 / base.width);
-      const vp = p.getViewport({ scale });
+      // Zoom to where the group is, with some of the drawing around it
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      for (const pts of items) for (const [x, y] of pts) [minX, minY, maxX, maxY] = [Math.min(minX, x), Math.min(minY, y), Math.max(maxX, x), Math.max(maxY, y)];
+      const pad = Math.max(30, (maxX - minX + maxY - minY) * 0.1);
+      const x = Math.max(0, minX - pad),
+        y = Math.max(0, minY - pad);
+      const w = Math.min(base.width, maxX + pad) - x,
+        h = Math.min(base.height, maxY + pad) - y;
+      const b = Number.isFinite(w) && w > 0 && h > 0 ? { x, y, w, h } : { x: 0, y: 0, w: base.width, h: base.height };
+      const scale = Math.min(6, 1400 / b.w);
+      const vp = p.getViewport({ scale, offsetX: -b.x * scale, offsetY: -b.y * scale });
       const canvas = canvasRef.current;
       if (!canvas) return;
-      canvas.width = Math.floor(vp.width);
-      canvas.height = Math.floor(vp.height);
-      setSize({ w: base.width, h: base.height });
+      canvas.width = Math.floor(b.w * scale);
+      canvas.height = Math.floor(b.h * scale);
+      setBox(b);
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       task = p.render({ canvasContext: ctx, viewport: vp });
@@ -86,9 +102,10 @@ function GroupPreview({ pdf, group }: { pdf: PDFDocumentProxy; group: AutoGroup 
       cancelled = true;
       task?.cancel();
     };
+    // items belong to the group, which is fixed for this preview (it is keyed by group)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdf, page]);
-  const items = group.pages.get(page) ?? [];
-  const sw = size ? size.w / 500 : 1;
+  const sw = box ? box.w / 400 : 1;
   return (
     <div>
       <p className="mb-1 font-semibold text-slate-700">
@@ -96,11 +113,11 @@ function GroupPreview({ pdf, group }: { pdf: PDFDocumentProxy; group: AutoGroup 
       </p>
       <div className="relative w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
         <canvas ref={canvasRef} className="block h-auto w-full opacity-60" />
-        {size && (
-          <svg viewBox={`0 0 ${size.w} ${size.h}`} className="pointer-events-none absolute inset-0 h-full w-full">
+        {box && (
+          <svg viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} className="pointer-events-none absolute inset-0 h-full w-full">
             {items.slice(0, 5000).map((pts, i) =>
               group.kind === 'count' ? (
-                <circle key={i} cx={pts[0]![0]} cy={pts[0]![1]} r={sw * 4} fill="#ec4899" fillOpacity={0.5} stroke="#be185d" strokeWidth={sw} />
+                <circle key={i} cx={pts[0]![0]} cy={pts[0]![1]} r={sw * 8} fill="#ec4899" fillOpacity={0.45} stroke="#be185d" strokeWidth={sw} />
               ) : (
                 <polyline
                   key={i}
@@ -179,7 +196,12 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
     }
   };
 
-  const groups = useMemo(() => (vectors ? groupVectors(vectors) : []), [vectors]);
+  const { groups, suggestions } = useMemo(() => {
+    if (!vectors) return { groups: [] as AutoGroup[], suggestions: new Map<string, NameSuggestion>() };
+    const raw = groupVectors(vectors);
+    const sug = suggestNames(raw, vectors);
+    return { groups: raw.map((g) => withoutLegend(g, sug.get(g.key))).filter((g) => g.count > 0), suggestions: sug };
+  }, [vectors]);
   const quantities = useMemo(() => new Map(groups.map((g) => [g.key, groupQuantity(g, scales)])), [groups, scales]);
   const shown = useMemo(() => {
     const byType = new Map<AutoGroupType, AutoGroup[]>();
@@ -193,11 +215,23 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
       if (tab !== 'all' && tab !== type) continue;
       const list = byType.get(type) ?? [];
       // Lines and areas by size (unscaled pages still rank by count), symbols and tags by how many
-      list.sort((a, b) => (type === 'line' || type === 'shape' ? quantities.get(b.key)!.qty - quantities.get(a.key)!.qty || b.count - a.count : b.count - a.count));
-      sorted.push(...list.filter((g) => type !== 'symbol' || g.count >= 2).slice(0, SHOW_PER_TYPE));
+      list.sort((a, b) => Number(suggestions.has(b.key)) - Number(suggestions.has(a.key)) || (type === 'line' || type === 'shape' ? quantities.get(b.key)!.qty - quantities.get(a.key)!.qty || b.count - a.count : b.count - a.count));
+      sorted.push(...list.filter((g) => type !== 'symbol' || g.count >= 2 || suggestions.has(g.key)).slice(0, SHOW_PER_TYPE));
     }
     return sorted;
-  }, [groups, tab, quantities]);
+  }, [groups, tab, quantities, suggestions]);
+
+  const applySuggestions = () =>
+    setRows((r) => {
+      const next = { ...r };
+      for (const g of groups) {
+        const sug = suggestions.get(g.key);
+        if (!sug) continue;
+        const cur = next[g.key] ?? { picked: false, description: '', category: '', unit: defaultUnitOf(g.kind), factor: 1 };
+        next[g.key] = { ...cur, picked: true, description: cur.description.trim() || sug.description, unit: cur.description.trim() ? cur.unit : sug.unit };
+      }
+      return next;
+    });
 
   // Scale written on sheets that have no scale set yet
   const foundScales = useMemo(() => {
@@ -305,6 +339,17 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
               )}
               {truncatedPages.length > 0 && <p className="text-amber-700">หน้า {truncatedPages.join(', ')} มีเส้นมากเกินไป ระบบอ่านได้เพียงบางส่วน</p>}
 
+              {suggestions.size > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-slate-700">
+                  <Wand2 className="h-3.5 w-3.5 text-brand" />
+                  <span>
+                    ระบบตั้งชื่อรายการให้ได้ {suggestions.size} กลุ่ม จากป้ายบนแบบ (เช่น D1 = ประตู) ข้อความข้างสัญลักษณ์ และเส้นผนัง
+                  </span>
+                  <button type="button" onClick={applySuggestions} className="ml-auto rounded-lg bg-brand px-3 py-1.5 font-semibold text-white hover:bg-brand-hover">
+                    ใช้ชื่อที่ระบบแนะนำ
+                  </button>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-1.5">
                 {TYPE_TABS.map((t) => (
                   <button key={t.type} type="button" onClick={() => setTab(t.type)} className={`rounded-full px-3 py-1 font-semibold ${tab === t.type ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
@@ -365,6 +410,16 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
                                 className="w-full min-w-[12rem] rounded border border-slate-200 px-1.5 py-1"
                                 aria-label="ชื่อรายการ BOQ"
                               />
+                              {suggestions.has(g.key) && row.description.trim() !== suggestions.get(g.key)!.description && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRow(g, { description: suggestions.get(g.key)!.description, unit: suggestions.get(g.key)!.unit, picked: true })}
+                                  className="mt-0.5 block text-left text-brand hover:underline"
+                                  title={suggestions.get(g.key)!.reason}
+                                >
+                                  แนะนำ: {suggestions.get(g.key)!.description}
+                                </button>
+                              )}
                             </td>
                             <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                               <input value={row.unit} onChange={(e) => setRow(g, { unit: e.target.value })} className="w-16 rounded border border-slate-200 px-1.5 py-1" aria-label="หน่วย" />
