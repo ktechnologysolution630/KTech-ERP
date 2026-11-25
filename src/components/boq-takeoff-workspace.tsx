@@ -622,10 +622,16 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
 
   // ── saving ──
   const savingRef = useRef(false);
+  // What is on screen now, to tell after a save whether the user changed anything while it ran
+  const latestRef = useRef({ name, projectId, fileName, fingerprint, pageCount, data });
+  useEffect(() => {
+    latestRef.current = { name, projectId, fileName, fingerprint, pageCount, data };
+  });
   const save = async (): Promise<boolean> => {
     if (savingRef.current) return false;
     savingRef.current = true;
     setSaveState({ kind: 'saving' });
+    const sent = { name, projectId, fileName, fingerprint, pageCount, data };
     try {
       const res = await saveTakeoffAction(initial.id, {
         name,
@@ -641,7 +647,10 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         return false;
       }
       setDoc(res.takeoff);
-      setDirty(false);
+      // Edits made while the save ran are not in it, so they still wait to be saved
+      const now = latestRef.current;
+      const unchanged = (Object.keys(sent) as (keyof typeof sent)[]).every((k) => now[k] === sent[k]);
+      setDirty(!unchanged);
       setSaveState({ kind: 'saved' });
       return true;
     } catch {

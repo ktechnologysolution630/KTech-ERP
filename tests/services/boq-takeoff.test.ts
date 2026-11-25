@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { sql } from 'drizzle-orm';
 import { createTestDb } from '../helpers/test-db';
 import { seedBasics } from '../helpers/fixtures';
 import { emptyTakeoffData, type TakeoffData } from '@/domain/boq-takeoff';
@@ -36,6 +37,19 @@ const measured = (): TakeoffData => ({
 });
 
 describe('boq take-off service', () => {
+  test('saves a take-off whose stamp has microseconds (Postgres now()), which a JS date cannot hold', async () => {
+    const db = await createTestDb();
+    const f = await seedBasics(db);
+    const { id } = await createTakeoff(db, f.users.pm, { name: 'แบบสแกน', projectId: f.projectA });
+    await db.execute(sql`update boq_takeoffs set updated_at = '2026-11-25 06:40:00.123999+00' where id = ${id}`);
+    const loaded = await getTakeoff(db, f.users.pm, id);
+    const input = { name: 'แบบสแกน', projectId: f.projectA, fileName: 'a.pdf', fileFingerprint: 'x', pageCount: 1, data: measured() };
+    const saved = await saveTakeoff(db, f.users.pm, id, { ...input, baseUpdatedAt: loaded.updatedAt });
+    expect(saved.data.items).toHaveLength(1);
+    // and the next save from the copy just saved goes through too
+    await expect(saveTakeoff(db, f.users.pm, id, { ...input, baseUpdatedAt: saved.updatedAt })).resolves.toBeTruthy();
+  });
+
   test('create, save and reload; a stale copy is refused', async () => {
     const db = await createTestDb();
     const f = await seedBasics(db);
