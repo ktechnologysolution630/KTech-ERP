@@ -6,7 +6,7 @@ import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, type PageScale, type TakeoffKind } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
-import { checkAgainstDrawing, mergeAcrossPages, type WrittenQty } from '@/domain/ai-takeoff-merge';
+import { checkAgainstDrawing, findInTakeoff, mergeAcrossPages, type ExistingItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
 import { extractTextItems, type TextLine } from '@/domain/text-takeoff';
 import { PageLineReader } from '@/lib/pdf-lines';
 
@@ -67,8 +67,16 @@ async function pageToJpeg(pdf: PDFDocumentProxy, pageNo: number): Promise<{ base
   return { base64: dataUrl.slice(dataUrl.indexOf(',') + 1), paperMm: { w: mm(base.width), h: mm(base.height) } };
 }
 
-export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales, onAdd, onClose }: {
+/** Rows the take-off already holds (e.g. from ถอดแบบอัตโนมัติ) start unticked, so the BOQ does not count them twice */
+const untickExisting = <R extends Row>(rows: R[], existing: ExistingItem[]): R[] => {
+  const hits = findInTakeoff(rows, existing);
+  return rows.map((r, i) => (hits[i] ? { ...r, picked: false } : r));
+};
+
+export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales, existing, onAdd, onClose }: {
   takeoffId: string;
+  /** Items already in this take-off, with what they measure */
+  existing: ExistingItem[];
   pdf: PDFDocumentProxy;
   pageCount: number;
   currentPage: number;
@@ -171,6 +179,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
       });
       setChecking(false);
     }
+    setRows((x) => untickExisting(x, existing));
     setRunning(false);
   };
 
@@ -179,11 +188,16 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     const { checks, missing } = checkAgainstDrawing(rows, written);
     return { byKey: new Map(rows.map((r, i) => [r.key, checks[i] ?? null])), missing, match: checks.filter((c) => c?.status === 'match').length, parts: checks.filter((c) => c?.status === 'part').length, differs: checks.filter((c) => c?.status === 'differs').length };
   }, [rows, written]);
+  const inTakeoff = useMemo(() => {
+    const hits = findInTakeoff(rows, existing);
+    return new Map(rows.map((r, i) => [r.key, hits[i] ?? null]));
+  }, [rows, existing]);
+  const inTakeoffCount = [...inTakeoff.values()].filter(Boolean).length;
   const addWritten = () => {
     if (!check) return;
     setRows((x) => [
       ...x,
-      ...check.missing.map((w, i) => ({
+      ...check.missing.filter((w) => !findInTakeoff([w], existing)[0]).map((w, i) => ({
         key: `w-${Date.now()}-${i}`,
         page: w.pages[0]!,
         pages: w.pages,
@@ -208,7 +222,21 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     const before = rows;
     const res = await aiConsolidateTakeoffAction(takeoffId, {
       hint: hint.trim() || undefined,
-      rows: before.map((r) => ({
+      rows: [
+        // What the take-off already holds, so a count found there (90 บ่อ) can multiply the per-pit details
+        ...existing.slice(0, 300).map((e, i) => ({
+          id: `t-${i}`,
+          pages: [1],
+          category: '',
+          description: e.description.trim().slice(0, 1000) || '-',
+          kind: e.kind,
+          unit: e.unit.slice(0, 50),
+          qty: e.qty,
+          scope: 'project_total' as const,
+          perUnitOf: '',
+          basis: 'มีในงานถอดแบบแล้ว (ไม่ได้อ่านจากหน้าที่เลือก)',
+        })),
+        ...before.map((r) => ({
         id: r.key,
         pages: r.pages,
         category: r.category.slice(0, 200),
@@ -220,6 +248,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
         perUnitOf: r.perUnitOf.slice(0, 200),
         basis: r.basis.slice(0, 500),
       })),
+      ].filter((r) => r.qty > 0),
     }).catch(() => ({ ok: false as const, error: 'รวมรายการไม่สำเร็จ (การเชื่อมต่อขัดข้อง)' }));
     setJoining(false);
     if (!res.ok) {
@@ -228,18 +257,19 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     }
     const byKey = new Map(before.map((r) => [r.key, r]));
     const { items, dropped, notes: aiNotes, unaccounted } = res.result;
-    const joined: Row[] = items.map((it, i) => {
+    // Items made only of what the take-off already holds are not new work
+    const joined: Row[] = items.filter((it) => it.sources.some((k) => byKey.has(k))).map((it, i) => {
       const pages = [...new Set(it.sources.flatMap((k) => byKey.get(k)?.pages ?? []))].sort((a, b) => a - b);
       return { ...it, scope: 'project_total', perUnitOf: '', key: `j-${i}`, pages: pages.length ? pages : [before[0]!.page], page: pages[0] ?? before[0]!.page, picked: true };
     });
     // Rows the AI did not account for stay in the list, unticked, so nothing disappears silently
     const missing = unaccounted.map((k) => byKey.get(k)).filter((r): r is Row => Boolean(r)).map((r) => ({ ...r, picked: false }));
     setPerSheet(before);
-    setRows([...joined, ...missing]);
+    setRows(untickExisting([...joined, ...missing], existing));
     setJoinNotes([
       { text: `รวมจาก ${before.length.toLocaleString()} รายการรายแผ่น เหลือ ${joined.length.toLocaleString()} รายการ BOQ` },
       ...aiNotes.map((text) => ({ text })),
-      ...dropped.map((d) => ({ text: `ตัดออก: ${byKey.get(d.id)?.description ?? d.id} (${d.reason})` })),
+      ...dropped.filter((d) => byKey.has(d.id)).map((d) => ({ text: `ตัดออก: ${byKey.get(d.id)?.description ?? d.id} (${d.reason})` })),
       ...(missing.length ? [{ text: `AI ไม่ได้ใช้ ${missing.length} รายการ แสดงไว้ท้ายตารางแบบไม่ติ๊ก ตรวจดูก่อนเพิ่ม` }] : []),
     ]);
   };
@@ -327,6 +357,11 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
           {checking && (
             <p className="flex items-center gap-1.5 font-semibold text-emerald-700">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> กำลังอ่านตัวเลขที่เขียนบนแบบเพื่อตรวจ…
+            </p>
+          )}
+          {!running && inTakeoffCount > 0 && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sky-900">
+              <b>มีในงานถอดแบบแล้ว {inTakeoffCount}</b> รายการ (เช่น จากถอดแบบอัตโนมัติ) ไม่ติ๊กไว้ เพื่อไม่ให้ BOQ นับซ้ำ จะเพิ่มเฉพาะรายการใหม่
             </p>
           )}
           {check && rows.length > 0 && (
@@ -424,6 +459,11 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                       </td>
                       <td className="px-2 py-1.5 align-top">
                         <input type="number" step="any" min={0} value={r.qty} onChange={(e) => update(r.key, { qty: Math.max(0, Number(e.target.value) || 0) })} className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right" aria-label="ปริมาณ" />
+                        {inTakeoff.get(r.key) && (
+                          <span className="mt-1 block w-24 rounded bg-sky-50 px-1.5 py-0.5 font-semibold text-sky-700" title={`ในงานถอดแบบ: ${inTakeoff.get(r.key)!.description}`}>
+                            มีในงานถอดแบบแล้ว
+                          </span>
+                        )}
                         {(() => {
                           const c = check?.byKey.get(r.key);
                           if (!c) return null;
