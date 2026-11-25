@@ -46,6 +46,11 @@ export interface TakeoffItem {
   laborRate: number | '';
   color: string;
   note: string;
+  /**
+   * A quantity read straight off the drawing (by the AI take-off or typed in), in the item's base
+   * measure before factor and waste. Measurements on the drawing are added on top of it.
+   */
+  fixedQty?: number;
 }
 
 export interface Measurement {
@@ -135,6 +140,7 @@ export function itemQuantity(item: TakeoffItem, data: TakeoffData): ItemQuantity
   let measured = D(0);
   let measurementCount = 0;
   let unscaled = 0;
+  if (item.fixedQty) measured = measured.plus(item.fixedQty);
   for (const m of data.measurements) {
     if (m.itemId !== item.id) continue;
     measurementCount++;
@@ -238,6 +244,7 @@ export const takeoffDataSchema = z.object({
         laborRate: z.union([finite.min(0).max(MAX_AMOUNT), z.literal('')]),
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
         note: z.string().max(500),
+        fixedQty: finite.min(-1e9).max(1e9).optional(),
       }),
     )
     .max(1000, 'รายการถอดแบบเกิน 1,000 รายการ'),

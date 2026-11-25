@@ -91,6 +91,11 @@ async function loadRow(db: Db, actor: SessionUser, id: string) {
   return row;
 }
 
+/** Refuses (as not found) a take-off the actor may not see */
+export async function assertCanViewTakeoff(db: Db, actor: SessionUser, id: string): Promise<void> {
+  await loadRow(db, actor, id);
+}
+
 async function projectLabels(db: Db, ids: string[]) {
   if (ids.length === 0) return new Map<string, string>();
   const rows = await db.select({ id: projects.id, code: projects.code, name: projects.name }).from(projects).where(inArray(projects.id, ids));

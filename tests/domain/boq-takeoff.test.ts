@@ -54,6 +54,13 @@ describe('take-off geometry', () => {
 });
 
 describe('item quantities', () => {
+  test('a quantity read off the drawing counts with measurements, then factor and waste', () => {
+    const item = { id: 'ai', category: '', description: 'ประตู', kind: 'count' as const, unit: 'ชุด', factor: 2, wastePercent: 10, materialRate: '' as const, laborRate: '' as const, color: '#e11d48', note: '', fixedQty: 4 };
+    const data: TakeoffData = { ...emptyTakeoffData(), items: [item], measurements: [{ id: 'm', itemId: 'ai', page: 1, points: [[0, 0]] }] };
+    expect(itemQuantity(item, data)).toMatchObject({ measured: 5, qty: 11, measurementCount: 1 });
+    expect(takeoffDataSchema.safeParse(data).success).toBe(true);
+  });
+
   test('wall length × height + waste, only on pages with a scale', () => {
     const data: TakeoffData = {
       ...emptyTakeoffData(),

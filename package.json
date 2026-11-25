@@ -15,6 +15,7 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@electric-sql/pglite": "^0.2.17",
     "@react-pdf/renderer": "^4.3.0",
     "@tesseract.js-data/eng": "1.0.0",

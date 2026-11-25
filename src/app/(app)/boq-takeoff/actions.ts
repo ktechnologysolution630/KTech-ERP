@@ -13,6 +13,7 @@ import {
   type SaveTakeoffInput,
   type TakeoffDocumentDto,
 } from '@/server/services/boq-takeoff';
+import { readTakeoffPage, type AiTakeoffPage, type AiTakeoffPageInput } from '@/server/services/boq-ai-takeoff';
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string; conflict?: boolean };
 
@@ -66,4 +67,11 @@ export async function sendTakeoffToBoqAction(id: string, projectId: string): Pro
     revalidatePath(`/projects/${projectId}/boq`);
   }
   return res;
+}
+
+/** AI reads one page of the drawing and lists the BOQ items it finds; nothing is saved */
+export async function aiReadTakeoffPageAction(id: string, input: AiTakeoffPageInput): Promise<Result<{ result: AiTakeoffPage }>> {
+  const actor = await requireWriter();
+  const db = await getDb();
+  return attempt(async () => ({ result: await readTakeoffPage(db, actor, id, input) }));
 }
