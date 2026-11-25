@@ -20,6 +20,7 @@ import {
   Plus,
   Ruler,
   Save,
+  ScanLine,
   Send,
   Sparkles,
   Trash2,
@@ -55,6 +56,8 @@ import { saveTakeoffAction, sendTakeoffToBoqAction } from '@/app/(app)/boq-takeo
 import { cacheTakeoffFile, readCachedTakeoffFile } from '@/lib/takeoff-file-cache';
 import { SearchSelect } from '@/components/search-select';
 import { AiTakeoffDialog, type AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
+import { AutoTakeoffDialog, type AutoPickedGroup } from '@/components/boq-auto-takeoff-dialog';
+import { groupToMeasurements } from '@/domain/vector-takeoff';
 
 type Tool = 'select' | 'pan' | 'measure' | 'calibrate';
 
@@ -365,6 +368,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [itemDialog, setItemDialog] = useState<{ item: TakeoffItem; isNew: boolean } | null>(null);
   const [sending, setSending] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -769,6 +773,41 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     setNotice(`เพิ่ม ${picked.length} รายการจาก AI แล้ว ตรวจตัวเลขและกดบันทึก`);
   };
 
+  const addAutoGroups = (picked: AutoPickedGroup[]) => {
+    change((d) => {
+      const items: TakeoffItem[] = [];
+      const measurements: Measurement[] = [];
+      picked.forEach((p, i) => {
+        const item: TakeoffItem = {
+          id: newId(),
+          category: p.category,
+          description: p.description.slice(0, 1000),
+          kind: p.group.kind,
+          unit: p.unit,
+          factor: p.factor,
+          wastePercent: 0,
+          materialRate: '',
+          laborRate: '',
+          color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
+          note: `ถอดแบบอัตโนมัติ: ${p.group.label}`.slice(0, 500),
+        };
+        items.push(item);
+        measurements.push(...groupToMeasurements(p.group, item.id, newId));
+      });
+      return { ...d, items: [...d.items, ...items], measurements: [...d.measurements, ...measurements] };
+    });
+    setAutoOpen(false);
+    setNotice(`เพิ่ม ${picked.length} รายการจากการถอดแบบอัตโนมัติแล้ว ตรวจบนแบบแล้วกดบันทึก`);
+  };
+
+  const setScalesByPage = (ratioByPage: Record<number, number>) => {
+    change((d) => {
+      const scales = { ...d.scales };
+      for (const [p, ratio] of Object.entries(ratioByPage)) scales[String(p)] = scaleFromRatio(ratio);
+      return { ...d, scales };
+    });
+  };
+
   const applyCalibration = (allPages: boolean) => {
     if (!calibration) return;
     const scale = scaleFromCalibration(calibration.a, calibration.b, Number(calibrationMeters));
@@ -849,6 +888,9 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         </span>
         <button type="button" onClick={() => void save()} disabled={!dirty || !name.trim()} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40" title="บันทึก (Ctrl+S)">
           <Save className="h-3.5 w-3.5" /> บันทึก
+        </button>
+        <button type="button" onClick={() => setAutoOpen(true)} disabled={!pdf} className="flex items-center gap-1 rounded-lg border border-brand bg-brand px-2.5 py-1.5 font-semibold text-white hover:bg-brand-hover disabled:opacity-40" title="อ่านเส้นและสัญลักษณ์จากไฟล์ PDF แล้วจัดกลุ่มเป็นรายการ BOQ (ไม่มีค่าใช้จ่าย)">
+          <ScanLine className="h-3.5 w-3.5" /> ถอดแบบอัตโนมัติ
         </button>
         <button type="button" onClick={() => setAiOpen(true)} disabled={!pdf} className="flex items-center gap-1 rounded-lg border border-brand px-2.5 py-1.5 font-semibold text-brand hover:bg-blue-50 disabled:opacity-40" title="ให้ AI อ่านแบบแล้วแยกเป็นรายการ BOQ">
           <Sparkles className="h-3.5 w-3.5" /> AI ถอดแบบ
@@ -1263,6 +1305,18 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           onSave={(item) => saveItem(item, itemDialog.isNew)}
           onDelete={() => deleteItem(itemDialog.item)}
           onClose={() => setItemDialog(null)}
+        />
+      )}
+      {autoOpen && pdf && (
+        <AutoTakeoffDialog
+          pdf={pdf}
+          pageCount={pageCount}
+          currentPage={page}
+          scales={data.scales}
+          measurementCount={data.measurements.length}
+          onSetScales={setScalesByPage}
+          onAdd={addAutoGroups}
+          onClose={() => setAutoOpen(false)}
         />
       )}
       {aiOpen && pdf && (
