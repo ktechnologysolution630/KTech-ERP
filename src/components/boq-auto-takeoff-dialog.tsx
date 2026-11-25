@@ -17,6 +17,7 @@ import {
   type PageVectors,
 } from '@/domain/vector-takeoff';
 import { extractPageVectors } from '@/lib/pdf-vectors';
+import { looksScanned, ScanReader } from '@/lib/scan-vectors';
 
 /** One run reads at most this many pages */
 export const MAX_AUTO_PAGES = 200;
@@ -159,6 +160,8 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [category, setCategory] = useState('');
+  const [ocr, setOcr] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const stopRef = useRef(false);
 
   const pages = useMemo(() => {
@@ -178,20 +181,53 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
     stopRef.current = false;
     try {
       const OPS = await loadOps();
-      const out: PageVectors[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        if (stopRef.current) break;
-        setProgress({ done: i, total: pages.length });
-        const p = await pdf.getPage(pages[i]!);
-        out.push(await extractPageVectors(p, pages[i]!, OPS));
-        p.cleanup();
+      const results: (PageVectors | undefined)[] = new Array(pages.length);
+      const scan = new ScanReader();
+      // Scanned pages wait on OCR, so a few are read side by side; the rest go one by one
+      const pending = new Set<Promise<void>>();
+      let done = 0;
+      const finished = () => setProgress({ done: ++done, total: pages.length });
+      setProgress({ done: 0, total: pages.length });
+      try {
+        for (let i = 0; i < pages.length; i++) {
+          if (stopRef.current) break;
+          const n = pages[i]!;
+          const p = await pdf.getPage(n);
+          const v = await extractPageVectors(p, n, OPS);
+          if (!looksScanned(v)) {
+            results[i] = v;
+            p.cleanup();
+            finished();
+            continue;
+          }
+          setScanning(true);
+          const job: Promise<void> = scan
+            .read(p, n, ocr)
+            .then((r) => void (results[i] = r))
+            .catch((err: unknown) => {
+              console.error(err);
+              results[i] = v;
+            })
+            .finally(() => {
+              p.cleanup();
+              pending.delete(job);
+              finished();
+            });
+          pending.add(job);
+          if (pending.size >= (ocr ? 3 : 1)) await Promise.race(pending);
+        }
+        await Promise.all(pending);
+      } finally {
+        scan.stop();
       }
+      const out = results.filter((v): v is PageVectors => Boolean(v));
       setVectors(out);
     } catch (err) {
       console.error(err);
-      setError('อ่านไฟล์ไม่สำเร็จ ไฟล์อาจเป็นภาพสแกน (ไม่มีเส้นแบบ CAD) ลองใช้การวัดเอง หรือ AI ถอดแบบ');
+      setError('อ่านไฟล์ไม่สำเร็จ ลองอ่านทีละช่วงหน้า หรือใช้การวัดเอง');
     } finally {
       setProgress(null);
+      setScanning(false);
       setRunning(false);
     }
   };
@@ -247,6 +283,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
   const unscaledRead = (vectors ?? []).filter((v) => !scales[String(v.page)]).length;
   const truncatedPages = (vectors ?? []).filter((v) => v.truncated).map((v) => v.page);
   const emptyDrawing = vectors !== null && vectors.every((v) => v.paths.length === 0);
+  const scannedPages = (vectors ?? []).filter((v) => v.scanned).length;
 
   const rowOf = (g: AutoGroup): RowState => rows[g.key] ?? { picked: false, description: '', category: '', unit: defaultUnitOf(g.kind), factor: 1 };
   const setRow = (g: AutoGroup, patch: Partial<RowState>) => setRows((r) => ({ ...r, [g.key]: { ...rowOf(g), ...patch } }));
@@ -295,16 +332,20 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
               {vectors ? 'อ่านแบบใหม่' : `อ่านแบบ ${pages.length} หน้า`}
             </button>
           </div>
+          <label className="flex w-fit items-center gap-1.5 text-slate-600">
+            <input type="checkbox" checked={ocr} disabled={running} onChange={(e) => setOcr(e.target.checked)} />
+            หน้าที่เป็นภาพสแกน: อ่านตัวหนังสือด้วย (หาป้าย D1 W1 และสเกลได้ ลบตัวหนังสือออกจากเส้น แต่ช้ากว่า หน้าละประมาณ 5–10 วินาที)
+          </label>
           {tooMany && <p className="font-semibold text-amber-700">อ่านได้ครั้งละไม่เกิน {MAX_AUTO_PAGES} หน้า กรุณาเลือกช่วงหน้า</p>}
           {!vectors && !running && (
             <p className="text-slate-500">
               ระบบอ่านเส้น รูป สัญลักษณ์ และตัวหนังสือที่อยู่ในไฟล์ PDF จาก CAD โดยตรง (ไม่ใช้อินเทอร์เน็ตและไม่มีค่าใช้จ่าย) แล้วจัดกลุ่มตามสีและความหนาของเส้น ซึ่งมักตรงกับเลเยอร์ใน CAD
-              เลือกกลุ่มที่เป็นงานจริง ตั้งชื่อรายการ แล้วระบบจะสร้างรายการพร้อมการวัดบนแบบให้ทั้งหมด ไฟล์ที่เป็นภาพสแกนอ่านแบบนี้ไม่ได้
+              เลือกกลุ่มที่เป็นงานจริง ตั้งชื่อรายการ แล้วระบบจะสร้างรายการพร้อมการวัดบนแบบให้ทั้งหมด หน้าที่เป็นภาพสแกน ระบบจะหาเส้นจากภาพและอ่านตัวหนังสือให้ (ช้ากว่าและแม่นน้อยกว่าไฟล์จาก CAD)
             </p>
           )}
           {progress && (
             <p className="flex items-center gap-1.5 font-semibold text-brand">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> กำลังอ่านหน้า {progress.done + 1}/{progress.total}
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> อ่านแล้ว {progress.done}/{progress.total} หน้า{scanning && ' · พบภาพสแกน กำลังหาเส้นจากภาพ' + (ocr ? 'และอ่านตัวหนังสือ' : '')}
               <button type="button" onClick={() => (stopRef.current = true)} className="ml-2 rounded border border-slate-300 bg-white px-2 py-0.5 font-normal text-slate-600 hover:bg-slate-100">
                 หยุด
               </button>
@@ -320,7 +361,16 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
             <>
               {emptyDrawing && (
                 <p className="flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-2 font-semibold text-amber-800">
-                  <AlertCircle className="h-3.5 w-3.5" /> ไม่พบเส้นแบบในหน้าที่อ่าน ไฟล์นี้น่าจะเป็นภาพสแกน ให้ใช้การวัดเองหรือ AI ถอดแบบ
+                  <AlertCircle className="h-3.5 w-3.5" /> ไม่พบเส้นแบบในหน้าที่อ่าน ให้ใช้การวัดเองหรือ AI ถอดแบบ
+                </p>
+              )}
+              {scannedPages > 0 && !emptyDrawing && (
+                <p className="flex items-start gap-1 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {scannedPages} หน้าเป็นภาพสแกน: เส้นจากภาพเป็นสีดำทั้งหมด ระบบแยกกลุ่มได้ตามความหนาของเส้นเท่านั้น และอาจรวมเส้นกรอบชื่อแบบหรือตารางมาด้วย
+                    กดแถวเพื่อดูตำแหน่งบนแบบก่อนเลือก และควรอ่านทีละช่วงหน้าที่เป็นแบบชนิดเดียวกัน เช่น เฉพาะหน้าแปลน
+                  </span>
                 </p>
               )}
               {unscaledRead > 0 && (
