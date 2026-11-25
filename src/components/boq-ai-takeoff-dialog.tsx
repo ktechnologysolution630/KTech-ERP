@@ -6,6 +6,7 @@ import { AlertCircle, Loader2, Sparkles, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, type PageScale, type TakeoffKind } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
+import { mergeAcrossPages } from '@/domain/ai-takeoff-merge';
 
 /** Long edge of the page image sent to the AI; the drawing's small text needs a sharp image */
 const IMAGE_LONG_EDGE = 2400;
@@ -14,6 +15,8 @@ const MAX_PAGES_PER_RUN = 200;
 
 export interface AiPickedItem {
   page: number;
+  /** Every sheet the item was read on, when the same note appears on several */
+  pages?: number[];
   category: string;
   description: string;
   kind: TakeoffKind;
@@ -25,6 +28,7 @@ export interface AiPickedItem {
 interface Row extends AiTakeoffItem {
   key: string;
   page: number;
+  pages: number[];
   picked: boolean;
 }
 
@@ -71,6 +75,8 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; page: number } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  /** Items as the AI returned them, before repeats across sheets were joined */
+  const [readCount, setReadCount] = useState(0);
   const [notes, setNotes] = useState<{ page: number; text: string; error?: boolean }[]>([]);
   const stopRef = useRef(false);
 
@@ -86,6 +92,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     setRunning(true);
     stopRef.current = false;
     setRows([]);
+    setReadCount(0);
     setNotes([]);
     let n = 0;
     for (const p of pages) {
@@ -106,7 +113,9 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
           if (/ตั้งค่า|API key/.test(res.error)) break;
         } else {
           const { result } = res;
-          setRows((x) => [...x, ...result.items.map((it, i) => ({ ...it, key: `${p}-${i}`, page: p, picked: true }))]);
+          // A note repeated on several sheets is one item, not one per sheet
+          setRows((x) => mergeAcrossPages([...x, ...result.items.map((it, i) => ({ ...it, key: `${p}-${i}`, page: p, picked: true }))]));
+          setReadCount((c) => c + result.items.length);
           const head = [result.drawingTitle, result.scaleSeen && `สเกลบนแบบ ${result.scaleSeen}`].filter(Boolean).join(' · ');
           const text = [head, `พบ ${result.items.length} รายการ`, ...result.warnings].filter(Boolean).join(' — ');
           setNotes((x) => [...x, { page: p, text }]);
@@ -190,6 +199,11 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
             </div>
           )}
 
+          {rows.length > 0 && readCount > rows.length && (
+            <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-800">
+              AI อ่านได้ {readCount.toLocaleString()} รายการ เป็นรายการเดียวกันที่เขียนซ้ำในหลายแผ่น {(readCount - rows.length).toLocaleString()} รายการ จึงรวมไว้เหลือ {rows.length.toLocaleString()} รายการ (ช่อง “หน้า” บอกทุกแผ่นที่พบ) ไม่นับซ้ำ
+            </p>
+          )}
           {rows.length > 0 && (
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full min-w-[56rem]">
@@ -212,7 +226,9 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                       <td className="px-2 py-1.5 align-top">
                         <input type="checkbox" checked={r.picked} onChange={(e) => update(r.key, { picked: e.target.checked })} aria-label={`เลือก ${r.description}`} />
                       </td>
-                      <td className="px-2 py-1.5 align-top text-slate-500">{r.page}</td>
+                      <td className="px-2 py-1.5 align-top text-slate-500" title={r.pages.length > 1 ? `พบซ้ำ ${r.pages.length} แผ่น` : undefined}>
+                        {r.pages.length > 4 ? `${r.pages.slice(0, 3).join(', ')} … (${r.pages.length} แผ่น)` : r.pages.join(', ')}
+                      </td>
                       <td className="px-2 py-1.5 align-top">
                         <input value={r.category} onChange={(e) => update(r.key, { category: e.target.value })} className="w-32 rounded border border-slate-200 px-1.5 py-1" aria-label="หมวดงาน" />
                       </td>
@@ -250,7 +266,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
             <button
               type="button"
               disabled={running || picked.length === 0}
-              onClick={() => onAdd(picked.map((r) => ({ page: r.page, category: r.category.trim(), description: r.description.trim(), kind: r.kind, unit: r.unit.trim(), qty: r.qty, basis: r.basis })))}
+              onClick={() => onAdd(picked.map((r) => ({ page: r.page, pages: r.pages, category: r.category.trim(), description: r.description.trim(), kind: r.kind, unit: r.unit.trim(), qty: r.qty, basis: r.basis })))}
               className="rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
             >
               เพิ่ม {picked.length} รายการเข้างานถอดแบบ
