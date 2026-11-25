@@ -35,6 +35,8 @@ export interface PageVectors {
   texts: VectorText[];
   /** Paths left out because the page had too many to read */
   truncated: boolean;
+  /** Read from a scanned image (domain/raster-takeoff), so lines are all black and less exact */
+  scanned?: boolean;
 }
 
 export type AutoGroupType = 'line' | 'shape' | 'symbol' | 'tag';
@@ -374,8 +376,10 @@ export function suggestNames(groups: AutoGroup[], pages: PageVectors[]): Map<str
     }
   }
 
-  // Walls: the thickest line group that is also long (not a short heavy mark)
-  const lines = groups.filter((g) => g.type === 'line');
+  // Walls: the thickest line group that is also long (not a short heavy mark). On scans every line
+  // is black and widths are rough, so the guess is left to the user there.
+  const scanned = new Set(pages.filter((p) => p.scanned).map((p) => p.page));
+  const lines = groups.filter((g) => g.type === 'line' && [...g.pages.keys()].some((n) => !scanned.has(n)));
   const width = (g: AutoGroup) => Number(/หนา ([\d.]+)/.exec(g.label)?.[1] ?? 0);
   const lengthUnits = (g: AutoGroup) => {
     let n = 0;
