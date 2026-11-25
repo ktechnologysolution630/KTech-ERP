@@ -37,6 +37,8 @@ export interface PageVectors {
   truncated: boolean;
   /** Read from a scanned image (domain/raster-takeoff), so lines are all black and less exact */
   scanned?: boolean;
+  /** The page's text as lines in reading order, for quantities written in notes (domain/text-takeoff) */
+  lines?: string[];
 }
 
 export type AutoGroupType = 'line' | 'shape' | 'symbol' | 'tag';

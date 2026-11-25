@@ -16,7 +16,9 @@ import {
   type NameSuggestion,
   type PageVectors,
 } from '@/domain/vector-takeoff';
+import { extractTextItems, type TextQtyItem } from '@/domain/text-takeoff';
 import { extractPageVectors } from '@/lib/pdf-vectors';
+import type { AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
 import { looksScanned, ScanReader } from '@/lib/scan-vectors';
 
 /** One run reads at most this many pages */
@@ -43,15 +45,27 @@ interface RowState {
 
 type PageMode = 'current' | 'all' | 'range';
 
-const TYPE_TABS: { type: AutoGroupType | 'all'; label: string }[] = [
+type TabType = AutoGroupType | 'all' | 'text';
+
+const TYPE_TABS: { type: TabType; label: string }[] = [
   { type: 'all', label: 'ทั้งหมด' },
   { type: 'line', label: 'เส้น (ความยาว)' },
   { type: 'shape', label: 'พื้นที่' },
   { type: 'symbol', label: 'สัญลักษณ์ (นับ)' },
   { type: 'tag', label: 'ป้ายชื่อ (นับ)' },
+  { type: 'text', label: 'ปริมาณที่เขียนบนแบบ' },
 ];
 
+interface TextRow {
+  picked: boolean;
+  description: string;
+  unit: string;
+  qty: number;
+}
+
 const fmt = (n: number, d = 2) => n.toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+const linesOf = (pages: PageVectors[]) => pages.flatMap((v) => (v.lines ?? []).map((text) => ({ page: v.page, text })));
 
 async function loadOps() {
   const pdfjs = await import('pdfjs-dist');
@@ -146,7 +160,8 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
   /** Measurements the take-off already holds */
   measurementCount: number;
   onSetScales: (ratioByPage: Record<number, number>) => void;
-  onAdd: (groups: AutoPickedGroup[]) => void;
+  /** Groups become items with measurements; quantities written on the drawing become items with that quantity */
+  onAdd: (groups: AutoPickedGroup[], written: AiPickedItem[]) => void;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<PageMode>(pageCount > 1 ? 'all' : 'current');
@@ -156,7 +171,8 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [vectors, setVectors] = useState<PageVectors[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<AutoGroupType | 'all'>('all');
+  const [tab, setTab] = useState<TabType>('all');
+  const [textRows, setTextRows] = useState<Record<string, TextRow>>({});
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [category, setCategory] = useState('');
@@ -177,6 +193,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
     setError(null);
     setVectors(null);
     setRows({});
+    setTextRows({});
     setPreviewKey(null);
     stopRef.current = false;
     try {
@@ -222,6 +239,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
       }
       const out = results.filter((v): v is PageVectors => Boolean(v));
       setVectors(out);
+      setTab(extractTextItems(linesOf(out)).length > 0 ? 'text' : 'all');
     } catch (err) {
       console.error(err);
       setError('อ่านไฟล์ไม่สำเร็จ ลองอ่านทีละช่วงหน้า หรือใช้การวัดเอง');
@@ -238,6 +256,9 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
     const sug = suggestNames(raw, vectors);
     return { groups: raw.map((g) => withoutLegend(g, sug.get(g.key))).filter((g) => g.count > 0), suggestions: sug };
   }, [vectors]);
+  const textItems = useMemo(() => (vectors ? extractTextItems(linesOf(vectors)) : []), [vectors]);
+  const textRowOf = (t: TextQtyItem): TextRow => textRows[t.key] ?? { picked: true, description: t.description, unit: t.unit, qty: t.qty };
+  const setTextRow = (t: TextQtyItem, patch: Partial<TextRow>) => setTextRows((r) => ({ ...r, [t.key]: { ...textRowOf(t), ...patch } }));
   const quantities = useMemo(() => new Map(groups.map((g) => [g.key, groupQuantity(g, scales)])), [groups, scales]);
   const shown = useMemo(() => {
     const byType = new Map<AutoGroupType, AutoGroup[]>();
@@ -291,7 +312,9 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
   const picked = groups.filter((g) => rows[g.key]?.picked);
   const newMeasurements = picked.reduce((n, g) => n + measurementCountOf(g), 0);
   const overLimit = measurementCount + newMeasurements > MAX_MEASUREMENTS;
-  const missingName = picked.some((g) => !rows[g.key]!.description.trim());
+  const pickedText = textItems.filter((t) => textRowOf(t).picked);
+  const missingName = picked.some((g) => !rows[g.key]!.description.trim()) || pickedText.some((t) => !textRowOf(t).description.trim() || !(textRowOf(t).qty > 0));
+  const pickedCount = picked.length + pickedText.length;
   const preview = groups.find((g) => g.key === previewKey) ?? null;
 
   const unitHint = (kind: TakeoffKind) => (kind === 'length' ? 'ม.' : kind === 'area' ? 'ตร.ม.' : 'จุด');
@@ -334,7 +357,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
           </div>
           <label className="flex w-fit items-center gap-1.5 text-slate-600">
             <input type="checkbox" checked={ocr} disabled={running} onChange={(e) => setOcr(e.target.checked)} />
-            หน้าที่เป็นภาพสแกน: อ่านตัวหนังสือด้วย (หาป้าย D1 W1 และสเกลได้ ลบตัวหนังสือออกจากเส้น แต่ช้ากว่า หน้าละประมาณ 5–10 วินาที)
+            หน้าที่เป็นภาพสแกน: อ่านตัวหนังสือด้วย (ได้ปริมาณที่เขียนบนแบบ ป้าย D1 W1 และสเกล แต่ช้ากว่า หน้าละประมาณ 10–20 วินาที)
           </label>
           {tooMany && <p className="font-semibold text-amber-700">อ่านได้ครั้งละไม่เกิน {MAX_AUTO_PAGES} หน้า กรุณาเลือกช่วงหน้า</p>}
           {!vectors && !running && (
@@ -403,7 +426,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
               <div className="flex flex-wrap items-center gap-1.5">
                 {TYPE_TABS.map((t) => (
                   <button key={t.type} type="button" onClick={() => setTab(t.type)} className={`rounded-full px-3 py-1 font-semibold ${tab === t.type ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                    {t.label} {t.type !== 'all' && `(${groups.filter((g) => g.type === t.type).length})`}
+                    {t.label} {t.type !== 'all' && `(${t.type === 'text' ? textItems.length : groups.filter((g) => g.type === t.type).length})`}
                   </button>
                 ))}
                 <label className="ml-auto flex items-center gap-1">
@@ -412,6 +435,66 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
                 </label>
               </div>
 
+              {(tab === 'text' || tab === 'all') && (
+                <div className="overflow-x-auto rounded-lg border border-emerald-200">
+                  <div className="flex flex-wrap items-center gap-2 bg-emerald-50 px-3 py-2 text-emerald-900">
+                    <span className="font-semibold">ปริมาณที่เขียนไว้บนแบบ {textItems.length} รายการ</span>
+                    <span className="text-emerald-800">อ่านจากหมายเหตุบนแบบ เช่น “ยาวประมาณ 1,800 เมตร” “จำนวน 90 บ่อ” ข้อความเดียวกันที่อยู่หลายหน้านับครั้งเดียว ตรวจชื่อและตัวเลขกับแบบก่อนเพิ่ม</span>
+                    {textItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const all = textItems.every((t) => textRowOf(t).picked);
+                          setTextRows((r) => Object.fromEntries(textItems.map((t) => [t.key, { ...(r[t.key] ?? textRowOf(t)), picked: !all }])));
+                        }}
+                        className="ml-auto rounded border border-emerald-300 bg-white px-2 py-0.5 font-semibold text-emerald-800 hover:bg-emerald-100"
+                      >
+                        {textItems.every((t) => textRowOf(t).picked) ? 'ไม่เลือกทั้งหมด' : 'เลือกทั้งหมด'}
+                      </button>
+                    )}
+                  </div>
+                  {textItems.length === 0 ? (
+                    <p className="px-3 py-4 text-center text-slate-500">ไม่พบปริมาณที่เขียนไว้บนแบบในหน้าที่อ่าน{scannedPages > 0 && !ocr ? ' (ติ๊ก “อ่านตัวหนังสือ” แล้วอ่านแบบใหม่)' : ''}</p>
+                  ) : (
+                    <table className="w-full min-w-[46rem]">
+                      <thead className="bg-slate-50 text-left text-slate-600">
+                        <tr>
+                          <th className="w-8 px-2 py-2" />
+                          <th className="px-2 py-2">ชื่อรายการ BOQ</th>
+                          <th className="px-2 py-2 text-right">ปริมาณ</th>
+                          <th className="px-2 py-2">หน่วย</th>
+                          <th className="px-2 py-2">อ่านได้จาก</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {textItems.map((t) => {
+                          const row = textRowOf(t);
+                          return (
+                            <tr key={t.key} className={row.picked ? 'bg-emerald-50/40' : ''}>
+                              <td className="px-2 py-1.5">
+                                <input type="checkbox" checked={row.picked} onChange={(e) => setTextRow(t, { picked: e.target.checked })} aria-label={`เลือก ${t.description}`} />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <input value={row.description} onChange={(e) => setTextRow(t, { description: e.target.value })} className="w-full min-w-[14rem] rounded border border-slate-200 px-1.5 py-1" aria-label="ชื่อรายการ BOQ" />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <input type="number" step="any" min={0} value={row.qty} onChange={(e) => setTextRow(t, { qty: Math.max(0, Number(e.target.value) || 0) })} className="w-24 rounded border border-slate-200 px-1.5 py-1 text-right font-mono" aria-label="ปริมาณ" />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <input value={row.unit} onChange={(e) => setTextRow(t, { unit: e.target.value })} className="w-16 rounded border border-slate-200 px-1.5 py-1" aria-label="หน่วย" />
+                              </td>
+                              <td className="max-w-[22rem] px-2 py-1.5 text-slate-500">
+                                <span className="font-semibold text-slate-600">หน้า {t.pages.join(', ')}</span> · “{t.source}”
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+              {tab !== 'text' && (
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full min-w-[46rem]">
@@ -501,6 +584,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
                 </div>
                 <div>{preview ? <GroupPreview key={preview.key} pdf={pdf} group={preview} /> : <p className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-slate-500">กดแถวของกลุ่มเพื่อดูว่าอยู่ตรงไหนบนแบบ</p>}</div>
               </div>
+              )}
               <p className="text-slate-500">
                 เคล็ดลับ: เส้นผนังมักเป็นเส้นหนาที่สุด ใส่ความสูงผนังในช่องตัวคูณเพื่อได้ ตร.ม. (เปลี่ยนหน่วยเป็น ตร.ม.) · สัญลักษณ์ขนาดเท่ากันคือของชนิดเดียวกัน เช่น โคมไฟ ปลั๊ก · ป้ายเช่น D1 W1 นับประตูหน้าต่าง
               </p>
@@ -510,10 +594,10 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
           <span className={overLimit ? 'font-semibold text-red-700' : 'text-slate-500'}>
-            {picked.length > 0 &&
+            {pickedCount > 0 &&
               (overLimit
                 ? `การวัดเกินที่งานถอดแบบหนึ่งงานเก็บได้ (${MAX_MEASUREMENTS.toLocaleString('th-TH')} ครั้ง) กรุณาเลือกกลุ่มให้น้อยลง หรือแยกเป็นงานถอดแบบหลายงาน`
-                : `จะสร้างการวัด ${newMeasurements.toLocaleString('th-TH')} ครั้ง${missingName ? ' · ใส่ชื่อรายการให้ครบทุกกลุ่มที่เลือก' : ''}`)}
+                : `${picked.length > 0 ? `จะสร้างการวัด ${newMeasurements.toLocaleString('th-TH')} ครั้ง` : `ปริมาณจากข้อความบนแบบ ${pickedText.length} รายการ`}${missingName ? ' · ใส่ชื่อรายการและปริมาณให้ครบทุกรายการที่เลือก' : ''}`)}
           </span>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} disabled={running} className="rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
@@ -521,18 +605,22 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
             </button>
             <button
               type="button"
-              disabled={running || picked.length === 0 || missingName || overLimit}
+              disabled={running || pickedCount === 0 || missingName || overLimit}
               onClick={() =>
                 onAdd(
                   picked.map((g) => {
                     const r = rows[g.key]!;
                     return { group: g, description: r.description.trim(), category: category.trim(), unit: r.unit.trim() || defaultUnitOf(g.kind), factor: r.factor };
                   }),
+                  pickedText.map((t) => {
+                    const r = textRowOf(t);
+                    return { page: t.pages[0]!, category: category.trim(), description: r.description.trim(), kind: t.kind, unit: r.unit.trim() || t.unit, qty: r.qty, basis: `หน้า ${t.pages.join(', ')}: ${t.source}` };
+                  }),
                 )
               }
               className="rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
             >
-              เพิ่ม {picked.length} รายการเข้างานถอดแบบ
+              เพิ่ม {pickedCount} รายการเข้างานถอดแบบ
             </button>
           </div>
         </div>

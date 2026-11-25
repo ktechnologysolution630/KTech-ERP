@@ -32,6 +32,27 @@ interface State {
   lineWidth: number;
 }
 
+/** Horizontal text runs joined into lines: same baseline, close together; a wide gap starts another line */
+function textLines(runs: { x: number; y: number; end: number; h: number; str: string }[]): string[] {
+  runs.sort((a, b) => b.y - a.y || a.x - b.x);
+  const lines: string[] = [];
+  let cur: typeof runs = [];
+  const flush = () => {
+    if (cur.length) lines.push(cur.map((r) => r.str).join(' ').replace(/\s+/g, ' ').trim());
+    cur = [];
+  };
+  for (const r of runs) {
+    const last = cur[cur.length - 1];
+    if (last && Math.abs(last.y - r.y) <= Math.max(last.h, r.h) * 0.3 && r.x - last.end <= Math.max(last.h, r.h) * 3) cur.push(r);
+    else {
+      flush();
+      cur.push(r);
+    }
+  }
+  flush();
+  return lines.filter(Boolean);
+}
+
 export async function extractPageVectors(page: PDFPageProxy, pageNo: number, OPS: Record<string, number>): Promise<PageVectors> {
   const viewport = page.getViewport({ scale: 1 });
   const base = viewport.transform as Matrix;
@@ -183,8 +204,13 @@ export async function extractPageVectors(page: PDFPageProxy, pageNo: number, OPS
 
   const texts: VectorText[] = [];
   const content = await page.getTextContent();
+  const runs: { x: number; y: number; end: number; h: number; str: string }[] = [];
   for (const item of content.items) {
     if (!('str' in item) || !item.str.trim()) continue;
+    if (Math.abs(item.transform[1]) < 1e-6) {
+      const h = Math.abs(item.transform[3]) || item.height || 1;
+      runs.push({ x: item.transform[4], y: item.transform[5], end: item.transform[4] + item.width, h, str: item.str });
+    }
     const t = item.transform as Matrix;
     // Middle of the text along its baseline, lifted by half its height
     const len = Math.hypot(t[0], t[1]) || 1;
@@ -193,5 +219,5 @@ export async function extractPageVectors(page: PDFPageProxy, pageNo: number, OPS
     texts.push({ str: item.str, at: apply(base, t[4] + dx, t[5] + dy + item.height / 3) });
   }
 
-  return { page: pageNo, width: viewport.width, height: viewport.height, paths, texts, truncated };
+  return { page: pageNo, width: viewport.width, height: viewport.height, paths, texts, lines: textLines(runs), truncated };
 }
