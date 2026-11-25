@@ -85,7 +85,7 @@ export function scaleFromCalibration(a: Point, b: Point, realMeters: number): Pa
   return { metersPerUnit: realMeters / units, label: `วัดเทียบ ${realMeters.toLocaleString('th-TH', { maximumFractionDigits: 3 })} ม.` };
 }
 
-export const COMMON_RATIOS = [20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 500, 1000];
+export const COMMON_RATIOS = [20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 4000, 5000];
 
 export function distance(a: Point, b: Point): number {
   return Math.hypot(b[0] - a[0], b[1] - a[1]);
