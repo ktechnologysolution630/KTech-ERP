@@ -70,4 +70,16 @@ describe('quantities written on the drawing', () => {
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ qty: 1020, unit: 'ตร.ม.', description: 'งานพื้นสี TEXTURE ครีบคอนกรีตทางเดินรอบสวน', pages: [15, 17, 20, 22] });
   });
+
+  it('folds a digit misread on one sheet into the reading seen on the others', () => {
+    const kerb = (page: number, qty: string) => [
+      { page, text: 'แนวก่อสร้างคันหิน คสล.รูปแบบที่ 1/คันหิน คสล.รูปแบบที่ 2' },
+      { page, text: `ความยาวรวมประมาณ ${qty} เมตร (ดูแบบขยายแผ่นที่ 61)` },
+    ];
+    const items = extractTextItems([...kerb(38, '3,600.00'), ...kerb(40, '3,600.00'), ...kerb(48, '3,800.00'), { page: 50, text: 'ก่อสร้างท่อระบายน้ำ ยาวประมาณ 1,800.00 เมตร' }, ...[1, 2, 3, 4].map((page) => ({ page, text: 'แบบขยาย' }))]);
+    expect(items.find((i) => i.qty === 3600)!.pages).toEqual([38, 40, 48]);
+    expect(items.find((i) => i.qty === 3800)).toBeUndefined();
+    // Different work is not folded, even one digit apart
+    expect(items.find((i) => i.qty === 1800)).toBeDefined();
+  });
 });

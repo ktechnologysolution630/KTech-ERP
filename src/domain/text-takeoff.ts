@@ -338,6 +338,32 @@ export function extractTextItems(lines: TextLine[]): TextQtyItem[] {
       items.delete(other.key);
     }
   }
+  // A digit OCR misread on one sheet (“3,600” read as “3,800”) is the same note as the one read right
+  // on more sheets: same work, one digit apart in a pair OCR mixes up. The reading seen most wins.
+  const all = [...items.values()].sort((a, b) => b.pages.length - a.pages.length);
+  for (const keep of all) {
+    if (!items.has(keep.key)) continue;
+    for (const other of all) {
+      if (other === keep || !items.has(other.key) || other.pages.length >= keep.pages.length) continue;
+      if (other.kind !== keep.kind || other.unit !== keep.unit || !digitSlip(keep.qty, other.qty) || !similar(keep.description, other.description)) continue;
+      for (const pg of other.pages) if (!keep.pages.includes(pg)) keep.pages.push(pg);
+      items.delete(other.key);
+    }
+  }
   for (const i of items.values()) i.pages.sort((a, b) => a - b);
   return [...items.values()];
+}
+
+/** Digits a scan often turns into one another */
+const CONFUSED = new Set(['68', '86', '38', '83', '56', '65', '08', '80', '17', '71', '35', '53']);
+function digitSlip(a: number, b: number): boolean {
+  const x = String(a),
+    y = String(b);
+  if (x.length !== y.length || x === y) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) {
+    if (x[i] === y[i]) continue;
+    if (++diff > 1 || !CONFUSED.has(x[i]! + y[i]!)) return false;
+  }
+  return diff === 1;
 }
