@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@electric-sql/pglite', '@react-pdf/renderer'],
   experimental: {
     serverActions: {
-      // Project cover images go through a server action; covers are capped at 4 MB in the service
-      bodySizeLimit: '5mb',
+      // Project cover images (capped at 4 MB) and AI take-off page images go through server actions
+      bodySizeLimit: '8mb',
     },
   },
   async redirects() {

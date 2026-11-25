@@ -21,6 +21,7 @@ import {
   Ruler,
   Save,
   Send,
+  Sparkles,
   Trash2,
   Undo2,
   X,
@@ -53,6 +54,7 @@ import type { TakeoffDocumentDto } from '@/server/services/boq-takeoff';
 import { saveTakeoffAction, sendTakeoffToBoqAction } from '@/app/(app)/boq-takeoff/actions';
 import { cacheTakeoffFile, readCachedTakeoffFile } from '@/lib/takeoff-file-cache';
 import { SearchSelect } from '@/components/search-select';
+import { AiTakeoffDialog, type AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
 
 type Tool = 'select' | 'pan' | 'measure' | 'calibrate';
 
@@ -197,6 +199,18 @@ function ItemDialog({ item, isNew, categories, onSave, onDelete, onClose }: {
               <input type="number" step="any" min={0} defaultValue={draft.laborRate} onChange={(e) => set('laborRate', rate(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-right" />
             </label>
           </div>
+          <label className="block">
+            <span className="font-semibold text-slate-700">ปริมาณจากแบบ (ไม่ต้องวัด)</span>
+            <input
+              type="number"
+              step="any"
+              defaultValue={draft.fixedQty ?? ''}
+              onChange={(e) => set('fixedQty', e.target.value.trim() === '' || !Number.isFinite(Number(e.target.value)) ? undefined : Number(e.target.value))}
+              placeholder="เว้นว่างถ้าจะวัดบนแบบ"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            />
+            <span className="mt-0.5 block text-slate-500">ตัวเลขที่ AI อ่านได้ หรือที่พิมพ์เอง ระบบรวมกับที่วัดบนแบบ แล้วคูณตัวคูณและบวกเผื่อเสีย</span>
+          </label>
           <label className="block">
             <span className="font-semibold text-slate-700">หมายเหตุ</span>
             <input value={draft.note} onChange={(e) => set('note', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
@@ -350,6 +364,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [calibrationMeters, setCalibrationMeters] = useState('');
   const [itemDialog, setItemDialog] = useState<{ item: TakeoffItem; isNew: boolean } | null>(null);
   const [sending, setSending] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -732,6 +747,28 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     setItemDialog(null);
   };
 
+  const addAiItems = (picked: AiPickedItem[]) => {
+    change((d) => {
+      const added: TakeoffItem[] = picked.map((p, i) => ({
+        id: newId(),
+        category: p.category,
+        description: p.description.slice(0, 1000),
+        kind: p.kind,
+        unit: p.unit || defaultUnitOf(p.kind),
+        factor: 1,
+        wastePercent: 0,
+        materialRate: '',
+        laborRate: '',
+        color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
+        note: `AI หน้า ${p.page}: ${p.basis}`.slice(0, 500),
+        fixedQty: p.qty,
+      }));
+      return { ...d, items: [...d.items, ...added] };
+    });
+    setAiOpen(false);
+    setNotice(`เพิ่ม ${picked.length} รายการจาก AI แล้ว ตรวจตัวเลขและกดบันทึก`);
+  };
+
   const applyCalibration = (allPages: boolean) => {
     if (!calibration) return;
     const scale = scaleFromCalibration(calibration.a, calibration.b, Number(calibrationMeters));
@@ -812,6 +849,9 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         </span>
         <button type="button" onClick={() => void save()} disabled={!dirty || !name.trim()} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40" title="บันทึก (Ctrl+S)">
           <Save className="h-3.5 w-3.5" /> บันทึก
+        </button>
+        <button type="button" onClick={() => setAiOpen(true)} disabled={!pdf} className="flex items-center gap-1 rounded-lg border border-brand px-2.5 py-1.5 font-semibold text-brand hover:bg-blue-50 disabled:opacity-40" title="ให้ AI อ่านแบบแล้วแยกเป็นรายการ BOQ">
+          <Sparkles className="h-3.5 w-3.5" /> AI ถอดแบบ
         </button>
         <button type="button" onClick={() => void exportExcel()} disabled={data.items.length === 0} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40" title="ดาวน์โหลดเป็นไฟล์ Excel แบบฟอร์ม BOQ">
           <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" /> Excel
@@ -1149,7 +1189,8 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                                     <span className="text-slate-500">
                                       {kindLabel(item.kind)}
                                       {item.factor !== 1 ? ` × ${item.factor}` : ''}
-                                      {item.wastePercent ? ` + เผื่อ ${item.wastePercent}%` : ''} · {q.measurementCount} ครั้ง
+                                      {item.wastePercent ? ` + เผื่อ ${item.wastePercent}%` : ''}
+                                      {item.fixedQty ? ` · จากแบบ ${fmt(item.fixedQty, 2)}` : ''} · {q.measurementCount} ครั้ง
                                     </span>
                                   </span>
                                   <span className="shrink-0 text-right font-mono font-semibold text-slate-900">
@@ -1222,6 +1263,17 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           onSave={(item) => saveItem(item, itemDialog.isNew)}
           onDelete={() => deleteItem(itemDialog.item)}
           onClose={() => setItemDialog(null)}
+        />
+      )}
+      {aiOpen && pdf && (
+        <AiTakeoffDialog
+          takeoffId={doc.id}
+          pdf={pdf}
+          pageCount={pageCount}
+          currentPage={page}
+          scales={data.scales}
+          onAdd={addAiItems}
+          onClose={() => setAiOpen(false)}
         />
       )}
       {sending && (
