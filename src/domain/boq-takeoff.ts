@@ -51,6 +51,19 @@ export interface TakeoffItem {
    * measure before factor and waste. Measurements on the drawing are added on top of it.
    */
   fixedQty?: number;
+  /**
+   * An item worked out from another item's measurements, the way Archicad gives one wall its area,
+   * both plaster faces and its volume: the wall is measured once and each line takes it with its own
+   * factor. One level only; the source is never itself derived.
+   */
+  sourceItemId?: string;
+  /** Area measurements: take the outline's perimeter instead of its area (slab edge formwork, skirting) */
+  basis?: 'perimeter';
+  /**
+   * Taken off after the factor, in the item's own unit: the openings in a wall, given as an area once
+   * rather than outlined one by one
+   */
+  deductQty?: number;
 }
 
 export interface Measurement {
@@ -136,20 +149,35 @@ export interface ItemQuantity {
   unscaled: number;
 }
 
+/** Perimeter of an outline in metres; an opening's outline is not part of the edge */
+export function measuredPerimeter(m: Measurement, scale: PageScale | undefined): number | null {
+  if (m.deduct) return 0;
+  if (!scale) return null;
+  const closed = m.points.length >= 3 ? [...m.points, m.points[0]!] : m.points;
+  return polylineLength(closed) * scale.metersPerUnit;
+}
+
 export function itemQuantity(item: TakeoffItem, data: TakeoffData): ItemQuantity {
   let measured = D(0);
   let measurementCount = 0;
   let unscaled = 0;
-  if (item.fixedQty) measured = measured.plus(item.fixedQty);
-  for (const m of data.measurements) {
-    if (m.itemId !== item.id) continue;
-    measurementCount++;
-    const v = measuredValue(m, item.kind, data.scales[String(m.page)]);
-    if (v === null) unscaled++;
-    else measured = measured.plus(v);
+  const source = item.sourceItemId ? data.items.find((i) => i.id === item.sourceItemId && !i.sourceItemId) : undefined;
+  const perimeter = item.basis === 'perimeter';
+  // An outline's perimeter cannot be had from a typed-in area, so a perimeter line leaves it out
+  for (const from of source ? [source, item] : [item]) {
+    if (from.fixedQty && !(perimeter && from.kind === 'area')) measured = measured.plus(from.fixedQty);
+    for (const m of data.measurements) {
+      if (m.itemId !== from.id) continue;
+      measurementCount++;
+      const scale = data.scales[String(m.page)];
+      const v = perimeter && from.kind === 'area' ? measuredPerimeter(m, scale) : measuredValue(m, from.kind, scale);
+      if (v === null) unscaled++;
+      else measured = measured.plus(v);
+    }
   }
   const qty = measured
     .times(item.factor)
+    .minus(item.deductQty ?? 0)
     .times(D(100).plus(item.wastePercent).div(100))
     .toDecimalPlaces(3);
   return { measured: measured.toNumber(), qty: Decimal3(qty.toNumber()), measurementCount, unscaled };
@@ -245,6 +273,9 @@ export const takeoffDataSchema = z.object({
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
         note: z.string().max(500),
         fixedQty: finite.min(-1e9).max(1e9).optional(),
+        sourceItemId: z.string().min(1).max(64).optional(),
+        basis: z.literal('perimeter').optional(),
+        deductQty: finite.min(0).max(1e9).optional(),
       }),
     )
     .max(1000, 'รายการถอดแบบเกิน 1,000 รายการ'),
