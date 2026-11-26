@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  FileBox,
   FileSpreadsheet,
   FileUp,
   Hand,
@@ -61,6 +62,7 @@ import { AiTakeoffDialog, type AiPickedItem } from '@/components/boq-ai-takeoff-
 import { AutoTakeoffDialog, type AutoPickedGroup } from '@/components/boq-auto-takeoff-dialog';
 import { ElementDialog } from '@/components/boq-element-dialog';
 import { ArchicadDialog, type ArchicadPickedItem } from '@/components/boq-archicad-dialog';
+import { IfcImportDialog } from '@/components/boq-ifc-import-dialog';
 import { groupToMeasurements } from '@/domain/vector-takeoff';
 
 type Tool = 'select' | 'pan' | 'measure' | 'calibrate';
@@ -388,6 +390,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [aiOpen, setAiOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
   const [archicadOpen, setArchicadOpen] = useState(false);
+  const [ifcOpen, setIfcOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -820,7 +823,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     setNotice(`เพิ่ม ${picked.length} รายการจาก AI แล้ว ตรวจตัวเลขและกดบันทึก`);
   };
 
-  const addArchicadItems = (picked: ArchicadPickedItem[]) => {
+  const addArchicadItems = (picked: ArchicadPickedItem[], from = 'Archicad') => {
     change((d) => {
       const added: TakeoffItem[] = picked.map((p, i) => ({
         id: newId(),
@@ -839,7 +842,8 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return { ...d, items: [...d.items, ...added] };
     });
     setArchicadOpen(false);
-    setNotice(`เพิ่ม ${picked.length} รายการจาก Archicad แล้ว ตรวจตัวเลข ใส่ราคา แล้วกดบันทึก`);
+    setIfcOpen(false);
+    setNotice(`เพิ่ม ${picked.length} รายการจาก ${from} แล้ว ตรวจตัวเลข ใส่ราคา แล้วกดบันทึก`);
   };
 
   const addAutoGroups = (picked: AutoPickedGroup[], written: AiPickedItem[]) => {
@@ -983,6 +987,9 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         </button>
         <button type="button" onClick={() => setArchicadOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="ดึงปริมาณจากโมเดล Archicad ที่เปิดอยู่บนเครื่องนี้">
           <Box className="h-3.5 w-3.5 text-brand" /> ดึงจาก Archicad
+        </button>
+        <button type="button" onClick={() => setIfcOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="นำเข้าปริมาณจากไฟล์ IFC ที่ export จาก Archicad หรือโปรแกรม BIM อื่น">
+          <FileBox className="h-3.5 w-3.5 text-brand" /> นำเข้า IFC
         </button>
         <button type="button" onClick={() => void exportExcel()} disabled={data.items.length === 0} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40" title="ดาวน์โหลดเป็นไฟล์ Excel แบบฟอร์ม BOQ">
           <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" /> Excel
@@ -1420,6 +1427,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           onClose={() => setAutoOpen(false)}
         />
       )}
+      {ifcOpen && <IfcImportDialog existing={existingForAi} onAdd={(items) => addArchicadItems(items, 'ไฟล์ IFC')} onClose={() => setIfcOpen(false)} />}
       {archicadOpen && <ArchicadDialog existing={existingForAi} onAdd={addArchicadItems} onClose={() => setArchicadOpen(false)} />}
       {aiOpen && pdf && (
         <AiTakeoffDialog
