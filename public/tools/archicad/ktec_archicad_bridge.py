@@ -40,10 +40,14 @@ LOCAL_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 #                   Door, Window, Object, Railing, Stair, Mesh, CurtainWall ...)
 #   item          : ชื่อรายการ ใส่ {group} เพื่อแทนด้วยค่าที่จัดกลุ่ม
 #   group_by      : ชื่อ built-in property หรือ "ชื่อกลุ่ม/ชื่อ property" ของ user-defined
+#                   ใส่เป็นรายการได้ ระบบใช้ค่าแรกที่ไม่ว่าง
 #   quantity      : ชื่อ built-in property ของปริมาณ หรือ "COUNT" เพื่อนับจำนวนชิ้น
 #   unit          : หน่วยใน BOQ
 #   factor        : ตัวคูณ (เช่น เผื่อเสีย 1.05)
 #   components    : true = แยกตามชั้นวัสดุของ Composite/Profile (ผนัง พื้น หลังคา)
+# วัสดุของชิ้นส่วน: ชื่อ Composite ถ้ามี ไม่มีก็ใช้ Building Material ของชิ้นนั้น
+MATERIAL = ["Construction_CompositeName", "SurfaceAndMaterials_ComponentBuildingMaterialName"]
+
 DEFAULT_RULES = [
     {"category": "งานโครงสร้าง", "element_type": "Column", "item": "คอนกรีตเสา",
      "quantity": "General_NetVolume", "unit": "ลบ.ม."},
@@ -52,15 +56,15 @@ DEFAULT_RULES = [
     {"category": "งานโครงสร้าง", "element_type": "Slab", "item": "คอนกรีตพื้น",
      "quantity": "General_NetVolume", "unit": "ลบ.ม."},
     {"category": "งานพื้น", "element_type": "Slab", "item": "ผิวพื้น {group}",
-     "group_by": "General_BuildingMaterials", "quantity": "Slab_TopSurfaceArea", "unit": "ตร.ม."},
+     "group_by": MATERIAL, "quantity": "Slab_TopSurfaceArea", "unit": "ตร.ม."},
     {"category": "งานผนัง", "element_type": "Wall", "item": "ผนัง {group}",
-     "group_by": "General_BuildingMaterials", "quantity": "Wall_NetOutsideSurfaceArea", "unit": "ตร.ม."},
+     "group_by": MATERIAL, "quantity": "Wall_NetOutsideSurfaceArea", "unit": "ตร.ม."},
     {"category": "งานผนัง", "element_type": "Wall", "item": "ความยาวผนัง {group}",
-     "group_by": "General_BuildingMaterials", "quantity": "Wall_ReferenceLineLength", "unit": "ม."},
+     "group_by": MATERIAL, "quantity": "Wall_ReferenceLineLength", "unit": "ม."},
     {"category": "งานผนัง", "element_type": "Wall", "item": "วัสดุผนัง {group}",
      "components": True, "quantity": "Component_NetVolume", "unit": "ลบ.ม."},
     {"category": "งานหลังคา", "element_type": "Roof", "item": "หลังคา {group}",
-     "group_by": "General_BuildingMaterials", "quantity": "Roof_NetTopSurfaceArea", "unit": "ตร.ม."},
+     "group_by": MATERIAL, "quantity": "Roof_NetTopSurfaceArea", "unit": "ตร.ม."},
     {"category": "งานประตู-หน้าต่าง", "element_type": "Door", "item": "ประตู {group}",
      "group_by": "General_LibraryPartName", "quantity": "COUNT", "unit": "ชุด"},
     {"category": "งานประตู-หน้าต่าง", "element_type": "Window", "item": "หน้าต่าง {group}",
@@ -214,20 +218,21 @@ def run_rule(ac, rule, warnings, only=None):
         return []
     qty_name = rule.get("quantity", "COUNT")
     use_comp = bool(rule.get("components"))
-    group_name = rule.get("group_by") or ("BuildingMaterial_Name" if use_comp else "")
+    group_by = rule.get("group_by") or (["BuildingMaterial_Name"] if use_comp else [])
+    group_names = [group_by] if isinstance(group_by, str) else list(group_by)
     factor = float(rule.get("factor", 1))
 
     targets = get_components(ac, elements) if use_comp else elements
     if not targets:
         return []
 
-    ids, missing = resolve_property_ids(ac, [qty_name, group_name])
+    ids, missing = resolve_property_ids(ac, [qty_name] + group_names)
     for m in missing:
         warnings.append("กฎ '%s' (%s): ไม่พบ property '%s' ในโปรเจกต์นี้" % (rule["item"], etype, m))
     if qty_name != "COUNT" and qty_name not in ids:
         return []
 
-    names = [n for n in (qty_name, group_name) if n in ids]
+    names = [n for n in [qty_name] + group_names if n in ids]
     values = get_values(ac, targets, [ids[n] for n in names], components=use_comp) if names else \
         [[] for _ in targets]
 
@@ -240,8 +245,9 @@ def run_rule(ac, rule, warnings, only=None):
             q = row.get(qty_name)
             if not isinstance(q, (int, float)):
                 continue
-        g = row.get(group_name) if group_name else ""
-        g = str(g).strip() if g not in (None, "") else ("(ไม่ระบุ)" if group_name else "")
+        g = next((str(row[n]).strip() for n in group_names if row.get(n) not in (None, "")), "")
+        if not g and group_names:
+            g = "(ไม่ระบุ)"
         acc = groups.setdefault(g, [0.0, 0])
         acc[0] += float(q)
         acc[1] += 1
