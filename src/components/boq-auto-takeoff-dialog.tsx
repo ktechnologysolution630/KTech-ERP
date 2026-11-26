@@ -317,7 +317,7 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
   const pickedCount = picked.length + pickedText.length;
   const preview = groups.find((g) => g.key === previewKey) ?? null;
 
-  const unitHint = (kind: TakeoffKind) => (kind === 'length' ? 'ม.' : kind === 'area' ? 'ตร.ม.' : 'จุด');
+  const unitHint = (kind: TakeoffKind) => defaultUnitOf(kind);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="ถอดแบบอัตโนมัติ">
