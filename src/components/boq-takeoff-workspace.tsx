@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   FileUp,
   Hand,
+  Layers,
   Maximize,
   MousePointer2,
   Pencil,
@@ -58,6 +59,7 @@ import { cacheTakeoffFile, readCachedTakeoffFile } from '@/lib/takeoff-file-cach
 import { SearchSelect } from '@/components/search-select';
 import { AiTakeoffDialog, type AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
 import { AutoTakeoffDialog, type AutoPickedGroup } from '@/components/boq-auto-takeoff-dialog';
+import { ElementDialog } from '@/components/boq-element-dialog';
 import { ArchicadImportDialog, type ArchicadPickedItem } from '@/components/boq-archicad-import-dialog';
 import { groupToMeasurements } from '@/domain/vector-takeoff';
 
@@ -217,6 +219,19 @@ function ItemDialog({ item, isNew, categories, onSave, onDelete, onClose }: {
             <span className="mt-0.5 block text-slate-500">ตัวเลขที่ AI อ่านได้ หรือที่พิมพ์เอง ระบบรวมกับที่วัดบนแบบ แล้วคูณตัวคูณและบวกเผื่อเสีย</span>
           </label>
           <label className="block">
+            <span className="font-semibold text-slate-700">หักออกหลังคูณตัวคูณ ({draft.unit || 'หน่วยของรายการ'})</span>
+            <input
+              type="number"
+              step="any"
+              min={0}
+              defaultValue={draft.deductQty ?? ''}
+              onChange={(e) => set('deductQty', e.target.value.trim() === '' || !(Number(e.target.value) > 0) ? undefined : Number(e.target.value))}
+              placeholder="เช่น พื้นที่ช่องประตู-หน้าต่างรวม"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            />
+          </label>
+          {draft.sourceItemId && <p className="rounded-lg bg-blue-50 p-2 text-slate-600">รายการนี้คำนวณจากการวัดของรายการหลักในชิ้นส่วนเดียวกัน{draft.basis === 'perimeter' ? ' โดยใช้เส้นรอบรูป' : ''} คลิกเลือกรายการนี้จะไปวัดที่รายการหลัก</p>}
+          <label className="block">
             <span className="font-semibold text-slate-700">หมายเหตุ</span>
             <input value={draft.note} onChange={(e) => set('note', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
           </label>
@@ -368,6 +383,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [calibration, setCalibration] = useState<{ a: Point; b: Point } | null>(null);
   const [calibrationMeters, setCalibrationMeters] = useState('');
   const [itemDialog, setItemDialog] = useState<{ item: TakeoffItem; isNew: boolean } | null>(null);
+  const [elementOpen, setElementOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [archicadOpen, setArchicadOpen] = useState(false);
@@ -744,7 +760,9 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     await downloadWorkbook(`${doc.number}_ถอดแบบ_BOQ.xlsx`, [...BOQ_SHEET_COLUMNS], rows);
   };
 
-  const pickItem = (item: TakeoffItem) => {
+  const pickItem = (picked: TakeoffItem) => {
+    // A line worked out from another item is measured on that item
+    const item = (picked.sourceItemId && data.items.find((i) => i.id === picked.sourceItemId)) || picked;
     setActiveItemId(item.id);
     setDraft([]);
     setTool('measure');
@@ -759,10 +777,25 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
 
   const deleteItem = (item: TakeoffItem) => {
     const n = data.measurements.filter((m) => m.itemId === item.id).length;
-    if (n > 0 && !window.confirm(`ลบรายการ "${item.description}" และการวัด ${n} ครั้งของรายการนี้ใช่หรือไม่?`)) return;
-    change((d) => ({ ...d, items: d.items.filter((i) => i.id !== item.id), measurements: d.measurements.filter((m) => m.itemId !== item.id) }));
+    // Lines worked out from this item have nothing to measure without it, so they go with it
+    const followers = data.items.filter((i) => i.sourceItemId === item.id);
+    const also = followers.length > 0 ? ` และรายการที่คำนวณจากรายการนี้อีก ${followers.length} รายการ` : '';
+    if ((n > 0 || followers.length > 0) && !window.confirm(`ลบรายการ "${item.description}" และการวัด ${n} ครั้งของรายการนี้${also}ใช่หรือไม่?`)) return;
+    const gone = new Set([item.id, ...followers.map((i) => i.id)]);
+    change((d) => ({ ...d, items: d.items.filter((i) => !gone.has(i.id)), measurements: d.measurements.filter((m) => !gone.has(m.itemId)) }));
     if (activeItemId === item.id) setActiveItemId(null);
     setItemDialog(null);
+  };
+
+  const addElementItems = (items: TakeoffItem[]) => {
+    change((d) => ({ ...d, items: [...d.items, ...items] }));
+    setElementOpen(false);
+    const main = items[0]!;
+    setActiveItemId(main.id);
+    setDraft([]);
+    setTool('measure');
+    if (main.kind !== 'area') setDeductMode(false);
+    setNotice(`เพิ่ม ${items.length} รายการแล้ว วัด "${main.description}" บนแบบ รายการอื่นคำนวณตามให้เอง`);
   };
 
   const addAiItems = (picked: AiPickedItem[]) => {
@@ -1257,6 +1290,15 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
             <section>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-bold text-slate-900">รายการถอดแบบ</h3>
+                <span className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setElementOpen(true)}
+                  className="flex items-center gap-1 rounded-lg border border-brand px-2.5 py-1.5 font-semibold text-brand hover:bg-blue-50"
+                  title="ผนัง พื้น เสา คาน ห้อง หลังคา: วัดครั้งเดียวได้ทุกรายการของชิ้นส่วน แบบที่ Archicad คำนวณ"
+                >
+                  <Layers className="h-3.5 w-3.5" /> ชิ้นส่วน
+                </button>
                 <button
                   type="button"
                   onClick={() => setItemDialog({ item: emptyItem('length', ITEM_COLORS[data.items.length % ITEM_COLORS.length]!, activeItem?.category ?? ''), isNew: true })}
@@ -1264,6 +1306,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                 >
                   <Plus className="h-3.5 w-3.5" /> เพิ่มรายการ
                 </button>
+                </span>
               </div>
               {data.items.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-slate-500">ยังไม่มีรายการ กด &quot;เพิ่มรายการ&quot; เช่น ผนังก่ออิฐ (วัดระยะ) พื้นกระเบื้อง (วัดพื้นที่) หรือดวงโคม (นับจำนวน)</p>
@@ -1285,8 +1328,10 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                                   <span className="min-w-0 flex-1">
                                     <span className="block truncate font-semibold text-slate-900">{item.description}</span>
                                     <span className="text-slate-500">
-                                      {kindLabel(item.kind)}
+                                      {item.sourceItemId ? `ตาม "${itemsById.get(item.sourceItemId)?.description ?? '-'}"` : kindLabel(item.kind)}
+                                      {item.basis === 'perimeter' ? ' (เส้นรอบรูป)' : ''}
                                       {item.factor !== 1 ? ` × ${item.factor}` : ''}
+                                      {item.deductQty ? ` − ${fmt(item.deductQty, 2)}` : ''}
                                       {item.wastePercent ? ` + เผื่อ ${item.wastePercent}%` : ''}
                                       {item.fixedQty ? ` · จากแบบ ${fmt(item.fixedQty, 2)}` : ''} · {q.measurementCount} ครั้ง
                                     </span>
@@ -1385,6 +1430,16 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           existing={existingForAi}
           onAdd={addAiItems}
           onClose={() => setAiOpen(false)}
+        />
+      )}
+      {elementOpen && (
+        <ElementDialog
+          categories={categories}
+          defaultCategory={activeItem?.category ?? ''}
+          newId={newId}
+          colorOf={() => ITEM_COLORS[data.items.length % ITEM_COLORS.length]!}
+          onAdd={addElementItems}
+          onClose={() => setElementOpen(false)}
         />
       )}
       {archicadOpen && <ArchicadImportDialog existing={existingForAi} onAdd={addArchicadItems} onClose={() => setArchicadOpen(false)} />}
