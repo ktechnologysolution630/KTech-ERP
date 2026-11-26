@@ -31,6 +31,10 @@ const aiItemSchema = z4.object({
     .enum(['project_total', 'this_sheet', 'per_unit'])
     .describe('project_total: a total for the whole job written on the sheet; this_sheet: only what this sheet shows (one segment, one floor); per_unit: for ONE typical unit in a detail (one pit, one panel, one footing)'),
   perUnitOf: z4.string().describe('For per_unit: the unit it is for, in Thai, e.g. "บ่อพัก คสล.1 1 บ่อ". Empty otherwise'),
+  location: z4
+    .string()
+    .optional()
+    .describe('Where on the job this quantity is, as the sheet names it (zone, segment, station range, building, floor), e.g. "ลานจอดรถหน้าอาคาร", "STA 0+000–0+500", "โซน B". Empty for a total of the whole job'),
 });
 
 const aiPageSchema = z4.object({
@@ -53,6 +57,7 @@ How to quantify:
 - Walls: length × height when the height is known (from sections or notes), otherwise give length in ม. and say so in basis.
 - Floors/ceilings/roof: area in ตร.ม. Concrete, excavation, backfill, sand/gravel base: volume in ลบ.ม. (kind volume) when the sizes are given: area × thickness, or a typical section's area × the length it runs. Show the multiplication in basis.
 - Count symbols one by one in the zoomed images, quadrant by quadrant, then check the total against any schedule or legend count. Symbols in the overlap band between two zoomed images are the same symbols: count them once.
+- The same material at different places is a separate item for each place, never one item counted once: ท่อ HDPE at the car park and ท่อ HDPE along the canal are two items even with the same size and count. Put the place in location (and in the description when the sheet shows several places), so the sheets can be joined later without mixing places up.
 - Say what each quantity covers in scope. A detail sheet of a typical pit, panel or footing gives quantities for one unit: mark them per_unit and name the unit in perUnitOf, never multiply by a count you cannot see on this sheet. A plan of one segment gives this_sheet counts. A note that states the total for the whole job is project_total.
 - Totals written in notes win. When a note states a quantity ("พื้นที่ประมาณ 9,000.00 ตารางเมตร", "ยาวประมาณ 1,800.00 เมตร", "จำนวน 90 บ่อ"), copy that number exactly as the qty (9,000.00 is nine thousand) with confidence high, even when width × length would give something else; keep any exclusion it states ("ไม่รวมพื้นที่บ่อพัก") in the description. One note can hold several items (an area and a length of the same road): list each one it states. Do not also list your own recalculation of the same work.
 - Work repeated at a spacing ("ทำทุกระยะ 100.00 เมตร", "@ 2.00 ม."): give it as per_unit for one piece, put the spacing in perUnitOf (e.g. "1 จุด ทุกระยะ 100 ม."), and say in basis which length it runs along if the sheet shows it. If a table on the sheet lists every piece (100 M, 200 M … 1800 M), count the entries instead and mark the count project_total.
@@ -199,6 +204,7 @@ export async function readTakeoffPage(
         confidence: i.confidence,
         scope: i.scope ?? 'project_total',
         perUnitOf: (i.perUnitOf ?? '').trim().slice(0, 200),
+        location: (i.location ?? '').trim().slice(0, 200),
       })),
   };
 }
@@ -214,9 +220,12 @@ const CONSOLIDATE_SYSTEM = `You are a senior Thai quantity surveyor finishing a 
 - project_total: a total for the whole job written on a sheet
 - this_sheet: only what one sheet shows (one segment of a road, one floor)
 - per_unit: quantity for ONE typical unit in a detail (perUnitOf names the unit)
+and a location: the place on the job the quantity is for (empty for the whole job).
+
+Repeats and places: a row found on several sheets (sheets column) was already checked to be one note read again; count it once. Two rows of the same material are the same work only when they are at the same place. The same material at different places (different location, segment, zone or station range) is not a repeat: never fold one into the other or keep only one of them. Keep each place as its own item, with the place in the description (e.g. "ท่อ HDPE Ø 0.30 ม. (ลานจอดรถ)"), unless a project_total row states the total that covers all those places.
 
 Produce the final BOQ list:
-1. Same work found as a project_total and as this_sheet parts: keep the total once; drop the parts (list them in sources). Only if no total exists, add the this_sheet parts up, and only for sheets that show different areas.
+1. Same work found as a project_total and as this_sheet parts: keep the total once; drop the parts (list them in sources). If no total exists, keep the this_sheet parts of different places as separate items named by their place; join two this_sheet rows only when they show the same place (the same segment drawn twice).
 2. per_unit rows: multiply by how many of that unit the job has, taken from other rows (e.g. 90 pits × 1.35 ตร.ม. per pit), and write the multiplication in basis. Match the unit by its type and size (บ่อพัก คสล. 1 is not บ่อพัก คสล. 2). Take the count from a project_total count row first; add up this_sheet counts only when no total exists. For work repeated at a spacing ("ทุกระยะ 100 ม."), the count is the length of the route it runs along (a project_total length row) ÷ the spacing, rounded up, unless a row already counts the pieces. If no count can be found, keep the per-unit quantity, set confidence "low" and say in basis "ต่อ 1 … ยังไม่ทราบจำนวน".
    Never multiply a project_total row, and never multiply the same per-unit row twice.
 3. The same work read twice with slightly different names or units is one item. A written project_total keeps its number exactly; a row that recalculates the same work (width × length) is a source of that item, not a second item. Different work on the same route (pavement area, kerb length, footpath area, line marking) stays as separate items.
@@ -254,6 +263,7 @@ const consolidateRowSchema = z.object({
   qty: z.number().positive().max(1e9),
   scope: z.enum(['project_total', 'this_sheet', 'per_unit']),
   perUnitOf: z.string().max(200),
+  location: z.string().max(200).optional(),
   basis: z.string().max(500),
 });
 export type AiConsolidateRow = z.infer<typeof consolidateRowSchema>;
@@ -266,7 +276,7 @@ export const claudeConsolidator: AiConsolidator = async (rows, hint) => {
     throw new DomainError('AI_NOT_CONFIGURED', 'ยังไม่ได้ตั้งค่า AI ถอดแบบ (ANTHROPIC_API_KEY) กรุณาแจ้งผู้ดูแลระบบ', 400);
   }
   const table = rows
-    .map((r) => [r.id, r.pages.join(','), r.scope, r.perUnitOf, r.category, r.description, r.qty, r.unit, r.kind, r.basis].map((v) => String(v).replace(/[\t\n]+/g, ' ')).join('\t'))
+    .map((r) => [r.id, r.pages.join(','), r.scope, r.perUnitOf, r.location ?? '', r.category, r.description, r.qty, r.unit, r.kind, r.basis].map((v) => String(v).replace(/[\t\n]+/g, ' ')).join('\t'))
     .join('\n');
   let response;
   try {
@@ -282,7 +292,7 @@ export const claudeConsolidator: AiConsolidator = async (rows, hint) => {
         messages: [
           {
             role: 'user',
-            content: `${hint?.trim() ? `Note from the user: ${hint.trim()}\n\n` : ''}Rows (tab separated: id, sheets, scope, perUnitOf, category, description, qty, unit, kind, basis):\n${table}\n\nProduce the final BOQ list.`,
+            content: `${hint?.trim() ? `Note from the user: ${hint.trim()}\n\n` : ''}Rows (tab separated: id, sheets, scope, perUnitOf, location, category, description, qty, unit, kind, basis):\n${table}\n\nProduce the final BOQ list.`,
           },
         ],
       })

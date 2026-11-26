@@ -1,10 +1,18 @@
 import type { TakeoffKind } from './boq-takeoff';
+import { nameScore, sizesOf } from './takeoff-pricing';
 import { similar } from './text-takeoff';
 
 /**
  * The AI reads one sheet at a time, so a note that a drawing set repeats on every plan sheet
  * (“ถนนลาดยาง ยาว 1,800 ม.”) comes back once per sheet. Added up, those repeats would multiply
  * the quantity. Here the same item read on several sheets becomes one row that lists its pages.
+ *
+ * Only a true repeat is joined. The same material at two places (ท่อ HDPE ที่ลานจอดรถ and ท่อ HDPE
+ * ริมคลอง, both 2 จุด) is two quantities, so rows are joined only when:
+ * - both state a total for the whole job, or both are the same typical detail (same perUnitOf),
+ *   never two counts of what one sheet shows unless both name the same place,
+ * - the places they name (location) agree,
+ * - the names are near-identical and every size written in them agrees (Ø 300 is not Ø 400).
  */
 
 export interface PagedAiItem {
@@ -16,6 +24,11 @@ export interface PagedAiItem {
   qty: number;
   basis: string;
   confidence: 'high' | 'medium' | 'low';
+  /** What the quantity covers; rows without one are read as a total for the job */
+  scope?: 'project_total' | 'this_sheet' | 'per_unit';
+  perUnitOf?: string;
+  /** Where on the job it is (zone, segment, building), as the sheet names it; empty for the whole job */
+  location?: string;
 }
 
 export interface MergedAiItem extends PagedAiItem {
@@ -24,13 +37,65 @@ export interface MergedAiItem extends PagedAiItem {
 }
 
 /** Rows already merged can be passed back in with their pages, so new sheets join them as they arrive */
-type Input = PagedAiItem & { pages?: number[] };
+type Input = PagedAiItem & { pages?: number[]; apart?: boolean };
 
 const unitKey = (u: string) => u.replace(/\s+/g, '').replace(/\.$/, '').replace(/^ตารางเมตร$/, 'ตร.ม').replace(/^เมตร$/, 'ม').toLowerCase();
 const sameQty = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.005, 0.005 * Math.max(a, b));
 const plain = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 /** Names in Latin script only (“HDPE pipe”) have no Thai to compare, so they must match exactly */
 const sameName = (a: string, b: string) => plain(a) === plain(b) || similar(a, b);
+
+/**
+ * The sizes in the shorter name are all in the longer one: “หนา 5 ซม.” fits “หนา 0.05 ม. กว้าง 5.00 ม.”,
+ * Ø 300 never fits Ø 400. A name with no size is a shorter way to write the same work.
+ */
+function sameSizes(a: string, b: string) {
+  const x = sizesOf(a);
+  const y = sizesOf(b);
+  const [few, many] = x.length <= y.length ? [x, y] : [y, x];
+  return few.every((v) => many.includes(v));
+}
+
+/** Strict enough for joining rows: a shared word or two is not the same work */
+export const JOIN_SCORE = 0.75;
+function sameWork(a: string, b: string) {
+  if (plain(a) === plain(b)) return true;
+  if (!sameSizes(a, b)) return false;
+  return nameScore(a, b) >= JOIN_SCORE;
+}
+
+/** Zone letters, type numbers and stations (โซน A, บ่อพัก คสล. 2, STA 0+500) must be the same ones */
+const marks = (s: string) => [...new Set((s.normalize('NFC').match(/[a-z0-9]+/gi) ?? []).map((m) => m.toLowerCase()))].sort().join(' ');
+/**
+ * Labels of places and typical units. The AI words one place a little differently on each sheet
+ * (“ถนนภายในสวน STA 0+000–0+1,800”, “แนวถนนภายในสวน”), so the words need only be alike; marks written
+ * on both (โซน A / โซน B, บ่อพัก คสล. 1 / 2) must be the same.
+ */
+export const PLACE_SCORE = 0.6;
+function sameLabel(a: string, b: string) {
+  if (plain(a) === plain(b)) return true;
+  const ma = marks(a);
+  const mb = marks(b);
+  if (ma && mb && ma !== mb) return false;
+  return nameScore(a.replace(/[a-z0-9]+/gi, ' '), b.replace(/[a-z0-9]+/gi, ' ')) >= PLACE_SCORE;
+}
+
+const placeOf = (r: Input) => plain(r.location ?? '');
+/** Two named places must be the same place; an unnamed one is the whole job */
+const samePlace = (a: Input, b: Input) => !placeOf(a) || !placeOf(b) || sameLabel(a.location!, b.location!);
+
+/** Whether two rows can be one item read twice, by what each quantity covers */
+function sameCover(a: Input, b: Input) {
+  const sa = a.scope ?? 'project_total';
+  const sb = b.scope ?? 'project_total';
+  if (sa !== sb) return false;
+  if (sa === 'per_unit') return sameLabel(a.perUnitOf ?? '', b.perUnitOf ?? '');
+  // What one sheet shows is that sheet's place; another sheet with the same count is another place,
+  // unless both name the same place (one segment drawn at two scales)
+  if (sa === 'this_sheet') return Boolean(placeOf(a)) && placeOf(a) === placeOf(b);
+  return true;
+}
+
 const RANK = { high: 0, medium: 1, low: 2 } as const;
 
 export function mergeAcrossPages<T extends Input>(items: T[]): (T & MergedAiItem)[] {
@@ -45,7 +110,12 @@ export function mergeAcrossPages<T extends Input>(items: T[]): (T & MergedAiItem
         unitKey(m.unit) === unitKey(it.unit) &&
         sameQty(m.qty, it.qty) &&
         !pages.some((p) => m.pages.includes(p)) &&
-        sameName(m.description, it.description),
+        // Rows the user split apart stay apart
+        !m.apart &&
+        !it.apart &&
+        sameCover(m, it) &&
+        samePlace(m, it) &&
+        sameWork(m.description, it.description),
     );
     if (!twin) {
       const row = { ...it, pages: [...pages] };
@@ -150,4 +220,9 @@ export function findInTakeoff<E extends ExistingItem>(rows: Checkable[], existin
     });
   }
   return out;
+}
+
+/** One row per sheet again, for a join the user does not agree with: each sheet keeps its own quantity */
+export function splitAcrossPages<T extends Input & { key: string; pages: number[] }>(row: T): T[] {
+  return row.pages.map((p, i) => ({ ...row, key: i === 0 ? row.key : `${row.key}-p${p}`, page: p, pages: [p], apart: true }));
 }
