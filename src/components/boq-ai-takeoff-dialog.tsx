@@ -3,15 +3,17 @@
 import React, { useMemo, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
-import { PAPER_METERS_PER_UNIT, type PageScale, type TakeoffKind } from '@/domain/boq-takeoff';
+import { PAPER_METERS_PER_UNIT, TILE_NAMES, type PageScale, type TakeoffKind, type TileName } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
 import { checkAgainstDrawing, findInTakeoff, mergeAcrossPages, type ExistingItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
 import { extractTextItems, type TextLine } from '@/domain/text-takeoff';
 import { PageLineReader } from '@/lib/pdf-lines';
 
-/** Long edge of the page image sent to the AI; the drawing's small text needs a sharp image */
-const IMAGE_LONG_EDGE = 2400;
+/** Long edge of each image sent to the AI: the most the model reads at full detail */
+const IMAGE_LONG_EDGE = 2576;
+/** Quarters overlap by this share of the page, so a note on the middle line is whole in one of them */
+const TILE_OVERLAP = 0.06;
 /** One run reads at most this many pages, so a whole drawing set is not sent by mistake */
 const MAX_PAGES_PER_RUN = 200;
 
@@ -48,23 +50,63 @@ const CONFIDENCE: Record<AiTakeoffItem['confidence'], { label: string; cls: stri
   low: { label: 'ควรตรวจ', cls: 'bg-red-50 text-red-700' },
 };
 
-async function pageToJpeg(pdf: PDFDocumentProxy, pageNo: number): Promise<{ base64: string; paperMm: { w: number; h: number } }> {
+const toBase64 = (canvas: HTMLCanvasElement) => {
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+  return dataUrl.slice(dataUrl.indexOf(',') + 1);
+};
+
+/**
+ * The page as the AI sees it: the whole sheet, and with `detailed` also its four quarters at twice
+ * the detail (the page is drawn once at double size and cut up), so small dimension text and
+ * symbols are sharp enough to read and count.
+ */
+async function pageImages(pdf: PDFDocumentProxy, pageNo: number, detailed: boolean): Promise<{ base64: string; tiles: Partial<Record<TileName, string>> | null; paperMm: { w: number; h: number } }> {
   const page = await pdf.getPage(pageNo);
-  const base = page.getViewport({ scale: 1 });
-  const scale = IMAGE_LONG_EDGE / Math.max(base.width, base.height);
-  const viewport = page.getViewport({ scale });
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('canvas');
-  // CAD PDFs are often transparent; JPEG would turn that black
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-  const mm = (units: number) => (units * PAPER_METERS_PER_UNIT * 1000);
-  return { base64: dataUrl.slice(dataUrl.indexOf(',') + 1), paperMm: { w: mm(base.width), h: mm(base.height) } };
+  try {
+    const base = page.getViewport({ scale: 1 });
+    const fit = IMAGE_LONG_EDGE / Math.max(base.width, base.height);
+    const viewport = page.getViewport({ scale: fit * (detailed ? 2 : 1) });
+    const big = document.createElement('canvas');
+    big.width = Math.floor(viewport.width);
+    big.height = Math.floor(viewport.height);
+    const ctx = big.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    // CAD PDFs are often transparent; JPEG would turn that black
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, big.width, big.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const crop = (x: number, y: number, w: number, h: number, scale: number) => {
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * scale));
+      c.height = Math.max(1, Math.round(h * scale));
+      const cx = c.getContext('2d')!;
+      cx.imageSmoothingQuality = 'high';
+      cx.drawImage(big, x, y, w, h, 0, 0, c.width, c.height);
+      const out = toBase64(c);
+      c.width = 0;
+      return out;
+    };
+    const whole = detailed ? crop(0, 0, big.width, big.height, 0.5) : toBase64(big);
+    let tiles: Partial<Record<TileName, string>> | null = null;
+    if (detailed) {
+      tiles = {};
+      const ow = big.width * TILE_OVERLAP;
+      const oh = big.height * TILE_OVERLAP;
+      const w = big.width / 2 + ow;
+      const h = big.height / 2 + oh;
+      const at: Record<TileName, [number, number]> = { topLeft: [0, 0], topRight: [big.width - w, 0], bottomLeft: [0, big.height - h], bottomRight: [big.width - w, big.height - h] };
+      for (const name of TILE_NAMES) {
+        // Each quarter is scaled to the same long edge as the whole sheet
+        tiles[name] = crop(at[name][0], at[name][1], w, h, IMAGE_LONG_EDGE / Math.max(w, h));
+      }
+    }
+    big.width = 0;
+    const mm = (units: number) => units * PAPER_METERS_PER_UNIT * 1000;
+    return { base64: whole, tiles, paperMm: { w: mm(base.width), h: mm(base.height) } };
+  } finally {
+    page.cleanup();
+  }
 }
 
 /** Rows the take-off already holds (e.g. from ถอดแบบอัตโนมัติ) start unticked, so the BOQ does not count them twice */
@@ -88,6 +130,8 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
   const [from, setFrom] = useState(1);
   const [to, setTo] = useState(Math.min(pageCount, MAX_PAGES_PER_RUN));
   const [hint, setHint] = useState('');
+  /** Whole sheet plus four zoomed quarters: reads small text and symbols far better, costs about 5× */
+  const [detailed, setDetailed] = useState(true);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; page: number } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -138,10 +182,11 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
         );
       }
       try {
-        const img = await pageToJpeg(pdf, p);
+        const img = await pageImages(pdf, p, detailed);
         const res = await aiReadTakeoffPageAction(takeoffId, {
           page: p,
           imageBase64: img.base64,
+          ...(img.tiles ? { tiles: img.tiles } : {}),
           paperMm: img.paperMm,
           scaleLabel: scales[String(p)]?.label,
           hint: hint.trim() || undefined,
@@ -323,6 +368,12 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
               <textarea value={hint} disabled={running} onChange={(e) => setHint(e.target.value)} rows={2} maxLength={1000} placeholder="เช่น ถอดเฉพาะงานสถาปัตย์ ผนังสูง 3.00 ม. ไม่ต้องถอดงานระบบ" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
             </label>
           </div>
+          <label className="flex items-start gap-2 text-slate-700">
+            <input type="checkbox" checked={detailed} disabled={running} onChange={(e) => setDetailed(e.target.checked)} className="mt-0.5" />
+            <span>
+              <b>อ่านแบบละเอียดพิเศษ</b> ส่งภาพทั้งแผ่นพร้อมภาพซูม 4 ส่วน (ละเอียดขึ้น 2 เท่า) ให้ AI อ่านตัวเลขบอกระยะตัวเล็กและนับสัญลักษณ์ได้แม่นขึ้น ค่าใช้จ่าย AI ต่อหน้าประมาณ 5 เท่า
+            </span>
+          </label>
           <label className="flex items-start gap-2 text-slate-700">
             <input type="checkbox" checked={checkText} disabled={running} onChange={(e) => setCheckText(e.target.checked)} className="mt-0.5" />
             <span>

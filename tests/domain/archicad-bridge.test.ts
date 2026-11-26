@@ -5,7 +5,7 @@ describe('kindOfUnit', () => {
   it('measures by the BOQ unit', () => {
     expect(kindOfUnit('ม.')).toBe('length');
     expect(kindOfUnit('ตร.ม.')).toBe('area');
-    expect(kindOfUnit('ลบ.ม.')).toBe('area');
+    expect(kindOfUnit('ลบ.ม.')).toBe('volume');
     expect(kindOfUnit('ชุด')).toBe('count');
     expect(kindOfUnit('บาน')).toBe('count');
   });

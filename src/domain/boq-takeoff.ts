@@ -8,13 +8,22 @@ import { D, round2 } from './money';
  * whatever zoom the drawing is viewed at. A page's scale turns those units into metres.
  */
 
-export type TakeoffKind = 'length' | 'area' | 'count';
+export type TakeoffKind = 'length' | 'area' | 'count' | 'volume';
 
 export const TAKEOFF_KINDS: { kind: TakeoffKind; label: string; unit: string }[] = [
   { kind: 'length', label: 'วัดระยะ', unit: 'ม.' },
   { kind: 'area', label: 'วัดพื้นที่', unit: 'ตร.ม.' },
   { kind: 'count', label: 'นับจำนวน', unit: 'จุด' },
+  // Measured as an outline on the plan; the item's factor is the depth (slab thickness, excavation depth)
+  { kind: 'volume', label: 'วัดปริมาตร', unit: 'ลบ.ม.' },
 ];
+
+/** The zoomed quarters of a sheet sent to the AI take-off along with the whole sheet */
+export const TILE_NAMES = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const;
+export type TileName = (typeof TILE_NAMES)[number];
+
+/** Kinds measured by drawing a closed outline on the plan */
+export const isOutlineKind = (kind: TakeoffKind) => kind === 'area' || kind === 'volume';
 
 export const kindLabel = (kind: TakeoffKind) => TAKEOFF_KINDS.find((k) => k.kind === kind)!.label;
 export const defaultUnitOf = (kind: TakeoffKind) => TAKEOFF_KINDS.find((k) => k.kind === kind)!.unit;
@@ -135,6 +144,7 @@ export function measuredValue(m: Measurement, kind: TakeoffKind, scale: PageScal
   if (kind === 'count') return m.points.length;
   if (!scale) return null;
   if (kind === 'length') return polylineLength(m.points) * scale.metersPerUnit;
+  // area and volume: the outline's area; a volume item's factor holds the depth
   const area = polygonArea(m.points) * scale.metersPerUnit ** 2;
   return m.deduct ? -area : area;
 }
@@ -165,12 +175,12 @@ export function itemQuantity(item: TakeoffItem, data: TakeoffData): ItemQuantity
   const perimeter = item.basis === 'perimeter';
   // An outline's perimeter cannot be had from a typed-in area, so a perimeter line leaves it out
   for (const from of source ? [source, item] : [item]) {
-    if (from.fixedQty && !(perimeter && from.kind === 'area')) measured = measured.plus(from.fixedQty);
+    if (from.fixedQty && !(perimeter && isOutlineKind(from.kind))) measured = measured.plus(from.fixedQty);
     for (const m of data.measurements) {
       if (m.itemId !== from.id) continue;
       measurementCount++;
       const scale = data.scales[String(m.page)];
-      const v = perimeter && from.kind === 'area' ? measuredPerimeter(m, scale) : measuredValue(m, from.kind, scale);
+      const v = perimeter && isOutlineKind(from.kind) ? measuredPerimeter(m, scale) : measuredValue(m, from.kind, scale);
       if (v === null) unscaled++;
       else measured = measured.plus(v);
     }
@@ -264,7 +274,7 @@ export const takeoffDataSchema = z.object({
         id: z.string().min(1).max(64),
         category: z.string().trim().max(200),
         description: z.string().trim().min(1, 'กรุณาใส่ชื่อรายการ').max(1000),
-        kind: z.enum(['length', 'area', 'count']),
+        kind: z.enum(['length', 'area', 'count', 'volume']),
         unit: z.string().trim().max(50),
         factor: finite.min(0).max(1e6),
         wastePercent: finite.min(0).max(1000),

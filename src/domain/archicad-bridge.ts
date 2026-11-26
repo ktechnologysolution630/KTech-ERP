@@ -58,12 +58,10 @@ export interface ArchicadRow {
 const COUNT_UNITS = ['ชุด', 'จุด', 'ชิ้น', 'ตัว', 'บ่อ', 'ต้น', 'แผ่น', 'อัน', 'เครื่อง', 'ท่อน', 'เส้น', 'ห้อง', 'ช่อง', 'บาน', 'ลูก', 'หลัง', 'งาน', 'แห่ง', 'คู่', 'ea', 'pcs', 'no', 'nos', 'set'];
 const unitKey = (u: string) => u.replace(/\s+/g, '').replace(/\.$/, '').toLowerCase();
 
-/**
- * Which way the item is measured. A volume (ลบ.ม.) has no tool of its own on the drawing; it is kept as
- * an area item with the model's quantity fixed, so the BOQ line still reads ลบ.ม.
- */
+/** Which way the item is measured, from its BOQ unit */
 export function kindOfUnit(unit: string): TakeoffKind {
   const u = unitKey(unit);
+  if (u === 'ลบ.ม' || u === 'ลูกบาศก์เมตร' || u === 'm3' || u === 'm³' || u === 'cu.m') return 'volume';
   if (u === 'ม' || u === 'เมตร' || u === 'm' || u === 'ม.ย' || u === 'เมตรยาว' || u === 'lm') return 'length';
   if (COUNT_UNITS.includes(u)) return 'count';
   return 'area';

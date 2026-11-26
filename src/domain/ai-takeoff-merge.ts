@@ -1,3 +1,4 @@
+import type { TakeoffKind } from './boq-takeoff';
 import { similar } from './text-takeoff';
 
 /**
@@ -10,7 +11,7 @@ export interface PagedAiItem {
   page: number;
   category: string;
   description: string;
-  kind: 'length' | 'area' | 'count';
+  kind: TakeoffKind;
   unit: string;
   qty: number;
   basis: string;
@@ -75,7 +76,7 @@ export function mergeAcrossPages<T extends Input>(items: T[]): (T & MergedAiItem
 
 export interface WrittenQty {
   description: string;
-  kind: 'length' | 'area' | 'count';
+  kind: TakeoffKind;
   unit: string;
   qty: number;
   pages: number[];
@@ -90,7 +91,7 @@ const SURE_QTY = 20;
 
 interface Checkable {
   description: string;
-  kind: 'length' | 'area' | 'count';
+  kind: TakeoffKind;
   unit: string;
   qty: number;
   scope?: string;
@@ -124,7 +125,7 @@ export function checkAgainstDrawing(rows: Checkable[], written: WrittenQty[]): {
 
 export interface ExistingItem {
   description: string;
-  kind: 'length' | 'area' | 'count';
+  kind: TakeoffKind;
   unit: string;
   qty: number;
 }
