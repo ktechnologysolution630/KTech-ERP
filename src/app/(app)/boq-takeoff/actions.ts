@@ -13,6 +13,7 @@ import {
   type SaveTakeoffInput,
   type TakeoffDocumentDto,
 } from '@/server/services/boq-takeoff';
+import { priceTakeoffItems, type PriceTakeoffInput } from '@/server/services/takeoff-pricing';
 import { consolidateTakeoff, readTakeoffPage, type AiConsolidateRow, type AiTakeoffPage, type AiTakeoffPageInput } from '@/server/services/boq-ai-takeoff';
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string; conflict?: boolean };
@@ -80,4 +81,11 @@ export async function aiConsolidateTakeoffAction(id: string, input: { rows: AiCo
   const actor = await requireWriter();
   const db = await getDb();
   return attempt(async () => ({ result: await consolidateTakeoff(db, actor, id, input) }));
+}
+
+/** Material and labour rates for take-off items: earlier BOQs and POs first, then an AI estimate */
+export async function priceTakeoffAction(id: string, input: PriceTakeoffInput): Promise<Result<{ result: Awaited<ReturnType<typeof priceTakeoffItems>> }>> {
+  const actor = await requireWriter();
+  const db = await getDb();
+  return attempt(async () => ({ result: await priceTakeoffItems(db, actor, id, input) }));
 }

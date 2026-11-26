@@ -7,6 +7,7 @@ import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import {
   AlertCircle,
   ArrowLeft,
+  BadgeDollarSign,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -36,6 +37,7 @@ import {
   defaultUnitOf,
   groupByCategory,
   itemAmount,
+  isOutlineKind,
   itemQuantity,
   kindLabel,
   measuredValue,
@@ -59,6 +61,8 @@ import { SearchSelect } from '@/components/search-select';
 import { AiTakeoffDialog, type AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
 import { AutoTakeoffDialog, type AutoPickedGroup } from '@/components/boq-auto-takeoff-dialog';
 import { ElementDialog } from '@/components/boq-element-dialog';
+import { CadImportDialog, type CadPickedItem } from '@/components/boq-cad-import-dialog';
+import { PricingDialog, withPriceNote, type PriceUpdate } from '@/components/boq-pricing-dialog';
 import { groupToMeasurements } from '@/domain/vector-takeoff';
 
 type Tool = 'select' | 'pan' | 'measure' | 'calibrate';
@@ -90,7 +94,8 @@ function measurementLabel(m: Measurement, item: TakeoffItem, data: TakeoffData):
   const v = measuredValue(m, item.kind, data.scales[String(m.page)]);
   if (item.kind === 'count') return `${m.points.length} จุด`;
   if (v === null) return 'ยังไม่ตั้งสเกล';
-  return item.kind === 'length' ? `${fmt(v)} ม.` : `${m.deduct ? 'หัก ' : ''}${fmt(Math.abs(v))} ตร.ม.`;
+  if (item.kind === 'length') return `${fmt(v)} ม.`;
+  return `${m.deduct ? 'หัก ' : ''}${fmt(Math.abs(v))} ตร.ม.${item.kind === 'volume' ? ` × ${item.factor}` : ''}`;
 }
 
 function centroid(points: Point[]): Point {
@@ -121,6 +126,7 @@ const FACTOR_HINT: Record<TakeoffKind, string> = {
   length: 'เช่น ใส่ความสูงผนัง 3 เพื่อเปลี่ยนความยาวเป็นพื้นที่ผนัง (ตร.ม.) หรือใส่ 1 เพื่อใช้ความยาวตรงๆ',
   area: 'เช่น ใส่ความหนา 0.10 เพื่อเปลี่ยนพื้นที่เป็นปริมาตร (ลบ.ม.) หรือใส่ 1 เพื่อใช้พื้นที่ตรงๆ',
   count: 'เช่น โคมละ 2 หลอด ใส่ 2 หรือใส่ 1 เพื่อใช้จำนวนจุดตรงๆ',
+  volume: 'ใส่ความหนาหรือความลึก (ม.) เช่น พื้นหนา 0.10 หรือขุดดินลึก 1.20 ระบบคูณกับพื้นที่ที่ลากรอบบนแบบเป็น ลบ.ม.',
 };
 
 // ───────────────────────────────── Item dialog ─────────────────────────────────
@@ -151,13 +157,13 @@ function ItemDialog({ item, isNew, categories, onSave, onDelete, onClose }: {
         <div className="space-y-3 p-5">
           <div>
             <span className="font-semibold text-slate-700">วิธีวัด</span>
-            <div className="mt-1 grid grid-cols-3 gap-2">
+            <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {TAKEOFF_KINDS.map((k) => (
                 <button
                   key={k.kind}
                   type="button"
                   disabled={!isNew && k.kind !== item.kind}
-                  onClick={() => setDraft((d) => ({ ...d, kind: k.kind, unit: d.unit === defaultUnitOf(d.kind) || !d.unit ? k.unit : d.unit }))}
+                  onClick={() => setDraft((d) => ({ ...d, kind: k.kind, unit: d.unit === defaultUnitOf(d.kind) || !d.unit ? k.unit : d.unit, factor: k.kind === 'volume' && d.factor === 1 ? 0.1 : d.factor }))}
                   className={`rounded-lg border px-2 py-2 font-semibold disabled:opacity-40 ${draft.kind === k.kind ? 'border-brand bg-blue-50 text-brand' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                 >
                   {k.label}
@@ -185,8 +191,8 @@ function ItemDialog({ item, isNew, categories, onSave, onDelete, onClose }: {
               <input value={draft.unit} onChange={(e) => set('unit', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
             </label>
             <label className="block">
-              <span className="font-semibold text-slate-700">ตัวคูณ</span>
-              <input type="number" step="any" min={0} defaultValue={draft.factor} onChange={(e) => set('factor', Math.max(0, numberOr(e.target.value, 1)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-right" />
+              <span className="font-semibold text-slate-700">{draft.kind === 'volume' ? 'ความหนา/ลึก (ม.)' : 'ตัวคูณ'}</span>
+              <input key={draft.kind} type="number" step="any" min={0} defaultValue={draft.factor} onChange={(e) => set('factor', Math.max(0, numberOr(e.target.value, 1)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-right" />
             </label>
             <label className="block">
               <span className="font-semibold text-slate-700">เผื่อเสีย (%)</span>
@@ -385,6 +391,9 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [sending, setSending] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
+  /** คิดราคา dialog; focusIds = items just added, priced first */
+  const [pricing, setPricing] = useState<{ focusIds?: string[] } | null>(null);
+  const [cadOpen, setCadOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -552,7 +561,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     if (!activeItem) return setDraft([]);
     if (activeItem.kind === 'length' && draft.length >= 2) {
       change((d) => ({ ...d, measurements: [...d.measurements, { id: newId(), itemId: activeItem.id, page, points: draft }] }));
-    } else if (activeItem.kind === 'area' && draft.length >= 3 && polygonArea(draft) > 0) {
+    } else if (isOutlineKind(activeItem.kind) && draft.length >= 3 && polygonArea(draft) > 0) {
       change((d) => ({ ...d, measurements: [...d.measurements, { id: newId(), itemId: activeItem.id, page, points: draft, ...(deductMode ? { deduct: true } : {}) }] }));
     }
     setDraft([]);
@@ -607,7 +616,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return;
     }
     // Clicking back on the first point closes an outline
-    if (activeItem.kind === 'area' && draft.length >= 3) {
+    if (isOutlineKind(activeItem.kind) && draft.length >= 3) {
       const first = draft[0]!;
       if (Math.hypot(first[0] - p[0], first[1] - p[1]) * zoom <= SNAP_PX) return finishDraft();
     }
@@ -763,7 +772,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     setActiveItemId(item.id);
     setDraft([]);
     setTool('measure');
-    if (item.kind !== 'area') setDeductMode(false);
+    if (!isOutlineKind(item.kind)) setDeductMode(false);
   };
 
   const saveItem = (item: TakeoffItem, isNew: boolean) => {
@@ -791,14 +800,15 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     setActiveItemId(main.id);
     setDraft([]);
     setTool('measure');
-    if (main.kind !== 'area') setDeductMode(false);
+    if (!isOutlineKind(main.kind)) setDeductMode(false);
     setNotice(`เพิ่ม ${items.length} รายการแล้ว วัด "${main.description}" บนแบบ รายการอื่นคำนวณตามให้เอง`);
   };
 
   const addAiItems = (picked: AiPickedItem[]) => {
+    const ids = picked.map(() => newId());
     change((d) => {
       const added: TakeoffItem[] = picked.map((p, i) => ({
-        id: newId(),
+        id: ids[i]!,
         category: p.category,
         description: p.description.slice(0, 1000),
         kind: p.kind,
@@ -814,16 +824,20 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return { ...d, items: [...d.items, ...added] };
     });
     setAiOpen(false);
-    setNotice(`เพิ่ม ${picked.length} รายการจาก AI แล้ว ตรวจตัวเลขและกดบันทึก`);
+    setNotice(`เพิ่ม ${picked.length} รายการจาก AI แล้ว ตรวจตัวเลขและราคา แล้วกดบันทึก`);
+    // Quantities are in; the rates follow straight away
+    if (ids.length > 0) setPricing({ focusIds: ids });
   };
 
   const addAutoGroups = (picked: AutoPickedGroup[], written: AiPickedItem[]) => {
+    const writtenIds = written.map(() => newId());
+    const pickedIds = picked.map(() => newId());
     change((d) => {
       const items: TakeoffItem[] = [];
       // Quantities written in the drawing's notes: an item with that quantity, nothing to measure
       written.forEach((p, i) =>
         items.push({
-          id: newId(),
+          id: writtenIds[i]!,
           category: p.category,
           description: p.description.slice(0, 1000),
           kind: p.kind,
@@ -840,7 +854,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       const measurements: Measurement[] = [];
       picked.forEach((p, i) => {
         const item: TakeoffItem = {
-          id: newId(),
+          id: pickedIds[i]!,
           category: p.category,
           description: p.description.slice(0, 1000),
           kind: p.group.kind,
@@ -858,7 +872,51 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return { ...d, items: [...d.items, ...items], measurements: [...d.measurements, ...measurements] };
     });
     setAutoOpen(false);
-    setNotice(`เพิ่ม ${picked.length + written.length} รายการจากการถอดแบบอัตโนมัติแล้ว ตรวจบนแบบแล้วกดบันทึก`);
+    setNotice(`เพิ่ม ${picked.length + written.length} รายการจากการถอดแบบอัตโนมัติแล้ว ตรวจบนแบบและราคา แล้วกดบันทึก`);
+    const ids = [...writtenIds, ...pickedIds];
+    if (ids.length > 0) setPricing({ focusIds: ids });
+  };
+
+  const addCadItems = (picked: CadPickedItem[]) => {
+    const ids = picked.map(() => newId());
+    change((d) => ({
+      ...d,
+      items: [
+        ...d.items,
+        ...picked.map(
+          (p, i): TakeoffItem => ({
+            id: ids[i]!,
+            category: p.category,
+            description: p.description.slice(0, 1000),
+            kind: p.kind,
+            unit: p.unit || defaultUnitOf(p.kind),
+            factor: p.factor,
+            wastePercent: 0,
+            materialRate: '',
+            laborRate: '',
+            color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
+            note: p.note.slice(0, 500),
+            fixedQty: p.qty,
+          }),
+        ),
+      ],
+    }));
+    setCadOpen(false);
+    setNotice(`เพิ่ม ${picked.length} รายการจากไฟล์ CAD แล้ว ตรวจตัวเลขและราคา แล้วกดบันทึก`);
+    if (ids.length > 0) setPricing({ focusIds: ids });
+  };
+
+  const applyPrices = (updates: PriceUpdate[]) => {
+    const byId = new Map(updates.map((u) => [u.id, u]));
+    change((d) => ({
+      ...d,
+      items: d.items.map((i) => {
+        const u = byId.get(i.id);
+        return u ? { ...i, materialRate: u.materialRate, laborRate: u.laborRate, note: u.priceNote ? withPriceNote(i.note, u.priceNote) : i.note } : i;
+      }),
+    }));
+    setPricing(null);
+    setNotice(`ใส่ราคาวัสดุและค่าแรงให้ ${updates.length} รายการแล้ว ตรวจแล้วกดบันทึก`);
   };
 
   const setScalesByPage = (ratioByPage: Record<number, number>) => {
@@ -956,6 +1014,12 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         <button type="button" onClick={() => setAiOpen(true)} disabled={!pdf} className="flex items-center gap-1 rounded-lg border border-brand px-2.5 py-1.5 font-semibold text-brand hover:bg-blue-50 disabled:opacity-40" title="ให้ AI อ่านแบบแล้วแยกเป็นรายการ BOQ">
           <Sparkles className="h-3.5 w-3.5" /> AI ถอดแบบ
         </button>
+        <button type="button" onClick={() => setCadOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="อ่านความยาว พื้นที่ จำนวน จากไฟล์ CAD (DXF) โดยตรง ไม่ต้องตั้งสเกล">
+          <FileUp className="h-3.5 w-3.5" /> CAD (DXF)
+        </button>
+        <button type="button" onClick={() => setPricing({})} disabled={data.items.length === 0} className="flex items-center gap-1 rounded-lg border border-emerald-600 px-2.5 py-1.5 font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40" title="ใส่ราคาวัสดุและค่าแรงต่อหน่วยให้ทุกรายการ จาก BOQ/PO เดิม และ AI ประมาณราคาที่ไม่มี">
+          <BadgeDollarSign className="h-3.5 w-3.5" /> คิดราคา
+        </button>
         <button type="button" onClick={() => void exportExcel()} disabled={data.items.length === 0} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40" title="ดาวน์โหลดเป็นไฟล์ Excel แบบฟอร์ม BOQ">
           <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" /> Excel
         </button>
@@ -1002,7 +1066,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
               {toolButton('select', <MousePointer2 className="h-3.5 w-3.5" />, 'เลือก/ลบ', 'V')}
               {toolButton('measure', <Pencil className="h-3.5 w-3.5" />, activeItem ? kindLabel(activeItem.kind) : 'วัด', 'M', !activeItem)}
               {toolButton('calibrate', <Crosshair className="h-3.5 w-3.5" />, 'วัดเทียบสเกล', '-')}
-              {activeItem?.kind === 'area' && tool === 'measure' && (
+              {activeItem && isOutlineKind(activeItem.kind) && tool === 'measure' && (
                 <label className="ml-1 flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1.5 font-semibold text-amber-800">
                   <input type="checkbox" checked={deductMode} onChange={(e) => setDeductMode(e.target.checked)} /> หักช่องเปิด
                 </label>
@@ -1055,7 +1119,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                 ) : activeItem.kind === 'length' ? (
                   `คลิกทีละจุดตามแนว "${activeItem.description}" ดับเบิลคลิกหรือกด Enter เพื่อจบเส้น · Shift = แนวตรง · Backspace = ลบจุดล่าสุด · Esc = ยกเลิก`
                 ) : (
-                  `คลิกรอบขอบพื้นที่ "${activeItem.description}" แล้วคลิกจุดแรกหรือกด Enter เพื่อปิดรูป · ติ๊ก "หักช่องเปิด" เพื่อวัดส่วนที่ต้องหักออก`
+                  `คลิกรอบขอบพื้นที่ "${activeItem.description}" แล้วคลิกจุดแรกหรือกด Enter เพื่อปิดรูป · ติ๊ก "หักช่องเปิด" เพื่อวัดส่วนที่ต้องหักออก${activeItem.kind === 'volume' ? ` · ระบบคูณความหนา/ลึก ${activeItem.factor} ม. เป็น ลบ.ม.` : ''}`
                 )
               ) : tool === 'select' ? (
                 'คลิกเส้น พื้นที่ หรือจุดที่วัดไว้เพื่อเลือก แล้วกด Delete เพื่อลบ'
@@ -1126,7 +1190,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                                 <polyline points={pts} fill="none" stroke={item.color} strokeWidth={isSel ? sw + 2 : sw} vectorEffect="non-scaling-stroke" strokeLinejoin="round" onPointerDown={(e) => pick(e)} />
                               </>
                             )}
-                            {item.kind === 'area' && (
+                            {isOutlineKind(item.kind) && (
                               <polygon
                                 points={pts}
                                 fill={item.color}
@@ -1159,13 +1223,13 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                       {/* Shape being drawn */}
                       {tool === 'measure' && activeItem && draft.length > 0 && (
                         <g style={{ pointerEvents: 'none' }}>
-                          {activeItem.kind === 'area' ? (
+                          {isOutlineKind(activeItem.kind) ? (
                             <polygon points={[...draft, ...(cursor ? [cursor] : [])].map((p) => p.join(',')).join(' ')} fill={activeItem.color} fillOpacity={0.15} stroke={activeItem.color} strokeDasharray={deductMode ? '6 4' : '4 3'} strokeWidth={sw} vectorEffect="non-scaling-stroke" />
                           ) : (
                             <polyline points={[...draft, ...(cursor ? [cursor] : [])].map((p) => p.join(',')).join(' ')} fill="none" stroke={activeItem.color} strokeDasharray="4 3" strokeWidth={sw} vectorEffect="non-scaling-stroke" />
                           )}
                           {draft.map((p, i) => (
-                            <circle key={i} cx={p[0]} cy={p[1]} r={i === 0 && activeItem.kind === 'area' ? r * 1.4 : r * 0.7} fill="#fff" stroke={activeItem.color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                            <circle key={i} cx={p[0]} cy={p[1]} r={i === 0 && isOutlineKind(activeItem.kind) ? r * 1.4 : r * 0.7} fill="#fff" stroke={activeItem.color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
                           ))}
                           {cursor && pageScale && (
                             <text x={cursor[0] + 10 / zoom} y={cursor[1] - 10 / zoom} fontSize={fontSize} fill="#0f172a" fontWeight={700} paintOrder="stroke" stroke="#fff" strokeWidth={3 / zoom}>
@@ -1311,6 +1375,11 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                                   <span className="shrink-0 text-right font-mono font-semibold text-slate-900">
                                     {fmt(q.qty, item.kind === 'count' && item.factor === 1 && !item.wastePercent ? 0 : 2)}
                                     <span className="ml-0.5 font-sans font-normal text-slate-500">{item.unit}</span>
+                                    {(item.materialRate !== '' || item.laborRate !== '') && (
+                                      <span className="block font-sans font-normal text-emerald-700" title={`วัสดุ ${item.materialRate === '' ? '-' : fmt(item.materialRate)} + แรง ${item.laborRate === '' ? '-' : fmt(item.laborRate)} บาท/${item.unit}`}>
+                                        {fmt(itemAmount(item, q.qty))} บ.
+                                      </span>
+                                    )}
                                   </span>
                                 </button>
                                 <button type="button" onClick={() => setItemDialog({ item, isNew: false })} className="rounded p-0.5 text-slate-400 hover:text-slate-700" title="แก้ไขรายการ">
@@ -1402,6 +1471,17 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           existing={existingForAi}
           onAdd={addAiItems}
           onClose={() => setAiOpen(false)}
+        />
+      )}
+      {cadOpen && <CadImportDialog categories={categories} onAdd={addCadItems} onClose={() => setCadOpen(false)} />}
+      {pricing && (
+        <PricingDialog
+          takeoffId={doc.id}
+          items={data.items}
+          quantities={quantities}
+          focusIds={pricing.focusIds}
+          onApply={applyPrices}
+          onClose={() => setPricing(null)}
         />
       )}
       {elementOpen && (

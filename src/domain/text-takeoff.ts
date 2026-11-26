@@ -111,7 +111,7 @@ const RULES: Rule[] = [
   {
     // ปริมาตร 12.5 ลูกบาศก์เมตร
     re: new RegExp(String.raw`(?:ปริมาตร|ปริมาณ)${ABOUT}${NUM}\s*(ลูกบาศก์เมตร|ลบ\.?\s?ม\.?)`, 'g'),
-    kind: 'count',
+    kind: 'volume',
     unit: () => 'ลบ.ม.',
     qty: (m) => num(m[1]!),
   },
