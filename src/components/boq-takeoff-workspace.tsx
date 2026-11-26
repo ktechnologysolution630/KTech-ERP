@@ -7,11 +7,13 @@ import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import {
   AlertCircle,
   ArrowLeft,
+  Box,
   BadgeDollarSign,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  FileBox,
   FileSpreadsheet,
   FileUp,
   Hand,
@@ -61,6 +63,8 @@ import { SearchSelect } from '@/components/search-select';
 import { AiTakeoffDialog, type AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
 import { AutoTakeoffDialog, type AutoPickedGroup } from '@/components/boq-auto-takeoff-dialog';
 import { ElementDialog } from '@/components/boq-element-dialog';
+import { ArchicadDialog, type ArchicadPickedItem } from '@/components/boq-archicad-dialog';
+import { IfcImportDialog } from '@/components/boq-ifc-import-dialog';
 import { CadImportDialog, type CadPickedItem } from '@/components/boq-cad-import-dialog';
 import { PricingDialog, withPriceNote, type PriceUpdate } from '@/components/boq-pricing-dialog';
 import { groupToMeasurements } from '@/domain/vector-takeoff';
@@ -391,6 +395,8 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [sending, setSending] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
+  const [archicadOpen, setArchicadOpen] = useState(false);
+  const [ifcOpen, setIfcOpen] = useState(false);
   /** คิดราคา dialog; focusIds = items just added, priced first */
   const [pricing, setPricing] = useState<{ focusIds?: string[] } | null>(null);
   const [cadOpen, setCadOpen] = useState(false);
@@ -829,6 +835,31 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     if (ids.length > 0) setPricing({ focusIds: ids });
   };
 
+  const addArchicadItems = (picked: ArchicadPickedItem[], from = 'Archicad') => {
+    const ids = picked.map(() => newId());
+    change((d) => {
+      const added: TakeoffItem[] = picked.map((p, i) => ({
+        id: ids[i]!,
+        category: p.category,
+        description: p.description,
+        kind: p.kind,
+        unit: p.unit || defaultUnitOf(p.kind),
+        factor: 1,
+        wastePercent: 0,
+        materialRate: '',
+        laborRate: '',
+        color: ITEM_COLORS[(d.items.length + i) % ITEM_COLORS.length]!,
+        note: p.note,
+        fixedQty: p.qty,
+      }));
+      return { ...d, items: [...d.items, ...added] };
+    });
+    setArchicadOpen(false);
+    setIfcOpen(false);
+    setNotice(`เพิ่ม ${picked.length} รายการจาก ${from} แล้ว ตรวจตัวเลขและราคา แล้วกดบันทึก`);
+    if (ids.length > 0) setPricing({ focusIds: ids });
+  };
+
   const addAutoGroups = (picked: AutoPickedGroup[], written: AiPickedItem[]) => {
     const writtenIds = written.map(() => newId());
     const pickedIds = picked.map(() => newId());
@@ -1013,6 +1044,12 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
         </button>
         <button type="button" onClick={() => setAiOpen(true)} disabled={!pdf} className="flex items-center gap-1 rounded-lg border border-brand px-2.5 py-1.5 font-semibold text-brand hover:bg-blue-50 disabled:opacity-40" title="ให้ AI อ่านแบบแล้วแยกเป็นรายการ BOQ">
           <Sparkles className="h-3.5 w-3.5" /> AI ถอดแบบ
+        </button>
+        <button type="button" onClick={() => setArchicadOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="ดึงปริมาณจากโมเดล Archicad ที่เปิดอยู่บนเครื่องนี้">
+          <Box className="h-3.5 w-3.5 text-brand" /> ดึงจาก Archicad
+        </button>
+        <button type="button" onClick={() => setIfcOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="นำเข้าปริมาณจากไฟล์ IFC ที่ export จาก Archicad หรือโปรแกรม BIM อื่น">
+          <FileBox className="h-3.5 w-3.5 text-brand" /> นำเข้า IFC
         </button>
         <button type="button" onClick={() => setCadOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="อ่านความยาว พื้นที่ จำนวน จากไฟล์ CAD (DXF) โดยตรง ไม่ต้องตั้งสเกล">
           <FileUp className="h-3.5 w-3.5" /> CAD (DXF)
@@ -1461,6 +1498,8 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           onClose={() => setAutoOpen(false)}
         />
       )}
+      {ifcOpen && <IfcImportDialog existing={existingForAi} onAdd={(items) => addArchicadItems(items, 'ไฟล์ IFC')} onClose={() => setIfcOpen(false)} />}
+      {archicadOpen && <ArchicadDialog existing={existingForAi} onAdd={addArchicadItems} onClose={() => setArchicadOpen(false)} />}
       {aiOpen && pdf && (
         <AiTakeoffDialog
           takeoffId={doc.id}
