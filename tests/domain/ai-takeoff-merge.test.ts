@@ -43,10 +43,10 @@ describe('AI items read on several sheets', () => {
 describe('merging as sheets arrive', () => {
   it('joins a new sheet to a row merged earlier and keeps what the row carries', () => {
     const first = mergeAcrossPages([{ ...item(14, 'ถนนลาดยาง', 1800), key: 'a', picked: false }]);
-    first[0]!.description = 'ถนนลาดยาง (แก้ชื่อแล้ว)';
-    const next = mergeAcrossPages([...first, { ...item(16, 'ก่อสร้างถนนลาดยางหนา 5 ซม.', 1800), key: 'b', picked: true }]);
+    first[0]!.description = 'ถนนลาดยาง หนา 5 ซม';
+    const next = mergeAcrossPages([...first, { ...item(16, 'ถนนลาดยาง หนา 5 ซม.', 1800), key: 'b', picked: true }]);
     expect(next).toHaveLength(1);
-    expect(next[0]).toMatchObject({ key: 'a', picked: false, pages: [14, 16], page: 14, description: 'ถนนลาดยาง (แก้ชื่อแล้ว)' });
+    expect(next[0]).toMatchObject({ key: 'a', picked: false, pages: [14, 16], page: 14, description: 'ถนนลาดยาง หนา 5 ซม' });
   });
 });
 
@@ -113,5 +113,78 @@ describe('findInTakeoff pairs one row per item', () => {
       [{ description: 'ปรับปรุงประตูเหล็กดัดอิตาลี', kind: 'length', unit: 'ม.', qty: 1800 }],
     );
     expect(hits.map((h) => (h ? 'dup' : 'new'))).toEqual(['dup', 'new']);
+  });
+});
+
+describe('same material, different places', () => {
+  const at = (page: number, description: string, qty: number, extra: Partial<PagedAiItem>, unit = 'จุด', kind: PagedAiItem['kind'] = 'count'): PagedAiItem => ({ ...item(page, description, qty, unit, kind), ...extra });
+
+  it('never joins what two sheets each show, even with the same name and count', () => {
+    const merged = mergeAcrossPages([
+      at(20, 'บ่อพัก คสล. 0.90x1.50 ม.', 4, { scope: 'this_sheet' }, 'บ่อ'),
+      at(21, 'บ่อพัก คสล. 0.90x1.50 ม.', 4, { scope: 'this_sheet' }, 'บ่อ'),
+    ]);
+    expect(merged.map((m) => m.pages)).toEqual([[20], [21]]);
+  });
+
+  it('joins one segment drawn twice only when both name the same place', () => {
+    const merged = mergeAcrossPages([
+      at(30, 'ท่อ HDPE เข้าบ่อ', 2, { scope: 'this_sheet', location: 'ลานจอดรถหน้าอาคาร' }),
+      at(31, 'ท่อ HDPE เข้าบ่อ', 2, { scope: 'this_sheet', location: 'ลานจอดรถหน้าอาคาร' }),
+      at(32, 'ท่อ HDPE เข้าบ่อ', 2, { scope: 'this_sheet', location: 'ริมคลอง' }),
+    ]);
+    expect(merged.map((m) => m.pages)).toEqual([[30, 31], [32]]);
+  });
+
+  it('keeps totals that name different places apart', () => {
+    const merged = mergeAcrossPages([
+      at(14, 'ทางเท้าคอนกรีตพิมพ์ลาย', 615, { location: 'โซน A' }, 'ตร.ม.', 'area'),
+      at(16, 'ทางเท้าคอนกรีตพิมพ์ลาย', 615, { location: 'โซน B' }, 'ตร.ม.', 'area'),
+      at(18, 'ทางเท้าคอนกรีตพิมพ์ลาย', 615, {}, 'ตร.ม.', 'area'),
+    ]);
+    expect(merged.map((m) => m.pages)).toEqual([[14, 18], [16]]);
+  });
+
+  it('keeps different sizes and different typical details apart, joins the same detail', () => {
+    const merged = mergeAcrossPages([
+      at(40, 'ท่อ HDPE Ø 300 มม.', 120, {}, 'ม.', 'length'),
+      at(41, 'ท่อ HDPE Ø 400 มม.', 120, {}, 'ม.', 'length'),
+      at(50, 'พื้นบ่อพัก คสล.', 1.35, { scope: 'per_unit', perUnitOf: 'บ่อพัก คสล. 1 1 บ่อ' }, 'ตร.ม.', 'area'),
+      at(51, 'พื้นบ่อพัก คสล.', 1.35, { scope: 'per_unit', perUnitOf: 'บ่อพัก คสล. 2 1 บ่อ' }, 'ตร.ม.', 'area'),
+      at(58, 'พื้นบ่อพัก คสล.', 1.35, { scope: 'per_unit', perUnitOf: 'บ่อพัก คสล. 1 1 บ่อ' }, 'ตร.ม.', 'area'),
+    ]);
+    expect(merged.map((m) => m.pages)).toEqual([[40], [41], [50, 58], [51]]);
+  });
+
+  it('does not join work that only shares a word', () => {
+    const merged = mergeAcrossPages([
+      at(60, 'ยาแนวคอนกรีตคาดรอบปากท่อระบายน้ำ HDPE', 2, {}),
+      at(61, 'เทคอนกรีตหยาบคาดท้องท่อ (ครึ่งท่อ)', 2, {}),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+});
+
+describe('splitting a join the user does not agree with', () => {
+  it('gives each sheet its own row and keeps them apart as more sheets arrive', async () => {
+    const { splitAcrossPages } = await import('@/domain/ai-takeoff-merge');
+    const [joined] = mergeAcrossPages([{ ...item(14, 'ท่อ HDPE', 40), key: 'a' }, { ...item(16, 'ท่อ HDPE', 40), key: 'b' }]);
+    expect(joined!.pages).toEqual([14, 16]);
+    const split = splitAcrossPages(joined!);
+    expect(split.map((r) => [r.key, r.pages])).toEqual([['a', [14]], ['a-p16', [16]]]);
+    const later = mergeAcrossPages([...split, { ...item(18, 'ท่อ HDPE', 40), key: 'c' }]);
+    expect(later.map((r) => r.pages)).toEqual([[14], [16], [18]]);
+  });
+});
+
+describe('one place worded differently on each sheet', () => {
+  it('joins a job total whose place is written a little differently', () => {
+    const merged = mergeAcrossPages([
+      { ...item(14, 'บ่อพัก คสล. ขนาด 0.90×1.50 ม. ฝั่งเดียว', 90, 'บ่อ', 'count'), location: 'ถนนภายในสวนสมเด็จพระศรีนครินทร์ STA 0+000–0+1,800' },
+      { ...item(16, 'บ่อพัก คสล. ขนาด 0.90×1.50 ม. ฝั่งเดียว', 90, 'บ่อ', 'count'), location: 'แนวถนนภายในสวนสมเด็จพระศรีนครินทร์' },
+      { ...item(17, 'ท่อ HDPE', 40), location: 'ลานจอดรถหน้าอาคาร' },
+      { ...item(18, 'ท่อ HDPE', 40), location: 'ริมคลองด้านทิศเหนือ' },
+    ]);
+    expect(merged.map((m) => m.pages)).toEqual([[14, 16], [17], [18]]);
   });
 });

@@ -6,7 +6,7 @@ import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, TILE_NAMES, type PageScale, type TakeoffKind, type TileName } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
-import { checkAgainstDrawing, findInTakeoff, mergeAcrossPages, type ExistingItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
+import { checkAgainstDrawing, findInTakeoff, mergeAcrossPages, splitAcrossPages, type ExistingItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
 import { extractTextItems, type TextLine } from '@/domain/text-takeoff';
 import { PageLineReader } from '@/lib/pdf-lines';
 
@@ -34,6 +34,8 @@ interface Row extends AiTakeoffItem {
   page: number;
   pages: number[];
   picked: boolean;
+  /** Split apart by the user: never joined with another sheet again */
+  apart?: boolean;
 }
 
 type PageMode = 'current' | 'all' | 'range';
@@ -291,6 +293,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
         qty: r.qty,
         scope: r.scope,
         perUnitOf: r.perUnitOf.slice(0, 200),
+        location: (r.location ?? '').slice(0, 200),
         basis: r.basis.slice(0, 500),
       })),
       ].filter((r) => r.qty > 0),
@@ -474,7 +477,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
           )}
           {rows.length > 0 && !perSheet && readCount > rows.length && (
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-800">
-              AI อ่านได้ {readCount.toLocaleString()} รายการ เป็นรายการเดียวกันที่เขียนซ้ำในหลายแผ่น {(readCount - rows.length).toLocaleString()} รายการ จึงรวมไว้เหลือ {rows.length.toLocaleString()} รายการ (ช่อง “หน้า” บอกทุกแผ่นที่พบ) ไม่นับซ้ำ
+              AI อ่านได้ {readCount.toLocaleString()} รายการ เป็นรายการเดียวกันที่เขียนซ้ำในหลายแผ่น {(readCount - rows.length).toLocaleString()} รายการ จึงรวมไว้เหลือ {rows.length.toLocaleString()} รายการ (ช่อง “หน้า” บอกทุกแผ่นที่พบ) ไม่นับซ้ำ รวมเฉพาะที่ชื่อ ขนาด ปริมาณ หน่วย และตำแหน่งตรงกันทั้งหมด วัสดุเดียวกันคนละจุดแยกไว้ ถ้าแถวไหนไม่ใช่รายการซ้ำ กด <b>แยกรายแผ่น</b>
             </p>
           )}
           {rows.length > 0 && (
@@ -501,6 +504,16 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                       </td>
                       <td className="px-2 py-1.5 align-top text-slate-500" title={r.pages.length > 1 ? `พบซ้ำ ${r.pages.length} แผ่น` : undefined}>
                         {r.pages.length > 4 ? `${r.pages.slice(0, 3).join(', ')} … (${r.pages.length} แผ่น)` : r.pages.join(', ')}
+                        {r.pages.length > 1 && !perSheet && (
+                          <button
+                            type="button"
+                            onClick={() => setRows((x) => x.flatMap((y) => (y.key === r.key ? splitAcrossPages(y) : [y])))}
+                            className="mt-1 block rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                            title="แยกเป็นรายการละแผ่น เมื่อเป็นวัสดุเดียวกันแต่คนละจุด"
+                          >
+                            แยกรายแผ่น
+                          </button>
+                        )}
                       </td>
                       <td className="px-2 py-1.5 align-top">
                         <input value={r.category} onChange={(e) => update(r.key, { category: e.target.value })} className="w-32 rounded border border-slate-200 px-1.5 py-1" aria-label="หมวดงาน" />
@@ -548,6 +561,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                             {r.scope === 'per_unit' && r.perUnitOf ? `: ${r.perUnitOf}` : ''}
                           </span>
                         )}
+                        {r.location && <span className="mr-1 inline-block rounded bg-violet-50 px-1.5 py-0.5 font-semibold text-violet-700">ที่ {r.location}</span>}
                         {r.basis}
                       </td>
                     </tr>
