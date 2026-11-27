@@ -22,7 +22,7 @@ const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_PHOTO_BYTES = 4.5 * 1024 * 1024;
 
 const primaryButton = 'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60';
-const secondaryButton = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60';
+const secondaryButton = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-4 py-3 font-semibold sm:px-3 sm:py-2 text-slate-700 hover:bg-slate-50 disabled:opacity-60';
 
 function locationErrorMessage(err: GeolocationPositionError): string {
   if (err.code === err.PERMISSION_DENIED) return 'เบราว์เซอร์ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง กรุณาเปิดสิทธิ์ตำแหน่งของเว็บนี้แล้วกดลองใหม่';
@@ -181,13 +181,13 @@ function ConfirmStep({ preview, location, busy, error, onSubmit, onBack }: { pre
             <span className="mb-1 block font-medium text-slate-700">
               รายละเอียด <span className="text-red-500">*</span>
             </span>
-            <textarea required rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-hidden" />
+            <textarea required rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base focus:border-brand focus:outline-hidden sm:text-xs" />
           </label>
           <div className="flex justify-between gap-2">
             <button type="button" onClick={() => setReportingProblem(false)} disabled={busy} className={secondaryButton}>
               ย้อนกลับ
             </button>
-            <button type="submit" disabled={busy} className="rounded-lg bg-amber-600 px-4 py-2 font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
+            <button type="submit" disabled={busy} className="rounded-lg bg-amber-600 px-4 py-3 font-semibold sm:py-2 text-white hover:bg-amber-700 disabled:opacity-60">
               {busy ? 'กำลังบันทึก...' : 'บันทึกปัญหา'}
             </button>
           </div>

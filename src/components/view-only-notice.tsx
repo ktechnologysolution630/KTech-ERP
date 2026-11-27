@@ -2,7 +2,8 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { Eye } from 'lucide-react';
-import { isMobileDevice, VIEW_ONLY_COOKIE, VIEW_ONLY_MESSAGE } from '@/domain/view-only-device';
+import { usePathname } from 'next/navigation';
+import { isAnyDevicePath, isMobileDevice, VIEW_ONLY_COOKIE, VIEW_ONLY_MESSAGE } from '@/domain/view-only-device';
 
 const YEAR_SECONDS = 60 * 60 * 24 * 365;
 // What the device is never changes while the page is open
@@ -17,6 +18,7 @@ const onTheServer = () => false;
  */
 export function ViewOnlyNotice() {
   const viewOnly = useSyncExternalStore(subscribe, onThisDevice, onTheServer);
+  const pathname = usePathname();
 
   useEffect(() => {
     const marked = document.cookie.split('; ').includes(`${VIEW_ONLY_COOKIE}=1`);
@@ -25,7 +27,8 @@ export function ViewOnlyNotice() {
     if (!viewOnly && marked) document.cookie = `${VIEW_ONLY_COOKIE}=; path=/; max-age=0; samesite=lax`;
   }, [viewOnly]);
 
-  if (!viewOnly) return null;
+  // The cookie is still set above: it matters on the next page. The notice would be wrong on a menu phones may write in.
+  if (!viewOnly || isAnyDevicePath(pathname ?? '')) return null;
   return (
     <div role="status" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900 md:px-6 print:hidden">
       <Eye className="h-4 w-4 shrink-0" />

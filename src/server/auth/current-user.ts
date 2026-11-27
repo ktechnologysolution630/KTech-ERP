@@ -33,8 +33,9 @@ export async function requireUser(): Promise<SessionUser> {
 }
 
 /**
- * The signed-in user, for the vehicle menu only: drivers take vehicles out, send their position and
- * bring them back from a phone too. Every other action that writes asks `requireWriter`.
+ * The signed-in user, for the menus that phones may write in (ANY_DEVICE_PATHS): vehicles, where
+ * drivers take vehicles out and bring them back, and asset checks, done on site by scanning a label.
+ * Every other action that writes asks `requireWriter`.
  */
 export async function requireUserOnAnyDevice(): Promise<SessionUser> {
   return requireUser();

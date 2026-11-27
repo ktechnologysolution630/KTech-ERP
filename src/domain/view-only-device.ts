@@ -7,14 +7,15 @@
 /** Set by the browser itself once it finds it is a phone or tablet that calls itself a computer */
 export const VIEW_ONLY_COOKIE = 'ktec_view_only';
 export const VIEW_ONLY_PATH = '/view-only';
-export const VIEW_ONLY_MESSAGE = 'มือถือและแท็บเล็ตใช้ดูและอนุมัติเอกสารได้เท่านั้น การสร้างหรือแก้ไขเอกสารต้องทำบนโน้ตบุ๊กหรือคอมพิวเตอร์ (ยกเว้นเมนูการใช้รถ)';
+export const VIEW_ONLY_MESSAGE = 'มือถือและแท็บเล็ตใช้ดูและอนุมัติเอกสารได้เท่านั้น การสร้างหรือแก้ไขเอกสารต้องทำบนโน้ตบุ๊กหรือคอมพิวเตอร์ (ยกเว้นเมนูการใช้รถและตรวจเช็คทรัพย์สิน)';
 
 /**
- * The one exception the owner allowed: drivers use their phones to take a vehicle out, send where it
- * is and bring it back, so the vehicle pages stay writable on any device.
+ * The exceptions the owner allowed, written from any device:
+ * - vehicles (2026-11-11): drivers take a vehicle out, send where it is and bring it back from a phone
+ * - asset checks (2026-11-27): staff walk the site, scan each asset's QR label and check it from a phone
  */
-export const ANY_DEVICE_PATH = '/vehicles';
-export const isAnyDevicePath = (pathname: string) => pathname === ANY_DEVICE_PATH || pathname.startsWith(`${ANY_DEVICE_PATH}/`);
+export const ANY_DEVICE_PATHS = ['/vehicles', '/assets'] as const;
+export const isAnyDevicePath = (pathname: string) => ANY_DEVICE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
 /**
  * Phones and tablets as their browsers name themselves: iPhone, iPad, Android of every make (Samsung,

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, Download, FileUp, History, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from 'lucide-react';
+import { ClipboardCheck, Download, FileUp, History, MapPin, Pencil, Plus, QrCode, ScanLine, Search, Trash2 } from 'lucide-react';
 import {
   ASSET_CATEGORIES,
   ASSET_CHECK_STATE_LABELS,
@@ -14,6 +14,7 @@ import {
   INSPECTION_DUE_LABELS,
   INSPECTION_RESULT_LABELS,
   accuracyText,
+  findScannedAsset,
   mapLinkUrl,
   needsInspection,
   type AssetCheckState,
@@ -32,6 +33,7 @@ import { SearchSelect } from '@/components/search-select';
 
 const LabelsDialog = dynamic(() => import('./asset-tools').then((m) => m.LabelsDialog), { ssr: false });
 const ImportDialog = dynamic(() => import('./asset-tools').then((m) => m.ImportDialog), { ssr: false });
+const AssetScanner = dynamic(() => import('./asset-scanner').then((m) => m.AssetScanner), { ssr: false });
 
 type ProjectOption = { id: string; label: string };
 type View = 'ALL' | 'NEEDS_CHECK' | 'PROBLEM' | 'RETIRED' | 'STOCK';
@@ -43,7 +45,7 @@ const VIEW_LABELS: Record<View, string> = {
   RETIRED: 'ปลดระวาง',
   STOCK: 'ไม่ตรงกับสต๊อก',
 };
-const fieldClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-brand focus:outline-hidden disabled:bg-slate-50';
+const fieldClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base sm:text-xs focus:border-brand focus:outline-hidden disabled:bg-slate-50';
 const labelClass = 'mb-1 block font-medium text-slate-700';
 const dateText = (d: string | null) => (d ? formatThaiDate(d) : '-');
 
@@ -404,16 +406,100 @@ function StockCheckSection({ lines }: { lines: AssetPage['stockCheck'] }) {
   );
 }
 
+/** Phones get one card per asset with a large check button instead of the wide table */
+function MobileAssetList({
+  rows,
+  canManage,
+  canSeeValue,
+  selected,
+  onToggle,
+  onInspect,
+  onHistory,
+  onEdit,
+}: {
+  rows: AssetRow[];
+  canManage: boolean;
+  canSeeValue: boolean;
+  selected: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+  onInspect: (r: AssetRow) => void;
+  onHistory: (r: AssetRow) => void;
+  onEdit: (r: AssetRow) => void;
+}) {
+  return (
+    <ul className="divide-y divide-slate-100 border-t border-slate-100 md:hidden">
+      {rows.map((r) => {
+        const state = assetCheckState(r.status, r.lastResult, r.due);
+        return (
+          <li key={r.id} className="space-y-3 px-4 py-4">
+            <div className="flex items-start gap-3">
+              <input type="checkbox" checked={selected.has(r.id)} onChange={() => onToggle(r.id)} aria-label={`เลือก ${r.code}`} className="mt-1 h-5 w-5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 break-words text-sm font-semibold text-slate-900">{r.name}</p>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${CHECK_STATE_CLASS[state]}`}>{ASSET_CHECK_STATE_LABELS[state]}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  <span className="font-mono">{r.code}</span>
+                  {r.category && ` · ${r.category}`}
+                  {r.serialNo && ` · ${r.serialNo}`}
+                </p>
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-600">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span className="truncate">
+                    {r.projectName ?? 'สำนักงาน'}
+                    {r.custodian && ` · ${r.custodian}`}
+                  </span>
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                  <span className="text-slate-500">ตรวจล่าสุด {dateText(r.lastInspectedOn)}</span>
+                  <span className={`font-medium ${DUE_CLASS[r.due]}`}>
+                    {r.nextDueOn ? `ถัดไป ${dateText(r.nextDueOn)} · ` : ''}
+                    {INSPECTION_DUE_LABELS[r.due]}
+                  </span>
+                </div>
+                {r.lastResult && r.lastResult !== 'GOOD' && <p className="mt-1 text-xs font-medium text-rose-700">ผลล่าสุด: {INSPECTION_RESULT_LABELS[r.lastResult]}</p>}
+                {canSeeValue && r.depreciation && <p className="mt-1 text-xs text-slate-500">มูลค่าตามบัญชี <span className="font-mono text-slate-800">{formatMoneyDisplay(r.depreciation.bookValue)}</span></p>}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {r.canInspect && (
+                <button type="button" onClick={() => onInspect(r)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white active:bg-blue-700">
+                  <ClipboardCheck className="h-5 w-5" /> ตรวจเช็ค
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onHistory(r)}
+                className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 active:bg-slate-50 ${r.canInspect ? '' : 'flex-1'}`}
+                aria-label={`ประวัติการตรวจ ${r.code}`}
+              >
+                <History className="h-5 w-5" />
+                {!r.canInspect && 'ประวัติการตรวจ'}
+              </button>
+              {canManage && (
+                <button type="button" onClick={() => onEdit(r)} className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-3 text-slate-700 active:bg-slate-50" aria-label={`แก้ไข ${r.code}`}>
+                  <Pencil className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function Tile({ label, value, active, tone, onClick }: { label: string; value: number; active: boolean; tone: string; onClick: () => void }) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-xl border bg-white p-4 text-left shadow-xs transition hover:border-slate-300 ${active ? 'border-brand ring-1 ring-brand' : 'border-slate-200'}`}
+      className={`rounded-xl border bg-white p-3 text-left shadow-xs sm:p-4 transition hover:border-slate-300 ${active ? 'border-brand ring-1 ring-brand' : 'border-slate-200'}`}
     >
       <div className={`text-xs font-semibold ${tone}`}>{label}</div>
-      <div className="mt-1 font-mono text-2xl font-bold text-slate-900">{value}</div>
+      <div className="mt-0.5 font-mono text-xl font-bold text-slate-900 sm:mt-1 sm:text-2xl">{value}</div>
     </button>
   );
 }
@@ -444,6 +530,36 @@ export function AssetsClient({
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  /** The check form was opened from the scanner: closing it goes back to scanning the next label */
+  const [fromScan, setFromScan] = useState(false);
+  const [lastScanned, setLastScanned] = useState<string | null>(null);
+
+  const openScanner = () => {
+    setScanMessage(null);
+    setScanning(true);
+  };
+  const handleScan = (text: string) => {
+    const found = findScannedAsset(text, rows);
+    if (!found) {
+      setScanMessage(`ไม่พบทรัพย์สินจากรหัสนี้ หรือคุณไม่มีสิทธิ์ดูทรัพย์สินชิ้นนี้ (${text.length > 60 ? `${text.slice(0, 60)}…` : text})`);
+      return;
+    }
+    setScanning(false);
+    setFromScan(true);
+    setLastScanned(text);
+    if (found.canInspect) setInspecting(found);
+    else setHistory(found);
+  };
+  const closeScanned = () => {
+    setInspecting(null);
+    setHistory(null);
+    if (fromScan) {
+      setFromScan(false);
+      openScanner();
+    }
+  };
 
   useEffect(() => {
     // Reloading after a check must not reopen the form for the asset that was just scanned
@@ -499,16 +615,25 @@ export function AssetsClient({
           <h1 className="text-xl font-bold tracking-tight text-slate-900">ตรวจเช็คทรัพย์สิน</h1>
           <p className="mt-0.5 text-xs text-slate-500">ทะเบียนทรัพย์สิน กำหนดตรวจ และผลการตรวจเช็คแต่ละครั้ง</p>
         </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setImporting(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-              <FileUp className="h-4 w-4" /> นำเข้าจาก Excel
-            </button>
-            <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
-              <Plus className="h-4 w-4" /> เพิ่มทรัพย์สิน
-            </button>
-          </div>
-        )}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={openScanner}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-700 sm:flex-none sm:px-3 sm:py-2 sm:text-xs"
+          >
+            <ScanLine className="h-5 w-5 sm:h-4 sm:w-4" /> สแกน QR ตรวจเช็ค
+          </button>
+          {canManage && (
+            <>
+              <button type="button" onClick={() => setImporting(true)} className="hidden items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:inline-flex">
+                <FileUp className="h-4 w-4" /> นำเข้าจาก Excel
+              </button>
+              <button type="button" onClick={() => setEditing('new')} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 sm:px-3 sm:py-2 sm:text-xs">
+                <Plus className="h-4 w-4" /> เพิ่ม<span className="hidden sm:inline">ทรัพย์สิน</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {linkMissing && (
@@ -534,14 +659,14 @@ export function AssetsClient({
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <div className="flex flex-wrap items-center gap-2 p-4">
-          <label className="relative">
+          <label className="relative w-full sm:w-auto">
             <span className="sr-only">ค้นหา</span>
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหารหัส ชื่อ หมายเลข ผู้ดูแล..." className={`${fieldClass} w-64 pl-8`} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหารหัส ชื่อ หมายเลข ผู้ดูแล..." className={`${fieldClass} pl-8 sm:w-64`} />
           </label>
-          <label>
+          <label className="w-full sm:w-auto">
             <span className="sr-only">ที่อยู่</span>
-            <SearchSelect value={location} onChange={(e) => setLocation(e.target.value)} className={`${fieldClass} w-64`}>
+            <SearchSelect value={location} onChange={(e) => setLocation(e.target.value)} className={`${fieldClass} sm:w-64`}>
               <option value="ALL">ทุกที่อยู่</option>
               <option value="OFFICE">สำนักงาน</option>
               {projects.map((p) => (
@@ -551,7 +676,7 @@ export function AssetsClient({
               ))}
             </SearchSelect>
           </label>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
             {canDelete && (
               <button
                 type="button"
@@ -584,7 +709,9 @@ export function AssetsClient({
             {rows.length === 0 ? (canManage ? 'ยังไม่มีทรัพย์สิน กด "เพิ่มทรัพย์สิน" เพื่อเริ่มต้น' : 'ยังไม่มีทรัพย์สินที่คุณดูแล') : 'ไม่พบทรัพย์สินที่ตรงกับตัวกรอง'}
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <MobileAssetList rows={shown} canManage={canManage} canSeeValue={canSeeValue} selected={selected} onToggle={toggleOne} onInspect={setInspecting} onHistory={setHistory} onEdit={setEditing} />
+          <div className="hidden overflow-x-auto md:block">
             <table className={`w-full text-xs ${canSeeValue ? 'min-w-[1120px]' : 'min-w-[960px]'}`}>
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
@@ -666,13 +793,15 @@ export function AssetsClient({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
       )}
 
       {editing && <AssetFormDialog asset={editing === 'new' ? null : editing} projects={projects} stockItems={stockItems} onClose={() => setEditing(null)} />}
-      {inspecting && <AssetCheckDialog asset={inspecting} onClose={() => setInspecting(null)} />}
-      {history && <HistoryDialog asset={history} onClose={() => setHistory(null)} />}
+      {inspecting && <AssetCheckDialog asset={inspecting} onClose={closeScanned} />}
+      {history && <HistoryDialog asset={history} onClose={closeScanned} />}
+      {scanning && <AssetScanner onScan={handleScan} onClose={() => setScanning(false)} message={scanMessage} ignore={lastScanned} />}
       {printing && <LabelsDialog assets={printing} onClose={() => setPrinting(null)} />}
       {importing && <ImportDialog onClose={() => setImporting(false)} />}
       {deleting && selectedRows.length > 0 && (
