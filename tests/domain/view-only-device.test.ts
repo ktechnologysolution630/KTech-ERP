@@ -50,7 +50,7 @@ describe('which devices may only look and approve', () => {
 
   test('pages made only for writing are not opened', () => {
     for (const p of ['/pr/new', '/po/new', '/po/8f1c/edit', '/sales/quotations/new', '/ar/invoices/new', '/receive/8f1c']) expect(isEditingPath(p)).toBe(true);
-    for (const p of ['/pr', '/pr/8f1c', '/po/8f1c', '/receive', '/inbox', '/news', '/projects/8f1c/boq', '/', '/vehicles/new', '/vehicles/8f1c']) expect(isEditingPath(p)).toBe(false);
+    for (const p of ['/pr', '/pr/8f1c', '/po/8f1c', '/receive', '/inbox', '/news', '/projects/8f1c/boq', '/', '/vehicles/new', '/vehicles/8f1c', '/assets', '/assets/new']) expect(isEditingPath(p)).toBe(false);
   });
 });
 
@@ -65,8 +65,9 @@ describe('every action that writes refuses a view-only device', () => {
     'loadFleetLiveAction', 'loadTripRouteAction',
     'itemUsageAction',
   ];
-  /** The vehicle menu: written from any device, phones included, by the owner's decision of 2026-11-11 */
-  const ANY_DEVICE_DIR = 'vehicles/';
+  /** Written from any device, phones included: vehicles (owner, 2026-11-11) and asset checks (owner, 2026-11-27) */
+  const ANY_DEVICE_DIRS = ['vehicles/', 'assets/'];
+  const inAnyDeviceDir = (file: string) => ANY_DEVICE_DIRS.some((d) => file.startsWith(d));
   /**
    * Approving and refusing: what a phone or tablet may do besides looking (owner, 2026-11-11). The PRV
    * and milestone actions also hold other steps, which they keep behind the writer check themselves.
@@ -95,7 +96,7 @@ describe('every action that writes refuses a view-only device', () => {
     expect(actions.length).toBeGreaterThan(140);
     const helperWrites = (file: string) => /async function ctx\(\) \{\s*return \{ actor: await requireWriter\(\)/.test(sources.find((s) => s.file === file)!.text);
     const anyDeviceHelper = (file: string) => /async function ctx\(\) \{\s*return \{ actor: await requireUserOnAnyDevice\(\)/.test(sources.find((s) => s.file === file)!.text);
-    const vehicleAction = (a: (typeof actions)[number]) => a.file.startsWith(ANY_DEVICE_DIR) && (a.block.includes('requireUserOnAnyDevice()') || (a.block.includes('await ctx()') && anyDeviceHelper(a.file)));
+    const vehicleAction = (a: (typeof actions)[number]) => inAnyDeviceDir(a.file) && (a.block.includes('requireUserOnAnyDevice()') || (a.block.includes('await ctx()') && anyDeviceHelper(a.file)));
     const decision = (a: (typeof actions)[number]) => DECISIONS.includes(a.name) && (a.block.includes('requireDecider()') || a.block.includes('await decideCtx()'));
     const guarded = (a: (typeof actions)[number]) =>
       (a.block.includes('requireWriter()') && !a.block.includes('requireDecider()')) || (a.block.includes('await ctx()') && helperWrites(a.file)) || vehicleAction(a) || decision(a);
@@ -114,10 +115,11 @@ describe('every action that writes refuses a view-only device', () => {
     expect(milestone.block).toMatch(/approvalOnly/);
   });
 
-  test('only the vehicle menu may write from any device', () => {
-    const outside = sources.filter((s) => !s.file.startsWith(ANY_DEVICE_DIR) && s.text.includes('requireUserOnAnyDevice'));
+  test('only the vehicle and asset check menus may write from any device', () => {
+    const outside = sources.filter((s) => !inAnyDeviceDir(s.file) && s.text.includes('requireUserOnAnyDevice'));
     expect(outside.map((s) => s.file)).toEqual([]);
-    expect(actions.filter((a) => a.file.startsWith(ANY_DEVICE_DIR)).length).toBeGreaterThan(5);
+    expect(actions.filter((a) => a.file.startsWith('vehicles/')).length).toBeGreaterThan(5);
+    expect(actions.filter((a) => a.file.startsWith('assets/') && a.block.includes('requireUserOnAnyDevice()')).map((a) => a.name)).toContain('confirmAssetCheckAction');
   });
 
   test('the read-only actions never go through the writer check, so looking still works', () => {

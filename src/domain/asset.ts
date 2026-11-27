@@ -222,3 +222,21 @@ export function reconcileAssetsWithStock(
     })
     .sort((a, b) => Number(a.matches) - Number(b.matches) || a.sku.localeCompare(b.sku));
 }
+
+/**
+ * Which asset a scanned QR points at. Labels hold `<origin>/assets?asset=<id>`;
+ * a hand-typed asset code (e.g. AST-6911-0003) or a bare id also works.
+ */
+export function findScannedAsset<T extends { id: string; code: string }>(scanned: string, assets: readonly T[]): T | undefined {
+  const text = scanned.trim();
+  if (!text) return undefined;
+  let key = text;
+  try {
+    const fromUrl = new URL(text).searchParams.get('asset');
+    if (fromUrl) key = fromUrl;
+  } catch {
+    // not a URL: a code or an id
+  }
+  const lower = key.toLowerCase();
+  return assets.find((a) => a.id === key) ?? assets.find((a) => a.code.toLowerCase() === lower);
+}
