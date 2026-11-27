@@ -12,7 +12,6 @@ export default async function AccountingSettingsPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold text-slate-900">ตั้งค่าบัญชีและภาษี</h1>
-        <p className="text-xs text-slate-500">จัดการข้อมูลกลางของระบบบัญชีและการเงิน</p>
       </div>
       <section className="rounded-xl border border-slate-200 bg-white">
         <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-bold text-slate-900">เลขรันเอกสาร</h2>

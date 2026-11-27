@@ -103,7 +103,7 @@ export function PrvFormClient({
       </div>
 
       <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-[#102d72] to-[#1e40af] text-white p-5">
+        <div className="bg-[#102d72] text-white p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
               <Receipt className="h-5 w-5" />

@@ -12,7 +12,6 @@ export default async function ProfilePage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold text-slate-900">โปรไฟล์ของฉัน</h1>
-        <p className="text-xs text-slate-500">ข้อมูลผู้ใช้งานและลายเซ็นดิจิทัลสำหรับลงในเอกสาร</p>
       </div>
       <dl className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-2">
         <div>

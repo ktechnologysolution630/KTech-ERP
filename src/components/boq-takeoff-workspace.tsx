@@ -26,7 +26,7 @@ import {
   Save,
   ScanLine,
   Send,
-  Sparkles,
+  ScanText,
   Trash2,
   Undo2,
   X,
@@ -1043,7 +1043,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           <ScanLine className="h-3.5 w-3.5" /> ถอดแบบอัตโนมัติ
         </button>
         <button type="button" onClick={() => setAiOpen(true)} disabled={!pdf} className="flex items-center gap-1 rounded-lg border border-brand px-2.5 py-1.5 font-semibold text-brand hover:bg-blue-50 disabled:opacity-40" title="ให้ AI อ่านแบบแล้วแยกเป็นรายการ BOQ">
-          <Sparkles className="h-3.5 w-3.5" /> AI ถอดแบบ
+          <ScanText className="h-3.5 w-3.5" /> AI ถอดแบบ
         </button>
         <button type="button" onClick={() => setArchicadOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-50" title="ดึงปริมาณจากโมเดล Archicad ที่เปิดอยู่บนเครื่องนี้">
           <Box className="h-3.5 w-3.5 text-brand" /> ดึงจาก Archicad

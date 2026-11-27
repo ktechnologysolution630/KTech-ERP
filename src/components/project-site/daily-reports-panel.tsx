@@ -270,7 +270,7 @@ const FORECAST_ICON: [RegExp, React.ComponentType<{ className?: string }>][] = [
 /** Forecast for the report date; the weather picked below it is what goes on the report. */
 function ForecastCard({ projectId, date }: { projectId: string; date: string }) {
   const { data } = useSiteLoader(() => loadForecastAction(projectId, date), [projectId, date]);
-  const box = 'rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-amber-50 p-3.5 shadow-sm';
+  const box = 'rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm';
   if (!data) return <div className={`${box} py-10 text-center text-[11px] text-slate-500`}>กำลังโหลดพยากรณ์อากาศ...</div>;
   if (data.status !== 'OK') {
     const message =

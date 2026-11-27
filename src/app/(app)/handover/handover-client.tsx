@@ -167,7 +167,6 @@ export function HandoverClient({
         <div>
           <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">AFTER SERVICE & HANDOVER</div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1">ส่งมอบโครงการ</h1>
-          <p className="text-xs text-slate-500 mt-0.5">นัดส่งมอบ บันทึกการตรวจรับของลูกค้า และเริ่มระยะรับประกันผลงาน</p>
         </div>
         {canDelete && <BulkDeleteBar />}
       </div>

@@ -75,7 +75,6 @@ export function CustomersClient({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">ลูกค้า</h1>
-          <p className="text-xs text-slate-500">ข้อมูลลูกค้าสำหรับใบแจ้งหนี้ ใบเสร็จรับเงิน/ใบกำกับภาษี และใบลดหนี้</p>
         </div>
         <div className="flex gap-2">
           {canDelete && <BulkDeleteBar />}

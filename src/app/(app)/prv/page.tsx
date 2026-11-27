@@ -36,7 +36,7 @@ export default async function PrvListPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-white shadow-md shadow-amber-500/20">
+          <div className="h-9 w-9 rounded-xl bg-amber-500 flex items-center justify-center text-white">
             <Receipt className="h-5 w-5" />
           </div>
           <div>

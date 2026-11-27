@@ -2,7 +2,7 @@
 
 import React, { useMemo, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
+import { AlertCircle, Layers, Loader2, ScanText, Undo2, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, TILE_NAMES, type PageScale, type TakeoffKind, type TileName } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
@@ -341,7 +341,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
       <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-xs shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
-            <Sparkles className="h-4 w-4 text-brand" /> AI ถอดแบบจากไฟล์ PDF
+            <ScanText className="h-4 w-4 text-brand" /> AI ถอดแบบจากไฟล์ PDF
           </h3>
           <button type="button" onClick={onClose} disabled={running} className="text-slate-400 hover:text-slate-600 disabled:opacity-40" title="ปิด">
             <X className="h-4 w-4" />
@@ -594,7 +594,7 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
           <button type="button" onClick={run} disabled={running || joining || tooMany || pages.length === 0} className="flex items-center gap-1.5 rounded-lg border border-brand px-3 py-2 font-semibold text-brand hover:bg-blue-50 disabled:opacity-50">
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanText className="h-3.5 w-3.5" />}
             {rows.length > 0 || notes.length > 0 ? 'ให้ AI อ่านใหม่' : `เริ่มให้ AI อ่าน ${pages.length} หน้า`}
           </button>
           <div className="flex gap-2">

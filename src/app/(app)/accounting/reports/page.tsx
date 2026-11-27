@@ -105,7 +105,6 @@ export default async function AccountingReportsPage({ searchParams }: { searchPa
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">รายงานบัญชี</h1>
-          <p className="text-xs text-slate-500">รายงานรายรับ รายจ่าย ภาษีขาย ภาษีซื้อ และยอดหัก ณ ที่จ่ายจากเอกสารบัญชี</p>
         </div>
         <PrintButton label="พิมพ์ A4 / PDF" />
       </div>

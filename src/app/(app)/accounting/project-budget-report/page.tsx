@@ -20,7 +20,6 @@ export default async function ProjectBudgetReportPage({ searchParams }: { search
       <div className="space-y-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900">รายงานงบประมาณโครงการ</h1>
-          <p className="text-xs text-slate-500">รายงานงบตั้งต้นจาก BOQ เทียบกับยอดใช้ไปจากใบสั่งซื้อและบิลจ่ายออก</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {projects.length === 0 && <p className="text-sm text-slate-500">ยังไม่มีโครงการ</p>}

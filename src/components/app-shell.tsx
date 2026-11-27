@@ -947,7 +947,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
         {/* Bottom Profile in Sidebar (Images 2-5) */}
         <div className="p-3 border-t border-black/[0.05] shrink-0">
           <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="flex items-center gap-2.5 rounded-lg hover:bg-slate-50">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-b from-blue-400 to-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
               {initials}
             </div>
             {!collapsed && (
@@ -997,7 +997,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
             />
 
             {/* User Avatar Circle */}
-            <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="w-8 h-8 rounded-full bg-gradient-to-b from-slate-400 to-slate-600 ring-2 ring-white overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+            <Link href="/profile" prefetch={false} title="โปรไฟล์ / ลายเซ็น" className="w-8 h-8 rounded-full bg-slate-500 ring-2 ring-white overflow-hidden flex items-center justify-center text-white text-xs font-semibold shadow-sm">
               <span>{initials}</span>
             </Link>
 

@@ -136,7 +136,6 @@ export function ProjectCashflowView({ projectId }: ProjectCashflowViewProps) {
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-900">รายรับ/รายจ่าย (12 เดือน)</h3>
-              <p className="text-xs text-slate-400 mt-0.5">เปรียบเทียบเงินเข้า-ออกรายเดือนของโครงการนี้</p>
             </div>
             <div className="text-[11px] font-mono text-slate-500">สูงสุด {compact(maxBar)}</div>
           </div>

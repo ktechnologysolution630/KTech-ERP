@@ -55,7 +55,6 @@ export function StockDocHistoryView({
           <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
             <History className="h-4 w-4" /> ประวัติเอกสารที่บันทึก
           </h2>
-          <p className="text-xs text-slate-500">เอกสารรับเข้า จ่ายออก โอนย้าย และยืม ที่บันทึกในระบบ พร้อมผู้บันทึกและเหตุผล</p>
         </div>
         <div className="flex items-center gap-2">
           {canDelete && <BulkDeleteBar />}

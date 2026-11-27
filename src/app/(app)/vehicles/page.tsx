@@ -33,7 +33,6 @@ export default async function VehicleTripsPage({ searchParams }: { searchParams:
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">การใช้รถ</h1>
-          <p className="text-xs text-slate-500">ขอใช้รถ รอการอนุมัติ รับรถ ส่งตำแหน่งระหว่างขับ และคืนรถ</p>
         </div>
         <div className="flex items-center gap-2">
           {canDelete && <BulkDeleteBar />}
