@@ -9,6 +9,7 @@ import type { AdvanceList } from '@/server/services/advances';
 import { BulkDeleteBar, BulkDeleteProvider, SelectAllBox, SelectBox } from '@/components/bulk-delete';
 import { deleteAdvancesAction } from '@/app/(app)/accounting/delete-actions';
 import { requestAdvanceAction } from './actions';
+import { StretchTabs } from '@/components/stretch-tabs';
 import { SearchSelect } from '@/components/search-select';
 
 type Tab = 'all' | 'clearing' | 'outstanding';
@@ -66,24 +67,17 @@ export function AdvancesClient({
         </div>
       </div>
 
-      <nav className="flex gap-2 border-b border-slate-200 pb-2 text-xs">
-        {(
-          [
-            ['all', 'ใบขอเงินทดรอง'],
-            ['clearing', 'เคลียร์เงินทดรอง'],
-            ['outstanding', 'เงินทดรองคงค้าง'],
-          ] as [Tab, string][]
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setTab(k)}
-            className={`px-3 py-1.5 rounded-lg ${tab === k ? 'bg-blue-50 text-brand font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      <StretchTabs
+        ariaLabel="เงินทดรอง"
+        size="md"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'all' as Tab, label: 'ใบขอเงินทดรอง' },
+          { value: 'clearing' as Tab, label: 'เคลียร์เงินทดรอง' },
+          { value: 'outstanding' as Tab, label: 'เงินทดรองคงค้าง' },
+        ]}
+      />
 
       <div className="flex flex-wrap gap-2 text-xs">
         <SearchSelect aria-label="ผู้รับเงิน" value={payee} onChange={(e) => setPayee(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg">

@@ -1,66 +1,14 @@
 'use client';
 
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { gsap } from 'gsap';
+import { StretchTabs } from '@/components/stretch-tabs';
 import { compactNumber, niceAxisMax } from '@/domain/chart';
 import { formatMoneyDisplay } from '@/domain/money';
 
 const baht = (n: number) => formatMoneyDisplay(n, 0);
 
-/* ------------------------------------------------------------------ */
-/* Segmented control with a pill that slides to the chosen option      */
-/* ------------------------------------------------------------------ */
-
-export function SegmentedControl<T extends string>({
-  options,
-  value,
-  onChange,
-  size = 'sm',
-  ariaLabel,
-}: {
-  options: { value: T; label: React.ReactNode }[];
-  value: T;
-  onChange: (v: T) => void;
-  size?: 'sm' | 'md';
-  ariaLabel: string;
-}) {
-  const box = useRef<HTMLDivElement>(null);
-  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const el = box.current?.querySelector<HTMLButtonElement>(`[data-value="${CSS.escape(value)}"]`);
-      if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth });
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [value, options.length]);
-
-  return (
-    <div ref={box} role="tablist" aria-label={ariaLabel} className="relative inline-flex max-w-full overflow-x-auto rounded-full bg-slate-100 p-1 [scrollbar-width:none]">
-      {pill && (
-        <span
-          aria-hidden
-          className="absolute bottom-1 top-1 rounded-full bg-white shadow-sm ring-1 ring-black/5 motion-safe:transition-[left,width] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(.2,.8,.2,1)]"
-          style={{ left: pill.left, width: pill.width }}
-        />
-      )}
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="tab"
-          aria-selected={o.value === value}
-          data-value={o.value}
-          onClick={() => onChange(o.value)}
-          className={`relative z-10 shrink-0 whitespace-nowrap rounded-full font-medium transition-colors ${size === 'md' ? 'px-3.5 py-1.5 text-xs' : 'px-3 py-1 text-[11px]'} ${o.value === value ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ------------------------------------------------------------------ */
 /* Sparkline                                                            */
@@ -195,6 +143,17 @@ export function YearAtAGlance({ months, views }: { months: { label: string; full
   const x = (i: number) => (months.length <= 1 ? W / 2 : (i / (months.length - 1)) * W);
   const y = (v: number) => padT + (1 - v / axisMax) * (H - padT - padB);
 
+  // Each time the view changes the lines are drawn in from the left, like a pen across the chart
+  const wipe = useRef<SVGRectElement>(null);
+    useLayoutEffect(() => {
+    if (!wipe.current || reducedMotion()) return;
+    const tl = gsap.timeline();
+    tl.fromTo(wipe.current, { attr: { width: 0 } }, { attr: { width: W + 20 }, duration: 1.1, ease: 'power2.inOut' });
+    return () => {
+      tl.kill();
+    };
+  }, [viewKey, largest]);
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -208,7 +167,7 @@ export function YearAtAGlance({ months, views }: { months: { label: string; full
             </span>
           ))}
         </div>
-        <SegmentedControl ariaLabel="เลือกกราฟ" options={views.map((v) => ({ value: v.key, label: v.label }))} value={viewKey} onChange={(k) => { setViewKey(k); setActive(null); }} />
+        <StretchTabs ariaLabel="เลือกกราฟ" options={views.map((v) => ({ value: v.key, label: v.label }))} value={viewKey} onChange={(k) => { setViewKey(k); setActive(null); }} />
       </div>
 
       {largest === 0 ? (
@@ -226,6 +185,9 @@ export function YearAtAGlance({ months, views }: { months: { label: string; full
             <div className="relative h-52" onMouseLeave={() => setActive(null)}>
               <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
                 <defs>
+                  <clipPath id={`yw-${view.key}`}>
+                    <rect ref={wipe} x={-10} y={-20} width={W + 20} height={H + 40} />
+                  </clipPath>
                   {view.series.map((s) => (
                     <linearGradient key={s.key} id={`yg-${view.key}-${s.key}`} x1="0" x2="0" y1="0" y2="1">
                       <stop offset="0%" stopColor={s.color} stopOpacity={0.18} />
@@ -236,6 +198,7 @@ export function YearAtAGlance({ months, views }: { months: { label: string; full
                 {[1, 0.5, 0].map((t) => (
                   <line key={t} x1={0} x2={W} y1={y(axisMax * t)} y2={y(axisMax * t)} stroke={t === 0 ? '#d2d2d7' : '#f0f0f2'} strokeWidth={1} vectorEffect="non-scaling-stroke" />
                 ))}
+                <g clipPath={`url(#yw-${view.key})`}>
                 {view.series.map((s) => {
                   const pts = s.values.map((v, i) => [x(i), y(v)] as const);
                   const line = smoothPath(pts);
@@ -246,6 +209,7 @@ export function YearAtAGlance({ months, views }: { months: { label: string; full
                     </g>
                   );
                 })}
+                </g>
                 {active !== null && <line x1={x(active)} x2={x(active)} y1={padT} y2={H - padB} stroke="#86868b" strokeWidth={1} strokeDasharray="2 3" vectorEffect="non-scaling-stroke" />}
               </svg>
               {active !== null &&
@@ -317,9 +281,21 @@ export function YearAtAGlance({ months, views }: { months: { label: string; full
 export function TabbedPanel({ tabs }: { tabs: { key: string; label: string; count?: number; tone?: 'red' | 'amber'; content: React.ReactNode }[] }) {
   const [key, setKey] = useState(tabs[0]!.key);
   const tab = tabs.find((t) => t.key === key) ?? tabs[0]!;
+  const panel = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (!panel.current || reducedMotion()) return;
+    const rows = panel.current.querySelectorAll('tbody tr, li');
+    gsap.fromTo(panel.current, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' });
+    if (rows.length) gsap.fromTo(rows, { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.035, ease: 'power2.out', delay: 0.05 });
+  }, [key]);
   return (
     <div>
-      <SegmentedControl
+      <StretchTabs
         ariaLabel="เลือกรายการ"
         size="md"
         value={key}
@@ -342,9 +318,52 @@ export function TabbedPanel({ tabs }: { tabs: { key: string; label: string; coun
           ),
         }))}
       />
-      <div role="tabpanel" className="mt-4">
+      <div ref={panel} role="tabpanel" className="mt-4">
         {tab.content}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Section bar: stays under the header, the pill follows the scroll    */
+/* ------------------------------------------------------------------ */
+
+export function SectionNav({ sections }: { sections: { id: string; label: string }[] }) {
+  const [current, setCurrent] = useState(sections[0]!.id);
+  const jumping = useRef<number | null>(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (jumping.current !== null) return;
+      // The last section whose top has passed the line just below the sticky bars
+      let id = sections[0]!.id;
+      for (const s of sections) {
+        const el = document.getElementById(s.id);
+        if (el && el.getBoundingClientRect().top <= 140) id = s.id;
+      }
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) id = sections[sections.length - 1]!.id;
+      setCurrent(id);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [sections]);
+
+  const go = (id: string) => {
+    setCurrent(id);
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (jumping.current !== null) window.clearTimeout(jumping.current);
+    jumping.current = window.setTimeout(() => {
+      jumping.current = null;
+    }, 900);
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 120, behavior: reducedMotion() ? 'auto' : 'smooth' });
+  };
+
+  return (
+    <div className="sticky top-16 z-20 flex justify-center">
+      <StretchTabs ariaLabel="ไปที่หัวข้อ" variant="dark" size="md" options={sections.map((s) => ({ value: s.id, label: s.label }))} value={current} onChange={go} />
     </div>
   );
 }

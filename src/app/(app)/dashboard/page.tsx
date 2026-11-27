@@ -8,7 +8,7 @@ import { getDashboardOverview, getOwnerDashboard, getSalesStockSnapshot } from '
 import { formatMoneyDisplay } from '@/domain/money';
 import { PROJECT_STATUS_LABELS } from '@/domain/project';
 import { bangkokDateString } from '@/domain/thai';
-import { CashNetBars, Sparkline, TabbedPanel, YearAtAGlance } from './dashboard-visuals';
+import { CashNetBars, SectionNav, Sparkline, TabbedPanel, YearAtAGlance } from './dashboard-visuals';
 
 const CASH_IN = '#0071e3';
 const CASH_OUT = '#eb6834';
@@ -21,8 +21,8 @@ const baht = (n: number) => formatMoneyDisplay(n, 0);
 const num = (s: string | number) => Number(s) || 0;
 const shortDate = (iso: string) => `${Number(iso.slice(8, 10))} ${monthName(iso)}`;
 
-function Card({ className = '', children }: { className?: string; children: React.ReactNode }) {
-  return <section className={`rounded-3xl border border-slate-200/70 bg-white p-5 shadow-xs ${className}`}>{children}</section>;
+function Card({ className = '', id, children }: { className?: string; id?: string; children: React.ReactNode }) {
+  return <section id={id} className={`scroll-mt-32 rounded-3xl border border-slate-200/70 bg-white p-5 shadow-xs ${className}`}>{children}</section>;
 }
 
 function CardHead({ icon, title, action }: { icon: React.ReactNode; title: string; action?: React.ReactNode }) {
@@ -182,8 +182,18 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <SectionNav
+        sections={[
+          { id: 'dash-today', label: 'วันนี้' },
+          { id: 'dash-kpi', label: 'ตัวเลขหลัก' },
+          { id: 'dash-trend', label: 'การเงิน 12 เดือน' },
+          { id: 'dash-projects', label: 'โครงการและสต็อก' },
+          { id: 'dash-follow', label: 'ติดตามการจ่าย' },
+        ]}
+      />
+
       {/* Greeting + cash */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <div id="dash-today" className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card className="flex flex-col xl:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -291,7 +301,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div id="dash-kpi" className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           tone="dark"
           label="ยอดขายเดือนนี้"
@@ -325,7 +335,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Year at a glance + receivables/payables */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <div id="dash-trend" className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHead icon={<CalendarRange className="h-3.5 w-3.5" />} title="ภาพรวม 12 เดือน" />
           <div className="mt-4">
@@ -395,7 +405,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Projects + stock */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <div id="dash-projects" className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHead icon={<FolderKanban className="h-3.5 w-3.5" />} title="โครงการที่เปิดอยู่" action={<PillLink href="/timeline">ดู Timeline</PillLink>} />
           {overview.projects.length === 0 ? (
@@ -489,7 +499,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Payables follow-up, in tabs */}
-      <Card>
+      <Card id="dash-follow">
         <CardHead icon={<Landmark className="h-3.5 w-3.5" />} title="ติดตามการจ่ายเงินและจัดซื้อ" />
         <div className="mt-4">
           <TabbedPanel

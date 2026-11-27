@@ -1018,7 +1018,7 @@ export function AppShell({ user, unreadCount = 0, companyName, companyNameEn, lo
         <KeepServerAwake />
 
         {/* Page Content Body */}
-        <main className="flex-1 p-4 md:p-6 xl:p-8 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 xl:p-8 overflow-x-clip">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

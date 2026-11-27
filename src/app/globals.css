@@ -235,3 +235,11 @@ body {
     box-shadow: none;
   }
 }
+
+/* Softer, rounder cards inside the app (the printed document forms use their own boxes and are not touched) */
+main :where(.bg-white.border.rounded-xl) {
+  border-radius: 1rem;
+}
+main :where(.bg-white.border.rounded-2xl) {
+  border-radius: 1.25rem;
+}

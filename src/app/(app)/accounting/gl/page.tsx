@@ -11,6 +11,7 @@ import { PrintButton } from '../print-button';
 import { money, selectCls } from '../shared';
 import { AccountsClient, RepostButton } from './gl-client';
 import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { StretchTabs } from '@/components/stretch-tabs';
 import { SearchSelect } from '@/components/search-select';
 
 type Tab = 'journal' | 'trial' | 'ledger' | 'accounts';
@@ -58,17 +59,12 @@ export default async function GlPage({ searchParams }: { searchParams: Promise<S
           {canManage && <RepostButton />}
         </div>
       </div>
-      <nav className="flex flex-wrap gap-1 border-b border-slate-200">
-        {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={`/accounting/gl?${qs({ tab: t.key, from: sp.from, to: sp.to })}`}
-            className={`rounded-t-lg px-4 py-2 text-sm ${tab === t.key ? 'border border-b-white border-slate-200 bg-white font-semibold text-brand' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+      <StretchTabs
+        ariaLabel="สมุดบัญชี"
+        size="md"
+        value={tab}
+        options={TABS.map((t) => ({ value: t.key, label: t.label, href: `/accounting/gl?${qs({ tab: t.key, from: sp.from, to: sp.to })}` }))}
+      />
       {tab === 'journal' && <JournalTab sp={sp} from={from} to={to} />}
       {tab === 'trial' && <TrialTab from={from} to={to} />}
       {tab === 'ledger' && <LedgerTab from={from} to={to} accountId={sp.account} />}

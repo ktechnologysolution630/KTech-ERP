@@ -7,6 +7,7 @@ import type { PoLineOptionDto, StockItemDto, StockPageData } from '@/server/serv
 import { STOCK_CATEGORIES } from '@/domain/stock';
 import { detectItemType } from '@/domain/item-classify';
 import { recordStockMovementAction, requestStockAdjustAction, saveStockItemAction } from './actions';
+import { StretchTabs } from '@/components/stretch-tabs';
 import { SearchSelect } from '@/components/search-select';
 
 export type MovementKind = 'RECEIVE' | 'ISSUE' | 'TRANSFER' | 'ADJUST';
@@ -130,23 +131,18 @@ export function MovementDialog({
 
   return (
     <DialogShell title="บันทึกรายการสต็อกสินค้า" onClose={onClose}>
-      <div className="grid grid-cols-4 border-b border-slate-200 text-xs text-center font-medium bg-slate-50/50">
-        {(Object.keys(KIND_LABEL) as MovementKind[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => {
-              setKind(k);
-              setError(null);
-              setDone(null);
-            }}
-            className={`py-2.5 border-b-2 transition ${
-              kind === k ? 'border-brand text-brand font-bold bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {KIND_LABEL[k]}
-          </button>
-        ))}
+      <div className="border-b border-slate-200 px-3 py-2">
+        <StretchTabs
+          ariaLabel="ประเภทรายการ"
+          size="md"
+          value={kind}
+          onChange={(k) => {
+            setKind(k);
+            setError(null);
+            setDone(null);
+          }}
+          options={(Object.keys(KIND_LABEL) as MovementKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+        />
       </div>
 
       {done ? (

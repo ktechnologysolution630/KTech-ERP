@@ -6,6 +6,7 @@ import { getAccountingOverview } from '@/server/services/accounting';
 import { listProjects } from '@/server/services/master';
 import { money, selectCls, Stat, THAI_MONTHS } from './shared';
 import { AutoSubmitForm } from '@/components/auto-submit-form';
+import { StretchTabs } from '@/components/stretch-tabs';
 import { SearchSelect } from '@/components/search-select';
 
 export default async function AccountingOverviewPage({ searchParams }: { searchParams: Promise<{ projectId?: string; tab?: string }> }) {
@@ -108,18 +109,14 @@ export default async function AccountingOverviewPage({ searchParams }: { searchP
 
       <section className="rounded-xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-          <div className="flex gap-1 text-xs">
-            {(
-              [
-                ['IN', 'รายรับ'],
-                ['OUT', 'รายจ่าย'],
-              ] as const
-            ).map(([k, l]) => (
-              <Link key={k} href={q({ tab: k })} className={`rounded-lg px-3 py-1.5 ${tab === k ? 'bg-brand text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-                เอกสาร{l}
-              </Link>
-            ))}
-          </div>
+          <StretchTabs
+            ariaLabel="ประเภทเอกสาร"
+            value={tab}
+            options={[
+              { value: 'IN', label: 'เอกสารรายรับ', href: q({ tab: 'IN' }) },
+              { value: 'OUT', label: 'เอกสารรายจ่าย', href: q({ tab: 'OUT' }) },
+            ]}
+          />
           <Link href="/accounting/reports" className="text-xs text-brand hover:underline">
             ดูทั้งหมด
           </Link>

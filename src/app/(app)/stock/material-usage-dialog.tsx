@@ -6,6 +6,7 @@ import { RefreshCw, Save, Search, X } from 'lucide-react';
 import type { StockPageData } from '@/server/services/stock';
 import { DateInput } from '@/components/date-input';
 import { createStockDocAction } from './actions';
+import { StretchTabs } from '@/components/stretch-tabs';
 import { SearchSelect } from '@/components/search-select';
 
 const CENTRAL = 'CENTRAL';
@@ -130,25 +131,16 @@ export function MaterialUsageDialog({ data, meName, today, onClose }: { data: St
             </label>
           </div>
 
-          <div role="tablist" className="flex gap-6 border-b border-slate-200">
-            {(
-              [
-                ['record', 'บันทึกการใช้วัสดุ'],
-                ['history', 'ประวัติการใช้วัสดุ'],
-              ] as const
-            ).map(([k, l]) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                onClick={() => setTab(k)}
-                className={`-mb-px border-b-2 pb-2 ${tab === k ? 'border-brand text-brand' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+          <StretchTabs
+            ariaLabel="การใช้วัสดุ"
+            size="md"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'record', label: 'บันทึกการใช้วัสดุ' },
+              { value: 'history', label: 'ประวัติการใช้วัสดุ' },
+            ]}
+          />
 
           {tab === 'record' ? (
             <>
