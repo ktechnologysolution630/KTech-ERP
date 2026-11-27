@@ -1,5 +1,5 @@
 import type { TakeoffKind } from './boq-takeoff';
-import { nameScore, sizesOf } from './takeoff-pricing';
+import { nameScore, sizesFit } from './takeoff-pricing';
 import { similar } from './text-takeoff';
 
 /**
@@ -43,18 +43,9 @@ const unitKey = (u: string) => u.replace(/\s+/g, '').replace(/\.$/, '').replace(
 const sameQty = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.005, 0.005 * Math.max(a, b));
 const plain = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 /** Names in Latin script only (“HDPE pipe”) have no Thai to compare, so they must match exactly */
-const sameName = (a: string, b: string) => plain(a) === plain(b) || similar(a, b);
+const sameName = (a: string, b: string) => plain(a) === plain(b) || (similar(a, b) && sizesFit(a, b));
 
-/**
- * The sizes in the shorter name are all in the longer one: “หนา 5 ซม.” fits “หนา 0.05 ม. กว้าง 5.00 ม.”,
- * Ø 300 never fits Ø 400. A name with no size is a shorter way to write the same work.
- */
-function sameSizes(a: string, b: string) {
-  const x = sizesOf(a);
-  const y = sizesOf(b);
-  const [few, many] = x.length <= y.length ? [x, y] : [y, x];
-  return few.every((v) => many.includes(v));
-}
+const sameSizes = sizesFit;
 
 /** Strict enough for joining rows: a shared word or two is not the same work */
 export const JOIN_SCORE = 0.75;
@@ -137,6 +128,28 @@ export function mergeAcrossPages<T extends Input>(items: T[]): (T & MergedAiItem
   return out;
 }
 
+/**
+ * Rows kept apart that still look like one item: the same work, kind, unit and quantity, but on one
+ * sheet (read twice from the whole sheet and a zoomed part) or at places the AI named differently.
+ * They are not joined, since the same material at two places is two quantities; the user is asked to
+ * look. Each such row points at the first row it looks like.
+ */
+export const LOOK_ALIKE_SCORE = 0.6;
+/** A size on one name only (ท่อ Ø 0.40 ม. / ท่อเข้าบ่อ) needs the stricter score */
+const sized = (s: string) => /[Øø∅]|ขนาด|หนา|กว้าง|ยาว|\d+(?:\.\d+)?\s*(?:ม\.|ซม|มม|นิ้ว)/.test(s);
+export function findLookAlikes<T extends Input & { pages?: number[] }>(rows: T[]): (T | null)[] {
+  return rows.map((r, i) => {
+    for (let j = 0; j < i; j++) {
+      const o = rows[j]!;
+      if (o.kind !== r.kind || unitKey(o.unit) !== unitKey(r.unit) || !sameQty(o.qty, r.qty)) continue;
+      if ((o.scope ?? 'project_total') === 'per_unit' || (r.scope ?? 'project_total') === 'per_unit') continue;
+      // Looser than joining: this only asks the user to look (“บ่อลูบน้ำ” read for บ่อสูบน้ำ on one sheet)
+      if (plain(o.description) === plain(r.description) || (sizesFit(o.description, r.description) && nameScore(o.description, r.description) >= (sized(o.description) === sized(r.description) ? LOOK_ALIKE_SCORE : JOIN_SCORE))) return o;
+    }
+    return null;
+  });
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Checking the AI against the numbers written on the drawing. A total the designer wrote in a note
  * (“พื้นที่รวมประมาณ 9,000 ตร.ม.”) is the figure to trust; the AI's row for the same work either
@@ -171,7 +184,7 @@ export function checkAgainstDrawing(rows: Checkable[], written: WrittenQty[]): {
   const same = (r: Checkable, w: WrittenQty) => r.kind === w.kind && unitKey(r.unit) === unitKey(w.unit);
   const used = new Set<WrittenQty>();
   const checks = rows.map((r): DrawingCheck | null => {
-    const hit = written.find((w) => same(r, w) && sameQty(r.qty, w.qty) && (w.qty >= SURE_QTY || sameName(r.description, w.description)));
+    const hit = written.find((w) => same(r, w) && sameQty(r.qty, w.qty) && ((w.qty >= SURE_QTY && sizesFit(r.description, w.description)) || sameName(r.description, w.description)));
     if (hit) {
       used.add(hit);
       return { status: 'match' };
@@ -212,7 +225,7 @@ export function findInTakeoff<E extends ExistingItem>(rows: Checkable[], existin
   for (const byName of [true, false]) {
     rows.forEach((r, i) => {
       if (out[i]) return;
-      const hit = existing.find((e) => !used.has(e) && same(r, e) && (byName ? sameName(r.description, e.description) : e.qty >= SURE_QTY));
+      const hit = existing.find((e) => !used.has(e) && same(r, e) && (byName ? sameName(r.description, e.description) : e.qty >= SURE_QTY && sizesFit(r.description, e.description)));
       if (hit) {
         out[i] = hit;
         used.add(hit);

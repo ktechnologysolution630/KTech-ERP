@@ -82,4 +82,16 @@ describe('quantities written on the drawing', () => {
     // Different work is not folded, even one digit apart
     expect(items.find((i) => i.qty === 1800)).toBeDefined();
   });
+
+  it('keeps different work that shares a quantity apart', () => {
+    const items = extractTextItems([
+      { page: 20, text: 'ก่อสร้างรั้วตาข่ายเหล็ก ยาวประมาณ 120.00 เมตร' },
+      { page: 22, text: 'วางท่อระบายน้ำ HDPE ยาวประมาณ 120.00 เมตร' },
+      { page: 24, text: 'วางท่อระบายน้ำ HDPE Ø 0.30 ม. ยาวประมาณ 80.00 เมตร' },
+      { page: 26, text: 'วางท่อระบายน้ำ HDPE Ø 0.40 ม. ยาวประมาณ 80.00 เมตร' },
+      ...[1, 2, 3, 4].map((page) => ({ page, text: 'แบบขยาย' })),
+    ]);
+    expect(items.filter((i) => i.qty === 120)).toHaveLength(2);
+    expect(items.filter((i) => i.qty === 80)).toHaveLength(2);
+  });
 });

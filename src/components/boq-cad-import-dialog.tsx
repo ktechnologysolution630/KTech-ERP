@@ -5,6 +5,7 @@ import { AlertCircle, FileUp, Loader2, X } from 'lucide-react';
 import { defaultUnitOf, type TakeoffKind } from '@/domain/boq-takeoff';
 import { decodeDxf, DXF_UNIT_LABEL, dxfGroups, guessDxfUnit, isNoteLayer, readDxf, suggestDxfName, type DxfGroup, type DxfReadResult, type DxfUnit } from '@/domain/dxf-takeoff';
 import { extractTextItems } from '@/domain/text-takeoff';
+import { findInTakeoff, type ExistingItem } from '@/domain/ai-takeoff-merge';
 
 /**
  * ถอดแบบจาก CAD: a DXF file is read in the browser (nothing is uploaded). Lengths, areas and block
@@ -75,7 +76,9 @@ function rowsFor(read: DxfReadResult, unit: DxfUnit): Row[] {
   return [...written, ...groups];
 }
 
-export function CadImportDialog({ categories, onAdd, onClose }: { categories: string[]; onAdd: (items: CadPickedItem[]) => void; onClose: () => void }) {
+export function CadImportDialog({ categories, existing = [], onAdd, onClose }: { categories: string[]; existing?: ExistingItem[]; onAdd: (items: CadPickedItem[]) => void; onClose: () => void }) {
+  // Written totals the take-off already holds start unticked, so they are not counted twice
+  const [inTakeoff, setInTakeoff] = useState<Set<string>>(new Set());
   const [fileName, setFileName] = useState('');
   const [read, setRead] = useState<DxfReadResult | null>(null);
   const [unit, setUnit] = useState<DxfUnit>('mm');
@@ -102,7 +105,15 @@ export function CadImportDialog({ categories, onAdd, onClose }: { categories: st
       const u = guessDxfUnit(r);
       setRead(r);
       setUnit(u);
-      setRows(rowsFor(r, u));
+      const fresh = rowsFor(r, u);
+      const written = fresh.filter((x) => !x.group);
+      const hits = findInTakeoff(
+        written.map((x) => ({ description: x.description, kind: x.textKind ?? 'count', unit: x.unit, qty: x.textQty ?? 0 })),
+        existing,
+      );
+      const there = new Set(written.filter((_, i) => hits[i]).map((x) => x.key));
+      setInTakeoff(there);
+      setRows(fresh.map((x) => (there.has(x.key) ? { ...x, picked: false } : x)));
       if (r.raw.length === 0 && r.texts.length === 0) setError('ไม่พบเส้น พื้นที่ หรือบล็อกใน Model space ของไฟล์นี้');
     } catch (err) {
       console.error(err);
@@ -239,6 +250,7 @@ export function CadImportDialog({ categories, onAdd, onClose }: { categories: st
                             </>
                           ) : (
                             <span className="text-slate-600" title={r.source}>
+                              {inTakeoff.has(r.key) && <span className="mr-1 inline-block rounded bg-sky-50 px-1.5 py-0.5 font-semibold text-sky-700">มีในงานถอดแบบแล้ว</span>}
                               เขียนในแบบ: {r.source}
                             </span>
                           )}

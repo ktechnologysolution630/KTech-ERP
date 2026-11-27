@@ -6,7 +6,7 @@ import { AlertCircle, Layers, Loader2, Sparkles, Undo2, X } from 'lucide-react';
 import { PAPER_METERS_PER_UNIT, TILE_NAMES, type PageScale, type TakeoffKind, type TileName } from '@/domain/boq-takeoff';
 import type { AiTakeoffItem } from '@/server/services/boq-ai-takeoff';
 import { aiConsolidateTakeoffAction, aiReadTakeoffPageAction } from '@/app/(app)/boq-takeoff/actions';
-import { checkAgainstDrawing, findInTakeoff, mergeAcrossPages, splitAcrossPages, type ExistingItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
+import { checkAgainstDrawing, findInTakeoff, findLookAlikes, mergeAcrossPages, splitAcrossPages, type ExistingItem, type WrittenQty } from '@/domain/ai-takeoff-merge';
 import { extractTextItems, type TextLine } from '@/domain/text-takeoff';
 import { PageLineReader } from '@/lib/pdf-lines';
 
@@ -240,6 +240,12 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
     return new Map(rows.map((r, i) => [r.key, hits[i] ?? null]));
   }, [rows, existing]);
   const inTakeoffCount = [...inTakeoff.values()].filter(Boolean).length;
+  // Kept apart, but the same work and quantity: worth a look before adding
+  const lookAlike = useMemo(() => {
+    const hits = findLookAlikes(rows);
+    return new Map(rows.map((r, i) => [r.key, hits[i] ?? null]));
+  }, [rows]);
+  const lookAlikeCount = [...lookAlike.values()].filter(Boolean).length;
   const addWritten = () => {
     if (!check) return;
     setRows((x) => [
@@ -418,6 +424,11 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
               <b>มีในงานถอดแบบแล้ว {inTakeoffCount}</b> รายการ (เช่น จากถอดแบบอัตโนมัติ) ไม่ติ๊กไว้ เพื่อไม่ให้ BOQ นับซ้ำ จะเพิ่มเฉพาะรายการใหม่
             </p>
           )}
+          {!running && lookAlikeCount > 0 && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+              <b>ควรตรวจ {lookAlikeCount} รายการ</b> ชื่อ ปริมาณ และหน่วยเหมือนรายการอื่น แต่ระบบไม่รวมให้ เพราะอยู่คนละตำแหน่งหรืออยู่ในแผ่นเดียวกัน (ป้ายสีส้ม <b>คล้ายรายการหน้า …</b>) ถ้าเป็นวัสดุเดียวกันคนละจุด เก็บไว้ทั้งสองแถว ถ้าเป็นรายการเดียวกันที่อ่านซ้ำ เอาติ๊กแถวนั้นออก
+            </p>
+          )}
           {check && rows.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
               <span className="flex-1">
@@ -526,6 +537,14 @@ export function AiTakeoffDialog({ takeoffId, pdf, pageCount, currentPage, scales
                         {inTakeoff.get(r.key) && (
                           <span className="mt-1 block w-24 rounded bg-sky-50 px-1.5 py-0.5 font-semibold text-sky-700" title={`ในงานถอดแบบ: ${inTakeoff.get(r.key)!.description}`}>
                             มีในงานถอดแบบแล้ว
+                          </span>
+                        )}
+                        {lookAlike.get(r.key) && (
+                          <span
+                            className="mt-1 block w-24 rounded bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700"
+                            title={`${lookAlike.get(r.key)!.description}${lookAlike.get(r.key)!.location ? ` ที่ ${lookAlike.get(r.key)!.location}` : ''}`}
+                          >
+                            คล้ายรายการหน้า {lookAlike.get(r.key)!.pages.join(', ')}
                           </span>
                         )}
                         {(() => {

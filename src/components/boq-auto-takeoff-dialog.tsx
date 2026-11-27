@@ -17,6 +17,7 @@ import {
   type PageVectors,
 } from '@/domain/vector-takeoff';
 import { extractTextItems, type TextQtyItem } from '@/domain/text-takeoff';
+import { findInTakeoff, type ExistingItem } from '@/domain/ai-takeoff-merge';
 import { extractPageVectors } from '@/lib/pdf-vectors';
 import type { AiPickedItem } from '@/components/boq-ai-takeoff-dialog';
 import { looksScanned, ScanReader } from '@/lib/scan-vectors';
@@ -152,13 +153,15 @@ function GroupPreview({ pdf, group }: { pdf: PDFDocumentProxy; group: AutoGroup 
   );
 }
 
-export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measurementCount, onSetScales, onAdd, onClose }: {
+export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measurementCount, existing = [], onSetScales, onAdd, onClose }: {
   pdf: PDFDocumentProxy;
   pageCount: number;
   currentPage: number;
   scales: Record<string, PageScale>;
   /** Measurements the take-off already holds */
   measurementCount: number;
+  /** Items the take-off already holds, so a written total read again is not added twice */
+  existing?: ExistingItem[];
   onSetScales: (ratioByPage: Record<number, number>) => void;
   /** Groups become items with measurements; quantities written on the drawing become items with that quantity */
   onAdd: (groups: AutoPickedGroup[], written: AiPickedItem[]) => void;
@@ -257,7 +260,14 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
     return { groups: raw.map((g) => withoutLegend(g, sug.get(g.key))).filter((g) => g.count > 0), suggestions: sug };
   }, [vectors]);
   const textItems = useMemo(() => (vectors ? extractTextItems(linesOf(vectors)) : []), [vectors]);
-  const textRowOf = (t: TextQtyItem): TextRow => textRows[t.key] ?? { picked: true, description: t.description, unit: t.unit, qty: t.qty };
+  // A written total the take-off already has (from an earlier run, AI or CAD) starts unticked
+  const textInTakeoff = useMemo(() => {
+    const hits = findInTakeoff(textItems, existing);
+    return new Map(textItems.map((t, i) => [t.key, hits[i] ?? null]));
+    // existing changes as items are measured; what was there when the sheets were read is what counts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textItems]);
+  const textRowOf = (t: TextQtyItem): TextRow => textRows[t.key] ?? { picked: !textInTakeoff.get(t.key), description: t.description, unit: t.unit, qty: t.qty };
   const setTextRow = (t: TextQtyItem, patch: Partial<TextRow>) => setTextRows((r) => ({ ...r, [t.key]: { ...textRowOf(t), ...patch } }));
   const quantities = useMemo(() => new Map(groups.map((g) => [g.key, groupQuantity(g, scales)])), [groups, scales]);
   const shown = useMemo(() => {
@@ -484,6 +494,11 @@ export function AutoTakeoffDialog({ pdf, pageCount, currentPage, scales, measure
                                 <input value={row.unit} onChange={(e) => setTextRow(t, { unit: e.target.value })} className="w-16 rounded border border-slate-200 px-1.5 py-1" aria-label="หน่วย" />
                               </td>
                               <td className="max-w-[22rem] px-2 py-1.5 text-slate-500">
+                                {textInTakeoff.get(t.key) && (
+                                  <span className="mr-1 inline-block rounded bg-sky-50 px-1.5 py-0.5 font-semibold text-sky-700" title={`ในงานถอดแบบ: ${textInTakeoff.get(t.key)!.description}`}>
+                                    มีในงานถอดแบบแล้ว
+                                  </span>
+                                )}
                                 <span className="font-semibold text-slate-600">หน้า {t.pages.join(', ')}</span> · “{t.source}”
                               </td>
                             </tr>
