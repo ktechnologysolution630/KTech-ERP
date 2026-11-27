@@ -613,7 +613,6 @@ export function AssetsClient({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">ตรวจเช็คทรัพย์สิน</h1>
-          <p className="mt-0.5 text-xs text-slate-500">ทะเบียนทรัพย์สิน กำหนดตรวจ และผลการตรวจเช็คแต่ละครั้ง</p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button

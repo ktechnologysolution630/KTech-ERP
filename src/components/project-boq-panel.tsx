@@ -151,7 +151,6 @@ export function ProjectBoqPanel({
       <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-bold text-slate-900">BOQ</h3>
-          <p className="text-xs text-slate-500 mt-0.5">รายการ BOQ ของโครงการ แยก BOQ หลักและ BOQ ที่สร้างจาก VO</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* A VO's BOQ goes with its VO, on the VO tab */}

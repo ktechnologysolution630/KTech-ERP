@@ -47,7 +47,7 @@ export function ChatPanel({ projectId, me }: { projectId: string; me: string }) 
         {!data ? (
           <p className="text-center text-xs text-slate-400 pt-10">กำลังโหลด...</p>
         ) : data.length === 0 ? (
-          <p className="text-center text-xs text-slate-400 pt-10">ยังไม่มีข้อความ พิมพ์ทักทายเป็นคนแรก</p>
+          <p className="text-center text-xs text-slate-400 pt-10">ยังไม่มีข้อความ</p>
         ) : (
           data.map((m) => {
             const mine = m.userId === me;

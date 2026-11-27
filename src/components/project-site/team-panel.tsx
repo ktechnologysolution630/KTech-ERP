@@ -45,7 +45,7 @@ export function TeamPanel({ projectId }: { projectId: string }) {
       <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
         <div>
           <h3 className="font-bold text-sm text-slate-900">ทีมงานรับผิดชอบโครงการ</h3>
-          <p className="text-[11px] text-slate-500">{data.members.length} คนในทีม · สมาชิกเห็นโครงการนี้ในระบบ</p>
+          <p className="text-[11px] text-slate-500">{data.members.length} คนในทีม</p>
         </div>
         {data.members.length === 0 ? (
           <p className="py-8 text-center text-xs text-slate-400">ยังไม่มีสมาชิกในทีม</p>

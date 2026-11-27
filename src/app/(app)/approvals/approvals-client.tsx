@@ -149,7 +149,6 @@ export function ApprovalsClient({ items, projectKey }: { items: ApprovalItem[]; 
     <div className="space-y-4 font-sans text-slate-800">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">K Tec Approve</h1>
-        <p className="mt-0.5 text-xs text-slate-500">เอกสารทุกประเภทที่รอการพิจารณาของคุณ แยกตามโครงการ</p>
       </div>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">

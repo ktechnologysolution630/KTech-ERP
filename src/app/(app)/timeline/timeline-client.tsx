@@ -69,7 +69,6 @@ export function TimelineClient({ today, rows }: { today: string; rows: TimelineR
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">Timeline โครงการ</h1>
-        <p className="text-xs text-slate-500 mt-0.5">ระยะเวลาและความคืบหน้าจริงเทียบแผนของทุกโครงการ</p>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex flex-wrap items-end gap-2.5 text-xs">

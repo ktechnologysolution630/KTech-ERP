@@ -73,13 +73,13 @@ function Field({ label, required, children, wide }: { label: string; required?: 
   );
 }
 
-function Card({ title, hint, action, children }: { title: string; hint: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Card({ title, hint, action, children }: { title: string; hint?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-bold text-slate-900">{title}</h3>
-          <p className="text-xs text-slate-500">{hint}</p>
+          {hint && <p className="text-xs text-slate-500">{hint}</p>}
         </div>
         {action}
       </div>
@@ -289,7 +289,7 @@ export function StockDocDialog({
         <fieldset disabled={isPending} className="space-y-4">
           {kind === 'RECEIVE' ? (
             <>
-              <Card title="ข้อมูลเอกสาร" hint="ใช้ส่วนนี้สำหรับอ้างอิงเอกสาร เลือกผู้ขาย คลังปลายทาง และโครงการ">
+              <Card title="ข้อมูลเอกสาร">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {kindSelect}
                   <Field label="เลขที่เอกสารรับเข้า">
@@ -370,7 +370,7 @@ export function StockDocDialog({
                 </div>
               </Card>
 
-              <Card title="บัญชีและภาษี" hint="กำหนดประเภทภาษี วิธีบันทึกบัญชี วิธีชำระเงิน และผังบัญชี">
+              <Card title="บัญชีและภาษี">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <Field label="ประเภทภาษี">
                     <select value={taxType} onChange={(e) => setTaxType(e.target.value)} className={input}>
@@ -440,7 +440,7 @@ export function StockDocDialog({
             </>
           ) : (
             <>
-              <Card title="รายการเคลื่อนไหว" hint="สร้างรายการจ่ายออก โอนย้าย หรือยืม จากฟอร์มนี้ได้โดยตรง">
+              <Card title="รายการเคลื่อนไหว">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {kindSelect}
                   <Field label="เลขที่เอกสาร">

@@ -22,7 +22,7 @@ function NewsVisual({ item, className }: { item: NewsItem; className: string }) 
   }
   // No image: a branded navy/gold card with the headline
   return (
-    <div className={`${className} relative overflow-hidden bg-gradient-to-br from-[#0b1430] via-[#13224a] to-[#1d3170] p-5 flex flex-col justify-end`}>
+    <div className={`${className} relative overflow-hidden bg-[#13224a] p-5 flex flex-col justify-end`}>
       <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-[#d4b26a]/20 blur-2xl" />
       <Megaphone className="absolute right-5 top-5 w-8 h-8 text-[#d4b26a]/70" />
       <div className="relative text-white font-bold text-lg leading-snug line-clamp-3">{item.title}</div>
@@ -163,7 +163,7 @@ export function NewsSection({ items, canManage }: { items: NewsItem[]; canManage
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#0b1430] to-[#1d3170] px-3.5 py-2 text-white text-sm font-semibold">
+        <div className="inline-flex items-center gap-2 rounded-lg bg-[#13224a] px-3.5 py-2 text-white text-sm font-semibold">
           <Megaphone className="w-4 h-4 text-[#d4b26a]" /> ข่าวสาร / อัปเดตล่าสุด
         </div>
         <div className="flex items-center gap-3">

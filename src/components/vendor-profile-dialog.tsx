@@ -162,7 +162,7 @@ export function VendorProfileDialog({
 
           {tab === 1 && (
             <>
-              <Section title="ที่อยู่" hint="บันทึกที่อยู่หลักของซัพพลายเออร์">
+              <Section title="ที่อยู่">
                 <Field label="ที่อยู่ (เลขที่)">
                   <input {...txt('address')} maxLength={500} />
                 </Field>

@@ -21,7 +21,6 @@ export default async function InboxPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-900">พอร์ทัลของฉัน</h1>
-        <p className="text-xs text-slate-600">ข่าวสารของบริษัท โครงการของคุณ และงานที่รอคุณดำเนินการ</p>
       </div>
 
       <NewsSection items={news} canManage={canManageNews(actor)} />

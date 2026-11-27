@@ -88,7 +88,7 @@ export function PortalProjects({ projects, scope }: { projects: PortalProject[];
                     <span className="font-semibold text-slate-700">{p.progress}%</span>
                   </div>
                   <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-brand to-emerald-500" style={{ width: `${Math.min(100, p.progress)}%` }} />
+                    <div className="h-full bg-brand" style={{ width: `${Math.min(100, p.progress)}%` }} />
                   </div>
                 </div>
                 <div>

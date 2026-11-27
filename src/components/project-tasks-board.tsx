@@ -157,7 +157,7 @@ export function ProjectTasksBoard({
       <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-sm text-slate-900">Task Board</h3>
-          <p className="text-xs text-slate-500">{tasks.length} งาน · เปลี่ยนสถานะและความคืบหน้าได้จากการ์ด</p>
+          <p className="text-xs text-slate-500">{tasks.length} งาน</p>
         </div>
         {canManage && (
           <button

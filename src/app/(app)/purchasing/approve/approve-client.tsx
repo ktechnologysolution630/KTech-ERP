@@ -24,7 +24,6 @@ export function ApproveClient({
     <div className="space-y-5 font-sans text-slate-800">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">รออนุมัติ</h1>
-        <p className="text-xs text-slate-500 mt-0.5">รวมเอกสารที่ยังต้องผ่านการตรวจสอบและอนุมัติก่อนดำเนินการต่อ</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

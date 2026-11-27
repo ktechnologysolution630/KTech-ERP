@@ -29,7 +29,6 @@ export function CashBankClient({ accounts, canDelete = false }: { accounts: Acco
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">เงินสด / ธนาคาร</h1>
-          <p className="text-xs text-slate-500">จัดการบัญชีธนาคาร เงินสด และยอดยกมาสำหรับงานบัญชี</p>
         </div>
         <div className="flex items-center gap-3">
           {accounts.length > 0 && (
