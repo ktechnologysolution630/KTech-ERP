@@ -18,6 +18,7 @@ import {
   FileUp,
   Hand,
   Layers,
+  Magnet,
   Maximize,
   MousePointer2,
   Pencil,
@@ -29,6 +30,7 @@ import {
   Sparkles,
   Trash2,
   Undo2,
+  Wand,
   X,
   ZoomIn,
   ZoomOut,
@@ -68,8 +70,10 @@ import { IfcImportDialog } from '@/components/boq-ifc-import-dialog';
 import { CadImportDialog, type CadPickedItem } from '@/components/boq-cad-import-dialog';
 import { PricingDialog, withPriceNote, type PriceUpdate } from '@/components/boq-pricing-dialog';
 import { groupToMeasurements } from '@/domain/vector-takeoff';
+import type { ScanReader } from '@/lib/scan-vectors';
+import { buildSnapIndex, lineAt, regionAt, snapAt, type SnapIndex, type SnapKind } from '@/domain/pdf-snap';
 
-type Tool = 'select' | 'pan' | 'measure' | 'calibrate';
+type Tool = 'select' | 'pan' | 'measure' | 'calibrate' | 'wand';
 
 interface ProjectOption {
   id: string;
@@ -87,6 +91,21 @@ const ZOOM_MAX = 8;
 const MAX_CANVAS_PIXELS = 36_000_000;
 /** How close, in screen pixels, a click must be to snap onto the first point of an outline */
 const SNAP_PX = 10;
+/** Pages whose drawing lines are kept read for snapping */
+const SNAP_PAGES_KEPT = 6;
+
+const SNAP_LABEL: Record<SnapKind, string> = { end: 'ปลายเส้น', cross: 'จุดตัด', mid: 'กึ่งกลาง', on: 'บนเส้น' };
+
+/** The marker a CAD program shows on the point the cursor snapped to */
+function SnapMarker({ at, kind, size }: { at: Point; kind: SnapKind; size: number }) {
+  const [x, y] = at;
+  const h = size / 2;
+  const common = { fill: 'none', stroke: '#0891b2', strokeWidth: 2, vectorEffect: 'non-scaling-stroke' as const };
+  if (kind === 'end') return <rect x={x - h} y={y - h} width={size} height={size} {...common} />;
+  if (kind === 'mid') return <polygon points={`${x},${y - h} ${x + h},${y + h} ${x - h},${y + h}`} {...common} />;
+  if (kind === 'cross') return <path d={`M${x - h},${y - h}L${x + h},${y + h}M${x + h},${y - h}L${x - h},${y + h}`} {...common} />;
+  return <circle cx={x} cy={y} r={h * 0.7} {...common} />;
+}
 
 async function loadPdfJs() {
   const pdfjs = await import('pdfjs-dist');
@@ -401,6 +420,12 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
   const [pricing, setPricing] = useState<{ focusIds?: string[] } | null>(null);
   const [cadOpen, setCadOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Snapping to the drawing's own lines, and the magic wand that reads a room or a line run from them
+  const [snapOn, setSnapOn] = useState(true);
+  const [snapMark, setSnapMark] = useState<SnapKind | null>(null);
+  const [snapIndex, setSnapIndex] = useState<{ pdf: PDFDocumentProxy; page: number; index: SnapIndex | null } | null>(null);
+  const snapCache = useRef<{ pdf: PDFDocumentProxy | null; pages: Map<number, Promise<SnapIndex | null>> }>({ pdf: null, pages: new Map() });
+  const scanReader = useRef<ScanReader | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const spaceDown = useRef(false);
@@ -552,15 +577,77 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     return () => box.removeEventListener('wheel', onWheel);
   }, [zoom, zoomTo]);
 
+  // ── the drawing's lines, read once per page for snapping and the magic wand ──
+  useEffect(() => () => scanReader.current?.stop(), []);
+  const needsLines = tool === 'measure' || tool === 'calibrate' || tool === 'wand';
+  useEffect(() => {
+    if (!pdf || !needsLines) return;
+    let cancelled = false;
+    if (snapCache.current.pdf !== pdf) snapCache.current = { pdf, pages: new Map() };
+    const cache = snapCache.current.pages;
+    let job = cache.get(page);
+    if (!job) {
+      job = (async () => {
+        const [{ OPS }, { extractPageVectors }, { looksScanned, ScanReader: Reader }] = await Promise.all([import('pdfjs-dist'), import('@/lib/pdf-vectors'), import('@/lib/scan-vectors')]);
+        const p = await pdf.getPage(page);
+        try {
+          let v = await extractPageVectors(p, page, OPS as unknown as Record<string, number>);
+          // A scan has no lines of its own: trace them from the picture (no OCR needed here)
+          if (looksScanned(v)) v = await (scanReader.current ??= new Reader()).read(p, page, false);
+          return buildSnapIndex(v);
+        } finally {
+          p.cleanup();
+        }
+      })().catch((err: unknown) => {
+        console.error(err);
+        return null;
+      });
+      cache.set(page, job);
+      while (cache.size > SNAP_PAGES_KEPT) cache.delete(cache.keys().next().value!);
+    }
+    void job.then((index) => {
+      if (!cancelled) setSnapIndex({ pdf, page, index });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pdf, page, needsLines]);
+  const linesReady = snapIndex?.pdf === pdf && snapIndex.page === page;
+  const pageLines = linesReady ? snapIndex.index : null;
+  const linesLoading = needsLines && !linesReady;
+
   // ── geometry helpers ──
   const toDoc = (e: { clientX: number; clientY: number }): Point => {
     const rect = svgRef.current!.getBoundingClientRect();
     return [(e.clientX - rect.left) / zoom, (e.clientY - rect.top) / zoom];
   };
 
-  const adjust = (p: Point, shift: boolean): Point => {
-    const last = draft[draft.length - 1];
-    return shift && last ? orthoSnap(last, p) : p;
+  /**
+   * Where a click lands: Shift keeps the segment straight from `from`; otherwise the point snaps to
+   * the drawing's lines nearby (hold Alt to place it freely).
+   */
+  const pointAt = (e: { clientX: number; clientY: number; shiftKey: boolean; altKey: boolean }, from: Point | undefined = draft[draft.length - 1]): { point: Point; kind: SnapKind | null } => {
+    const p = toDoc(e);
+    if (e.shiftKey && from) return { point: orthoSnap(from, p), kind: null };
+    if (!snapOn || e.altKey || !pageLines) return { point: p, kind: null };
+    const s = snapAt(pageLines, p, SNAP_PX / zoom);
+    return s ? { point: s.point, kind: s.kind } : { point: p, kind: null };
+  };
+
+  /** Magic wand: the room around the click for an area, or the line run clicked for a length */
+  const wandAt = (p: Point) => {
+    if (!activeItem) return;
+    if (activeItem.kind === 'count') return setNotice('Magic Wand ใช้กับรายการแบบความยาวและพื้นที่ สำหรับการนับให้ใช้ ถอดแบบอัตโนมัติ');
+    if (!pageLines) return setNotice(linesLoading ? 'กำลังอ่านเส้นของแบบหน้านี้ ลองคลิกอีกครั้งในอีกสักครู่' : 'อ่านเส้นของแบบหน้านี้ไม่ได้ ใช้การวัดด้วยมือแทน');
+    if (activeItem.kind === 'length') {
+      const run = lineAt(pageLines, p, SNAP_PX / zoom);
+      if (!run) return setNotice('ไม่พบเส้นตรงจุดที่คลิก คลิกให้ตรงเส้นของแบบ');
+      change((d) => ({ ...d, measurements: [...d.measurements, { id: newId(), itemId: activeItem.id, page, points: run }] }));
+      return;
+    }
+    const room = regionAt(pageLines, p);
+    if (!room) return setNotice('ไม่พบพื้นที่ปิดรอบจุดที่คลิก (อาจมีช่องเปิดที่เส้นไม่ปิด) ใช้เครื่องมือวัดคลิกรอบขอบแทน');
+    change((d) => ({ ...d, measurements: [...d.measurements, { id: newId(), itemId: activeItem.id, page, points: room, ...(deductMode ? { deduct: true } : {}) }] }));
   };
 
   const finishDraft = () => {
@@ -600,11 +687,12 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return;
     }
     if (e.button !== 0) return;
-    const p = adjust(toDoc(e), e.shiftKey);
+    if (tool === 'wand') return wandAt(toDoc(e));
+    const p = pointAt(e).point;
 
     if (tool === 'calibrate') {
       if (!calibration) setCalibration({ a: p, b: p });
-      else if (calibration.a === calibration.b) setCalibration({ a: calibration.a, b: e.shiftKey ? orthoSnap(calibration.a, toDoc(e)) : toDoc(e) });
+      else if (calibration.a === calibration.b) setCalibration({ a: calibration.a, b: pointAt(e, calibration.a).point });
       else setCalibration({ a: p, b: p });
       return;
     }
@@ -640,9 +728,9 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       return;
     }
     if (tool === 'measure' || tool === 'calibrate') {
-      const p = toDoc(e);
-      if (tool === 'calibrate' && calibration && calibration.a === calibration.b) setCursor(e.shiftKey ? orthoSnap(calibration.a, p) : p);
-      else setCursor(adjust(p, e.shiftKey));
+      const at = pointAt(e, tool === 'calibrate' ? (calibration && calibration.a === calibration.b ? calibration.a : undefined) : undefined);
+      setCursor(at.point);
+      setSnapMark(at.kind);
     }
   };
 
@@ -735,6 +823,11 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
       else if (e.key.toLowerCase() === 'v') setTool('select');
       else if (e.key.toLowerCase() === 'h') setTool('pan');
       else if (e.key.toLowerCase() === 'm' && activeItem) setTool('measure');
+      else if (e.key.toLowerCase() === 'w' && activeItem && activeItem.kind !== 'count') setTool('wand');
+      else if (e.key === 'F3') {
+        e.preventDefault();
+        setSnapOn((v) => !v);
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === ' ') spaceDown.current = false;
@@ -998,7 +1091,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
     </button>
   );
 
-  const cursorStyle = tool === 'pan' ? (isPanning ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : 'crosshair';
+  const cursorStyle = tool === 'pan' ? (isPanning ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : tool === 'wand' && linesLoading ? 'progress' : 'crosshair';
 
   return (
     <div className="flex h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-800 md:h-[calc(100dvh-6.5rem)] xl:h-[calc(100dvh-7.5rem)]">
@@ -1102,8 +1195,19 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
               {toolButton('pan', <Hand className="h-3.5 w-3.5" />, 'เลื่อน', 'H')}
               {toolButton('select', <MousePointer2 className="h-3.5 w-3.5" />, 'เลือก/ลบ', 'V')}
               {toolButton('measure', <Pencil className="h-3.5 w-3.5" />, activeItem ? kindLabel(activeItem.kind) : 'วัด', 'M', !activeItem)}
+              {toolButton('wand', <Wand className="h-3.5 w-3.5" />, 'Magic Wand', 'W', !activeItem || activeItem.kind === 'count')}
               {toolButton('calibrate', <Crosshair className="h-3.5 w-3.5" />, 'วัดเทียบสเกล', '-')}
-              {activeItem && isOutlineKind(activeItem.kind) && tool === 'measure' && (
+              <button
+                type="button"
+                onClick={() => setSnapOn((v) => !v)}
+                aria-pressed={snapOn}
+                title="ดูดจุดเข้าหาเส้นของแบบ: ปลายเส้น จุดตัด กึ่งกลาง บนเส้น (F3 เปิด/ปิด · กด Alt ค้างเพื่อวางจุดอิสระ)"
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-semibold ${snapOn ? 'bg-cyan-50 text-cyan-700' : 'text-slate-400 hover:bg-slate-100'}`}
+              >
+                <Magnet className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">Snap</span>
+              </button>
+              {activeItem && isOutlineKind(activeItem.kind) && (tool === 'measure' || tool === 'wand') && (
                 <label className="ml-1 flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1.5 font-semibold text-amber-800">
                   <input type="checkbox" checked={deductMode} onChange={(e) => setDeductMode(e.target.checked)} /> หักช่องเปิด
                 </label>
@@ -1150,6 +1254,16 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                 <span className="font-semibold text-amber-700">หน้านี้ยังไม่ได้ตั้งสเกล ตั้งที่แผง &quot;สเกลของหน้า&quot; ทางขวาก่อนวัดระยะหรือพื้นที่</span>
               ) : tool === 'calibrate' ? (
                 'คลิกจุดเริ่มและจุดปลายของเส้นที่รู้ระยะจริง (เช่น เส้นบอกระยะ) แล้วใส่ระยะจริงที่แผงขวา · กด Shift ค้างให้เส้นตรงแนวนอน/ตั้ง'
+              ) : tool === 'wand' && activeItem ? (
+                activeItem.kind === 'count' ? (
+                  'Magic Wand ใช้กับรายการแบบความยาวและพื้นที่'
+                ) : linesLoading ? (
+                  'กำลังอ่านเส้นของแบบหน้านี้...'
+                ) : activeItem.kind === 'length' ? (
+                  `คลิกที่เส้นของแบบ ระบบเลือกเส้นสีและความหนาเดียวกันที่ต่อกันทั้งแนวเป็น "${activeItem.description}" · ตรวจแล้วแก้ด้วย เลือก/ลบ ได้`
+                ) : (
+                  `คลิกในห้องหรือพื้นที่ที่มีเส้นล้อมรอบ ระบบหาขอบให้เป็น "${activeItem.description}" · ติ๊ก "หักช่องเปิด" แล้วคลิกในช่องเปิดเพื่อหักออก`
+                )
               ) : tool === 'measure' && activeItem ? (
                 activeItem.kind === 'count' ? (
                   `คลิกบนแบบทีละจุดเพื่อนับ "${activeItem.description}" · ลบจุดที่ผิดด้วยเครื่องมือ เลือก/ลบ`
@@ -1202,7 +1316,10 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                       onPointerDown={onPointerDown}
                       onPointerMove={onPointerMove}
                       onPointerUp={onPointerUp}
-                      onPointerLeave={() => setCursor(null)}
+                      onPointerLeave={() => {
+                        setCursor(null);
+                        setSnapMark(null);
+                      }}
                       onDoubleClick={() => tool === 'measure' && finishDraft()}
                     >
                       {pageMeasurements.map((m) => {
@@ -1275,6 +1392,16 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
                                 : `${fmt(polygonArea([...draft, cursor]) * pageScale.metersPerUnit ** 2)} ตร.ม.`}
                             </text>
                           )}
+                        </g>
+                      )}
+
+                      {/* Point snapped to on the drawing */}
+                      {cursor && snapMark && (tool === 'measure' || tool === 'calibrate') && (
+                        <g style={{ pointerEvents: 'none' }}>
+                          <SnapMarker at={cursor} kind={snapMark} size={12 / zoom} />
+                          <text x={cursor[0] + 9 / zoom} y={cursor[1] + 18 / zoom} fontSize={10 / zoom} fill="#0e7490" fontWeight={700} paintOrder="stroke" stroke="#fff" strokeWidth={3 / zoom}>
+                            {SNAP_LABEL[snapMark]}
+                          </text>
                         </g>
                       )}
 
