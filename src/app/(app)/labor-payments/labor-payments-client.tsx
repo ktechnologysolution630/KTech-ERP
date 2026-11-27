@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Folder, Search } from 'lucide-react';
 import { PROJECT_STATUS_LABELS, type ProjectStatus } from '@/domain/project';
+import { StretchTabs } from '@/components/stretch-tabs';
 import type { MilestoneProjectRow } from '@/server/services/milestones';
 
 export type LaborTab = 'payment-milestones' | 'receive-milestones' | 'milestones';
@@ -33,19 +34,12 @@ export function LaborPaymentsClient({ tab, pay, receive }: LaborPaymentsClientPr
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      <nav className="flex items-center gap-2 border-b border-slate-200 pb-2">
-        {(Object.keys(TAB_LABELS) as LaborTab[]).map((t) => (
-          <Link
-            key={t}
-            href={`/labor-payments?tab=${t}`}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              tab === t ? 'bg-blue-50 text-brand font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            {TAB_LABELS[t]}
-          </Link>
-        ))}
-      </nav>
+      <StretchTabs
+        ariaLabel="ค่าแรงและงวดงาน"
+        size="md"
+        value={tab}
+        options={(Object.keys(TAB_LABELS) as LaborTab[]).map((t) => ({ value: t, label: TAB_LABELS[t], href: `/labor-payments?tab=${t}` }))}
+      />
 
       <div className="bg-white rounded-xl border border-slate-200 p-6 md:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">

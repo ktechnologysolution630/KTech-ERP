@@ -50,6 +50,7 @@ import { formatThaiDate } from '@/domain/thai';
 import { ProjectCashflowView } from '@/components/project-cashflow-view';
 import { ProjectCostPerformanceView } from '@/components/project-cost-performance-view';
 import { ProjectVoView } from '@/components/project-vo-view';
+import { StretchTabs } from '@/components/stretch-tabs';
 import type { ProjectVoList } from '@/server/services/variation-orders';
 
 export type WorkspaceTab =
@@ -240,32 +241,23 @@ export function ProjectWorkspaceClient({
         </div>
       </div>
 
-      {/* 2. Horizontal Sub-Navigation Tabs Ribbon (14 Tabs) */}
-      <div className="relative rounded-xl border border-[#1e2a4a] bg-gradient-to-r from-[#0b1430] via-[#13224a] to-[#0b1430] p-1.5 shadow-lg shadow-slate-900/20 overflow-x-auto scrollbar-thin">
-        {/* Thin champagne highlight along the top edge */}
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#d4b26a]/70 to-transparent" />
-        <div className="flex items-center gap-1 min-w-max text-xs">
-          {tabs.map((t) => {
-            const isActive = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setActiveTab(t.key)}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition select-none ${
-                  isActive
-                    ? 'bg-gradient-to-b from-[#f3dfa8] to-[#c9a253] text-[#1a1408] font-semibold shadow-md shadow-black/30 ring-1 ring-[#f6e7bd]/60'
-                    : 'text-slate-300 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* 2. Sub-navigation: a dark pill stretches to the chosen tab */}
+      <StretchTabs
+        ariaLabel="เมนูโครงการ"
+        variant="dark"
+        size="md"
+        value={activeTab}
+        onChange={(k) => setActiveTab(k)}
+        options={tabs.map((t) => ({
+          value: t.key,
+          label: (
+            <span className="flex items-center gap-1.5">
+              {t.icon}
+              <span>{t.label}</span>
+            </span>
+          ),
+        }))}
+      />
 
       {/* 3. 4-Card Summary KPI Row (Matching Image Exactly) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
