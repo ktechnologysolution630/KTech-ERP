@@ -188,3 +188,33 @@ describe('one place worded differently on each sheet', () => {
     expect(merged.map((m) => m.pages)).toEqual([[14, 16], [17], [18]]);
   });
 });
+
+describe('rows that look alike but were kept apart', () => {
+  it('points at the first row of the same work and quantity, not at per-unit details or other sizes', async () => {
+    const { findLookAlikes } = await import('@/domain/ai-takeoff-merge');
+    const rows = mergeAcrossPages([
+      { ...item(30, 'ท่อ HDPE เข้าบ่อ', 2, 'จุด', 'count'), scope: 'this_sheet' as const, location: 'ลานจอดรถ' },
+      { ...item(31, 'ท่อ HDPE เข้าบ่อ', 2, 'จุด', 'count'), scope: 'this_sheet' as const, location: 'ริมคลอง' },
+      { ...item(31, 'ท่อ HDPE Ø 0.40 ม.', 2, 'จุด', 'count'), scope: 'this_sheet' as const },
+      { ...item(32, 'ท่อ HDPE เข้าบ่อ', 5, 'จุด', 'count'), scope: 'this_sheet' as const },
+      { ...item(50, 'พื้นบ่อพัก', 1.35, 'ตร.ม.', 'area'), scope: 'per_unit' as const, perUnitOf: 'บ่อพัก 1 บ่อ' },
+      { ...item(51, 'พื้นบ่อพัก', 1.35, 'ตร.ม.', 'area'), scope: 'per_unit' as const, perUnitOf: 'บ่อพัก 2 บ่อ' },
+    ]);
+    expect(rows).toHaveLength(6);
+    const { nameScore } = await import('@/domain/takeoff-pricing');
+    expect(nameScore('ปรับปรุงบ่อลูบน้ำ', 'ปรับปรุงบ่อสูบน้ำ (ตามแบบขยายหน้าที่ 80)')).toBeGreaterThanOrEqual(0.6);
+    expect(findLookAlikes(rows).map((r) => r?.pages ?? null)).toEqual([null, [30], null, null, null, null]);
+  });
+});
+
+describe('a misread name on one sheet', () => {
+  it('asks the user to look at the same pit read as บ่อลูบน้ำ on another sheet', async () => {
+    const { findLookAlikes } = await import('@/domain/ai-takeoff-merge');
+    const rows = mergeAcrossPages([
+      { ...item(14, 'ปรับปรุงบ่อลูบน้ำ', 1, 'แห่ง', 'count'), scope: 'this_sheet' as const, location: 'ด้านทิศเหนือของสวน ริมถนนช่วงหมุด 2-3' },
+      { ...item(17, 'ปรับปรุงบ่อสูบน้ำ (ตามแบบขยายหน้าที่ 80)', 1, 'แห่ง', 'count'), scope: 'this_sheet' as const, location: 'ช่วงแนวตัด 3 ถึงแนวตัด 2' },
+    ]);
+    expect(rows).toHaveLength(2);
+    expect(findLookAlikes(rows)[1]?.pages).toEqual([14]);
+  });
+});

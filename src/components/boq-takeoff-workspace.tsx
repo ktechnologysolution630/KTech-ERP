@@ -1493,6 +1493,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           currentPage={page}
           scales={data.scales}
           measurementCount={data.measurements.length}
+          existing={existingForAi}
           onSetScales={setScalesByPage}
           onAdd={addAutoGroups}
           onClose={() => setAutoOpen(false)}
@@ -1512,7 +1513,7 @@ export function BoqTakeoffWorkspace({ initial, projects }: { initial: TakeoffDoc
           onClose={() => setAiOpen(false)}
         />
       )}
-      {cadOpen && <CadImportDialog categories={categories} onAdd={addCadItems} onClose={() => setCadOpen(false)} />}
+      {cadOpen && <CadImportDialog categories={categories} existing={existingForAi} onAdd={addCadItems} onClose={() => setCadOpen(false)} />}
       {pricing && (
         <PricingDialog
           takeoffId={doc.id}

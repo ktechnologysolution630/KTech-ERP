@@ -75,6 +75,17 @@ export function sizesOf(s: string): string[] {
   return [...new Set(out)].sort();
 }
 
+/**
+ * The sizes in the name with fewer sizes are all in the other: “หนา 5 ซม.” fits “หนา 0.05 ม. กว้าง 5.00 ม.”,
+ * Ø 300 never fits Ø 400. A name with no size is a shorter way to write the same work.
+ */
+export function sizesFit(a: string, b: string): boolean {
+  const x = sizesOf(a);
+  const y = sizesOf(b);
+  const [few, many] = x.length <= y.length ? [x, y] : [y, x];
+  return few.every((v) => many.includes(v));
+}
+
 /** How alike two work names are, 0–1. Different sizes in the names make them different work. */
 export function nameScore(a: string, b: string): number {
   const x = thaiPairs(a);

@@ -1,4 +1,5 @@
 import type { TakeoffKind } from './boq-takeoff';
+import { sizesFit, sizesOf } from './takeoff-pricing';
 
 /**
  * Take-off from what is written on the drawing. Thai drawings, above all government ones, write the
@@ -311,9 +312,12 @@ export function extractTextItems(lines: TextLine[]): TextQtyItem[] {
   const sameQty = (i: TextQtyItem, f: Found) => i.kind === f.kind && i.unit === f.unit && i.qty === f.qty;
   // Named ones first; a quantity read without its name then joins the same quantity found named elsewhere
   for (const f of [...found.filter((x) => x.description), ...found.filter((x) => !x.description)]) {
-    const key = f.description ? `${f.kind}|${f.unit}|${f.qty}|${keyOf(f.description).slice(0, 12)}` : '';
+    // Sizes are part of the name: ท่อ Ø 0.30 ม. and ท่อ Ø 0.40 ม. of the same length are two items
+    const key = f.description ? `${f.kind}|${f.unit}|${f.qty}|${keyOf(f.description).slice(0, 12)}|${sizesOf(f.description).join(',')}` : '';
     // The same note read on another sheet, with OCR slips in its words
-    const prev = (key && items.get(key)) || [...items.values()].find((i) => sameQty(i, f) && (!f.description || similar(i.description, f.description)));
+    const prev =
+      (key && items.get(key)) ||
+      [...items.values()].find((i) => sameQty(i, f) && (!f.description || (similar(i.description, f.description) && sizesFit(i.description, f.description))));
     if (prev) {
       if (!prev.pages.includes(f.page)) prev.pages.push(f.page);
       continue;
@@ -329,13 +333,23 @@ export function extractTextItems(lines: TextLine[]): TextQtyItem[] {
     const k = `${i.kind}|${i.unit}|${i.qty}`;
     byQty.set(k, [...(byQty.get(k) ?? []), i]);
   }
+  // Only when it is the same note: the line with the number reads alike, or the names do. Two kinds of
+  // work that happen to share a length (รั้ว 120 ม., ท่อ 120 ม.) are written in different notes, and two
+  // names on one sheet are two notes.
+  const sameNote = (a: TextQtyItem, b: TextQtyItem) =>
+    !a.pages.some((p) => b.pages.includes(p)) &&
+    sizesFit(a.description, b.description) &&
+    (similar(a.description, b.description) || (Boolean(noteTail(a.source)) && noteTail(a.source) === noteTail(b.source)));
   for (const list of byQty.values()) {
     if (list.length < 2) continue;
     list.sort((a, b) => b.pages.length - a.pages.length || a.pages[0]! - b.pages[0]!);
-    const keep = list[0]!;
-    for (const other of list.slice(1)) {
-      for (const pg of other.pages) if (!keep.pages.includes(pg)) keep.pages.push(pg);
-      items.delete(other.key);
+    for (const keep of list) {
+      if (!items.has(keep.key)) continue;
+      for (const other of list) {
+        if (other === keep || !items.has(other.key) || !sameNote(keep, other)) continue;
+        for (const pg of other.pages) if (!keep.pages.includes(pg)) keep.pages.push(pg);
+        items.delete(other.key);
+      }
     }
   }
   // A digit OCR misread on one sheet (“3,600” read as “3,800”) is the same note as the one read right
@@ -353,6 +367,16 @@ export function extractTextItems(lines: TextLine[]): TextQtyItem[] {
   for (const i of items.values()) i.pages.sort((a, b) => a - b);
   return [...items.values()];
 }
+
+/**
+ * What a note says after its quantity: “พื้นที่รวมประมาณ 1,020.00 ตารางเมตร (ดูแบบขยายแผ่นที่ 65)” → “(ดูแบบขยายแผ่นที่65)”.
+ * A reference like that ties two readings to one note; a bare “ยาวประมาณ 120.00 เมตร” could be anything.
+ */
+const noteTail = (line: string) => {
+  const m = /\d[\d,]*(?:\.\d+)?\s*(?:ตารางเมตร|ตร\.?\s?ม\.?|ลูกบาศก์เมตร|ลบ\.?\s?ม\.?|เมตร|ม\.|กม\.?|[ก-๛]+)?/.exec(line);
+  const rest = m ? line.slice(m.index + m[0].length).replace(/\s+/g, '') : '';
+  return rest.replace(/[^ก-๛0-9]/g, '').length >= 6 ? rest : '';
+};
 
 /** Digits a scan often turns into one another */
 const CONFUSED = new Set(['68', '86', '38', '83', '56', '65', '08', '80', '17', '71', '35', '53']);
